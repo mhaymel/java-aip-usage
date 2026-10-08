@@ -1,7 +1,10 @@
 ### Application runtime files ###
 # Written into the project root at run time; see docs/requirements.md.
 /java-aip-usage.log
+# The log handler's lock file, present while the application runs.
+/java-aip-usage.log.lck
 /settings.json
+/settings.json.tmp
 
 .gradle
 build/

@@ -6,8 +6,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.regex.Pattern;
 
 /**
  * Calls {@code https://api.anthropic.com/api/oauth/usage} with a bearer token.
@@ -25,6 +27,11 @@ public final class UsageClient implements UsageSource {
     static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
 
     private static final System.Logger LOG = System.getLogger(UsageClient.class.getName());
+
+    /** Shapes a header value must have to be logged; anything else is left out. */
+    private static final Pattern REQUEST_ID = Pattern.compile("[A-Za-z0-9_-]{1,100}");
+
+    private static final Pattern SECONDS = Pattern.compile("[0-9]{1,6}");
 
     private final HttpClient http;
 
@@ -45,11 +52,16 @@ public final class UsageClient implements UsageSource {
 
     /** The client the application uses: the real endpoint, with connect and request timeouts. */
     public static UsageClient create() {
+        return create(DEFAULT_URI);
+    }
+
+    /** The same client, pointed at another endpoint. */
+    public static UsageClient create(URI uri) {
         HttpClient http = HttpClient.newBuilder()
                 .connectTimeout(CONNECT_TIMEOUT)
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
-        return new UsageClient(http, DEFAULT_URI, REQUEST_TIMEOUT, Clock.systemUTC());
+        return new UsageClient(http, uri, REQUEST_TIMEOUT, Clock.systemUTC());
     }
 
     @Override
@@ -79,7 +91,7 @@ public final class UsageClient implements UsageSource {
         }
 
         int status = response.statusCode();
-        logOutcome("HTTP " + status, started);
+        logOutcome("HTTP " + status, started, diagnostics(response));
         if (status / 100 != 2) {
             throw new UsageFetchException(describe(status), status);
         }
@@ -87,8 +99,33 @@ public final class UsageClient implements UsageSource {
     }
 
     private void logOutcome(String outcome, long startedNanos) {
+        logOutcome(outcome, startedNanos, "");
+    }
+
+    private void logOutcome(String outcome, long startedNanos, String details) {
         long millis = Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
-        LOG.log(System.Logger.Level.INFO, "GET " + uri.getHost() + uri.getPath() + " -> " + outcome + " in " + millis + " ms");
+        LOG.log(System.Logger.Level.INFO,
+                "GET " + uri.getHost() + uri.getPath() + " -> " + outcome + " in " + millis + " ms" + details);
+    }
+
+    /**
+     * What is worth knowing about a response without recording any of it: its
+     * size, and the few headers that identify the request to Anthropic's support
+     * or explain a refusal. The body is never included, nor any other header,
+     * and a header value is shown only if it has the plain shape expected.
+     */
+    private static String diagnostics(HttpResponse<String> response) {
+        StringBuilder details = new StringBuilder(" (")
+                .append(response.body().getBytes(StandardCharsets.UTF_8).length).append(" bytes");
+        appendHeader(details, response, "request-id", "request-id", REQUEST_ID);
+        appendHeader(details, response, "retry-after", "retry-after", SECONDS);
+        return details.append(')').toString();
+    }
+
+    private static void appendHeader(
+            StringBuilder details, HttpResponse<String> response, String header, String label, Pattern shape) {
+        response.headers().firstValue(header).filter(value -> shape.matcher(value).matches())
+                .ifPresent(value -> details.append(", ").append(label).append(' ').append(value));
     }
 
     private static String describe(int status) {

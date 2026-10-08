@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -37,8 +38,31 @@ class UsageClientTest {
 
     private final List<HttpServer> servers = new CopyOnWriteArrayList<>();
 
+    private final List<String> logLines = new CopyOnWriteArrayList<>();
+
+    private final java.util.logging.Handler logCapture = new java.util.logging.Handler() {
+        @Override
+        public void publish(java.util.logging.LogRecord record) {
+            logLines.add(record.getLevel() + " " + new java.util.logging.SimpleFormatter().formatMessage(record));
+        }
+
+        @Override
+        public void flush() {
+        }
+
+        @Override
+        public void close() {
+        }
+    };
+
+    @BeforeEach
+    void captureLog() {
+        java.util.logging.Logger.getLogger("").addHandler(logCapture);
+    }
+
     @AfterEach
     void stopServers() {
+        java.util.logging.Logger.getLogger("").removeHandler(logCapture);
         servers.forEach(server -> server.stop(0));
     }
 
@@ -149,6 +173,68 @@ class UsageClientTest {
             assertFalse(e.getMessage().contains("echo"), e.getMessage());
             assertNull(e.getCause());
         }
+    }
+
+    // ---- what is logged about a request
+
+    @Test
+    void logsTheOutcomeOfARequestWithoutTheTokenOrTheBody() throws Exception {
+        URI uri = serve("/usage", exchange -> {
+            exchange.getResponseHeaders().add("request-id", "req_011CTestRequest");
+            reply(exchange, 200, fixture("usage-credits.json"));
+        });
+
+        client(uri).fetch(TOKEN);
+
+        String logged = String.join("\n", logLines);
+        assertTrue(logged.matches("(?s).*GET 127\\.0\\.0\\.1/usage -> HTTP 200 in \\d+ ms \\(\\d+ bytes, request-id req_011CTestRequest\\).*"), logged);
+        assertFalse(logged.contains(TOKEN), logged);
+        assertFalse(logged.contains("amount_minor"), "no part of the body is logged: " + logged);
+    }
+
+    @Test
+    void logsAFailureStatusAndWhenToRetry() throws Exception {
+        URI uri = serve("/usage", exchange -> {
+            exchange.getResponseHeaders().add("retry-after", "30");
+            reply(exchange, 429, "{\"error\":\"slow down " + TOKEN + "\"}");
+        });
+
+        assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN));
+
+        String logged = String.join("\n", logLines);
+        assertTrue(logged.contains("HTTP 429"), logged);
+        assertTrue(logged.contains("retry-after 30"), logged);
+        assertFalse(logged.contains(TOKEN), logged);
+        assertFalse(logged.contains("slow down"), logged);
+    }
+
+    @Test
+    void leavesOutAHeaderValueThatDoesNotHaveTheExpectedShape() throws Exception {
+        URI uri = serve("/usage", exchange -> {
+            exchange.getResponseHeaders().add("request-id", "<script>alert(1)</script> sk-ant-oat01-LEAK");
+            exchange.getResponseHeaders().add("retry-after", "Wed, 21 Oct 2026 07:28:00 GMT");
+            reply(exchange, 503, "{}");
+        });
+
+        assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN));
+
+        String logged = String.join("\n", logLines);
+        assertFalse(logged.contains("script"), logged);
+        assertFalse(logged.contains("LEAK"), logged);
+        assertFalse(logged.contains("retry-after"), logged);
+        assertTrue(logged.contains("HTTP 503"), logged);
+    }
+
+    @Test
+    void logsAConnectionFailureWithoutTheTokenToo() throws Exception {
+        URI uri = serve("/usage", exchange -> reply(exchange, 200, "{}"));
+        servers.getFirst().stop(0);
+
+        assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN));
+
+        String logged = String.join("\n", logLines);
+        assertTrue(logged.contains("failed in"), logged);
+        assertFalse(logged.contains(TOKEN), logged);
     }
 
     private UsageClient client(URI uri) {

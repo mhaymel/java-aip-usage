@@ -21,6 +21,9 @@ javafx {
 application {
     mainClass = "org.example.Main"
     applicationName = "java-aip-usage"
+    // JavaFX loads native libraries; without this the JDK warns on every start
+    // that restricted methods "will be blocked in a future release".
+    applicationDefaultJvmArgs = listOf("--enable-native-access=javafx.graphics,javafx.web")
 }
 
 repositories {

@@ -82,7 +82,10 @@ final class Logging implements AutoCloseable {
         root.setLevel(previousLevel);
     }
 
-    /** One line per record: timestamp, level, short logger name, message, then any stack trace. */
+    /**
+     * One line per record: timestamp, level, short logger name, message, then any
+     * stack trace. Everything written passes through {@link Redaction}.
+     */
     private static final class LineFormatter extends Formatter {
 
         @Override
@@ -100,7 +103,7 @@ final class Logging implements AutoCloseable {
                 record.getThrown().printStackTrace(new PrintWriter(trace));
                 line.append(trace);
             }
-            return line.toString();
+            return Redaction.redact(line.toString());
         }
     }
 }

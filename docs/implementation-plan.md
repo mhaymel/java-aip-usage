@@ -360,6 +360,31 @@ Claude Code is missing or not logged in, and closing the window ends the process
 **Checkpoint:** `./gradlew build` and the targeted tests pass, and the app can
 be launched with `./gradlew run` on macOS.
 
+**Status: done.**
+
+- **Run:** `./gradlew run` launched the real window with the real backend several
+  times on macOS, against a usage-based account. The JavaFX native-access warning
+  the JDK printed on every start is gone: `applicationDefaultJvmArgs` passes
+  `--enable-native-access=javafx.graphics,javafx.web`.
+- **Logging:** the console and `java-aip-usage.log` already carried lifecycle and
+  refresh events. Added: a sanitized HTTP line per request (status, duration,
+  size, Anthropic's `request-id`, and `retry-after` when it is a number; header
+  values of any other shape are left out, and the body and other headers never
+  appear), and `Redaction`, applied to every log line and stack trace as a safety
+  net against anything shaped like a credential. `LoggingEndToEndTest` runs the
+  real wiring over real HTTP with secrets planted in the request, response and
+  error body, and checks the file and the console for the lifecycle, refresh and
+  HTTP events and for the absence of every secret. Deliberately logging a body or
+  a token makes it fail, except that a logged token is caught by `Redaction`
+  first, which is the point.
+- **Docs:** the README now has the token explanation, run instructions for macOS
+  and the IDE, a logging section, and known limitations. The app bundle stays
+  deferred.
+
+**Left open on purpose** (see the README's known limitations): `HTTPS_PROXY`
+support, a live check of the plan-window view against a Pro or Max account, and
+Windows and Linux.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

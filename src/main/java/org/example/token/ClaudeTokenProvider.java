@@ -1,5 +1,6 @@
 package org.example.token;
 
+import org.example.Redaction;
 import org.example.token.TokenException.Reason;
 
 import java.io.BufferedReader;
@@ -18,7 +19,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 
 /**
  * Gets the Claude Code OAuth token by running the {@code claude} CLI against a
@@ -45,10 +45,6 @@ public final class ClaudeTokenProvider implements TokenProvider {
     private static final Duration OUTPUT_GRACE = Duration.ofSeconds(2);
 
     private static final Duration KILL_GRACE = Duration.ofSeconds(2);
-
-    private static final Pattern ANTHROPIC_KEY = Pattern.compile("sk-ant-[A-Za-z0-9_-]+");
-
-    private static final Pattern BEARER = Pattern.compile("(?i)bearer\\s+\\S+");
 
     private final Map<String, String> env;
 
@@ -222,7 +218,7 @@ public final class ClaudeTokenProvider implements TokenProvider {
     private void reportOutput(Output output, boolean processExited) {
         String text = output.text(processExited ? OUTPUT_GRACE : Duration.ZERO);
         if (!text.isBlank()) {
-            warn.accept(command.get(0) + " output:" + System.lineSeparator() + redact(text));
+            warn.accept(command.get(0) + " output:" + System.lineSeparator() + Redaction.redact(text));
         }
     }
 
@@ -238,12 +234,6 @@ public final class ClaudeTokenProvider implements TokenProvider {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    /** Removes anything shaped like a credential before text reaches a log. */
-    static String redact(String text) {
-        String redacted = ANTHROPIC_KEY.matcher(text).replaceAll("[redacted]");
-        return BEARER.matcher(redacted).replaceAll("Bearer [redacted]");
     }
 
     /** Marks that the CLI exited before any credential arrived. */
