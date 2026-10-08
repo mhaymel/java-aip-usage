@@ -108,19 +108,27 @@
 
         show('time', Boolean(v.time));
         $('time').textContent = v.time || '';
+        $('time').title = v.timeTooltip || 'Last update';
 
         show('spend', Boolean(v.spend));
         if (v.spend) {
             $('spend').className = 'spend' + (v.spend.severityKind ? ' sev-' + v.spend.severityKind : '');
-            $('spend').title = v.spend.severityText ? 'Severity: ' + v.spend.severityText : '';
-            $('amounts').textContent = v.spend.amounts;
             $('percent').textContent = v.spend.percentText || '';
+            $('percent').title = v.spend.percentTooltip;
+            $('used').textContent = v.spend.used;
+            $('used').title = v.spend.usedTooltip;
+            $('limit').textContent = v.spend.limit;
+            $('limit').title = v.spend.limitTooltip;
         }
 
         renderWindows(v.windows);
 
         show('placeholder', Boolean(v.placeholder));
         $('placeholder').textContent = v.placeholder || '';
+
+        show('countdown', Boolean(v.countdown));
+        $('countdown').textContent = v.countdown ? v.countdown.text : '';
+        $('countdown').title = v.countdown ? v.countdown.tooltip : '';
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
     }

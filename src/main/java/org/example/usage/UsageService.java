@@ -4,6 +4,7 @@ import org.example.token.TokenException;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.OptionalLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -86,6 +87,28 @@ public final class UsageService implements AutoCloseable {
         } finally {
             lock.unlock();
         }
+    }
+
+    /**
+     * Whole seconds until the next scheduled refresh, to the nearest second, and
+     * negative once it is overdue. It restarts after a manual refresh, is longer
+     * while backing off, and moves when the interval changes.
+     *
+     * @return empty before the first request has been triggered
+     */
+    public OptionalLong secondsUntilNextRefresh() {
+        lock.lock();
+        try {
+            OptionalLong nanos = schedule.nanosUntilNextRefresh(System.nanoTime());
+            return nanos.isPresent() ? OptionalLong.of(toSeconds(nanos.getAsLong())) : OptionalLong.empty();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** Rounded to the nearest second, halves upwards, so that -0.4 s is 0 and -0.6 s is -1. */
+    static long toSeconds(long nanos) {
+        return Math.floorDiv(nanos + 500_000_000L, 1_000_000_000L);
     }
 
     /**

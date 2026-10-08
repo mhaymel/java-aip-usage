@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.OptionalLong;
 
 /**
  * The JSON API the frontend talks to; its contract is in {@code docs/api.md}.
@@ -146,11 +147,13 @@ final class ApiHandler implements HttpHandler {
 
     // ---- /api/status
 
-    private static StatusBody status(UsageState state) {
+    private StatusBody status(UsageState state) {
         UsageSnapshot snapshot = state.snapshot();
+        OptionalLong countdown = service.secondsUntilNextRefresh();
         return new StatusBody(
                 state.refreshing(),
                 state.stale(),
+                countdown.isPresent() ? countdown.getAsLong() : null,
                 state.error() == null ? null : new ErrorBody(state.error(), state.errorAt().toString()),
                 snapshot == null ? null : usage(snapshot));
     }
@@ -266,6 +269,6 @@ final class ApiHandler implements HttpHandler {
             List<WindowBody> windows) {
     }
 
-    record StatusBody(boolean refreshing, boolean stale, ErrorBody error, UsageBody usage) {
+    record StatusBody(boolean refreshing, boolean stale, Long nextRefreshInSeconds, ErrorBody error, UsageBody usage) {
     }
 }

@@ -81,6 +81,7 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
 {
   "refreshing": false,
   "stale": false,
+  "nextRefreshInSeconds": 42,
   "error": null,
   "usage": {
     "source": "anthropic-oauth-usage",
@@ -98,6 +99,17 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
 ```
 
 - `refreshing`: a fetch is running now.
+- `nextRefreshInSeconds`: whole seconds until the next *scheduled* refresh, to the
+  nearest second, worked out by the backend; a frontend shows it and does no counting
+  of its own. It is counted from when the most recent request was triggered, by the
+  schedule or by `POST /api/refresh`, plus the wait that applies: the usage interval,
+  or the longer wait while backing off after an HTTP 429. So it starts again after a
+  manual refresh, is longer during a back-off, and moves when the interval changes.
+  It **can be negative**: that means the refresh is overdue by that many seconds, for
+  example because a request is taking longer than the interval. It keeps counting
+  while a request runs. It is `null` until the first request has been triggered.
+  It changes with time, so it is in the status, which is polled, and not in
+  `/api/config`.
 - `usage`: the most recent *successful* reading, or `null` before the first one.
   - `fetched_at`: when the backend received it (RFC 3339, UTC).
   - `spend`: for a usage-based account; `null` for a Pro or Max account. Its

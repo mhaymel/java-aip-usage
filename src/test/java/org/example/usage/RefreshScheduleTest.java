@@ -163,6 +163,107 @@ class RefreshScheduleTest {
         assertEquals(s(55), schedule.nanosUntilDue(s(105)));
     }
 
+    // ---- the countdown shown to a person
+
+    @Test
+    void thereIsNothingToCountToBeforeAnyRequestIsTriggered() {
+        assertEquals(java.util.OptionalLong.empty(), schedule.nanosUntilNextRefresh(s(100)));
+    }
+
+    @Test
+    void rightAfterATriggerTheWholeIntervalIsLeft() {
+        schedule.begin(s(100));
+
+        assertEquals(java.util.OptionalLong.of(s(30)), schedule.nanosUntilNextRefresh(s(100)));
+    }
+
+    @Test
+    void theTimeLeftCountsDownWithTheClock() {
+        schedule.begin(s(100));
+        schedule.finish();
+
+        assertEquals(s(20), schedule.nanosUntilNextRefresh(s(110)).getAsLong());
+        assertEquals(s(1), schedule.nanosUntilNextRefresh(s(129)).getAsLong());
+        assertEquals(0, schedule.nanosUntilNextRefresh(s(130)).getAsLong());
+    }
+
+    @Test
+    void itKeepsCountingWhileARequestIsRunning() {
+        schedule.begin(s(100));
+
+        // nanosUntilDue gives up while running; the countdown does not.
+        assertEquals(Long.MAX_VALUE, schedule.nanosUntilDue(s(110)));
+        assertEquals(s(20), schedule.nanosUntilNextRefresh(s(110)).getAsLong());
+    }
+
+    @Test
+    void itGoesNegativeOnceTheRefreshIsOverdue() {
+        schedule.begin(s(100));
+        schedule.finish();
+
+        assertEquals(-s(5), schedule.nanosUntilNextRefresh(s(135)).getAsLong());
+        assertEquals(-s(70), schedule.nanosUntilNextRefresh(s(200)).getAsLong());
+    }
+
+    @Test
+    void itGoesNegativeWhileARequestRunsLongerThanTheInterval() {
+        schedule.begin(s(100));
+
+        assertEquals(-s(20), schedule.nanosUntilNextRefresh(s(150)).getAsLong());
+    }
+
+    @Test
+    void aNewTriggerRestartsIt() {
+        schedule.begin(s(100));
+        schedule.finish();
+        schedule.request();
+        schedule.begin(s(120));
+
+        assertEquals(s(30), schedule.nanosUntilNextRefresh(s(120)).getAsLong());
+    }
+
+    @Test
+    void aRequestedManualRefreshIsDueNowButNeverMoreThanOverdue() {
+        schedule.begin(s(100));
+        schedule.finish();
+        schedule.request();
+
+        assertEquals(0, schedule.nanosUntilNextRefresh(s(110)).getAsLong(), "20 s were left; a click makes it due now");
+        assertEquals(-s(5), schedule.nanosUntilNextRefresh(s(135)).getAsLong(), "already overdue stays overdue");
+    }
+
+    @Test
+    void aBackoffLengthensIt() {
+        schedule.begin(s(100));
+        schedule.finish();
+
+        schedule.setBackoff(s(120));
+
+        assertEquals(s(120), schedule.nanosUntilNextRefresh(s(100)).getAsLong());
+        assertEquals(s(70), schedule.nanosUntilNextRefresh(s(150)).getAsLong());
+    }
+
+    @Test
+    void aBackoffShorterThanTheIntervalDoesNotShortenIt() {
+        schedule.begin(s(100));
+
+        schedule.setBackoff(s(10));
+
+        assertEquals(s(30), schedule.nanosUntilNextRefresh(s(100)).getAsLong());
+    }
+
+    @Test
+    void anIntervalChangeMovesItFromTheSameTrigger() {
+        schedule.begin(s(100));
+        schedule.finish();
+
+        schedule.setInterval(s(10));
+        assertEquals(s(5), schedule.nanosUntilNextRefresh(s(105)).getAsLong());
+
+        schedule.setInterval(s(60));
+        assertEquals(s(55), schedule.nanosUntilNextRefresh(s(105)).getAsLong());
+    }
+
     // ---- back-off
 
     @Test

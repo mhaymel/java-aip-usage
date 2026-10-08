@@ -76,6 +76,18 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/*
+ * The countdown changes every second, so it gets a width that fits "-3 s" up to
+ * "120 s": the window is sized to its content, and a width that moved with every
+ * digit would resize the window as the count went by.
+ */
+.countdown {
+    display: inline-block;
+    min-width: 5.5ch;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
 /* Severity is shown by colour alone. */
 .sev-normal { color: var(--ok); }
 .sev-warning { color: var(--warn); }

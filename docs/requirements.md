@@ -99,6 +99,9 @@ Example token output:
   pace the server has just refused. A failure that is not a 429 leaves the wait as it
   is. The refresh button is never held back, since a person asked. The error shown
   says when the next try is.
+- The backend reports the time until the next scheduled refresh together with the
+  status, in whole seconds and possibly negative, as described under Compact window.
+  The frontend does not work it out.
 - The backend alone fetches usage from Anthropic on this interval. UI status polling must not trigger an Anthropic request.
 - The UI-to-backend status polling interval, how often the window asks the backend for the latest state, is not a setting. It is 1 second by default and can be overridden for one run with a command-line option (`--poll-interval <seconds>`), which accepts values from 1 through 60 seconds. It has no frontend control, is never changed while the application runs, and is never saved: it is forgotten when the application stops, and a value left in an older settings file is ignored.
 - When the UI starts, it must request the effective intervals from the backend: it shows the usage-fetch interval when the config field is opened, and uses the polling interval to poll the backend for the latest available state.
@@ -156,29 +159,65 @@ so it must take as little screen space as it can while staying easy to read.
   spent and budget heavier still (800). No thin or light weights, no fine print.
 - Every time the window shows is the local time of day only, with no date, for
   example `14:24:53`. This applies to the time of the last refresh and to the time
-  of an error alike.
+  of an error alike. The one exception is the tooltip on the time (see Tooltips),
+  which gives the full date and time.
 
 **The row**
 
 The controls sit in one horizontal row, one after another, with small gaps, in
 this order:
 
-1. the percentage spent, first of all;
-2. what has been spent and the budget: `used` and `limit` with the currency, for
-   example `$186.02 / $1,000.00`;
-3. the time the usage was last refreshed (`fetched_at`);
+1. the time the usage was last refreshed (`fetched_at`), first of all;
+2. the percentage spent;
+3. what has been spent and the budget: `used` and `limit`, as two plain numbers
+   with no currency symbol, for example `186.02 / 1,000.00`. The unit is given by
+   the tooltips, not by a sign;
 4. a small refresh button;
-5. a very small config button, an icon rather than a word.
+5. a countdown to the next refresh, in seconds and with its unit, for example
+   `42 s`, and `-3 s` when the refresh is overdue;
+6. a very small config button, an icon rather than a word.
 
 The severity is shown by colour on the percentage and the amounts, rather than by
 extra words.
 
 For an account with Pro or Max plan windows instead of spend, the windows take the
-place of items 1 and 2 in the same row, each as its utilization first, then its
+place of items 2 and 3 in the same row, each as its utilization first, then its
 name exactly as supplied, then the time remaining until it resets (for example
 `12% five_hour in 2 h 5 min`). Remaining time is used because a reset can be days
 away, and a time of day alone would then mislead. An unknown reset time is shown
 as unknown.
+
+**Countdown**
+
+- The countdown is the number of whole seconds until the next scheduled refresh, to
+  the nearest second.
+- It is calculated by the backend, which reports it with the status. The window
+  shows it as received and does not work it out itself.
+- It is counted from when the most recent request was triggered, whether by the
+  schedule or by the refresh button, plus the wait that applies: the usage interval,
+  or the longer wait while the application is backing off after an HTTP 429. It
+  therefore starts again after a manual refresh, and shows the longer wait during
+  a back-off.
+- It may be negative. A negative value means the next refresh is overdue by that
+  many seconds, for example because a request is taking longer than the interval.
+  The window shows it as it is, with the minus sign.
+- Until the first request has been triggered there is nothing to count to, and the
+  countdown is left empty.
+
+**Tooltips**
+
+Hovering over these shows what they mean. The currency is the one the response
+names, shown as its code, here `USD`.
+
+- The time: `Last update: ` followed by the full local date and time of the last
+  refresh, for example `Last update: 8 Oct 2026, 14:24:53`. This is the one place a
+  date appears.
+- The used amount (the first number): `Credits used, in USD`.
+- The budget (the second number): `Credit budget, in USD`.
+- The countdown: that it is the seconds until the next refresh, and negative when
+  overdue.
+- The refresh button says `Refresh now`, and the config button says it configures
+  the fetch interval, as before.
 
 **Config**
 

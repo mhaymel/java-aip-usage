@@ -63,9 +63,10 @@ Other decisions confirmed during discussion:
   request/response content.
 - The window is a compact status strip: as small as its content allows, one row in
   its normal state, readable text of at least 14 px, local time of day only. The
-  row holds the percentage, spent and budget (or the plan windows), the refresh
-  time, a small refresh button and a very small config button, which reveals the fetch-interval
-  field until it is confirmed. See [Compact window](requirements.md#compact-window);
+  row holds the refresh time, the percentage, spent and budget (or the plan windows),
+  a small refresh button, a countdown to the next refresh and a very small config
+  button, which reveals the fetch-interval field until it is confirmed. (The order
+  and the countdown are from phase 9; phase 7 built percentage, amounts, time.) See [Compact window](requirements.md#compact-window);
   planned as phase 7.
 
 Charts and historical usage are not part of the first version.
@@ -445,6 +446,9 @@ README.
 
 ### 7. Compact window
 
+*Phase 9 reorders the row (time first), drops the currency sign, and adds a countdown
+and tooltips. The text below is as built in phase 7.*
+
 **Status: implemented; the macOS smoke test is still to be done by a person.**
 Requirement: [Compact window](requirements.md#compact-window).
 
@@ -526,6 +530,64 @@ interval no longer has any effect: the window polls every second unless started 
 **Checkpoint:** the Java and Node suites pass, and each new rule fails a test when
 broken: the 60 s default, the API refusing an update-interval change, and the page
 never sending one.
+
+### 9. Row order, countdown and tooltips
+
+**Status: done; the macOS check of how it looks is still to be done by a person.**
+Requirement: [Compact window](requirements.md#compact-window), the row, Countdown and
+Tooltips parts.
+
+*As built.* `RefreshSchedule.nanosUntilNextRefresh` gives the time to the next due
+refresh: the last trigger plus the longer of the interval and the back-off, less now. It
+is negative once overdue, keeps counting while a request runs, treats a pending manual
+request as due now (never later than already overdue), and is empty before the first
+trigger. `UsageService.secondsUntilNextRefresh` rounds it to the nearest second, halves
+up, and `ApiHandler` puts it in `/api/status` as `nextRefreshInSeconds`. On the page,
+`view.js` has `formatAmount` (no currency sign), `formatDateTime` (`8 Oct 2026,
+14:24:53`, the same in any language) and `describeCountdown` (`42 s`, `-3 s`, none for
+`null`). The row is time, percentage, used, limit, plan windows, refresh button,
+countdown, config. The countdown has a minimum width, so the window is not resized as
+its digits change. One addition beyond the requirement: the percentage's tooltip says
+what it is and the severity, since the colour alone carried that.
+
+The row becomes: time, percentage, amounts as plain numbers (no `$`), refresh button,
+countdown, config button. Plan windows take the place of the percentage and amounts.
+The order of percentage and amounts was assumed (percentage first) and is the thing to
+confirm.
+
+- **Backend: the countdown.** The status gains `nextRefreshInSeconds`, an integer that
+  may be negative, or `null` before any request has been triggered. It is the time the
+  next scheduled request is due, minus now: the most recent trigger plus the longer of
+  the interval and the back-off, rounded to the nearest second. `RefreshSchedule` gets a
+  method for it that, unlike `nanosUntilDue`, does not stop at zero and does not give up
+  while a request runs, so an overdue refresh counts below zero. A pending manual
+  request is due now. `UsageService` exposes it, computed when the status is read, since
+  it changes with time and so cannot sit in the published `UsageState`; `ApiHandler`
+  adds it to the response. A manual refresh restarts it, a back-off lengthens it, and an
+  interval change moves it, because all of those move the same due time.
+- **Frontend: the row.** `view.js` produces the new row: the time first, the percentage,
+  the two amounts as separate numbers formatted without a currency symbol, and the
+  countdown as `42 s` or `-3 s`, empty when the backend sends `null`. `index.html` and
+  `app.js` follow, with each amount in its own element so each can have its own tooltip.
+  The window shows the countdown as received and does no countdown of its own.
+- **Tooltips.** The time: `Last update: 8 Oct 2026, 14:24:53`, the one place a date
+  appears, so `view.js` needs a date-and-time formatter again. The used amount:
+  `Credits used, in USD`; the budget: `Credit budget, in USD`; the code comes from the
+  response's currency, and without one the tooltip says just `Credits used` and
+  `Credit budget`. The countdown: seconds until the next refresh, negative when overdue.
+- **Plan accounts.** No amounts, so no amount tooltips; the windows keep their reset
+  text as it is.
+- **Contract and docs.** `docs/api.md` documents `nextRefreshInSeconds`. The README's
+  window section shows the new row.
+- **Tests.** `RefreshScheduleTest` and `UsageServiceTest` cover the countdown: the value
+  right after a trigger, after a manual refresh, during a back-off, after an interval
+  change, negative when overdue, and `null` before the first request. `ApiTest` checks it
+  is in the status and never in the config. Node tests cover the row order, no `$` in
+  the amounts, the `42 s` and `-3 s` text, the empty countdown, and every tooltip.
+
+**Checkpoint:** the Java and Node suites pass, each new rule is seen to fail a test when
+broken, and a macOS check confirms the row, the countdown moving and going negative on a
+slow request, and the tooltips.
 
 ## Validation strategy
 

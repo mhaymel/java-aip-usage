@@ -16,15 +16,31 @@ A status strip to keep beside your work: as small as its content, bold readable
 text, local time of day only.
 
 ```
-19%  $186.02 / $1,000.00  16:47:59  ⟳ ≡
+16:47:59  19%  186.02 / 1,000.00  ⟳ 42 s  ≡
 ```
 
-From the left: the percentage spent, what has been spent and the budget (severity is
-their colour), when the usage was last refreshed, a refresh button, and a small
-config button. A Pro or Max account shows its plan windows in place of the spend,
-each as its utilization, its name and the time until it resets.
+From the left: when the usage was last refreshed, the percentage spent, what has been
+spent and the budget as plain numbers (severity is the colour of the percentage and
+the amounts), a refresh button, a countdown, and a small config button. A Pro or Max
+account shows its plan windows in place of the percentage and amounts, each as its
+utilization, its name and the time until it resets.
+
+Hover over things to see what they are:
+
+| Hover over | It says |
+| --- | --- |
+| the time | `Last update: 8 Oct 2026, 14:24:53`, the one place a date appears |
+| the first number | `Credits used, in USD` |
+| the second number | `Credit budget, in USD` (the currency code is the response's own) |
+| the percentage | how much of the budget is spent, and the severity |
+| the countdown | seconds until the next refresh, negative when overdue |
 
 - **Refresh** (⟳) fetches now. It stays clickable; clicks during a fetch do nothing extra.
+- **Countdown** (`42 s`) is the seconds until the next scheduled refresh, worked out by
+  the application and shown as it reports it. It starts again after a manual refresh,
+  is longer while the application is backing off after a rate limit, and goes negative
+  (`-3 s`) if the refresh is overdue, for example because a request is slow. It is
+  empty until the first request has been made.
 - **Config** (≡) shows one field next to it, `fetch`: how often the application asks
   Anthropic, in seconds (default 60). Change it and press **Enter** or ✓ to save and
   apply it; the field then disappears. A bad value keeps it open with a short message.

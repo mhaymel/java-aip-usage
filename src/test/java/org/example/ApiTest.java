@@ -361,6 +361,57 @@ class ApiTest {
     }
 
     @Test
+    void statusCarriesTheSecondsUntilTheNextRefresh() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> app.service().state().snapshot() != null);
+
+        JsonNode status = json(get(app, "/api/status"));
+
+        assertTrue(status.get("nextRefreshInSeconds").isIntegralNumber(), "a number: " + status);
+        long left = status.get("nextRefreshInSeconds").asLong();
+        assertTrue(left >= 55 && left <= 60, "the default 60 s interval, counting down: " + left);
+    }
+
+    @Test
+    void theCountdownFollowsTheConfiguredInterval() throws Exception {
+        AppRuntime app = start(new FakeFetch(), cli(90, null));
+        await(() -> app.service().state().snapshot() != null);
+
+        long left = json(get(app, "/api/status")).get("nextRefreshInSeconds").asLong();
+
+        assertTrue(left >= 85 && left <= 90, "left: " + left);
+    }
+
+    @Test
+    void theCountdownIsInTheStatusAndNotInTheConfig() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> app.service().state().snapshot() != null);
+
+        assertTrue(json(get(app, "/api/config")).at("/nextRefreshInSeconds").isMissingNode());
+        assertFalse(json(get(app, "/api/status")).at("/nextRefreshInSeconds").isMissingNode());
+    }
+
+    @Test
+    void theCountdownStartsAgainAfterAManualRefresh() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> app.service().state().snapshot() != null);
+        await(() -> countdown(app) <= 58);
+
+        assertEquals(202, post(app, "/api/refresh", "{}").statusCode());
+
+        await(() -> countdown(app) >= 59);
+    }
+
+    /** The countdown the status reports right now. */
+    private long countdown(AppRuntime app) {
+        try {
+            return json(get(app, "/api/status")).get("nextRefreshInSeconds").asLong();
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Test
     void statusKeepsTheLastReadingAndShowsTheErrorWhenARefreshFails() throws Exception {
         FakeFetch fetch = new FakeFetch();
         AppRuntime app = start(fetch);

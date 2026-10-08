@@ -23,14 +23,14 @@ const CONFIG = {
 };
 const NOW = '2026-10-08T14:24:53Z';
 const SPEND_STATUS = {
-    refreshing: false, stale: false, error: null,
+    refreshing: false, stale: false, nextRefreshInSeconds: 42, error: null,
     usage: {
         source: 'anthropic-oauth-usage', fetched_at: NOW,
         spend: { used: 186.02, limit: 1000, currency: 'USD', percent: 19, severity: 'normal' }, windows: [],
     },
 };
 const WINDOWS_STATUS = {
-    refreshing: false, stale: false, error: null,
+    refreshing: false, stale: false, nextRefreshInSeconds: 17, error: null,
     usage: {
         source: 'anthropic-oauth-usage', fetched_at: NOW, spend: null,
         windows: [
@@ -168,14 +168,111 @@ test('a spend reading shows the time, spent and budget, and percent, with severi
     assert.equal(page.el('time').hidden, false);
     assert.equal(page.el('time').textContent, '14:24:53');
     assert.equal(page.el('spend').hidden, false);
-    assert.equal(page.el('amounts').textContent, '$186.02 / $1,000.00');
+    assert.equal(page.el('used').textContent, '186.02');
+    assert.equal(page.el('limit').textContent, '1,000.00');
     assert.equal(page.el('percent').textContent, '19%');
     assert.equal(page.el('spend').className, 'spend sev-normal');
-    assert.equal(page.el('spend').title, 'Severity: normal');
     assert.equal(page.el('windows').hidden, true);
     assert.equal(page.el('placeholder').hidden, true);
     assert.equal(page.el('note').hidden, true);
     assert.equal(page.el('app').className, '');
+});
+
+test('the amounts carry no currency sign anywhere on the page', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    assert.doesNotMatch(page.el('used').textContent + page.el('limit').textContent + page.el('percent').textContent, /[$A-Za-z]/);
+});
+
+test('hovering shows what each value is: the time, the used amount, the budget and the percentage', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    assert.equal(page.el('time').title, 'Last update: 8 Oct 2026, 14:24:53');
+    assert.equal(page.el('used').title, 'Credits used, in USD');
+    assert.equal(page.el('limit').title, 'Credit budget, in USD');
+    assert.equal(page.el('percent').title, '19% of the budget spent. Severity: normal');
+});
+
+test('the tooltips name the currency the response gives', async () => {
+    const status = { ...SPEND_STATUS, usage: { ...SPEND_STATUS.usage, spend: { ...SPEND_STATUS.usage.spend, currency: 'EUR' } } };
+    const page = await load(backendOf({ config: CONFIG, status }));
+
+    assert.equal(page.el('used').title, 'Credits used, in EUR');
+    assert.equal(page.el('limit').title, 'Credit budget, in EUR');
+});
+
+// ---- the countdown
+
+test('the countdown shows the seconds the backend sent, with the unit, after the refresh button', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    assert.equal(page.el('countdown').hidden, false);
+    assert.equal(page.el('countdown').textContent, '42 s');
+    assert.equal(page.el('countdown').title, 'Seconds until the next refresh (negative when overdue)');
+});
+
+test('the countdown follows the backend at each update, and does no counting of its own', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+
+    state.status = { ...SPEND_STATUS, nextRefreshInSeconds: 41 };
+    await page.firePoll();
+    assert.equal(page.el('countdown').textContent, '41 s');
+
+    // Time passes on the page, but nothing arrives: the number stays what it was told.
+    await page.firePoll();
+    assert.equal(page.el('countdown').textContent, '41 s');
+
+    state.status = { ...SPEND_STATUS, nextRefreshInSeconds: 40 };
+    await page.firePoll();
+    assert.equal(page.el('countdown').textContent, '40 s');
+});
+
+test('an overdue refresh is shown as a negative number', async () => {
+    const state = { config: CONFIG, status: { ...SPEND_STATUS, nextRefreshInSeconds: -3 } };
+    const page = await load(backendOf(state));
+
+    assert.equal(page.el('countdown').textContent, '-3 s');
+
+    state.status = { ...SPEND_STATUS, nextRefreshInSeconds: -4 };
+    await page.firePoll();
+    assert.equal(page.el('countdown').textContent, '-4 s');
+});
+
+test('the countdown restarts when the backend says so, for instance after a manual refresh', async () => {
+    const state = { config: CONFIG, status: { ...SPEND_STATUS, nextRefreshInSeconds: 3 } };
+    const page = await load(backendOf(state));
+    assert.equal(page.el('countdown').textContent, '3 s');
+
+    state.status = { ...SPEND_STATUS, nextRefreshInSeconds: 60 };
+    await page.click('refresh');
+
+    assert.equal(page.el('countdown').textContent, '60 s');
+});
+
+test('with nothing to count to the countdown is left out', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: { ...SPEND_STATUS, nextRefreshInSeconds: null } }));
+
+    assert.equal(page.el('countdown').hidden, true);
+    assert.equal(page.el('countdown').textContent, '');
+});
+
+test('the countdown goes away again if the backend stops sending one', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    assert.equal(page.el('countdown').hidden, false);
+
+    state.status = { ...SPEND_STATUS, nextRefreshInSeconds: null };
+    await page.firePoll();
+
+    assert.equal(page.el('countdown').hidden, true);
+});
+
+test('a plan reading shows the countdown too, and no amount tooltips because there are no amounts', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: WINDOWS_STATUS }));
+
+    assert.equal(page.el('countdown').textContent, '17 s');
+    assert.equal(page.el('spend').hidden, true);
 });
 
 test('a plan reading shows each window in the row, in place of spent and budget', async () => {
@@ -197,7 +294,8 @@ test('a stale reading stays in the row, looks stale, and gets a message line', a
     const page = await load(backendOf({ config: CONFIG, status }));
 
     assert.equal(page.el('app').className, 'stale');
-    assert.equal(page.el('amounts').textContent, '$186.02 / $1,000.00');
+    assert.equal(page.el('used').textContent, '186.02');
+    assert.equal(page.el('limit').textContent, '1,000.00');
     assert.equal(page.el('time').textContent, '14:24:53');
     assert.equal(page.el('note').hidden, false);
     assert.equal(page.el('note').textContent, 'Refresh failed at 14:25:01: Anthropic returned HTTP 503.');
@@ -273,7 +371,8 @@ test('if the settings cannot be loaded at startup it says so and retries', async
     retry.fn();
     await settle();
     assert.equal(page.el('connection').hidden, true);
-    assert.equal(page.el('amounts').textContent, '$186.02 / $1,000.00');
+    assert.equal(page.el('used').textContent, '186.02');
+    assert.equal(page.el('limit').textContent, '1,000.00');
 });
 
 // ---- refresh

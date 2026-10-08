@@ -55,19 +55,42 @@ test('the base text is a sans-serif font', () => {
 
 test('the controls come in the required order, in one strip', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
-    // Percentage first, then spent and budget, then the time, then the buttons and the config fields.
-    const order = ['id="percent"', 'id="amounts"', 'id="windows"', 'id="time"', 'id="refresh"', 'id="config-toggle"', 'id="config"'];
+    // Time first, then the percentage, the two amounts (or the plan windows), the refresh button,
+    // the countdown, the config button and its field.
+    const order = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"', 'id="windows"',
+        'id="refresh"', 'id="countdown"', 'id="config-toggle"', 'id="config"'];
     const positions = order.map(marker => strip.indexOf(marker));
     positions.forEach((position, i) => assert.ok(position >= 0, 'missing ' + order[i] + ' in the strip'));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions,
-        'the order is percentage, amounts, windows, time, refresh, config, config fields');
+        'the order is time, percentage, used, limit, windows, refresh, countdown, config, config field');
 });
 
-test('the percentage is the very first thing in the strip', () => {
+test('the time is the very first thing in the strip', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
-    assert.ok(strip.indexOf('id="percent"') < strip.indexOf('id="amounts"'));
-    assert.ok(strip.indexOf('id="percent"') < strip.indexOf('id="time"'));
-    assert.ok(strip.indexOf('id="amounts"') < strip.indexOf('id="time"'), 'the amounts come before the time');
+    for (const later of ['id="percent"', 'id="used"', 'id="limit"', 'id="windows"', 'id="refresh"', 'id="countdown"', 'id="config-toggle"']) {
+        assert.ok(strip.indexOf('id="time"') < strip.indexOf(later), 'the time comes before ' + later);
+    }
+});
+
+test('the countdown comes right after the refresh button, and the config button after it', () => {
+    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
+    const refresh = strip.indexOf('id="refresh"');
+    const countdown = strip.indexOf('id="countdown"');
+    const config = strip.indexOf('id="config-toggle"');
+    assert.ok(refresh < countdown && countdown < config);
+    assert.equal(strip.slice(refresh, countdown).includes('id="used"'), false, 'nothing else sits between them');
+});
+
+test('the amounts are two separate numbers, each able to carry its own tooltip', () => {
+    assert.match(html, /<span id="used"><\/span>\s*\/\s*<span id="limit"><\/span>/);
+    assert.doesNotMatch(html, /id="amounts"/);
+    assert.doesNotMatch(html, /\$/, 'no currency sign in the page');
+});
+
+test('the countdown starts hidden and keeps a width that does not move with every digit', () => {
+    assert.match(html, /id="countdown"[^>]*\shidden/);
+    assert.match(css, /\.countdown\s*{[^}]*min-width:\s*[0-9.]+ch/);
+    assert.match(css, /\.countdown\s*{[^}]*tabular-nums/);
 });
 
 test('the config field sits next to the config button, in the same row', () => {

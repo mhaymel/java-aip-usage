@@ -8,13 +8,13 @@
 <body>
 <div id="app">
     <div class="strip">
+        <span id="time" class="time" title="Last update" hidden></span>
         <span id="spend" class="spend" hidden>
-            <span id="percent" class="percent" title="Percentage spent"></span>
-            <span id="amounts" title="Spent / budget"></span>
+            <span id="percent" class="percent"></span>
+            <span class="amounts"><span id="used"></span> / <span id="limit"></span></span>
         </span>
         <span id="windows" class="windows" hidden></span>
         <span id="placeholder" class="placeholder">Loading…</span>
-        <span id="time" class="time" title="Time of the last refresh" hidden></span>
 
         <button id="refresh" class="icon" type="button" aria-label="Refresh now" title="Refresh now">
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7"
@@ -23,8 +23,9 @@
                 <path d="M13.5 2.5v3.2h-3.2"/>
             </svg>
         </button>
-        <button id="config-toggle" class="icon tiny" type="button" aria-label="Configure intervals"
-                title="Configure intervals" aria-expanded="false">
+        <span id="countdown" class="countdown" hidden></span>
+        <button id="config-toggle" class="icon tiny" type="button" aria-label="Configure the fetch interval"
+                title="Configure the fetch interval" aria-expanded="false">
             <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7"
                  stroke-linecap="round" aria-hidden="true">
                 <path d="M2 5h12M2 11h12"/>

@@ -383,6 +383,98 @@ class UsageServiceTest {
         assertEquals(1, fetcher.calls.get());
     }
 
+    // ---- the countdown to the next refresh
+
+    @Test
+    void thereIsNoCountdownUntilTheFirstRequestIsTriggered() {
+        UsageService notStarted = new UsageService(new Gate(), Duration.ofSeconds(60));
+
+        assertEquals(java.util.OptionalLong.empty(), notStarted.secondsUntilNextRefresh());
+    }
+
+    @Test
+    void justAfterTheFirstRequestTheWholeIntervalIsLeft() {
+        UsageService service = start(new Gate(), Duration.ofSeconds(60));
+        await(() -> service.state().snapshot() != null);
+
+        long left = service.secondsUntilNextRefresh().getAsLong();
+
+        assertTrue(left >= 58 && left <= 60, "left: " + left);
+    }
+
+    @Test
+    void theCountdownRunsDownAsTimePasses() {
+        UsageService service = start(new Gate(), Duration.ofSeconds(60));
+        await(() -> service.state().snapshot() != null);
+
+        // 60 s at the start; two seconds on it reads 58 or less.
+        await(() -> service.secondsUntilNextRefresh().getAsLong() <= 58);
+    }
+
+    @Test
+    void aManualRefreshRestartsTheCountdown() {
+        UsageService service = start(new Gate(), Duration.ofSeconds(60));
+        await(() -> service.state().snapshot() != null);
+        await(() -> service.secondsUntilNextRefresh().getAsLong() <= 58);
+
+        assertTrue(service.refreshNow());
+        await(() -> service.secondsUntilNextRefresh().getAsLong() >= 59);
+
+        assertTrue(service.secondsUntilNextRefresh().getAsLong() <= 60);
+    }
+
+    @Test
+    void theCountdownGoesNegativeWhenTheRefreshIsOverdue() {
+        Gate fetcher = new Gate();
+        CountDownLatch release = fetcher.holdNextCall();
+        // A 200 ms interval, and a request that does not finish: overdue within a second.
+        UsageService service = start(fetcher, Duration.ofMillis(200));
+        awaitEntered(fetcher);
+
+        await(() -> service.secondsUntilNextRefresh().getAsLong() <= -1);
+
+        assertTrue(service.state().refreshing(), "the request is still running");
+        release.countDown();
+    }
+
+    @Test
+    void theCountdownShowsTheLongerWaitDuringABackoff() {
+        UsageService service = start(() -> {
+            throw rateLimited();
+        }, Duration.ofSeconds(60));
+        await(() -> service.state().error() != null);
+
+        long left = service.secondsUntilNextRefresh().getAsLong();
+
+        // The first 429 doubles the 60 s interval.
+        assertTrue(left >= 118 && left <= 120, "left: " + left);
+    }
+
+    @Test
+    void changingTheIntervalMovesTheCountdown() {
+        UsageService service = start(new Gate(), Duration.ofSeconds(60));
+        await(() -> service.state().snapshot() != null);
+
+        service.setInterval(Duration.ofSeconds(30));
+
+        long left = service.secondsUntilNextRefresh().getAsLong();
+        assertTrue(left >= 28 && left <= 30, "left: " + left);
+    }
+
+    @Test
+    void secondsAreRoundedToTheNearestWithHalvesGoingUp() {
+        assertEquals(0, UsageService.toSeconds(0));
+        assertEquals(0, UsageService.toSeconds(499_999_999L));
+        assertEquals(1, UsageService.toSeconds(500_000_000L));
+        assertEquals(1, UsageService.toSeconds(1_499_999_999L));
+        assertEquals(60, UsageService.toSeconds(59_600_000_000L));
+        assertEquals(0, UsageService.toSeconds(-400_000_000L));
+        assertEquals(0, UsageService.toSeconds(-500_000_000L));
+        assertEquals(-1, UsageService.toSeconds(-600_000_000L));
+        assertEquals(-3, UsageService.toSeconds(-3_000_000_000L));
+        assertEquals(-3, UsageService.toSeconds(-3_400_000_000L));
+    }
+
     // ---- back-off after HTTP 429
 
     private static UsageFetchException rateLimited() {

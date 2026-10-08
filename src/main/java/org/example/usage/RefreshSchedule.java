@@ -1,5 +1,7 @@
 package org.example.usage;
 
+import java.util.OptionalLong;
+
 /**
  * When the next usage request is due. Pure bookkeeping, with no threads and no
  * clock: every method takes the current time as monotonic nanoseconds, so the
@@ -86,6 +88,24 @@ final class RefreshSchedule {
         }
         long elapsed = now - lastTriggered;
         return Math.max(0, Math.max(intervalNanos, backoffNanos) - elapsed);
+    }
+
+    /**
+     * How long until the next scheduled request is due, for showing to a person:
+     * the moment the most recent request was triggered plus the wait that applies,
+     * less now. Unlike {@link #nanosUntilDue} it does not stop at zero, and it is
+     * not given up on while a request runs, so an overdue refresh counts below zero.
+     * A manual request that has been asked for and not yet started is due now.
+     *
+     * @return the time left, negative once overdue; empty before any request has been
+     *     triggered, when there is nothing to count to
+     */
+    OptionalLong nanosUntilNextRefresh(long now) {
+        if (!everTriggered) {
+            return OptionalLong.empty();
+        }
+        long left = Math.max(intervalNanos, backoffNanos) - (now - lastTriggered);
+        return OptionalLong.of(requested ? Math.min(0, left) : left);
     }
 
     /** Records that a request starts now. */
