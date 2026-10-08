@@ -189,6 +189,27 @@ error.
 **Checkpoint:** tests cover successful token acquisition and the principal
 unavailable/login failure paths using controlled test doubles.
 
+**Status: done.** `org.example.token` holds the `TokenProvider` interface (so
+phase 4 can use doubles), `ClaudeTokenProvider`, `CredentialCapture` and
+`TokenException`. It runs `claude -p ping` against a loopback server that
+answers itself, so no real request is made, and reads the credential from the
+request. Every `acquire()` call is a fresh capture; caching and the 401 retry
+belong to phase 4.
+
+Failures are typed by `TokenException.Reason` (`NOT_INSTALLED`,
+`NOT_LOGGED_IN`, `ENV_CONFLICT`, `TIMEOUT`, `CAPTURE_FAILED`, `INTERRUPTED`),
+each with a message written to be shown in the GUI. `ANTHROPIC_API_KEY` or
+`ANTHROPIC_AUTH_TOKEN` being set is refused up front, because `claude` would
+send that instead of its OAuth token. The CLI, its child processes and the
+capture server are always stopped, and the token is never logged. Subprocess
+output is logged on failure with credential-shaped text redacted.
+
+Differences from `java-aip`: the capture server takes an OS-assigned loopback
+port instead of probing 9000-9100, and the `ClaudeLocator` PATH search is
+dropped, since a failed launch already reports a missing CLI. Tests run a
+stand-in for `claude` (`FakeClaude`) as a real subprocess making real HTTP
+requests. The real CLI is not exercised by the automated tests.
+
 ### 4. Implement usage requests and refresh state
 
 - Add an HTTP client with connection and request timeouts.

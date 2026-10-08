@@ -68,6 +68,7 @@ corresponding CLI value for the rest of the run.
 | --- | --- |
 | `src/main/java/org/example/` | Application sources (`Main` window, `LocalWebServer`, `Logging`) |
 | `src/main/java/org/example/usage/` | Usage model and response parser |
+| `src/main/java/org/example/token/` | OAuth token acquisition via the Claude Code CLI |
 | `src/main/resources/web/` | Frontend: HTML, CSS, JavaScript |
 | `docs/` | Requirements and implementation plan |
 | `build.gradle.kts` | Build config — JDK 25 toolchain, JavaFX, JUnit 6 |
