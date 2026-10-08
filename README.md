@@ -67,7 +67,7 @@ corresponding CLI value for the rest of the run.
 | Path | What lives there |
 | --- | --- |
 | `src/main/java/org/example/` | Application sources (`Main` window, `LocalWebServer`, `Logging`) |
-| `src/main/java/org/example/usage/` | Usage model and response parser |
+| `src/main/java/org/example/usage/` | Usage model, parser, HTTP client, refresh service |
 | `src/main/java/org/example/token/` | OAuth token acquisition via the Claude Code CLI |
 | `src/main/resources/web/` | Frontend: HTML, CSS, JavaScript |
 | `docs/` | Requirements and implementation plan |

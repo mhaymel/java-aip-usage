@@ -231,6 +231,27 @@ refresh and retry, repeated 401 handling, non-401 failures, and preservation of
 the last successful snapshot. Scheduler tests verify interval changes while a
 fetch is idle and in progress, including due times that have already elapsed.
 
+**Status: done.** In `org.example.usage`:
+
+| Class | Role |
+| --- | --- |
+| `UsageClient` | One `GET` with a bearer token, 10 s connect and 20 s request timeouts. Redirects are not followed, so a token cannot be forwarded to another host. Failures become `UsageFetchException` with a user-readable message that never contains the token or body. |
+| `UsageFetcher` | Fetches a token once and reuses it. A 401 drops it, acquires a fresh one and retries exactly once. A second 401 is reported and the token dropped. No other failure replaces the token or is retried. |
+| `RefreshSchedule` | The timing rules as pure arithmetic on monotonic nanoseconds, with no threads. |
+| `UsageService` | One refresh thread and the published `UsageState`. `refreshNow()` returns at once and declines while a fetch is running or already requested. `close()` interrupts a fetch in flight and joins the thread. |
+| `UsageState` | Latest good snapshot, latest error, `stale()` and `refreshing`. |
+
+The interval is measured from when the most recent request was triggered,
+manual refreshes included. Changing it only moves the due time: a fetch in
+flight is neither cancelled nor duplicated, and a due time that has already
+passed starts the next fetch as soon as none is running. Range validation
+(5-3600 s and 1-60 s) is not in the service, which accepts any positive
+interval; it belongs to the settings and API layer in phase 5.
+
+Not covered by tests: the real endpoint and real `claude`. Redirects, proxies
+and TLS are left to the JDK defaults; there is no `HTTPS_PROXY` support (see
+`java-aip`'s `EnvProxySelector`).
+
 ### 5. Add local API, settings, and UI
 
 - Serve the static frontend and a narrowly scoped JSON API from a loopback-only
