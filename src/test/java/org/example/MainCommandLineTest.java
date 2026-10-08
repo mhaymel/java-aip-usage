@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -56,6 +57,37 @@ class MainCommandLineTest {
         assertTrue(result.output().contains("Unknown option: --nope"), result.output());
     }
 
+    /**
+     * What an IDE does: everything on the plain classpath, JavaFX included, with no
+     * module path. A main class that is itself a JavaFX {@code Application} cannot
+     * start that way; the launcher stops with "JavaFX runtime components are missing".
+     */
+    @Test
+    void startsFromThePlainClasspathAsAnIdeRunsIt() throws Exception {
+        Result result = runOnClasspath("--help");
+
+        assertEquals(0, result.exitCode(), result.output());
+        assertTrue(result.output().contains("Usage: java-aip-usage"), result.output());
+        assertFalse(result.output().contains("JavaFX runtime components are missing"), result.output());
+    }
+
+    @Test
+    void aBadOptionIsReportedAlsoWhenStartedFromThePlainClasspath() throws Exception {
+        Result result = runOnClasspath("--usage-interval", "2");
+
+        assertEquals(2, result.exitCode(), result.output());
+        assertTrue(result.output().contains("--usage-interval must be from 5 to 3600 seconds."), result.output());
+    }
+
+    private static Result runOnClasspath(String... args) throws IOException, InterruptedException {
+        List<String> command = new ArrayList<>(List.of(
+                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                "-cp", System.getProperty("java.class.path"),
+                Main.class.getName()));
+        command.addAll(List.of(args));
+        return execute(command);
+    }
+
     private static Result run(String... args) throws IOException, InterruptedException {
         // JavaFX must be on the module path for Main, an Application, to start; the
         // test classpath has every JavaFX jar among its entries.
@@ -73,7 +105,10 @@ class MainCommandLineTest {
                 "-cp", String.join(java.io.File.pathSeparator, classPath),
                 Main.class.getName()));
         command.addAll(List.of(args));
+        return execute(command);
+    }
 
+    private static Result execute(List<String> command) throws IOException, InterruptedException {
         Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
         process.getOutputStream().close();
         boolean ended = false;

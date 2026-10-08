@@ -427,6 +427,22 @@ plan-window view against a Pro or Max account, and Windows and Linux.
 
 **Decided against:** `HTTPS_PROXY` support. The application connects directly.
 
+**Found later: running `Main` from the IDE failed.** IntelliJ's ▶ next to `main` stopped
+with "Error: JavaFX runtime components are missing, and are required to run this
+application". The README offered that route, and it had never been tried. Cause: `Main`
+extended `javafx.application.Application`, and Java refuses to start such a class from
+the plain classpath; `./gradlew run` hid it because the JavaFX Gradle plugin puts JavaFX
+on the module path for the `run` task alone, which IntelliJ's own task does not get.
+Fix: `Main` is now a plain class (command line, logging, then
+`Application.launch(UsageApp.class, args)`), and the window moved unchanged into the
+new `UsageApp extends Application`. This works from the classpath and the module path
+alike. `MainCommandLineTest` now starts `Main` both ways, and was seen to fail with
+that exact message before the fix. A second consequence: the window's log lines now
+read `[UsageApp]`, not `[Main]`, and `--help` no longer needs an explicit
+`System.exit`, since nothing starts JavaFX early. Run from the classpath the JVM prints
+two warnings (unsupported configuration, native access) that are harmless; see the
+README.
+
 ### 7. Compact window
 
 **Status: implemented; the macOS smoke test is still to be done by a person.**

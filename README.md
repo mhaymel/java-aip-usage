@@ -79,11 +79,18 @@ Options go after `--args`:
 ./gradlew run --args="--help"
 ```
 
-Or start `org.example.Main` from IntelliJ (▶ in the gutter next to `main`). Set
-the run configuration's working directory to the project root so the log and
-settings land there, and check that IntelliJ's environment finds `claude`: a
-program started from an IDE or the Finder can have a shorter `PATH` than your
-terminal, which shows up as "Claude Code could not be found on the PATH".
+Or start `org.example.Main` from IntelliJ (▶ in the gutter next to `main`). It needs no
+VM options or module path. Set the run configuration's working directory to the
+project root so the log and settings land there, and check that IntelliJ's
+environment finds `claude`: a program started from an IDE or the Finder can have a
+shorter `PATH` than your terminal, which shows up as "Claude Code could not be found
+on the PATH".
+
+Started that way JavaFX sits on the plain classpath, so two warnings appear that
+`./gradlew run` avoids: JavaFX's "Unsupported JavaFX configuration: classes were
+loaded from 'unnamed module'", and the JDK's note that native access will need to be
+enabled in a future release. Both are harmless. To silence the second, add
+`--enable-native-access=ALL-UNNAMED` to the run configuration's VM options.
 
 The frontend's logic is tested with Node, outside the JVM build:
 
