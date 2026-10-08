@@ -163,6 +163,69 @@ class RefreshScheduleTest {
         assertEquals(s(55), schedule.nanosUntilDue(s(105)));
     }
 
+    // ---- back-off
+
+    @Test
+    void aBackoffLongerThanTheIntervalDelaysTheNextRequest() {
+        schedule.begin(s(100));
+        schedule.finish();
+
+        schedule.setBackoff(s(120));
+
+        assertEquals(s(120), schedule.nanosUntilDue(s(100)));
+        assertEquals(s(20), schedule.nanosUntilDue(s(200)));
+        assertEquals(0, schedule.nanosUntilDue(s(220)));
+    }
+
+    @Test
+    void aBackoffShorterThanTheIntervalChangesNothing() {
+        schedule.begin(s(100));
+        schedule.finish();
+
+        schedule.setBackoff(s(10));
+
+        assertEquals(s(30), schedule.nanosUntilDue(s(100)));
+    }
+
+    @Test
+    void liftingTheBackoffRestoresTheInterval() {
+        schedule.begin(s(100));
+        schedule.finish();
+        schedule.setBackoff(s(300));
+        assertEquals(s(300), schedule.nanosUntilDue(s(100)));
+
+        schedule.setBackoff(0);
+
+        assertEquals(s(30), schedule.nanosUntilDue(s(100)));
+    }
+
+    @Test
+    void aManualRequestIgnoresTheBackoff() {
+        schedule.begin(s(100));
+        schedule.finish();
+        schedule.setBackoff(s(300));
+
+        assertTrue(schedule.request());
+
+        assertEquals(0, schedule.nanosUntilDue(s(101)));
+    }
+
+    @Test
+    void theIntervalStillCountsWhenItIsTheLongerOfTheTwo() {
+        schedule.begin(s(100));
+        schedule.finish();
+        schedule.setBackoff(s(60));
+
+        schedule.setInterval(s(90));
+
+        assertEquals(s(90), schedule.nanosUntilDue(s(100)));
+    }
+
+    @Test
+    void rejectsANegativeBackoff() {
+        assertThrows(IllegalArgumentException.class, () -> schedule.setBackoff(-1));
+    }
+
     @Test
     void rejectsANonPositiveInterval() {
         assertThrows(IllegalArgumentException.class, () -> schedule.setInterval(0));

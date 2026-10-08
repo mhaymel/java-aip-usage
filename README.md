@@ -2,13 +2,36 @@
 
 A small Java client that monitors Anthropic OAuth usage. It fetches the
 current usage snapshot from `https://api.anthropic.com/api/oauth/usage` and
-displays it in a minimal JavaFX WebView window, refreshed on a timer.
+shows it in a compact JavaFX WebView window, refreshed on a timer.
 
 Depending on the account, the snapshot carries either usage-based spend
 (`used`, `limit`, `currency`, `percent`, `severity`) or the Pro/Max plan
-windows (`window`, `utilization`, `resets_at`) — the UI shows whichever shape
-the endpoint returns. When a refresh fails the last good data stays on screen,
-marked stale, with the error.
+windows (`window`, `utilization`, `resets_at`) — the window shows whichever shape
+the endpoint returns. When a refresh fails the last good figures stay on screen,
+dimmed, with the error underneath.
+
+## The window
+
+A status strip to keep beside your work: as small as its content, bold readable
+text, local time of day only.
+
+```
+19%  $186.02 / $1,000.00  16:47:59  ⟳ ≡
+```
+
+From the left: the percentage spent, what has been spent and the budget (severity is
+their colour), when the usage was last refreshed, a refresh button, and a small
+config button. A Pro or Max account shows its plan windows in place of the spend,
+each as its utilization, its name and the time until it resets.
+
+- **Refresh** (⟳) fetches now. It stays clickable; clicks during a fetch do nothing extra.
+- **Config** (≡) shows two fields next to it, `fetch` (how often the application asks
+  Anthropic) and `update` (how often the window updates), in seconds. Change either
+  and press **Enter** or ✓ to save and apply both; the fields then disappear. A bad
+  value keeps them open with a short message. **Escape**, or the config button
+  again, closes them without changing anything.
+- A failed refresh, or a missing or logged-out Claude Code, adds a short message
+  line under the strip while it lasts; the window grows to hold it and shrinks back.
 
 It doubles as a playground for exercising the neighboring
 [`java-aip`](../java-aip) tooling and reusing auth patterns from the sibling
@@ -91,8 +114,9 @@ Only the backend talks to Anthropic; UI polls read local state and never
 trigger a request. A manual refresh button fetches immediately, and refreshes
 never overlap.
 
-Changes committed in the UI are persisted to `settings.json` and replace the
-corresponding CLI value for the rest of the run. A CLI value is not saved on its
+Values confirmed in the window's config fields are persisted to `settings.json` and
+replace the corresponding CLI value for the rest of the run. Only a value you
+actually changed is saved. A CLI value is not saved on its
 own, so the file keeps what you last chose in the window. The file holds only the
 two intervals, never a credential.
 
@@ -146,6 +170,13 @@ would still not reach the file.
   application restart, because a running program keeps the `PATH` it started with.
 - **Direct connection only, by design.** `HTTPS_PROXY` is deliberately not read,
   so a network that requires a proxy will show "Cannot reach api.anthropic.com".
+- **The usage endpoint rate limits.** After a burst of about ten requests it seems to
+  accept about one a minute, so the default 30 s refresh can draw HTTP 429 after
+  roughly ten minutes, and restarting the application repeatedly can trigger it much
+  sooner (each start fetches at once). The application backs off: it shows "Next try
+  in …" and waits longer, easing back to the normal pace as requests succeed. The
+  refresh button is never held back. Setting the usage interval to 60 s or more avoids
+  it.
 - **An undocumented endpoint.** `/api/oauth/usage` is the one Claude Code polls,
   not a published API. If its format changes you get an error naming the problem
   rather than wrong numbers, but you may need a parser update.
@@ -157,6 +188,9 @@ would still not reach the file.
   do not trust.
 - **One instance at a time.** Nothing stops two copies from starting; they would
   share `settings.json` and the log, and the last write wins.
+- **A long list of plan windows wraps.** The strip is at most 900 px wide, so an
+  account with many plan windows shows them on more than one line. The window is
+  sized to its content and cannot be dragged to another size.
 - **No packaged app.** `./gradlew run` is the way to start it. A macOS app bundle
   is deliberately left out of the first version.
 - **No charts or history.** Only the latest reading is kept, in memory.
@@ -165,7 +199,7 @@ would still not reach the file.
 
 | Path | What lives there |
 | --- | --- |
-| `src/main/java/org/example/` | Application sources (`Main` window, `AppRuntime`, `LocalWebServer`, `ApiHandler`, `Logging`, `Redaction`) |
+| `src/main/java/org/example/` | Application sources (`Main` window, `WindowFit`, `AppRuntime`, `LocalWebServer`, `ApiHandler`, `Logging`, `Redaction`) |
 | `src/main/java/org/example/token/` | OAuth token acquisition via the Claude Code CLI |
 | `src/main/java/org/example/usage/` | Usage model, parser, HTTP client, refresh service |
 | `src/main/java/org/example/settings/` | Interval settings, `settings.json`, command-line options |

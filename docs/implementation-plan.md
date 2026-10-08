@@ -62,8 +62,8 @@ Other decisions confirmed during discussion:
   request/response content.
 - The window is a compact status strip: as small as its content allows, one row in
   its normal state, readable text of at least 14 px, local time of day only. The
-  row holds the refresh time, spent and budget (or the plan windows), a small
-  refresh button and a very small config button, which reveals the two interval
+  row holds the percentage, spent and budget (or the plan windows), the refresh
+  time, a small refresh button and a very small config button, which reveals the two interval
   fields until they are confirmed. See [Compact window](requirements.md#compact-window);
   planned as phase 7.
 
@@ -263,6 +263,30 @@ passed starts the next fetch as soon as none is running. Range validation
 (5-3600 s and 1-60 s) is not in the service, which accepts any positive
 interval; it belongs to the settings and API layer in phase 5.
 
+**Rate limiting (added after a live run).** Restarting the application about eight times
+in 15 minutes made the endpoint answer HTTP 429 with `retry-after: 0`, and the service
+kept retrying every 30 s. It now backs off: the first 429 doubles the wait, each further
+one in a row doubles it again up to 5 minutes (`DEFAULT_MAX_BACKOFF`), or the server's
+`Retry-After` if longer (believed up to an hour). A success eases the hold by an eighth
+and the eased value is the new wait, until it is no longer than the interval; other
+failures leave it alone, and a manual refresh is never held back. The policy is the
+pure class `Backoff`. `RefreshSchedule` takes the longer of the interval and the
+hold; `UsageService` extends the error with "Next try in N min". `UsageClient`
+passes `Retry-After` on, only when it is whole seconds above zero.
+
+*Why easing, not lifting.* The first version dropped the hold at the first success. A
+live log then showed the pattern 429, 200, 429, 200: after a success the next request
+went out at the interval that had just been refused. The endpoint appears to allow
+about one request a minute after a burst of around eight (an inference from that log,
+not a published limit). Modelling it, `BackoffPolicyTest` compares the policies over an
+hour at a 30 s interval: lifting or halving wastes about 29% of requests on 429s,
+a quarter off 23%, an eighth off 14%, a fixed 5 s about 11% but slowly to recover. An
+eighth gets the readings the server allows with the fewest refusals and still recovers
+from a 5 minute hold in about 18 successes. The test fails for any of the weaker
+steps, so the constant cannot drift unnoticed. At a 60 s interval the model never
+refuses at all, which is why a default of 60 s remains the real fix; this only makes
+30 s tolerable.
+
 Not covered by tests: the real endpoint and real `claude`. TLS is left to the JDK
 defaults. Proxy support (`HTTPS_PROXY`, as in `java-aip`'s `EnvProxySelector`) is
 deliberately not included, by decision.
@@ -401,12 +425,13 @@ plan-window view against a Pro or Max account, and Windows and Linux.
 
 ### 7. Compact window
 
-**Status: not started.** Requirement: [Compact window](requirements.md#compact-window).
+**Status: implemented; the macOS smoke test is still to be done by a person.**
+Requirement: [Compact window](requirements.md#compact-window).
 
-- Rework the page into one row: time, spent and budget (or the plan windows), a
-  small refresh button, a very small config button, with small gaps and a font of
-  at least 14 px in a regular or heavier weight. Percent and severity stay, in
-  compact form (percent as small text, severity as colour).
+- Rework the page into one row: percentage, spent and budget (or the plan windows),
+  time, a small refresh button, a very small config button, with small gaps and a
+  bold font of at least 14 px (700, and 800 for the percentage and amounts).
+  Severity is the colour of the percentage and amounts.
 - Show local time of day only. Add a time-only formatter to `view.js` and use it
   for the refresh time and for error times. Show a window's reset as the time
   remaining instead of a date and time.
@@ -422,6 +447,21 @@ plan-window view against a Pro or Max account, and Windows and Linux.
   the one part that needs host code; everything else is in `web/`.
 - Update the Node tests for the new view logic and page script, and the README's
   description of the window.
+
+**What was built.** `view.js` produces a compact model (time of day only, spent and
+budget with percent and severity colour, plan windows with time remaining, one
+message line). `index.html` and `app.css` lay it out as one strip, with SVG icon
+buttons and a 15 px bold font (700; 800 for the percentage and amounts), nothing
+below 14 px. `app.js` runs the
+config flow: the toggle opens two fields, Enter or the confirm button validates
+both and sends only the values that changed in one request, and the fields close on
+success; a bad value, or one the backend refuses, keeps them open with a message;
+Escape or the toggle closes them unchanged. `#app` takes its width from its content,
+and `window.contentSize()` reports it. `WindowFit` and `Main` poll that every 150 ms
+and resize the stage, which is no longer user-resizable. The page-to-host contract
+is in [api.md](api.md#window-host-contract). A guard against resize loops is
+structural, not a counter: the size reported is the page's own, so applying it
+cannot change it; the host also clamps the size and never applies one twice.
 
 **Checkpoint:** Node tests cover the time-only formatting, the compact windows text,
 the config open, confirm, invalid and cancel flows, and the message line. A macOS

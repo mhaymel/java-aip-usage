@@ -1,4 +1,4 @@
-// Turns the backend's status document into what the page shows. Pure functions
+// Turns the backend's status document into what the strip shows. Pure functions
 // with no DOM access, so they run under Node as well as in the browser.
 (function (root) {
     'use strict';
@@ -12,8 +12,22 @@
         error: 'critical'
     };
 
+    var DASH = '—';
+
     function pad(n) {
         return n < 10 ? '0' + n : String(n);
+    }
+
+    /**
+     * The local time of day of an ISO instant, as 24-hour HH:MM:SS, never the
+     * date. Anything unparseable is shown as received.
+     */
+    function formatTime(iso) {
+        var date = new Date(iso);
+        if (isNaN(date.getTime())) {
+            return String(iso);
+        }
+        return pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
     }
 
     /** "5 s", "3 min", "2 h 5 min", "1 d 4 h": a span of time, coarse on purpose. */
@@ -34,31 +48,9 @@
         return days + ' d' + (hours % 24 ? ' ' + (hours % 24) + ' h' : '');
     }
 
-    function formatAge(ms) {
-        return ms < 5000 ? 'just now' : formatSpan(ms) + ' ago';
-    }
-
-    /** The local date and time of an ISO instant; anything unparseable is shown as received. */
-    function formatDateTime(iso, options) {
-        var date = new Date(iso);
-        if (isNaN(date.getTime())) {
-            return String(iso);
-        }
-        var opts = options || {};
-        try {
-            return date.toLocaleString(opts.locale, {
-                dateStyle: 'medium',
-                timeStyle: 'medium',
-                timeZone: opts.timeZone
-            });
-        } catch (e) {
-            return date.toLocaleString();
-        }
-    }
-
     function formatMoney(amount, currency, options) {
         if (amount === null || amount === undefined) {
-            return '—';
+            return DASH;
         }
         if (currency) {
             try {
@@ -75,47 +67,42 @@
         return (Math.round(value * 10) / 10) + '%';
     }
 
-    function clampPercent(value) {
-        return Math.min(100, Math.max(0, value));
-    }
-
     function severityKind(severity) {
         var key = typeof severity === 'string' ? severity.toLowerCase() : '';
         return Object.prototype.hasOwnProperty.call(SEVERITY_KINDS, key) ? SEVERITY_KINDS[key] : 'other';
     }
 
     function describeSpend(spend, options) {
-        var hasPercent = typeof spend.percent === 'number';
         return {
-            used: formatMoney(spend.used, spend.currency, options),
-            limit: formatMoney(spend.limit, spend.currency, options),
-            currency: spend.currency || null,
-            percentText: hasPercent ? spend.percent + '%' : '—',
-            barPercent: hasPercent ? clampPercent(spend.percent) : null,
+            amounts: formatMoney(spend.used, spend.currency, options) + ' / ' + formatMoney(spend.limit, spend.currency, options),
+            percentText: typeof spend.percent === 'number' ? spend.percent + '%' : null,
             severityText: spend.severity || null,
             severityKind: spend.severity ? severityKind(spend.severity) : null
         };
     }
 
-    function describeWindow(window, nowMs, options) {
+    /**
+     * A plan window: its name as received, its utilization, and how long until it
+     * resets. Remaining time rather than a clock time, because a reset can be days
+     * away and a time of day alone would mislead.
+     */
+    function describeWindow(window, nowMs) {
         var resets;
         if (window.resets_at === null || window.resets_at === undefined) {
-            resets = 'Reset time unknown';
+            resets = 'reset unknown';
         } else {
             var at = new Date(window.resets_at).getTime();
-            var when = formatDateTime(window.resets_at, options);
             if (isNaN(at)) {
-                resets = 'Resets at ' + when;
+                resets = 'resets ' + window.resets_at;
             } else if (at > nowMs) {
-                resets = 'Resets in ' + formatSpan(at - nowMs) + ' (' + when + ')';
+                resets = 'in ' + formatSpan(at - nowMs);
             } else {
-                resets = 'Reset was due ' + when;
+                resets = 'reset due';
             }
         }
         return {
             name: window.window,
             utilizationText: formatPercent(window.utilization),
-            barPercent: clampPercent(window.utilization),
             resetsText: resets
         };
     }
@@ -123,50 +110,48 @@
     /**
      * @param status the document from GET /api/status
      * @param nowMs the current time in milliseconds
-     * @param options {locale, timeZone}, both optional
+     * @param options {locale}, optional; only the currency format depends on it
+     * @returns what the strip shows:
+     *   time        local time of day of the last reading, or null
+     *   spend       {amounts, percentText, severityText, severityKind}, or null
+     *   windows     [{name, utilizationText, resetsText}]
+     *   placeholder text for a row with nothing else to show, or null
+     *   message     {kind: 'error'|'stale', text} for the line under the row, or null
+     *   stale       the figures predate a failed refresh
+     *   refreshing  a refresh is running
      */
     function describeStatus(status, nowMs, options) {
         var usage = status.usage;
         var error = status.error;
         var view = {
-            badge: { text: 'Loading…', kind: 'loading' },
-            fetched: null,
-            notice: null,
+            time: null,
             spend: null,
             windows: [],
-            empty: false,
+            placeholder: null,
+            message: null,
+            stale: Boolean(usage && error),
             refreshing: Boolean(status.refreshing)
         };
 
         if (usage) {
-            view.fetched = 'Fetched ' + formatDateTime(usage.fetched_at, options) +
-                ' (' + formatAge(nowMs - new Date(usage.fetched_at).getTime()) + ')';
+            view.time = formatTime(usage.fetched_at);
             if (usage.spend) {
                 view.spend = describeSpend(usage.spend, options);
             }
             view.windows = (usage.windows || []).map(function (w) {
-                return describeWindow(w, nowMs, options);
+                return describeWindow(w, nowMs);
             });
-            view.empty = !usage.spend && view.windows.length === 0;
+            if (!view.spend && view.windows.length === 0) {
+                view.placeholder = 'No usage reported';
+            }
+        } else {
+            view.placeholder = error ? 'No data' : 'Loading…';
         }
 
-        if (usage && error) {
-            view.badge = { text: 'Stale', kind: 'stale' };
-            view.notice = {
-                kind: 'stale',
-                title: 'The latest refresh failed, so this is the last successful reading.',
-                detail: error.message,
-                at: formatDateTime(error.at, options)
-            };
-        } else if (usage) {
-            view.badge = { text: 'Up to date', kind: 'ok' };
-        } else if (error) {
-            view.badge = { text: 'Error', kind: 'error' };
-            view.notice = {
-                kind: 'error',
-                title: 'No usage could be read yet.',
-                detail: error.message,
-                at: formatDateTime(error.at, options)
+        if (error) {
+            view.message = {
+                kind: usage ? 'stale' : 'error',
+                text: 'Refresh failed at ' + formatTime(error.at) + ': ' + error.message
             };
         }
         return view;
@@ -188,8 +173,8 @@
     root.UsageView = {
         describeStatus: describeStatus,
         checkInterval: checkInterval,
+        formatTime: formatTime,
         formatSpan: formatSpan,
-        formatAge: formatAge,
         formatPercent: formatPercent,
         formatMoney: formatMoney,
         severityKind: severityKind

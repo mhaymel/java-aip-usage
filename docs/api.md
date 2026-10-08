@@ -126,6 +126,26 @@ see it.
 The request counts as the most recent fetch, so the scheduled interval restarts
 from it.
 
+## Window host contract
+
+One more contract exists between the page and the program that hosts it, and it is
+not part of the HTTP API. The window is sized to fit the page, and only the host
+can resize a window, so the page offers a function the host calls:
+
+```js
+window.contentSize()   // "400,42"
+```
+
+It returns `"<width>,<height>"`: the size in CSS pixels the page needs to show all
+of itself, as whole numbers. The host asks about every 150 ms and resizes its
+window when the answer changes. The page measures its own content, never the
+window, so resizing the window to match does not change the answer. The Java host
+(`WindowFit`) ignores anything that is not that shape, keeps the size between
+160 x 32 and 1000 x 500, and does not apply a size twice. A different host, such
+as the future Go one, needs only to call the function and resize.
+
+The page exposes nothing else to its host, and the host exposes nothing to the page.
+
 ## Protections
 
 The server holds usage data, so it refuses requests that another web page on the

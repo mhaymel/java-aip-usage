@@ -90,6 +90,15 @@ Example token output:
 - Save interval changes made in the frontend to a settings file named `settings.json` in the project root, beside `gradlew`. A committed valid frontend value is sent to the backend and replaces any CLI override for the remainder of the run.
 - Changing the backend usage-fetch interval does not cancel a request already in progress. Apply the new interval to the next scheduled request, measuring the interval from when the current/most recent request was triggered. If the new interval has already elapsed, start the next request as soon as no request is running; otherwise wait until the interval elapses. Changing the interval does not otherwise trigger an extra immediate request.
 - If a refresh fails, keep the last successful data visible, mark it as stale, and show the error. Resume normal display after the next successful refresh.
+- If Anthropic answers HTTP 429 (rate limited), the application slows down instead of
+  carrying on at the same pace. The next scheduled request waits twice the usage
+  interval, and each further 429 in a row doubles the wait, up to 5 minutes, or the
+  `Retry-After` the server gave if that is longer. A success eases the wait and does
+  not drop it: it takes an eighth off, and the eased value is the new wait, until it
+  is no longer than the usual interval. Dropping it at once would return to the very
+  pace the server has just refused. A failure that is not a 429 leaves the wait as it
+  is. The refresh button is never held back, since a person asked. The error shown
+  says when the next try is.
 - The backend alone fetches usage from Anthropic on this interval. UI status polling must not trigger an Anthropic request.
 - Configure the UI-to-backend status polling interval in seconds through both a command-line option (`--poll-interval <seconds>`) and a frontend control, and send frontend changes to the backend to save in the settings file. Its default is 1 second; accept values from 1 through 60 seconds. A committed valid frontend value is sent to the backend, becomes effective immediately, and replaces any CLI override for that interval for the remainder of the run.
 - When the UI starts, it must request both effective intervals from the backend. Display the returned active values, then use the UI polling interval to poll the backend for the latest available state.
@@ -142,8 +151,9 @@ so it must take as little screen space as it can while staying easy to read.
 
 - The window is as small as its content allows, with no empty space around it.
   In its normal state it is a single row, roughly 400 by 50 pixels.
-- The text is easy to read: a sans-serif font of at least 14 pixels, regular
-  weight or heavier, with strong contrast. No thin or light weights, no fine print.
+- The text is easy to read: a sans-serif font of at least 14 pixels, with strong
+  contrast. It is set bold throughout (weight 700), with the percentage and the
+  spent and budget heavier still (800). No thin or light weights, no fine print.
 - Every time the window shows is the local time of day only, with no date, for
   example `14:24:53`. This applies to the time of the last refresh and to the time
   of an error alike.
@@ -153,18 +163,22 @@ so it must take as little screen space as it can while staying easy to read.
 The controls sit in one horizontal row, one after another, with small gaps, in
 this order:
 
-1. the time the usage was last refreshed (`fetched_at`);
+1. the percentage spent, first of all;
 2. what has been spent and the budget: `used` and `limit` with the currency, for
-   example `$186.02 / $1,000.00`, with the percentage in the most compact form and
-   the severity shown by colour rather than by extra words;
-3. a small refresh button;
-4. a very small config button, an icon rather than a word.
+   example `$186.02 / $1,000.00`;
+3. the time the usage was last refreshed (`fetched_at`);
+4. a small refresh button;
+5. a very small config button, an icon rather than a word.
+
+The severity is shown by colour on the percentage and the amounts, rather than by
+extra words.
 
 For an account with Pro or Max plan windows instead of spend, the windows take the
-place of item 2 in the same row, each as its name exactly as supplied, its
-utilization and the time remaining until it resets (for example `five_hour 12%
-in 2 h 5 min`). Remaining time is used because a reset can be days away, and a
-time of day alone would then mislead. An unknown reset time is shown as unknown.
+place of items 1 and 2 in the same row, each as its utilization first, then its
+name exactly as supplied, then the time remaining until it resets (for example
+`12% five_hour in 2 h 5 min`). Remaining time is used because a reset can be days
+away, and a time of day alone would then mislead. An unknown reset time is shown
+as unknown.
 
 **Config**
 

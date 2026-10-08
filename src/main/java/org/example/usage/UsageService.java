@@ -26,6 +26,12 @@ public final class UsageService implements AutoCloseable {
 
     private static final Duration SHUTDOWN_WAIT = Duration.ofSeconds(5);
 
+    /** The longest the service holds back after the server says to slow down. */
+    static final Duration DEFAULT_MAX_BACKOFF = Duration.ofMinutes(5);
+
+    /** A server-supplied wait is believed up to this long, whatever it claims. */
+    private static final Duration MAX_RETRY_AFTER = Duration.ofHours(1);
+
     private final Supplier<UsageSnapshot> fetcher;
 
     private final RefreshSchedule schedule;
@@ -37,13 +43,20 @@ public final class UsageService implements AutoCloseable {
 
     private volatile UsageState state = UsageState.initial();
 
+    private final Backoff backoff;
+
     private Thread thread;
 
     private boolean closed;
 
     public UsageService(Supplier<UsageSnapshot> fetcher, Duration interval) {
+        this(fetcher, interval, DEFAULT_MAX_BACKOFF);
+    }
+
+    UsageService(Supplier<UsageSnapshot> fetcher, Duration interval, Duration maxBackoff) {
         this.fetcher = fetcher;
         this.schedule = new RefreshSchedule(positive(interval).toNanos());
+        this.backoff = new Backoff(positive(maxBackoff).toNanos());
     }
 
     /** Starts the refresh thread; the first request begins at once. */
@@ -131,6 +144,7 @@ public final class UsageService implements AutoCloseable {
                     lock.lock();
                     schedule.finish();
                 }
+                outcome = settleBackoff(outcome);
                 if (!closed) {
                     state = outcome.applyTo(state);
                 }
@@ -147,7 +161,10 @@ public final class UsageService implements AutoCloseable {
             UsageSnapshot snapshot = fetcher.get();
             LOG.log(System.Logger.Level.INFO, "Usage refresh succeeded");
             return Outcome.success(snapshot);
-        } catch (TokenException | UsageFetchException | UsageParseException e) {
+        } catch (UsageFetchException e) {
+            LOG.log(System.Logger.Level.WARNING, "Usage refresh failed: " + e.getMessage());
+            return e.status() == 429 ? Outcome.rateLimited(e.getMessage(), e.retryAfter()) : Outcome.failure(e.getMessage());
+        } catch (TokenException | UsageParseException e) {
             // These messages are written for the user and carry no credentials.
             LOG.log(System.Logger.Level.WARNING, "Usage refresh failed: " + e.getMessage());
             return Outcome.failure(e.getMessage());
@@ -190,14 +207,52 @@ public final class UsageService implements AutoCloseable {
         return interval;
     }
 
-    private record Outcome(UsageSnapshot snapshot, String error) {
+    /**
+     * Decides how long to hold back after this refresh, with the lock held. See
+     * {@link Backoff} for the policy. The refresh button is not held back: a person
+     * asked. A failure that is not a 429 leaves the hold as it is.
+     */
+    private Outcome settleBackoff(Outcome outcome) {
+        long interval = schedule.interval();
+        if (outcome.rateLimited()) {
+            long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
+            long next = Math.max(interval, backoff.rateLimited(interval, retryAfter));
+            schedule.setBackoff(backoff.hold());
+            LOG.log(System.Logger.Level.WARNING, "Rate limited; next try in " + describe(next));
+            return outcome.withError(outcome.error() + " Next try in " + describe(next) + ".");
+        }
+        if (outcome.snapshot() != null && backoff.hold() > 0) {
+            backoff.succeeded(interval);
+            schedule.setBackoff(backoff.hold());
+            LOG.log(System.Logger.Level.INFO, backoff.hold() > 0
+                    ? "Easing the back-off; next try in " + describe(Math.max(interval, backoff.hold()))
+                    : "The back-off is over; back to the usual interval");
+        }
+        return outcome;
+    }
+
+    /** "30 s", "2 min": a wait, rounded up, coarse on purpose. */
+    static String describe(long nanos) {
+        long seconds = Math.max(1, (nanos + 999_999_999L) / 1_000_000_000L);
+        return seconds < 60 ? seconds + " s" : ((seconds + 59) / 60) + " min";
+    }
+
+    private record Outcome(UsageSnapshot snapshot, String error, boolean rateLimited, Duration retryAfter) {
 
         static Outcome success(UsageSnapshot snapshot) {
-            return new Outcome(snapshot, null);
+            return new Outcome(snapshot, null, false, Duration.ZERO);
         }
 
         static Outcome failure(String error) {
-            return new Outcome(null, error);
+            return new Outcome(null, error, false, Duration.ZERO);
+        }
+
+        static Outcome rateLimited(String error, Duration retryAfter) {
+            return new Outcome(null, error, true, retryAfter);
+        }
+
+        Outcome withError(String error) {
+            return new Outcome(snapshot, error, rateLimited, retryAfter);
         }
 
         UsageState applyTo(UsageState state) {

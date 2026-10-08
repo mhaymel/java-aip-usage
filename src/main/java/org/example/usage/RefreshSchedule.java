@@ -17,6 +17,9 @@ final class RefreshSchedule {
 
     private long intervalNanos;
 
+    /** An extra wait imposed after the server asked us to slow down; the longer of this and the interval applies. */
+    private long backoffNanos;
+
     private boolean everTriggered;
 
     private long lastTriggered;
@@ -38,6 +41,17 @@ final class RefreshSchedule {
             throw new IllegalArgumentException("interval must be positive");
         }
         this.intervalNanos = nanos;
+    }
+
+    /**
+     * Asks for the next request to wait at least this long after the last was
+     * triggered, whatever the interval. Zero lifts it. A manual request ignores it.
+     */
+    void setBackoff(long nanos) {
+        if (nanos < 0) {
+            throw new IllegalArgumentException("back-off must not be negative");
+        }
+        this.backoffNanos = nanos;
     }
 
     boolean running() {
@@ -71,7 +85,7 @@ final class RefreshSchedule {
             return 0;
         }
         long elapsed = now - lastTriggered;
-        return Math.max(0, intervalNanos - elapsed);
+        return Math.max(0, Math.max(intervalNanos, backoffNanos) - elapsed);
     }
 
     /** Records that a request starts now. */

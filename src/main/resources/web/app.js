@@ -1,7 +1,7 @@
-// The page: asks the backend for its settings once, then polls its status at
-// the interval it reported. All the logic about what to show is in view.js;
-// this file only talks to the backend and puts text on the page. Text from the
-// backend is only ever assigned with textContent, never parsed as HTML.
+// The strip: asks the backend for its settings once, then polls its status at
+// the interval it reported. What to show is decided in view.js; this file talks
+// to the backend and puts text on the page. Text from the backend is only ever
+// assigned with textContent, never parsed as HTML.
 (function () {
     'use strict';
 
@@ -15,8 +15,26 @@
     var polling = false;
     var lastWindowsKey = null;
 
+    var INTERVALS = [
+        { input: 'usage-interval', key: 'usageIntervalSeconds', label: 'The usage interval' },
+        { input: 'poll-interval', key: 'pollIntervalSeconds', label: 'The update interval' }
+    ];
+
     function $(id) {
         return document.getElementById(id);
+    }
+
+    function show(id, visible) {
+        $(id).hidden = !visible;
+    }
+
+    function setNote(id, text, className) {
+        var note = $(id);
+        note.hidden = !text;
+        note.textContent = text || '';
+        if (className) {
+            note.className = className;
+        }
     }
 
     // ---- talking to the backend
@@ -58,10 +76,10 @@
         polling = true;
         try {
             lastStatus = await request('/api/status');
-            $('connection').hidden = true;
+            show('connection', false);
             render();
         } catch (e) {
-            $('connection').hidden = false;
+            show('connection', true);
         } finally {
             polling = false;
             scheduleNextPoll();
@@ -86,51 +104,30 @@
         }
         var v = view.describeStatus(lastStatus, Date.now());
 
-        var badge = $('badge');
-        badge.className = 'badge badge-' + v.badge.kind;
-        badge.textContent = v.badge.text;
+        $('app').className = v.stale ? 'stale' : '';
+        $('refresh').className = 'icon' + (v.refreshing ? ' busy' : '');
 
-        $('fetched').hidden = !v.fetched;
-        $('fetched').textContent = v.fetched || '';
-        $('refreshing').textContent = v.refreshing ? 'Refreshing…' : '';
+        show('time', Boolean(v.time));
+        $('time').textContent = v.time || '';
 
-        var notice = $('notice');
-        notice.hidden = !v.notice;
-        if (v.notice) {
-            notice.className = 'notice' + (v.notice.kind === 'error' ? ' notice-error' : '');
-            $('notice-title').textContent = v.notice.title;
-            $('notice-detail').textContent = v.notice.detail;
-            $('notice-at').textContent = v.notice.at;
+        show('spend', Boolean(v.spend));
+        if (v.spend) {
+            $('spend').className = 'spend' + (v.spend.severityKind ? ' sev-' + v.spend.severityKind : '');
+            $('spend').title = v.spend.severityText ? 'Severity: ' + v.spend.severityText : '';
+            $('amounts').textContent = v.spend.amounts;
+            $('percent').textContent = v.spend.percentText || '';
         }
 
-        renderSpend(v.spend);
         renderWindows(v.windows);
-        $('empty').hidden = !v.empty;
-    }
 
-    function renderSpend(spend) {
-        $('spend').hidden = !spend;
-        if (!spend) {
-            return;
-        }
-        $('spend-used').textContent = spend.used;
-        $('spend-limit').textContent = spend.limit;
-        $('spend-percent').textContent = spend.percentText + ' used';
-        $('spend-bar').style.width = (spend.barPercent === null ? 0 : spend.barPercent) + '%';
-        var bar = $('spend').querySelector('.bar');
-        if (spend.barPercent === null) {
-            bar.removeAttribute('aria-valuenow');
-        } else {
-            bar.setAttribute('aria-valuenow', String(spend.barPercent));
-        }
-        var pill = $('spend-severity');
-        pill.hidden = !spend.severityText;
-        pill.textContent = spend.severityText || '';
-        pill.className = 'pill' + (spend.severityKind ? ' pill-' + spend.severityKind : '');
+        show('placeholder', Boolean(v.placeholder));
+        $('placeholder').textContent = v.placeholder || '';
+
+        setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
     }
 
     function renderWindows(windows) {
-        $('windows').hidden = windows.length === 0;
+        show('windows', windows.length > 0);
         // Rebuilt only when something changed, so the once-a-second clock refresh
         // does not disturb the page.
         var key = JSON.stringify(windows);
@@ -139,98 +136,123 @@
         }
         lastWindowsKey = key;
 
-        var list = $('window-list');
-        list.replaceChildren();
+        var container = $('windows');
+        container.replaceChildren();
         windows.forEach(function (w) {
-            var item = document.createElement('li');
-
-            var head = document.createElement('div');
-            head.className = 'window-head';
+            var item = document.createElement('span');
+            item.className = 'win';
             var name = document.createElement('span');
-            name.className = 'window-name';
+            name.className = 'win-name';
             name.textContent = w.name;
             var value = document.createElement('span');
-            value.className = 'window-value';
+            value.className = 'win-value';
             value.textContent = w.utilizationText;
-            head.append(name, value);
-
-            var bar = document.createElement('div');
-            bar.className = 'bar';
-            bar.setAttribute('role', 'progressbar');
-            bar.setAttribute('aria-label', w.name);
-            bar.setAttribute('aria-valuemin', '0');
-            bar.setAttribute('aria-valuemax', '100');
-            bar.setAttribute('aria-valuenow', String(w.barPercent));
-            var fill = document.createElement('div');
-            fill.className = 'bar-fill';
-            fill.style.width = w.barPercent + '%';
-            bar.append(fill);
-
-            var resets = document.createElement('p');
-            resets.className = 'window-resets';
+            var resets = document.createElement('span');
+            resets.className = 'win-reset';
             resets.textContent = w.resetsText;
-
-            item.append(head, bar, resets);
-            list.append(item);
+            item.append(value, name, resets);
+            container.append(item);
         });
     }
 
-    // ---- settings
+    // ---- config: two fields that appear on demand, confirmed together
 
-    var FIELDS = [
-        { input: 'usage-interval', hint: 'usage-hint', key: 'usageIntervalSeconds', limits: 'usageIntervalSeconds',
-          label: 'The usage interval', note: 'How often the application asks Anthropic. ' },
-        { input: 'poll-interval', hint: 'poll-hint', key: 'pollIntervalSeconds', limits: 'pollIntervalSeconds',
-          label: 'The update interval', note: 'How often this window asks the application. ' }
-    ];
+    function configIsOpen() {
+        return !$('config').hidden;
+    }
 
-    function showConfig() {
-        FIELDS.forEach(function (field) {
-            var limits = config.limits[field.limits];
+    function openConfig() {
+        INTERVALS.forEach(function (field) {
             $(field.input).value = String(config[field.key]);
-            $(field.hint).textContent = field.note + limits.min + ' to ' + limits.max + ' seconds.';
+            $(field.input).removeAttribute('aria-invalid');
         });
+        setNote('config-note', '');
+        show('config', true);
+        $('config-toggle').setAttribute('aria-expanded', 'true');
+        $(INTERVALS[0].input).focus();
     }
 
-    function message(text, kind) {
-        var element = $('settings-message');
-        element.textContent = text;
-        element.className = 'settings-message' + (kind ? ' ' + kind : '');
+    function closeConfig() {
+        show('config', false);
+        setNote('config-note', '');
+        INTERVALS.forEach(function (field) {
+            $(field.input).removeAttribute('aria-invalid');
+        });
+        $('config-toggle').setAttribute('aria-expanded', 'false');
     }
 
-    async function commit(field) {
-        var input = $(field.input);
-        var problem = view.checkInterval(input.value, config.limits[field.limits], field.label);
-        if (problem) {
-            input.setAttribute('aria-invalid', 'true');
-            message(problem, 'error');
-            return;
+    function toggleConfig() {
+        if (configIsOpen()) {
+            closeConfig();
+        } else {
+            openConfig();
         }
-        input.removeAttribute('aria-invalid');
+    }
 
-        var value = Number(input.value.trim());
-        if (value === config[field.key]) {
-            input.value = String(value);
-            message('', '');
+    /** Checks both values, then sends only those that changed, in one request. */
+    async function confirmConfig() {
+        var problems = [];
+        INTERVALS.forEach(function (field) {
+            var problem = view.checkInterval($(field.input).value, config.limits[field.key], field.label);
+            if (problem) {
+                problems.push(problem);
+                $(field.input).setAttribute('aria-invalid', 'true');
+            } else {
+                $(field.input).removeAttribute('aria-invalid');
+            }
+        });
+        if (problems.length > 0) {
+            setNote('config-note', problems[0]);
             return;
         }
+
+        var change = {};
+        INTERVALS.forEach(function (field) {
+            var value = Number($(field.input).value.trim());
+            if (value !== config[field.key]) {
+                change[field.key] = value;
+            }
+        });
+        if (Object.keys(change).length === 0) {
+            closeConfig();
+            return;
+        }
+
         try {
-            var change = {};
-            change[field.key] = value;
             var updated = await postJson('/api/config', change);
             var pollChanged = updated.pollIntervalSeconds !== config.pollIntervalSeconds;
             config = updated;
-            showConfig();
-            message('Saved.', 'saved');
+            closeConfig();
             if (pollChanged) {
                 // The new rhythm takes effect now, not after the old wait runs out.
                 pollNow();
             }
         } catch (e) {
-            input.value = String(config[field.key]);
-            message(e.message, 'error');
+            setNote('config-note', e.message);
         }
     }
+
+    function onConfigKey(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            confirmConfig();
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            closeConfig();
+        }
+    }
+
+    // ---- the window host
+
+    /**
+     * The size, in CSS pixels, the window needs to show all of this page. The
+     * Java host asks for it and resizes the window to match; see docs/api.md.
+     * It is the page's own size, not the window's, so asking does not change it.
+     */
+    window.contentSize = function () {
+        var box = $('app').getBoundingClientRect();
+        return Math.ceil(box.width) + ',' + Math.ceil(box.height);
+    };
 
     // ---- start
 
@@ -238,24 +260,26 @@
         try {
             config = await request('/api/config');
         } catch (e) {
-            $('connection').hidden = false;
+            show('connection', true);
             setTimeout(start, RETRY_START_MS);
             return;
         }
-        $('connection').hidden = true;
-        showConfig();
-        FIELDS.forEach(function (field) {
-            $(field.input).addEventListener('change', function () { commit(field); });
+        show('connection', false);
+
+        $('config-toggle').addEventListener('click', toggleConfig);
+        $('config-ok').addEventListener('click', confirmConfig);
+        INTERVALS.forEach(function (field) {
+            $(field.input).addEventListener('keydown', onConfigKey);
         });
         $('refresh').addEventListener('click', async function () {
             try {
                 await postJson('/api/refresh', {});
             } catch (e) {
-                $('connection').hidden = false;
+                show('connection', true);
             }
             pollNow();
         });
-        // Keeps "5 s ago" and the reset countdowns moving between polls, without asking the backend.
+        // Keeps the reset countdowns moving between polls, without asking the backend.
         setInterval(render, 1000);
         poll();
     }

@@ -226,6 +226,52 @@ class UsageClientTest {
     }
 
     @Test
+    void passesOnHowLongTheServerAskedUsToWait() throws Exception {
+        URI uri = serve("/usage", exchange -> {
+            exchange.getResponseHeaders().add("retry-after", "45");
+            reply(exchange, 429, "{}");
+        });
+
+        UsageFetchException e = assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN));
+
+        assertEquals(429, e.status());
+        assertEquals(Duration.ofSeconds(45), e.retryAfter());
+    }
+
+    @Test
+    void aRetryAfterThatIsNotWholeSecondsCountsAsNoAnswer() throws Exception {
+        for (String value : new String[] {"Wed, 21 Oct 2026 07:28:00 GMT", "-5", "1.5", "soon", "", "99999999999999999999"}) {
+            URI uri = serve("/usage", exchange -> {
+                exchange.getResponseHeaders().add("retry-after", value);
+                reply(exchange, 429, "{}");
+            });
+
+            UsageFetchException e = assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN));
+
+            assertEquals(Duration.ZERO, e.retryAfter(), "retry-after: " + value);
+        }
+    }
+
+    @Test
+    void aZeroRetryAfterIsNoAnswerEither() throws Exception {
+        URI uri = serve("/usage", exchange -> {
+            exchange.getResponseHeaders().add("retry-after", "0");
+            reply(exchange, 429, "{}");
+        });
+
+        assertEquals(Duration.ZERO, assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN)).retryAfter());
+    }
+
+    @Test
+    void theRateLimitMessageDoesNotPromiseAnyParticularRetry() throws Exception {
+        URI uri = serve("/usage", exchange -> reply(exchange, 429, "{}"));
+
+        UsageFetchException e = assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN));
+
+        assertEquals("Anthropic is rate limiting usage requests (HTTP 429).", e.getMessage());
+    }
+
+    @Test
     void logsAConnectionFailureWithoutTheTokenToo() throws Exception {
         URI uri = serve("/usage", exchange -> reply(exchange, 200, "{}"));
         servers.getFirst().stop(0);

@@ -2,71 +2,55 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>java-aip usage</title>
     <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<main>
-    <header>
-        <h1>Anthropic usage</h1>
-        <span id="badge" class="badge badge-loading">Loading…</span>
-    </header>
+<div id="app">
+    <div class="strip">
+        <span id="spend" class="spend" hidden>
+            <span id="percent" class="percent" title="Percentage spent"></span>
+            <span id="amounts" title="Spent / budget"></span>
+        </span>
+        <span id="windows" class="windows" hidden></span>
+        <span id="placeholder" class="placeholder">Loading…</span>
+        <span id="time" class="time" title="Time of the last refresh" hidden></span>
 
-    <p id="fetched" class="fetched" hidden></p>
+        <button id="refresh" class="icon" type="button" aria-label="Refresh now" title="Refresh now">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13.5 8a5.5 5.5 0 1 1-1.7-4"/>
+                <path d="M13.5 2.5v3.2h-3.2"/>
+            </svg>
+        </button>
+        <button id="config-toggle" class="icon tiny" type="button" aria-label="Configure intervals"
+                title="Configure intervals" aria-expanded="false">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" aria-hidden="true">
+                <path d="M2 5h12M2 11h12"/>
+                <circle cx="5.5" cy="5" r="1.9" fill="currentColor"/>
+                <circle cx="10.5" cy="11" r="1.9" fill="currentColor"/>
+            </svg>
+        </button>
 
-    <div id="connection" class="notice notice-error" role="alert" hidden>
-        <strong>Lost contact with the application.</strong>
-        <span>It will keep trying. What is shown below may be out of date.</span>
+        <span id="config" class="config" hidden>
+            <label title="How often the application asks Anthropic for usage">fetch
+                <input id="usage-interval" type="text" inputmode="numeric" autocomplete="off" aria-label="Fetch interval in seconds"> s</label>
+            <label title="How often this window updates">update
+                <input id="poll-interval" type="text" inputmode="numeric" autocomplete="off" aria-label="Update interval in seconds"> s</label>
+            <button id="config-ok" class="icon" type="button" aria-label="Confirm" title="Confirm (Enter)">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 8.5l3.3 3.2L13 4.6"/>
+                </svg>
+            </button>
+        </span>
     </div>
 
-    <div id="notice" class="notice" role="status" hidden>
-        <strong id="notice-title"></strong>
-        <span id="notice-detail"></span>
-        <small id="notice-at"></small>
-    </div>
-
-    <section id="spend" aria-label="Spend" hidden>
-        <p class="spend-line">
-            <span id="spend-used" class="figure"></span>
-            <span class="of">of</span>
-            <span id="spend-limit" class="figure"></span>
-        </p>
-        <div class="bar" role="progressbar" aria-label="Spend used" aria-valuemin="0" aria-valuemax="100">
-            <div id="spend-bar" class="bar-fill"></div>
-        </div>
-        <p class="spend-meta">
-            <span id="spend-percent"></span>
-            <span id="spend-severity" class="pill" hidden></span>
-        </p>
-    </section>
-
-    <section id="windows" aria-label="Plan windows" hidden>
-        <ul id="window-list" class="windows"></ul>
-    </section>
-
-    <p id="empty" class="empty" hidden>This account reports no usage.</p>
-
-    <div class="actions">
-        <button id="refresh" type="button">Refresh now</button>
-        <span id="refreshing" class="refreshing" aria-live="polite"></span>
-    </div>
-
-    <details id="settings">
-        <summary>Settings</summary>
-        <div class="field">
-            <label for="usage-interval">Fetch usage from Anthropic every</label>
-            <span><input id="usage-interval" type="text" inputmode="numeric" autocomplete="off"> s</span>
-            <small id="usage-hint"></small>
-        </div>
-        <div class="field">
-            <label for="poll-interval">Update this window every</label>
-            <span><input id="poll-interval" type="text" inputmode="numeric" autocomplete="off"> s</span>
-            <small id="poll-hint"></small>
-        </div>
-        <p id="settings-message" class="settings-message" aria-live="polite"></p>
-    </details>
-</main>
+    <p id="note" class="note" role="status" hidden></p>
+    <p id="config-note" class="note note-error" role="alert" hidden></p>
+    <p id="connection" class="note note-error" role="alert" hidden>Lost contact with the application. Still trying.</p>
+</div>
 <script src="view.js"></script>
 <script src="app.js"></script>
 </body>

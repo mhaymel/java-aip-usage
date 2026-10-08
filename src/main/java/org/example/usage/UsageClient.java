@@ -93,7 +93,7 @@ public final class UsageClient implements UsageSource {
         int status = response.statusCode();
         logOutcome("HTTP " + status, started, diagnostics(response));
         if (status / 100 != 2) {
-            throw new UsageFetchException(describe(status), status);
+            throw new UsageFetchException(describe(status), status, retryAfter(response));
         }
         return parser.parse(response.body(), clock.instant());
     }
@@ -128,11 +128,19 @@ public final class UsageClient implements UsageSource {
                 .ifPresent(value -> details.append(", ").append(label).append(' ').append(value));
     }
 
+    /** The wait the server asked for, if it said so in whole seconds; anything else counts as no answer. */
+    private static Duration retryAfter(HttpResponse<String> response) {
+        return response.headers().firstValue("retry-after")
+                .filter(value -> SECONDS.matcher(value).matches())
+                .map(value -> Duration.ofSeconds(Long.parseLong(value)))
+                .orElse(Duration.ZERO);
+    }
+
     private static String describe(int status) {
         return switch (status) {
             case 401 -> "Anthropic rejected the OAuth token (HTTP 401).";
             case 403 -> "Anthropic refused the usage request (HTTP 403).";
-            case 429 -> "Anthropic is rate limiting usage requests (HTTP 429); this is retried at the next refresh.";
+            case 429 -> "Anthropic is rate limiting usage requests (HTTP 429).";
             default -> "Anthropic returned HTTP " + status + ".";
         };
     }

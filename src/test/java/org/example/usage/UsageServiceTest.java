@@ -48,6 +48,13 @@ class UsageServiceTest {
         return service;
     }
 
+    private UsageService start(Supplier<UsageSnapshot> fetcher, Duration interval, Duration maxBackoff) {
+        UsageService service = new UsageService(fetcher, interval, maxBackoff);
+        started.add(service);
+        service.start();
+        return service;
+    }
+
     /** A fetcher whose calls can be held open until released. */
     private static final class Gate implements Supplier<UsageSnapshot> {
 
@@ -374,6 +381,213 @@ class UsageServiceTest {
         Thread.sleep(900);
 
         assertEquals(1, fetcher.calls.get());
+    }
+
+    // ---- back-off after HTTP 429
+
+    private static UsageFetchException rateLimited() {
+        return new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429);
+    }
+
+    /** A fetcher that answers from a script, one entry per call, and records when each call happened. */
+    private static final class Scripted implements Supplier<UsageSnapshot> {
+
+        private final java.util.List<Boolean> failWith429;
+
+        final java.util.List<Long> callTimesMillis = new CopyOnWriteArrayList<>();
+
+        Scripted(Boolean... failWith429) {
+            this.failWith429 = java.util.List.of(failWith429);
+        }
+
+        @Override
+        public UsageSnapshot get() {
+            int n = callTimesMillis.size();
+            callTimesMillis.add(System.nanoTime() / 1_000_000);
+            if (n < failWith429.size() && failWith429.get(n)) {
+                throw rateLimited();
+            }
+            return snapshot(n);
+        }
+
+        /** The wait before call {@code n}, in milliseconds. */
+        long gapBefore(int n) {
+            return callTimesMillis.get(n) - callTimesMillis.get(n - 1);
+        }
+    }
+
+    @Test
+    void eachRateLimitedRefreshInARowDoublesTheWait() {
+        Scripted fetch = new Scripted(true, true, true, true);
+
+        start(fetch, Duration.ofMillis(50));
+        await(() -> fetch.callTimesMillis.size() >= 4);
+
+        // Interval 50 ms: twice, four times and eight times that, never less.
+        assertTrue(fetch.gapBefore(1) >= 95, "first wait " + fetch.gapBefore(1));
+        assertTrue(fetch.gapBefore(2) >= 190, "second wait " + fetch.gapBefore(2));
+        assertTrue(fetch.gapBefore(3) >= 380, "third wait " + fetch.gapBefore(3));
+    }
+
+    @Test
+    void theWaitStopsGrowingAtTheMaximum() {
+        Scripted fetch = new Scripted(true, true, true, true, true);
+
+        start(fetch, Duration.ofMillis(20), Duration.ofMillis(80));
+        await(() -> fetch.callTimesMillis.size() >= 5);
+
+        assertTrue(fetch.gapBefore(1) >= 38, "40 ms: " + fetch.gapBefore(1));
+        assertTrue(fetch.gapBefore(2) >= 78, "80 ms: " + fetch.gapBefore(2));
+        // Without a cap this would be 160 ms and then 320 ms.
+        assertTrue(fetch.gapBefore(3) < 220, "capped near 80 ms: " + fetch.gapBefore(3));
+        assertTrue(fetch.gapBefore(4) < 220, "capped near 80 ms: " + fetch.gapBefore(4));
+    }
+
+    @Test
+    void aSuccessEasesTheBackoffInsteadOfLiftingIt() {
+        // Interval 100 ms. 429 -> hold 200; 429 -> 400; ok -> eased to 350; 429 -> 700; ok.
+        Scripted fetch = new Scripted(true, true, false, true, false);
+
+        start(fetch, Duration.ofMillis(100));
+        await(() -> fetch.callTimesMillis.size() >= 5);
+
+        assertTrue(fetch.gapBefore(1) >= 190, "after the first 429: " + fetch.gapBefore(1));
+        assertTrue(fetch.gapBefore(2) >= 390, "after the second: " + fetch.gapBefore(2));
+        // Lifted, this would be the plain 100 ms and ask for a 429 again; eased, it is 350 ms.
+        assertTrue(fetch.gapBefore(3) >= 340, "after a success the wait is eased, not dropped: " + fetch.gapBefore(3));
+        assertTrue(fetch.gapBefore(3) < 600, "and no longer than the hold was: " + fetch.gapBefore(3));
+        // The next 429 doubles the eased 350 ms, not the 400 ms from before the success.
+        assertTrue(fetch.gapBefore(4) >= 690, "after the third 429: " + fetch.gapBefore(4));
+    }
+
+    @Test
+    void enoughSuccessesBringTheWaitBackToTheInterval() {
+        // One 429 (hold 100 ms at a 50 ms interval), then only successes: 87, 76, 66, 58 ms ... then gone.
+        Scripted fetch = new Scripted(true);
+
+        start(fetch, Duration.ofMillis(50));
+        await(() -> fetch.callTimesMillis.size() >= 9);
+
+        assertTrue(fetch.gapBefore(1) >= 95, "held: " + fetch.gapBefore(1));
+        assertTrue(fetch.gapBefore(2) >= 80, "eased: " + fetch.gapBefore(2));
+        assertTrue(fetch.gapBefore(2) < fetch.gapBefore(1) + 40, "and shorter than the hold, give or take scheduling: " + fetch.gapBefore(2));
+        assertTrue(fetch.gapBefore(8) < 120, "back to about the interval: " + fetch.gapBefore(8));
+    }
+
+    @Test
+    void theServersOwnRetryAfterIsHonouredWhenLonger() {
+        AtomicInteger calls = new AtomicInteger();
+        java.util.List<Long> times = new CopyOnWriteArrayList<>();
+        start(() -> {
+            times.add(System.nanoTime() / 1_000_000);
+            if (calls.getAndIncrement() == 0) {
+                throw new UsageFetchException("slow down", 429, Duration.ofMillis(700));
+            }
+            return snapshot(1);
+        }, Duration.ofMillis(50));
+
+        await(() -> times.size() >= 2);
+
+        // The doubled interval alone would be 100 ms; the server asked for 700.
+        assertTrue(times.get(1) - times.get(0) >= 690, "waited " + (times.get(1) - times.get(0)));
+    }
+
+    @Test
+    void aShorterRetryAfterDoesNotShortenTheBackoff() {
+        AtomicInteger calls = new AtomicInteger();
+        java.util.List<Long> times = new CopyOnWriteArrayList<>();
+        start(() -> {
+            times.add(System.nanoTime() / 1_000_000);
+            if (calls.getAndIncrement() == 0) {
+                throw new UsageFetchException("slow down", 429, Duration.ofMillis(1));
+            }
+            return snapshot(1);
+        }, Duration.ofMillis(100));
+
+        await(() -> times.size() >= 2);
+
+        assertTrue(times.get(1) - times.get(0) >= 190, "waited " + (times.get(1) - times.get(0)));
+    }
+
+    @Test
+    void theErrorSaysWhenTheNextTryIs() {
+        UsageService service = start(() -> {
+            throw rateLimited();
+        }, Duration.ofSeconds(30));
+
+        await(() -> service.state().error() != null);
+
+        assertEquals("Anthropic is rate limiting usage requests (HTTP 429). Next try in 1 min.", service.state().error());
+    }
+
+    @Test
+    void theNextTryShownGrowsWithEachConsecutiveRateLimit() {
+        AtomicInteger calls = new AtomicInteger();
+        UsageService service = start(() -> {
+            calls.incrementAndGet();
+            throw rateLimited();
+        }, Duration.ofSeconds(30));
+        await(() -> service.state().error() != null);
+        assertTrue(service.state().error().endsWith("Next try in 1 min."), service.state().error());
+
+        // The wait is long, so ask by hand: a person's click is never held back.
+        assertTrue(service.refreshNow());
+        await(() -> calls.get() >= 2 && !service.state().refreshing());
+        assertTrue(service.state().error().endsWith("Next try in 2 min."), service.state().error());
+
+        assertTrue(service.refreshNow());
+        await(() -> calls.get() >= 3 && !service.state().refreshing());
+        assertTrue(service.state().error().endsWith("Next try in 4 min."), service.state().error());
+    }
+
+    @Test
+    void otherFailuresAreNotHeldBack() {
+        java.util.List<Long> times = new CopyOnWriteArrayList<>();
+        start(() -> {
+            times.add(System.nanoTime() / 1_000_000);
+            throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
+        }, Duration.ofMillis(50));
+
+        await(() -> times.size() >= 5);
+
+        // Five tries at a 50 ms interval take about 200 ms; doubling would have taken over 700 ms.
+        assertTrue(times.get(4) - times.get(0) < 600, "took " + (times.get(4) - times.get(0)));
+    }
+
+    @Test
+    void aManualRefreshIsNotHeldBackByTheBackoff() {
+        Scripted fetch = new Scripted(true);
+        UsageService service = start(fetch, Duration.ofSeconds(2));
+        await(() -> fetch.callTimesMillis.size() >= 1 && !service.state().refreshing());
+        // The back-off is now 4 s. A click goes through at once.
+
+        long clicked = System.nanoTime() / 1_000_000;
+        assertTrue(service.refreshNow());
+        await(() -> fetch.callTimesMillis.size() >= 2);
+
+        assertTrue(fetch.callTimesMillis.get(1) - clicked < 1000, "took " + (fetch.callTimesMillis.get(1) - clicked));
+    }
+
+    @Test
+    void theSuccessAfterABackoffClearsTheErrorAsUsual() {
+        Scripted fetch = new Scripted(true);
+        UsageService service = start(fetch, Duration.ofMillis(50));
+
+        await(() -> service.state().snapshot() != null);
+
+        assertNull(service.state().error());
+        assertFalse(service.state().stale());
+    }
+
+    @Test
+    void describesAWaitInSecondsThenMinutes() {
+        assertEquals("1 s", UsageService.describe(1));
+        assertEquals("1 s", UsageService.describe(0));
+        assertEquals("30 s", UsageService.describe(30_000_000_000L));
+        assertEquals("59 s", UsageService.describe(59_000_000_000L));
+        assertEquals("1 min", UsageService.describe(60_000_000_000L));
+        assertEquals("2 min", UsageService.describe(61_000_000_000L));
+        assertEquals("5 min", UsageService.describe(300_000_000_000L));
     }
 
     @Test
