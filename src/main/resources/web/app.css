@@ -281,15 +281,16 @@ input[aria-invalid="true"] {
     color: var(--bad);
 }
 
-/* A row of the history is a table row: the columns spread over the width, the amounts lined up on the right. */
+/* A row of the history is a table row: the columns spread over the width, all but the date centred in theirs. */
 .panel-lines .cols-4 {
     display: grid;
-    grid-template-columns: 1.7fr 1fr 1fr 0.8fr;
-    column-gap: 12px;
+    /* Fixed widths for the date and the currency, in characters, so that nothing is clipped; the amounts share the rest. */
+    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch;
+    column-gap: 8px;
 }
 
 .panel-lines .cols-4 > :not(:first-child) {
-    text-align: right;
+    text-align: center;
 }
 
 /* The header stays at the top of the box while the rows scroll under it. */
@@ -298,4 +299,9 @@ input[aria-invalid="true"] {
     top: 0;
     font-weight: 700;
     background: Canvas;
+}
+
+/* The column titles are centred over their columns, whatever the cells below them do. */
+.panel-lines .head.cols-4 > * {
+    text-align: center;
 }

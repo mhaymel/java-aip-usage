@@ -36,7 +36,13 @@ public final class PanelProbe {
 
     public static void main(String[] args) throws Exception {
         AppFiles files = AppFiles.in(Path.of(args[0]));
-        Files.write(files.log(), List.of("probe log line one", "probe log line two"));
+        // More lines than the panel shows at once, so that what is at its top matters.
+        List<String> logLines = new java.util.ArrayList<>();
+        logLines.add("probe log line one");
+        for (int i = 2; i <= 60; i++) {
+            logLines.add("probe log line " + (i == 60 ? "last" : String.valueOf(i)));
+        }
+        Files.write(files.log(), logLines);
         Files.write(files.history(), List.of(
                 "datetime,used,limit",
                 "2026-10-08 14:24:53,1.00,2.00",
@@ -78,6 +84,13 @@ public final class PanelProbe {
                         + " return Array.from(row.children).map(function (cell) { return cell.textContent; }).join(' '); }).join('|')"));
     }
 
+    /** The text of the row at the top edge of the panel's box, as the person sees it. */
+    private static String topRow() {
+        return "(function () { var box = document.getElementById('panel-lines').getBoundingClientRect();"
+                + " var at = document.elementFromPoint(box.left + 20, box.top + 3);"
+                + " return at ? at.textContent : 'nothing'; })()";
+    }
+
     private static void click(WebEngine page, String button) {
         page.executeScript("document.getElementById('" + button + "').click()");
     }
@@ -93,6 +106,8 @@ public final class PanelProbe {
             after(1.5, () -> {
                 System.out.println("PROBE log=" + size(page));
                 System.out.println("PROBE log-lines=" + lines(page));
+                System.out.println("PROBE log-scroll=" + page.executeScript("document.getElementById('panel-lines').scrollTop"));
+                System.out.println("PROBE log-top=" + page.executeScript(topRow()));
                 click(page, "log-button");
                 after(0.5, () -> {
                     System.out.println("PROBE closed-again=" + size(page));

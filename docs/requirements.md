@@ -299,7 +299,8 @@ The history is shown inside the main window, not in a window of its own.
   recorded usage in a panel in the added space below the first row, below any message line, as lines
   of text like a log file. Pressing the button again hides the panel, and the window goes back to the
   size it had, which is the single row again.
-- **While the panel is shown the window can be resized in height**, by dragging its bottom edge, and the
+- **While the panel is shown the window can be resized in height**, by dragging its bottom edge, down
+  to the size the window has with the panel hidden (it can be made as small as it originally was), and the
   panel takes all the height there is: a taller window shows more lines. Its width stays fixed. When the
   panel is hidden the window is back to fitting its row and cannot be resized. Opening the panel again
   starts again at ten times the row's height, not at the height the person last dragged it to.
@@ -307,15 +308,17 @@ The history is shown inside the main window, not in a window of its own.
   moves.
 - The history is a table with a header row (`datetime`, `used`, `limit`, `currency`, which does not
   scroll away) and one line for each reading, the columns **spread across the width of the panel**, with
-  space between them, not squeezed together: the date and time at the left, the amounts and the
-  currency lined up in their own columns to the right. For example, as wide as the row:
+  a little space between them, no more than needed, so that nothing is cut off (in particular
+  the currency and its title): the date and time at the left, and `used`, `limit` and
+  `currency` each centred horizontally in their own column. For example, as wide as the row:
 
   ```
-  datetime              used      limit    currency
-  2026-10-08 21:01:22   263.89  1000.00    USD
-  2026-10-08 20:46:11   260.66  1000.00    USD
+  datetime               used      limit     currency
+  2026-10-08 21:01:22    263.89    1000.00     USD
+  2026-10-08 20:46:11    260.66    1000.00     USD
   ```
 
+- The column titles are centred over their columns.
 - **The lines are sorted by `datetime`, latest first.** They are sorted by that column, not merely
   taken in reverse file order, so a file that is out of order is still shown right.
 - The text is **small and condensed**, in the manner of a log file: a fixed-width font of about
@@ -427,6 +430,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - Provide a `./gradlew run` task and keep the solution easy to run from the IDE. A distributable macOS app bundle is out of scope for the first version.
 - Prefer simple, testable interaction boundaries between token acquisition, usage fetching, and rendering.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
+- Each line of the log begins with its time in the same form as the usage history file: the local date and time to the second, `yyyy-MM-dd HH:mm:ss`, for example `2026-10-08 16:24:53`, so the log, the history and the window agree on the clock.
 - The log records startup and shutdown, each refresh and how it ended, token acquisition and rejection, settings changes, and for each request to Anthropic its status, duration, size and `request-id`. It never records a token, a header or any part of a response body, and anything shaped like a credential is masked before it is written, as a last line of defence.
 - The local web server listens on the loopback interface only, on a port chosen by the operating system. It refuses a request whose `Host` header is not its own address, which stops another web page from reaching it by DNS rebinding, and it accepts a `POST` only as `application/json`, which another origin cannot send without a preflight the server never grants. No endpoint accepts, returns or logs a credential.
 - The program starts from an IDE as a plain `main` method, with no module path or VM options, as well as with `./gradlew run`.

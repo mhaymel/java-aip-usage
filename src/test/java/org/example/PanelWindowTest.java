@@ -42,8 +42,10 @@ class PanelWindowTest {
         assertEquals(closed, height(all, "closed-again"), "and back to its size when the panel is hidden");
         assertTrue(all.contains("PROBE history-lines=2026-10-08 14:26:53 3.00 4.00 |2026-10-08 14:25:53 2.00 2.00 |2026-10-08 14:24:53 1.00 2.00 "),
                 "the history panel shows the rows, newest first:\n" + all);
-        assertTrue(all.contains("PROBE log-lines=") && all.contains("probe log line two|probe log line one"),
-                "the log panel shows the lines, newest first:\n" + all);
+        assertTrue(all.contains("PROBE log-lines=probe log line last|probe log line 59|"),
+                "the log panel has the lines newest first:\n" + all);
+        assertTrue(all.contains("PROBE log-scroll=0"), "and is scrolled to the top:\n" + all);
+        assertTrue(all.contains("PROBE log-top=probe log line last"), "so the newest line is the first the person sees:\n" + all);
         assertTrue(all.contains("PROBE other-windows=0"), "no window besides the main one:\n" + all);
         assertTrue(all.contains("PROBE the program ended after the main window was closed"), all);
         assertEquals(0, exit, "the program ended by itself once the main window was closed:\n" + all);

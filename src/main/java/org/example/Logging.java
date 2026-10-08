@@ -5,6 +5,9 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
@@ -117,8 +120,18 @@ final class Logging implements AutoCloseable {
         root.setLevel(previousLevel);
     }
 
+    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
+
     /**
-     * One line per record: timestamp, level, short logger name, message, then any
+     * A time written the way the usage history file writes it, {@code 2026-10-08 16:24:53}: the local
+     * date and time to the second, so the two files and the window all show the same clock.
+     */
+    static String timestamp(long epochMillis, ZoneId zone) {
+        return TIME.format(Instant.ofEpochMilli(epochMillis).atZone(zone));
+    }
+
+    /**
+     * One line per record: timestamp (as in the usage history file), level, short logger name, message, then any
      * stack trace. Everything written passes through {@link Redaction}.
      */
     private static final class LineFormatter extends Formatter {
@@ -127,7 +140,7 @@ final class Logging implements AutoCloseable {
         public String format(LogRecord record) {
             String logger = record.getLoggerName() == null ? "" : record.getLoggerName();
             StringBuilder line = new StringBuilder()
-                    .append(Instant.ofEpochMilli(record.getMillis()))
+                    .append(timestamp(record.getMillis(), ZoneId.systemDefault()))
                     .append(' ')
                     .append(String.format("%-7s", record.getLevel().getName()))
                     .append(" [").append(logger.substring(logger.lastIndexOf('.') + 1)).append("] ")

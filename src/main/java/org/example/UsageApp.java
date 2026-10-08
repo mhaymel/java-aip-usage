@@ -63,6 +63,11 @@ public class UsageApp extends Application {
 
     private double decorationHeight = Double.NaN;
 
+    /** The size of the window with no panel open, as decorated; what an open one may be shrunk to. */
+    private double closedWidth = Double.MAX_VALUE;
+
+    private double closedHeight = Double.MAX_VALUE;
+
     private boolean fitFailureReported;
 
     @Override
@@ -90,8 +95,8 @@ public class UsageApp extends Application {
         stage.setTitle(AppInfo.windowTitle());
         stage.setScene(new Scene(webView, INITIAL_WIDTH, INITIAL_HEIGHT));
         // The window is as big as the page needs and no bigger, so there is nothing to drag,
-        // except while a panel is shown; see resize.
-        stage.setResizable(false);
+        // except while a panel is shown; see resize, which sets the limits that say what may be dragged.
+        stage.setResizable(true);
         stage.show();
         keepFitting(webView, stage);
     }
@@ -123,20 +128,36 @@ public class UsageApp extends Application {
         appliedSize = Optional.of(size);
         double width = size.width() + decorationWidth;
         double height = size.height() + decorationHeight;
-        // Limits first, so that they never forbid the size set next.
+        if (!size.resizable()) {
+            // The window as it is with nothing open: what the person may shrink an open one back to.
+            closedWidth = width;
+            closedHeight = height;
+        }
+        // The limits are opened wide first, so that they never forbid the size set next.
         stage.setMinWidth(0);
         stage.setMaxWidth(Double.MAX_VALUE);
         stage.setMinHeight(0);
         stage.setMaxHeight(Double.MAX_VALUE);
         stage.setWidth(width);
         stage.setHeight(height);
-        stage.setResizable(size.resizable());
-        if (size.resizable()) {
-            // No smaller than the size the page asked for. The width is the person's only if the page said so.
-            stage.setMinWidth(width);
-            stage.setMinHeight(height);
-            if (size.resize() == WindowFit.Resize.HEIGHT) {
+        // The window stays resizable and the limits say what of it the person may change; toggling
+        // the window's resizable flag instead is not something every desktop follows.
+        switch (size.resize()) {
+            case NONE -> {
+                stage.setMinWidth(width);
                 stage.setMaxWidth(width);
+                stage.setMinHeight(height);
+                stage.setMaxHeight(height);
+            }
+            case HEIGHT -> {
+                // The width is fixed; the height may be anything from the closed window's up.
+                stage.setMinWidth(width);
+                stage.setMaxWidth(width);
+                stage.setMinHeight(Math.min(closedHeight, height));
+            }
+            case BOTH -> {
+                stage.setMinWidth(Math.min(closedWidth, width));
+                stage.setMinHeight(Math.min(closedHeight, height));
             }
         }
         LOG.log(Level.INFO, "Window fitted to " + size.width() + "x" + size.height() + (size.resizable() ? " (resizable: " + size.resize().name().toLowerCase() + ")" : "")

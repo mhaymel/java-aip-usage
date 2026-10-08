@@ -267,16 +267,25 @@ test('the row has its own width, which the window follows: it wraps at 900 px, a
     assert.doesNotMatch(ruleOf('#app'), /max-width/, 'a wide log is not held to the width of the row');
 });
 
-test('the history is a table: four columns spread over the width with space between, amounts on the right', () => {
+test('the history is a table: four columns spread over the width, close together, used, limit and currency centred', () => {
     const table = ruleOf('.panel-lines .cols-4');
     assert.match(table, /display:\s*grid/);
-    const columns = table.match(/grid-template-columns:\s*([^;]+);/)[1].trim().split(/\s+/);
+    const columns = table.match(/grid-template-columns:\s*(.+);/)[1].trim().split(/\s+(?![^(]*\))/);
     assert.equal(columns.length, 4);
-    for (const column of columns) {
-        assert.match(column, /^[0-9.]+fr$/, 'each column takes a share of the width, so they spread to fill it');
-    }
-    assert.match(table, /column-gap:\s*\d+px/, 'with space between the columns');
-    assert.match(ruleOf('.panel-lines .cols-4 > :not(:first-child)'), /text-align:\s*right/);
+    assert.match(columns[0], /^\d+ch$/, 'the date has room for what it holds, so is not clipped');
+    assert.match(columns[3], /^\d+ch$/, 'and so has the currency, with its title');
+    assert.ok(Number(columns[3].replace('ch', '')) >= 'currency'.length, 'wide enough for its own title');
+    assert.ok(Number(columns[0].replace('ch', '')) >= '2026-10-08 21:01:22'.length);
+    assert.match(columns[1], /fr/, 'the amounts share what is left, which is how they spread over the width');
+    assert.match(columns[2], /fr/);
+    assert.ok(Number(table.match(/column-gap:\s*(\d+)px/)[1]) <= 10, 'little space between the columns');
+    assert.match(ruleOf('.panel-lines .cols-4 > :not(:first-child)'), /text-align:\s*center/);
+    assert.doesNotMatch(table, /text-align/, 'the date keeps the default, at the left');
+});
+
+test('the column titles are centred, and that rule comes after the one aligning the cells', () => {
+    assert.match(ruleOf('.panel-lines .head.cols-4 > *'), /text-align:\s*center/);
+    assert.ok(css.indexOf('.panel-lines .head.cols-4 > *') > css.indexOf('.panel-lines .cols-4 > :not(:first-child)'), 'so it wins');
 });
 
 test('the table header stays at the top of the panel as the rows scroll, and is bold', () => {
