@@ -94,7 +94,36 @@ class ClaudeTokenProviderTest {
         TokenException e = assertThrows(TokenException.class, provider::acquire);
 
         assertEquals(Reason.NOT_INSTALLED, e.reason());
-        assertTrue(e.getMessage().contains("PATH"), e.getMessage());
+        assertTrue(e.getMessage().startsWith("Claude Code could not be found on the PATH."), e.getMessage());
+        // The operating system's own wording is noise to a user.
+        assertFalse(e.getMessage().contains("error="), e.getMessage());
+        assertFalse(e.getMessage().contains("Exec failed"), e.getMessage());
+    }
+
+    @Test
+    void sayingNotInstalledAlsoExplainsWhenARestartIsNeeded() {
+        ClaudeTokenProvider provider = new ClaudeTokenProvider(
+                Map.of(), List.of("no-such-claude-executable"), TIMEOUT, logged::add, warned::add);
+
+        String message = assertThrows(TokenException.class, provider::acquire).getMessage();
+
+        assertTrue(message.contains("retry"), message);
+        assertTrue(message.contains("restart this application"), message);
+    }
+
+    @Test
+    void aCommandThatIsFoundButCannotBeRunReportsTheRealReason() throws IOException {
+        // A file with no execute permission: present, but the system refuses to run it.
+        Path notExecutable = Files.createFile(dir.resolve("claude"));
+        ClaudeTokenProvider provider = new ClaudeTokenProvider(
+                Map.of(), List.of(notExecutable.toString()), TIMEOUT, logged::add, warned::add);
+
+        TokenException e = assertThrows(TokenException.class, provider::acquire);
+
+        assertEquals(Reason.NOT_INSTALLED, e.reason());
+        assertTrue(e.getMessage().startsWith("Claude Code was found but could not be started:"), e.getMessage());
+        assertTrue(e.getMessage().contains("Permission denied"), e.getMessage());
+        assertFalse(e.getMessage().contains("not be found on the PATH"), e.getMessage());
     }
 
     @Test

@@ -205,8 +205,10 @@ capture server are always stopped, and the token is never logged. Subprocess
 output is logged on failure with credential-shaped text redacted.
 
 Differences from `java-aip`: the capture server takes an OS-assigned loopback
-port instead of probing 9000-9100, and the `ClaudeLocator` PATH search is
-dropped, since a failed launch already reports a missing CLI. Tests run a
+port instead of probing 9000-9100, and `ClaudeLocator` is replaced by a small
+PATH check made only when the launch fails, to tell "not on the PATH" (with
+advice, including that a changed PATH needs a restart) from "found but cannot be
+run" (with the system's reason). Tests run a
 stand-in for `claude` (`FakeClaude`) as a real subprocess making real HTTP
 requests. The real CLI is not exercised by the automated tests.
 

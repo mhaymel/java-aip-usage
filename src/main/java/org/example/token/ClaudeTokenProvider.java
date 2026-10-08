@@ -3,9 +3,12 @@ package org.example.token;
 import org.example.token.TokenException.Reason;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -139,12 +142,7 @@ public final class ClaudeTokenProvider implements TokenProvider {
         try {
             process = builder.start();
         } catch (IOException e) {
-            throw new TokenException(
-                    Reason.NOT_INSTALLED,
-                    "Claude Code could not be started (" + e.getMessage() + ")."
-                            + " Install it and make sure `" + command.get(0) + "` is on the PATH of the"
-                            + " environment this application was started from, then retry.",
-                    e);
+            throw notStarted(e);
         }
         try {
             // Nothing to send; an open stdin could make the CLI wait for input.
@@ -154,6 +152,47 @@ public final class ClaudeTokenProvider implements TokenProvider {
         }
         log.accept("Started " + String.join(" ", command));
         return process;
+    }
+
+    /**
+     * Says what is wrong when the CLI cannot be started. A command that is on no
+     * PATH directory is simply missing; one that is found but will not start has
+     * a reason of its own (permissions, say) that the user needs to see.
+     */
+    private TokenException notStarted(IOException cause) {
+        String name = command.get(0);
+        if (isBareName(name) && !onPath(name)) {
+            return new TokenException(
+                    Reason.NOT_INSTALLED,
+                    "Claude Code could not be found on the PATH. Install it, then retry."
+                            + " If it is installed somewhere the PATH does not cover, add that directory and"
+                            + " restart this application, which keeps the PATH it was started with.",
+                    cause);
+        }
+        return new TokenException(
+                Reason.NOT_INSTALLED,
+                "Claude Code was found but could not be started: " + cause.getMessage().strip()
+                        + ". Check that it is installed correctly and can be run, then retry.",
+                cause);
+    }
+
+    /** A command with no directory part, which the operating system looks up on the PATH. */
+    private static boolean isBareName(String name) {
+        return !name.contains("/") && !name.contains(File.separator);
+    }
+
+    private static boolean onPath(String name) {
+        String path = System.getenv("PATH");
+        if (path == null) {
+            return false;
+        }
+        for (String directory : path.split(File.pathSeparator)) {
+            if (!directory.isBlank() && Files.isExecutable(Path.of(directory, name))
+                    && Files.isRegularFile(Path.of(directory, name))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String await(CompletableFuture<String> credential, Process process, Output output) {
