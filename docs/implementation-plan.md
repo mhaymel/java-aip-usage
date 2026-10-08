@@ -250,9 +250,9 @@ passed starts the next fetch as soon as none is running. Range validation
 (5-3600 s and 1-60 s) is not in the service, which accepts any positive
 interval; it belongs to the settings and API layer in phase 5.
 
-Not covered by tests: the real endpoint and real `claude`. Redirects, proxies
-and TLS are left to the JDK defaults; there is no `HTTPS_PROXY` support (see
-`java-aip`'s `EnvProxySelector`).
+Not covered by tests: the real endpoint and real `claude`. TLS is left to the JDK
+defaults. Proxy support (`HTTPS_PROXY`, as in `java-aip`'s `EnvProxySelector`) is
+deliberately not included, by decision.
 
 ### 5. Add local API, settings, and UI
 
@@ -381,9 +381,10 @@ be launched with `./gradlew run` on macOS.
   and the IDE, a logging section, and known limitations. The app bundle stays
   deferred.
 
-**Left open on purpose** (see the README's known limitations): `HTTPS_PROXY`
-support, a live check of the plan-window view against a Pro or Max account, and
-Windows and Linux.
+**Left open on purpose** (see the README's known limitations): a live check of the
+plan-window view against a Pro or Max account, and Windows and Linux.
+
+**Decided against:** `HTTPS_PROXY` support. The application connects directly.
 
 ## Validation strategy
 

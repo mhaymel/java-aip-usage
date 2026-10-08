@@ -32,7 +32,7 @@ repos.
   [Where the token comes from](#where-the-token-comes-from)). Without it the
   window still opens, but it shows what to do instead of usage, and the Refresh
   button tries again.
-- **Network access to `api.anthropic.com`**, directly. Proxies are not supported.
+- **Direct network access to `api.anthropic.com`.** Proxies are not used.
 
 The first version targets macOS.
 
@@ -144,8 +144,8 @@ would still not reach the file.
 - **Needs Claude Code.** There is no other way to sign in. The window helps when
   it is missing, but cannot fix it for you. Changing your `PATH` needs an
   application restart, because a running program keeps the `PATH` it started with.
-- **No proxy support.** `HTTPS_PROXY` is not read, so a network that needs one
-  will show "Cannot reach api.anthropic.com". `java-aip` has code for this.
+- **Direct connection only, by design.** `HTTPS_PROXY` is deliberately not read,
+  so a network that requires a proxy will show "Cannot reach api.anthropic.com".
 - **An undocumented endpoint.** `/api/oauth/usage` is the one Claude Code polls,
   not a published API. If its format changes you get an error naming the problem
   rather than wrong numbers, but you may need a parser update.
