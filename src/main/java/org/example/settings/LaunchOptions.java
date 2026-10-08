@@ -18,7 +18,8 @@ public record LaunchOptions(OptionalInt usageInterval, OptionalInt pollInterval,
               --poll-interval <seconds>   how often the window asks for the latest state (%d-%d, default %d)
               -h, --help                  show this help
 
-            Values chosen in the window are saved to settings.json and replace these for the rest of the run."""
+            A usage interval chosen in the window is saved to settings.json and replaces --usage-interval
+            for the rest of the run. --poll-interval applies to this run only and is never saved."""
             .formatted(
                     IntervalRange.USAGE.min(), IntervalRange.USAGE.max(), IntervalRange.USAGE.defaultValue(),
                     IntervalRange.POLL.min(), IntervalRange.POLL.max(), IntervalRange.POLL.defaultValue());

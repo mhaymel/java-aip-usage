@@ -15,10 +15,9 @@
     var polling = false;
     var lastWindowsKey = null;
 
-    var INTERVALS = [
-        { input: 'usage-interval', key: 'usageIntervalSeconds', label: 'The usage interval' },
-        { input: 'poll-interval', key: 'pollIntervalSeconds', label: 'The update interval' }
-    ];
+    // The one setting the window offers. How often the window itself updates is not
+    // a setting: it comes from the command line and is only read here.
+    var INTERVAL = { input: 'usage-interval', key: 'usageIntervalSeconds', label: 'The usage interval' };
 
     function $(id) {
         return document.getElementById(id);
@@ -155,29 +154,25 @@
         });
     }
 
-    // ---- config: two fields that appear on demand, confirmed together
+    // ---- config: a field that appears on demand
 
     function configIsOpen() {
         return !$('config').hidden;
     }
 
     function openConfig() {
-        INTERVALS.forEach(function (field) {
-            $(field.input).value = String(config[field.key]);
-            $(field.input).removeAttribute('aria-invalid');
-        });
+        $(INTERVAL.input).value = String(config[INTERVAL.key]);
+        $(INTERVAL.input).removeAttribute('aria-invalid');
         setNote('config-note', '');
         show('config', true);
         $('config-toggle').setAttribute('aria-expanded', 'true');
-        $(INTERVALS[0].input).focus();
+        $(INTERVAL.input).focus();
     }
 
     function closeConfig() {
         show('config', false);
         setNote('config-note', '');
-        INTERVALS.forEach(function (field) {
-            $(field.input).removeAttribute('aria-invalid');
-        });
+        $(INTERVAL.input).removeAttribute('aria-invalid');
         $('config-toggle').setAttribute('aria-expanded', 'false');
     }
 
@@ -189,44 +184,27 @@
         }
     }
 
-    /** Checks both values, then sends only those that changed, in one request. */
+    /** Checks the value, then sends it if it changed. */
     async function confirmConfig() {
-        var problems = [];
-        INTERVALS.forEach(function (field) {
-            var problem = view.checkInterval($(field.input).value, config.limits[field.key], field.label);
-            if (problem) {
-                problems.push(problem);
-                $(field.input).setAttribute('aria-invalid', 'true');
-            } else {
-                $(field.input).removeAttribute('aria-invalid');
-            }
-        });
-        if (problems.length > 0) {
-            setNote('config-note', problems[0]);
+        var problem = view.checkInterval($(INTERVAL.input).value, config.limits[INTERVAL.key], INTERVAL.label);
+        if (problem) {
+            $(INTERVAL.input).setAttribute('aria-invalid', 'true');
+            setNote('config-note', problem);
             return;
         }
+        $(INTERVAL.input).removeAttribute('aria-invalid');
 
-        var change = {};
-        INTERVALS.forEach(function (field) {
-            var value = Number($(field.input).value.trim());
-            if (value !== config[field.key]) {
-                change[field.key] = value;
-            }
-        });
-        if (Object.keys(change).length === 0) {
+        var value = Number($(INTERVAL.input).value.trim());
+        if (value === config[INTERVAL.key]) {
             closeConfig();
             return;
         }
 
         try {
-            var updated = await postJson('/api/config', change);
-            var pollChanged = updated.pollIntervalSeconds !== config.pollIntervalSeconds;
-            config = updated;
+            var change = {};
+            change[INTERVAL.key] = value;
+            config = await postJson('/api/config', change);
             closeConfig();
-            if (pollChanged) {
-                // The new rhythm takes effect now, not after the old wait runs out.
-                pollNow();
-            }
         } catch (e) {
             setNote('config-note', e.message);
         }
@@ -268,9 +246,7 @@
 
         $('config-toggle').addEventListener('click', toggleConfig);
         $('config-ok').addEventListener('click', confirmConfig);
-        INTERVALS.forEach(function (field) {
-            $(field.input).addEventListener('keydown', onConfigKey);
-        });
+        $(INTERVAL.input).addEventListener('keydown', onConfigKey);
         $('refresh').addEventListener('click', async function () {
             try {
                 await postJson('/api/refresh', {});

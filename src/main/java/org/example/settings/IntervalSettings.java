@@ -6,13 +6,17 @@ import java.util.OptionalInt;
 import java.util.function.Consumer;
 
 /**
- * The two intervals in force, and how they change.
+ * The two intervals in force, and how the usage interval changes.
  *
- * <p>At startup a value comes from the command line if given, else from the
- * settings file, else the default. A value committed in the UI replaces the
- * command-line one for the rest of the run, takes effect at once, and is saved.
- * A command-line value is never saved on its own: it is an override for one
- * run, so the file keeps what the user last chose in the UI.
+ * <p>The usage interval, how often usage is fetched from Anthropic, comes at startup
+ * from the command line if given, else from the settings file, else the default. A
+ * value committed in the UI replaces the command-line one for the rest of the run,
+ * takes effect at once, and is saved. A command-line value is never saved on its own:
+ * it is an override for one run, so the file keeps what the user last chose in the UI.
+ *
+ * <p>The update interval, how often the window asks for the latest state, is not a
+ * setting. It is the command-line value if given, else the default, and nothing
+ * changes or saves it.
  */
 public final class IntervalSettings {
 
@@ -20,12 +24,12 @@ public final class IntervalSettings {
 
     private final SettingsStore store;
 
-    /** What the file holds; the effective values may differ, through a command-line override. */
+    /** What the file holds; the effective usage interval may differ, through a command-line override. */
     private SettingsStore.Saved saved;
 
     private int usageSeconds;
 
-    private int pollSeconds;
+    private final int pollSeconds;
 
     private Consumer<Duration> usageListener = interval -> { };
 
@@ -38,26 +42,25 @@ public final class IntervalSettings {
 
     /**
      * @param cliUsage the {@code --usage-interval} override, if given; already validated
-     * @param cliPoll the {@code --poll-interval} override, if given; already validated
+     * @param cliPoll the {@code --poll-interval} value, if given; already validated
      */
     public static IntervalSettings load(SettingsStore store, OptionalInt cliUsage, OptionalInt cliPoll) {
         SettingsStore.Saved saved = store.load();
-        int usage = cliUsage.orElse(orDefault(saved.usageIntervalSeconds(), IntervalRange.USAGE));
-        int poll = cliPoll.orElse(orDefault(saved.pollIntervalSeconds(), IntervalRange.POLL));
+        int usage = cliUsage.orElse(saved.usageIntervalSeconds() != null
+                ? saved.usageIntervalSeconds()
+                : IntervalRange.USAGE.defaultValue());
+        int poll = cliPoll.orElse(IntervalRange.POLL.defaultValue());
         IntervalSettings settings = new IntervalSettings(store, saved, usage, poll);
         LOG.log(System.Logger.Level.INFO, "Usage interval " + usage + " s, poll interval " + poll + " s");
         return settings;
-    }
-
-    private static int orDefault(Integer value, IntervalRange range) {
-        return value != null ? value : range.defaultValue();
     }
 
     public synchronized int usageSeconds() {
         return usageSeconds;
     }
 
-    public synchronized int pollSeconds() {
+    /** Fixed for the run: the command-line value, or the default. */
+    public int pollSeconds() {
         return pollSeconds;
     }
 
@@ -71,28 +74,18 @@ public final class IntervalSettings {
     }
 
     /**
-     * Commits values chosen in the UI. Both are checked before either is
-     * applied, and nothing changes if the file cannot be written.
+     * Commits a usage interval chosen in the UI. Nothing changes if it is out of
+     * range, or if the file cannot be written.
      *
-     * @param usage the new usage interval in seconds, or {@code null} to leave it
-     * @param poll the new poll interval in seconds, or {@code null} to leave it
-     * @throws InvalidSettingException if a value is outside its range
-     * @throws SettingsException if the values could not be saved
+     * @throws InvalidSettingException if the value is outside its range
+     * @throws SettingsException if the value could not be saved
      */
-    public synchronized void update(Long usage, Long poll) {
-        if (usage == null && poll == null) {
-            throw new InvalidSettingException("No setting was given.");
-        }
-        if (usage != null && !IntervalRange.USAGE.contains(usage)) {
+    public synchronized void updateUsage(long seconds) {
+        if (!IntervalRange.USAGE.contains(seconds)) {
             throw new InvalidSettingException(IntervalRange.USAGE.describeLimit());
         }
-        if (poll != null && !IntervalRange.POLL.contains(poll)) {
-            throw new InvalidSettingException(IntervalRange.POLL.describeLimit());
-        }
 
-        SettingsStore.Saved updated = new SettingsStore.Saved(
-                usage != null ? Integer.valueOf(usage.intValue()) : saved.usageIntervalSeconds(),
-                poll != null ? Integer.valueOf(poll.intValue()) : saved.pollIntervalSeconds());
+        SettingsStore.Saved updated = new SettingsStore.Saved((int) seconds);
         if (!updated.equals(saved)) {
             try {
                 store.save(updated);
@@ -103,12 +96,8 @@ public final class IntervalSettings {
             saved = updated;
         }
 
-        if (poll != null) {
-            pollSeconds = poll.intValue();
-            LOG.log(System.Logger.Level.INFO, "Poll interval is now " + pollSeconds + " s");
-        }
-        if (usage != null && usage.intValue() != usageSeconds) {
-            usageSeconds = usage.intValue();
+        if (seconds != usageSeconds) {
+            usageSeconds = (int) seconds;
             usageListener.accept(Duration.ofSeconds(usageSeconds));
         }
     }

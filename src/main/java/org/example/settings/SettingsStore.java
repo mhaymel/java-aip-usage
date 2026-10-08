@@ -11,8 +11,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 /**
- * The settings file: the two intervals the user has chosen in the UI, and
- * nothing else. In particular it never holds a credential.
+ * The settings file: the usage interval the user has chosen in the UI, and nothing
+ * else. In particular it never holds a credential. The update interval is not kept
+ * here: it is set on the command line, for one run. A file written by an earlier
+ * version may still carry it, and it is ignored.
  *
  * <p>Reading is forgiving, because a hand-edited or damaged file must not stop
  * the application from starting: anything unusable is logged and ignored.
@@ -22,14 +24,12 @@ public final class SettingsStore {
 
     static final String USAGE_KEY = "usageIntervalSeconds";
 
-    static final String POLL_KEY = "pollIntervalSeconds";
-
     private static final System.Logger LOG = System.getLogger(SettingsStore.class.getName());
 
     /** What the file holds; {@code null} for a setting it does not hold. */
-    public record Saved(Integer usageIntervalSeconds, Integer pollIntervalSeconds) {
+    public record Saved(Integer usageIntervalSeconds) {
 
-        public static final Saved NONE = new Saved(null, null);
+        public static final Saved NONE = new Saved(null);
     }
 
     private final Path file;
@@ -60,9 +60,7 @@ public final class SettingsStore {
             LOG.log(System.Logger.Level.WARNING, "Ignoring settings file " + file + ": not a JSON object");
             return Saved.NONE;
         }
-        return new Saved(
-                value(root, USAGE_KEY, IntervalRange.USAGE),
-                value(root, POLL_KEY, IntervalRange.POLL));
+        return new Saved(value(root, USAGE_KEY, IntervalRange.USAGE));
     }
 
     private Integer value(JsonNode root, String key, IntervalRange range) {
@@ -86,9 +84,6 @@ public final class SettingsStore {
         ObjectNode root = mapper.createObjectNode();
         if (settings.usageIntervalSeconds() != null) {
             root.put(USAGE_KEY, settings.usageIntervalSeconds());
-        }
-        if (settings.pollIntervalSeconds() != null) {
-            root.put(POLL_KEY, settings.pollIntervalSeconds());
         }
 
         Path temporary = file.resolveSibling(file.getFileName() + ".tmp");

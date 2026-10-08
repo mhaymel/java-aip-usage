@@ -124,17 +124,23 @@ class ApiTest {
     // ---- /api/config: the effective intervals, requested by the UI at startup
 
     @Test
-    void startupConfigReportsTheEffectiveIntervalsAndTheirLimits() throws Exception {
+    void startupConfigReportsTheEffectiveIntervalsAndTheUsageLimits() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
         JsonNode config = json(get(app, "/api/config"));
 
-        assertEquals(30, config.get("usageIntervalSeconds").asInt());
+        assertEquals(60, config.get("usageIntervalSeconds").asInt());
         assertEquals(1, config.get("pollIntervalSeconds").asInt());
         assertEquals(5, config.at("/limits/usageIntervalSeconds/min").asInt());
         assertEquals(3600, config.at("/limits/usageIntervalSeconds/max").asInt());
-        assertEquals(1, config.at("/limits/pollIntervalSeconds/min").asInt());
-        assertEquals(60, config.at("/limits/pollIntervalSeconds/max").asInt());
+    }
+
+    @Test
+    void theUpdateIntervalIsReportedButHasNoLimitsBecauseItCannotBeEdited() throws Exception {
+        JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
+
+        assertTrue(config.get("pollIntervalSeconds").isInt(), "the page needs it to know how often to poll");
+        assertTrue(config.at("/limits/pollIntervalSeconds").isMissingNode(), "nothing to validate: " + config);
     }
 
     @Test
@@ -148,25 +154,23 @@ class ApiTest {
     }
 
     @Test
-    void startupConfigReflectsTheSavedSettings() throws Exception {
-        new SettingsStore(dir.resolve("settings.json")).save(new SettingsStore.Saved(120, 5));
+    void startupConfigReflectsTheSavedUsageInterval() throws Exception {
+        new SettingsStore(dir.resolve("settings.json")).save(new SettingsStore.Saved(120));
 
         JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
 
         assertEquals(120, config.get("usageIntervalSeconds").asInt());
-        assertEquals(5, config.get("pollIntervalSeconds").asInt());
+        assertEquals(1, config.get("pollIntervalSeconds").asInt());
     }
 
     @Test
-    void aValidPollIntervalIsAppliedAtOnceAndSaved() throws Exception {
-        AppRuntime app = start(new FakeFetch());
+    void anUpdateIntervalLeftInTheFileByAnEarlierVersionIsNotUsed() throws Exception {
+        Files.writeString(dir.resolve("settings.json"), "{\"usageIntervalSeconds\": 120, \"pollIntervalSeconds\": 5}");
 
-        HttpResponse<String> response = post(app, "/api/config", "{\"pollIntervalSeconds\": 7}");
+        JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
 
-        assertEquals(200, response.statusCode());
-        assertEquals(7, json(response).get("pollIntervalSeconds").asInt());
-        assertEquals(7, json(get(app, "/api/config")).get("pollIntervalSeconds").asInt());
-        assertEquals(7, new SettingsStore(dir.resolve("settings.json")).load().pollIntervalSeconds());
+        assertEquals(120, config.get("usageIntervalSeconds").asInt());
+        assertEquals(1, config.get("pollIntervalSeconds").asInt());
     }
 
     @Test
@@ -176,44 +180,88 @@ class ApiTest {
         HttpResponse<String> response = post(app, "/api/config", "{\"usageIntervalSeconds\": 90}");
 
         assertEquals(200, response.statusCode());
+        assertEquals(90, json(response).get("usageIntervalSeconds").asInt());
         assertEquals(Duration.ofSeconds(90), app.service().interval());
         assertEquals(90, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds());
+        assertEquals(90, json(get(app, "/api/config")).get("usageIntervalSeconds").asInt());
     }
 
     @Test
     void aFrontendValueReplacesTheCommandLineOverrideForTheRestOfTheRun() throws Exception {
         AppRuntime app = start(new FakeFetch(), cli(10, 4));
 
-        post(app, "/api/config", "{\"usageIntervalSeconds\": 60, \"pollIntervalSeconds\": 2}");
+        post(app, "/api/config", "{\"usageIntervalSeconds\": 75}");
 
         JsonNode config = json(get(app, "/api/config"));
-        assertEquals(60, config.get("usageIntervalSeconds").asInt());
-        assertEquals(2, config.get("pollIntervalSeconds").asInt());
-        assertEquals(Duration.ofSeconds(60), app.service().interval());
+        assertEquals(75, config.get("usageIntervalSeconds").asInt());
+        assertEquals(4, config.get("pollIntervalSeconds").asInt(), "the update interval is still the command-line one");
+        assertEquals(Duration.ofSeconds(75), app.service().interval());
     }
 
     @Test
-    void aChangeSurvivesARestart() throws Exception {
-        AppRuntime first = start(new FakeFetch());
-        post(first, "/api/config", "{\"usageIntervalSeconds\": 200, \"pollIntervalSeconds\": 9}");
+    void aChangeSurvivesARestartButACommandLineUpdateIntervalDoesNot() throws Exception {
+        AppRuntime first = start(new FakeFetch(), cli(null, 9));
+        post(first, "/api/config", "{\"usageIntervalSeconds\": 200}");
         first.close();
 
         JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
 
         assertEquals(200, config.get("usageIntervalSeconds").asInt());
-        assertEquals(9, config.get("pollIntervalSeconds").asInt());
+        assertEquals(1, config.get("pollIntervalSeconds").asInt());
     }
 
     @Test
-    void invalidIntervalsAreRefusedWithAReasonAndChangeNothing() throws Exception {
+    void theSavedFileNeverHoldsTheUpdateInterval() throws Exception {
+        AppRuntime app = start(new FakeFetch(), cli(null, 9));
+
+        post(app, "/api/config", "{\"usageIntervalSeconds\": 200}");
+
+        assertFalse(Files.readString(dir.resolve("settings.json")).contains("poll"), Files.readString(dir.resolve("settings.json")));
+    }
+
+    // ---- the update interval cannot be changed through the API
+
+    @Test
+    void anAttemptToChangeTheUpdateIntervalIsRefusedAndSaysWhatToDoInstead() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        HttpResponse<String> response = post(app, "/api/config", "{\"pollIntervalSeconds\": 7}");
+
+        assertEquals(400, response.statusCode());
+        assertTrue(json(response).get("error").asText().contains("--poll-interval"), response.body());
+        assertEquals(1, json(get(app, "/api/config")).get("pollIntervalSeconds").asInt());
+        assertFalse(Files.exists(dir.resolve("settings.json")), "nothing was saved");
+    }
+
+    @Test
+    void aValidUsageIntervalSentTogetherWithAnUpdateIntervalIsRefusedWhole() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        HttpResponse<String> response = post(app, "/api/config", "{\"usageIntervalSeconds\": 90, \"pollIntervalSeconds\": 5}");
+
+        assertEquals(400, response.statusCode());
+        assertEquals(60, json(get(app, "/api/config")).get("usageIntervalSeconds").asInt(), "the valid half was not applied either");
+        assertFalse(Files.exists(dir.resolve("settings.json")));
+    }
+
+    @Test
+    void anExplicitlyNullUpdateIntervalIsTreatedAsNotGiven() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        assertEquals(200, post(app, "/api/config", "{\"usageIntervalSeconds\": 90, \"pollIntervalSeconds\": null}").statusCode());
+    }
+
+    // ---- invalid usage intervals
+
+    @Test
+    void invalidUsageIntervalsAreRefusedWithAReasonAndChangeNothing() throws Exception {
         AppRuntime app = start(new FakeFetch());
         String[] bodies = {
                 "{\"usageIntervalSeconds\": 4}", "{\"usageIntervalSeconds\": 3601}",
-                "{\"pollIntervalSeconds\": 0}", "{\"pollIntervalSeconds\": 61}",
+                "{\"usageIntervalSeconds\": 0}", "{\"usageIntervalSeconds\": -60}",
                 "{\"usageIntervalSeconds\": 30.5}", "{\"usageIntervalSeconds\": \"30\"}",
-                "{\"pollIntervalSeconds\": true}", "{\"pollIntervalSeconds\": [1]}",
+                "{\"usageIntervalSeconds\": true}", "{\"usageIntervalSeconds\": [1]}",
                 "{\"usageIntervalSeconds\": 99999999999999999999}",
-                "{\"usageIntervalSeconds\": 60, \"pollIntervalSeconds\": 61}",
                 "{}", "{\"usageIntervalSeconds\": null}", "{\"somethingElse\": 5}"};
 
         for (String body : bodies) {
@@ -224,9 +272,9 @@ class ApiTest {
         }
 
         JsonNode config = json(get(app, "/api/config"));
-        assertEquals(30, config.get("usageIntervalSeconds").asInt());
+        assertEquals(60, config.get("usageIntervalSeconds").asInt());
         assertEquals(1, config.get("pollIntervalSeconds").asInt());
-        assertEquals(Duration.ofSeconds(30), app.service().interval());
+        assertEquals(Duration.ofSeconds(60), app.service().interval());
         assertFalse(Files.exists(dir.resolve("settings.json")));
     }
 
@@ -242,8 +290,8 @@ class ApiTest {
     void theBoundariesAreAccepted() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
-        assertEquals(200, post(app, "/api/config", "{\"usageIntervalSeconds\": 5, \"pollIntervalSeconds\": 1}").statusCode());
-        assertEquals(200, post(app, "/api/config", "{\"usageIntervalSeconds\": 3600, \"pollIntervalSeconds\": 60}").statusCode());
+        assertEquals(200, post(app, "/api/config", "{\"usageIntervalSeconds\": 5}").statusCode());
+        assertEquals(200, post(app, "/api/config", "{\"usageIntervalSeconds\": 3600}").statusCode());
     }
 
     @Test
@@ -263,11 +311,12 @@ class ApiTest {
                 dir.resolve("no-such-dir").resolve("settings.json"), LaunchOptions.none(), new FakeFetch());
         runtimes.add(app);
 
-        HttpResponse<String> response = post(app, "/api/config", "{\"pollIntervalSeconds\": 7}");
+        HttpResponse<String> response = post(app, "/api/config", "{\"usageIntervalSeconds\": 90}");
 
         assertEquals(500, response.statusCode());
         assertTrue(json(response).get("error").asText().startsWith("The setting could not be saved"));
-        assertEquals(1, json(get(app, "/api/config")).get("pollIntervalSeconds").asInt());
+        assertEquals(60, json(get(app, "/api/config")).get("usageIntervalSeconds").asInt());
+        assertEquals(Duration.ofSeconds(60), app.service().interval());
     }
 
     // ---- /api/status: read-only, and the two response shapes
@@ -493,7 +542,7 @@ class ApiTest {
         for (String type : new String[] {"text/plain", "application/x-www-form-urlencoded", "multipart/form-data"}) {
             HttpRequest.Builder refresh = HttpRequest.newBuilder().POST(HttpRequest.BodyPublishers.ofString("{}")).header("Content-Type", type);
             HttpRequest.Builder config = HttpRequest.newBuilder()
-                    .POST(HttpRequest.BodyPublishers.ofString("{\"pollIntervalSeconds\": 9}")).header("Content-Type", type);
+                    .POST(HttpRequest.BodyPublishers.ofString("{\"usageIntervalSeconds\": 90}")).header("Content-Type", type);
             assertEquals(415, send(app, "/api/refresh", refresh).statusCode(), type);
             assertEquals(415, send(app, "/api/config", config).statusCode(), type);
         }
@@ -502,13 +551,13 @@ class ApiTest {
 
         Thread.sleep(100);
         assertEquals(1, fetch.calls.get(), "no refresh was started");
-        assertEquals(1, json(get(app, "/api/config")).get("pollIntervalSeconds").asInt(), "nothing was changed");
+        assertEquals(60, json(get(app, "/api/config")).get("usageIntervalSeconds").asInt(), "nothing was changed");
     }
 
     @Test
     void jsonWithACharsetParameterIsAccepted() throws Exception {
         HttpRequest.Builder request = HttpRequest.newBuilder()
-                .POST(HttpRequest.BodyPublishers.ofString("{\"pollIntervalSeconds\": 3}"))
+                .POST(HttpRequest.BodyPublishers.ofString("{\"usageIntervalSeconds\": 90}"))
                 .header("Content-Type", "application/json; charset=utf-8");
 
         assertEquals(200, send(start(new FakeFetch()), "/api/config", request).statusCode());

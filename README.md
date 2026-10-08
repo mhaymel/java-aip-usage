@@ -25,11 +25,10 @@ config button. A Pro or Max account shows its plan windows in place of the spend
 each as its utilization, its name and the time until it resets.
 
 - **Refresh** (⟳) fetches now. It stays clickable; clicks during a fetch do nothing extra.
-- **Config** (≡) shows two fields next to it, `fetch` (how often the application asks
-  Anthropic) and `update` (how often the window updates), in seconds. Change either
-  and press **Enter** or ✓ to save and apply both; the fields then disappear. A bad
-  value keeps them open with a short message. **Escape**, or the config button
-  again, closes them without changing anything.
+- **Config** (≡) shows one field next to it, `fetch`: how often the application asks
+  Anthropic, in seconds (default 60). Change it and press **Enter** or ✓ to save and
+  apply it; the field then disappears. A bad value keeps it open with a short message.
+  **Escape**, or the config button again, closes it without changing anything.
 - A failed refresh, or a missing or logged-out Claude Code, adds a short message
   line under the strip while it lasts; the window grows to hold it and shrinks back.
 
@@ -101,24 +100,27 @@ its scheduled work.
 
 ## Configuration
 
-Two independent intervals, both settable on the command line and from the UI.
-For each, the command line wins over the saved setting, which wins over the
-default:
+Two intervals, which are not alike:
 
-| Setting | CLI option | Default | Range |
-| --- | --- | --- | --- |
-| Backend usage fetch from Anthropic | `--usage-interval <seconds>` | 30 s | 5–3600 |
-| UI polling of the local backend | `--poll-interval <seconds>` | 1 s | 1–60 |
+| Setting | Default | Range | Command line | In the window | Saved |
+| --- | --- | --- | --- | --- | --- |
+| **Usage fetch**: how often the application asks Anthropic | 60 s | 5–3600 | `--usage-interval <seconds>` | yes, the `fetch` field | yes, in `settings.json` |
+| **Update**: how often the window asks the application for the latest state | 1 s | 1–60 | `--poll-interval <seconds>` | no | no |
 
-Only the backend talks to Anthropic; UI polls read local state and never
-trigger a request. A manual refresh button fetches immediately, and refreshes
-never overlap.
+For the usage fetch, the command line wins over the saved setting, which wins over the
+default. A value confirmed in the window is saved, takes effect at once, and replaces
+the command-line one for the rest of the run. A command-line value is not saved on its
+own, so the file keeps what you last chose in the window.
 
-Values confirmed in the window's config fields are persisted to `settings.json` and
-replace the corresponding CLI value for the rest of the run. Only a value you
-actually changed is saved. A CLI value is not saved on its
-own, so the file keeps what you last chose in the window. The file holds only the
-two intervals, never a credential.
+The update interval is a setting for one run only: give `--poll-interval` or get 1 s.
+It cannot be changed from the window, and nothing remembers it. A `settings.json`
+written by an earlier version may still hold one; it is ignored and disappears the
+next time the file is saved. `settings.json` holds the usage interval and nothing
+else, certainly never a credential.
+
+Only the backend talks to Anthropic; the window's updates read local state and never
+trigger a request. A manual refresh button fetches immediately, and refreshes never
+overlap.
 
 The window talks to the application through a small local API, described in
 [docs/api.md](docs/api.md).
@@ -170,13 +172,13 @@ would still not reach the file.
   application restart, because a running program keeps the `PATH` it started with.
 - **Direct connection only, by design.** `HTTPS_PROXY` is deliberately not read,
   so a network that requires a proxy will show "Cannot reach api.anthropic.com".
-- **The usage endpoint rate limits.** After a burst of about ten requests it seems to
-  accept about one a minute, so the default 30 s refresh can draw HTTP 429 after
-  roughly ten minutes, and restarting the application repeatedly can trigger it much
-  sooner (each start fetches at once). The application backs off: it shows "Next try
-  in …" and waits longer, easing back to the normal pace as requests succeed. The
-  refresh button is never held back. Setting the usage interval to 60 s or more avoids
-  it.
+- **The usage endpoint rate limits.** It seems to accept about one request a minute
+  over the long run, after a burst of about ten. That is why the default is 60 s. A
+  faster setting is allowed but can draw HTTP 429 after roughly ten minutes, and
+  restarting the application repeatedly can trigger it sooner (each start fetches at
+  once). The application then backs off: it shows "Next try in …" and waits longer,
+  easing back to the normal pace as requests succeed. The refresh button is never
+  held back. This is an inference from observed behaviour, not a published limit.
 - **An undocumented endpoint.** `/api/oauth/usage` is the one Claude Code polls,
   not a published API. If its format changes you get an error naming the problem
   rather than wrong numbers, but you may need a parser update.

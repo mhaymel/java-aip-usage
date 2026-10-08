@@ -71,7 +71,7 @@ class LoggingEndToEndTest {
         for (String text : List.of(output.file(), output.console())) {
             assertContainsInOrder(text,
                     "Logging to",
-                    "Usage interval 30 s, poll interval 1 s",
+                    "Usage interval 60 s, poll interval 1 s",
                     "Frontend served at",
                     "GET 127.0.0.1/usage -> HTTP 200 in",
                     "Usage refresh succeeded",
@@ -133,8 +133,8 @@ class LoggingEndToEndTest {
         run(endpoint, tokens(FIRST_TOKEN), app -> app.service().state().snapshot() != null);
         Output second = run(endpoint, tokens(FIRST_TOKEN), app -> app.service().state().snapshot() != null);
 
-        assertEquals(2, second.file().split("Usage interval 30 s", -1).length - 1, "both runs are in the file");
-        assertEquals(1, second.console().split("Usage interval 30 s", -1).length - 1, "the console shows only this run");
+        assertEquals(2, second.file().split("Usage interval 60 s", -1).length - 1, "both runs are in the file");
+        assertEquals(1, second.console().split("Usage interval 60 s", -1).length - 1, "the console shows only this run");
     }
 
     // ---- helpers

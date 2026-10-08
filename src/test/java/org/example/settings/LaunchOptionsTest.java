@@ -97,8 +97,14 @@ class LaunchOptionsTest {
     @Test
     void theUsageTextStatesTheRangesAndDefaults() {
         assertTrue(LaunchOptions.USAGE.contains("5-3600"), LaunchOptions.USAGE);
-        assertTrue(LaunchOptions.USAGE.contains("default 30"), LaunchOptions.USAGE);
+        assertTrue(LaunchOptions.USAGE.contains("default 60"), LaunchOptions.USAGE);
         assertTrue(LaunchOptions.USAGE.contains("1-60"), LaunchOptions.USAGE);
         assertTrue(LaunchOptions.USAGE.contains("default 1)"), LaunchOptions.USAGE);
+    }
+
+    @Test
+    void theUsageTextSaysWhichIntervalIsSavedAndWhichIsNot() {
+        assertTrue(LaunchOptions.USAGE.contains("saved to settings.json"), LaunchOptions.USAGE);
+        assertTrue(LaunchOptions.USAGE.contains("never saved"), LaunchOptions.USAGE);
     }
 }

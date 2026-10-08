@@ -86,8 +86,8 @@ Example token output:
 ## Refresh behavior
 
 - Fetch usage immediately when the application starts, then repeat at the configured interval.
-- The default backend usage-fetch interval is 30 seconds. Configure it in seconds through both a command-line option (`--usage-interval <seconds>`) and a frontend control; accept values from 5 through 3600 seconds.
-- Save interval changes made in the frontend to a settings file named `settings.json` in the project root, beside `gradlew`. A committed valid frontend value is sent to the backend and replaces any CLI override for the remainder of the run.
+- The default backend usage-fetch interval is 60 seconds. Configure it in seconds through both a command-line option (`--usage-interval <seconds>`) and a frontend control; accept values from 5 through 3600 seconds. The default is a minute because the usage endpoint appears to accept about one request a minute over the long run: a faster pace, such as 30 seconds, is allowed but draws HTTP 429 after roughly ten minutes.
+- Save a usage-fetch interval changed in the frontend to a settings file named `settings.json` in the project root, beside `gradlew`. A committed valid frontend value is sent to the backend and replaces any CLI override for the remainder of the run. The settings file holds this one value and nothing else.
 - Changing the backend usage-fetch interval does not cancel a request already in progress. Apply the new interval to the next scheduled request, measuring the interval from when the current/most recent request was triggered. If the new interval has already elapsed, start the next request as soon as no request is running; otherwise wait until the interval elapses. Changing the interval does not otherwise trigger an extra immediate request.
 - If a refresh fails, keep the last successful data visible, mark it as stale, and show the error. Resume normal display after the next successful refresh.
 - If Anthropic answers HTTP 429 (rate limited), the application slows down instead of
@@ -100,8 +100,8 @@ Example token output:
   is. The refresh button is never held back, since a person asked. The error shown
   says when the next try is.
 - The backend alone fetches usage from Anthropic on this interval. UI status polling must not trigger an Anthropic request.
-- Configure the UI-to-backend status polling interval in seconds through both a command-line option (`--poll-interval <seconds>`) and a frontend control, and send frontend changes to the backend to save in the settings file. Its default is 1 second; accept values from 1 through 60 seconds. A committed valid frontend value is sent to the backend, becomes effective immediately, and replaces any CLI override for that interval for the remainder of the run.
-- When the UI starts, it must request both effective intervals from the backend. Display the returned active values, then use the UI polling interval to poll the backend for the latest available state.
+- The UI-to-backend status polling interval, how often the window asks the backend for the latest state, is not a setting. It is 1 second by default and can be overridden for one run with a command-line option (`--poll-interval <seconds>`), which accepts values from 1 through 60 seconds. It has no frontend control, is never changed while the application runs, and is never saved: it is forgotten when the application stops, and a value left in an older settings file is ignored.
+- When the UI starts, it must request the effective intervals from the backend: it shows the usage-fetch interval when the config field is opened, and uses the polling interval to poll the backend for the latest available state.
 - Provide a UI action to fetch usage immediately. It must call the backend, which starts an Anthropic usage request without waiting for the next scheduled refresh and returns immediately. Do not run overlapping usage requests; if a refresh is already in progress, return immediately without starting another one. Keep the manual-refresh action enabled; extra clicks while a request is in progress do not start additional requests.
 - Closing the application window must terminate the program and stop its backend server, scheduled tasks, and other background resources.
 
@@ -182,14 +182,15 @@ as unknown.
 
 **Config**
 
-- Pressing the config button shows two input fields in the same row, next to the
-  button: the usage fetch interval and the window update interval, in seconds. Each
-  has a short label saying which it is, and shows its current value.
-- The two values are confirmed together, with Enter or a small confirm button.
-  When valid values are confirmed they are saved and take effect, as described under
-  Refresh behavior, and the input fields disappear.
-- Invalid values keep the fields open and show a brief message; they are not sent.
-  Pressing Escape, or the config button again, closes the fields without changing
+- Pressing the config button shows one input field in the same row, next to the
+  button: the usage fetch interval, in seconds. It has a short label saying what it
+  is, and shows its current value. The window update interval is not offered: it is
+  set on the command line only.
+- The value is confirmed with Enter or a small confirm button. When a valid value is
+  confirmed it is saved and takes effect, as described under Refresh behavior, and the
+  input field disappears.
+- An invalid value keeps the field open and shows a brief message; it is not sent.
+  Pressing Escape, or the config button again, closes the field without changing
   anything.
 
 **Messages**

@@ -15,6 +15,7 @@ import java.util.OptionalInt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IntervalSettingsTest {
 
@@ -33,193 +34,168 @@ class IntervalSettingsTest {
         return settings;
     }
 
+    private String readSettingsFile() {
+        try {
+            return Files.readString(dir.resolve("settings.json"));
+        } catch (IOException e) {
+            throw new AssertionError(e);
+        }
+    }
+
     private IntervalSettings load() {
         return load(OptionalInt.empty(), OptionalInt.empty());
     }
 
+    // ---- the usage interval: command line, else the file, else the default
+
     @Test
-    void defaultsApplyWithNeitherFileNorCommandLine() {
+    void theDefaultsAreAMinuteForUsageAndASecondForTheUpdate() {
         IntervalSettings settings = load();
 
-        assertEquals(30, settings.usageSeconds());
+        assertEquals(60, settings.usageSeconds());
         assertEquals(1, settings.pollSeconds());
-        assertEquals(Duration.ofSeconds(30), settings.usageInterval());
+        assertEquals(Duration.ofSeconds(60), settings.usageInterval());
     }
 
     @Test
-    void theFileOverridesTheDefaults() throws IOException {
-        store().save(new Saved(45, 4));
+    void theFileOverridesTheDefaultUsageInterval() throws IOException {
+        store().save(new Saved(45));
 
-        IntervalSettings settings = load();
-
-        assertEquals(45, settings.usageSeconds());
-        assertEquals(4, settings.pollSeconds());
+        assertEquals(45, load().usageSeconds());
     }
 
     @Test
     void theCommandLineOverridesTheFile() throws IOException {
-        store().save(new Saved(45, 4));
+        store().save(new Saved(45));
 
-        IntervalSettings settings = load(OptionalInt.of(10), OptionalInt.of(2));
-
-        assertEquals(10, settings.usageSeconds());
-        assertEquals(2, settings.pollSeconds());
+        assertEquals(10, load(OptionalInt.of(10), OptionalInt.empty()).usageSeconds());
     }
 
     @Test
-    void eachIntervalIsResolvedOnItsOwn() throws IOException {
-        store().save(new Saved(45, null));
-
-        IntervalSettings settings = load(OptionalInt.empty(), OptionalInt.of(8));
-
-        assertEquals(45, settings.usageSeconds());
-        assertEquals(8, settings.pollSeconds());
-    }
-
-    @Test
-    void aCommandLineValueIsNotSavedOnItsOwn() {
-        load(OptionalInt.of(10), OptionalInt.of(2));
+    void aCommandLineUsageIntervalIsNotSavedOnItsOwn() {
+        load(OptionalInt.of(10), OptionalInt.empty());
 
         assertFalse(Files.exists(dir.resolve("settings.json")));
     }
 
     @Test
     void aValueCommittedInTheUiReplacesTheCommandLineOneAndIsSaved() {
-        IntervalSettings settings = load(OptionalInt.of(10), OptionalInt.of(2));
+        IntervalSettings settings = load(OptionalInt.of(10), OptionalInt.empty());
 
-        settings.update(60L, null);
-        settings.update(null, 5L);
+        settings.updateUsage(120);
 
-        assertEquals(60, settings.usageSeconds());
-        assertEquals(5, settings.pollSeconds());
-        assertEquals(new Saved(60, 5), store().load());
-    }
-
-    @Test
-    void savingOneSettingDoesNotSaveTheCommandLineValueOfTheOther() {
-        IntervalSettings settings = load(OptionalInt.of(10), OptionalInt.of(2));
-
-        settings.update(null, 5L);
-
-        assertEquals(new Saved(null, 5), store().load());
-        assertEquals(10, settings.usageSeconds());
-    }
-
-    @Test
-    void savingOneSettingKeepsTheOtherThatWasAlreadySaved() throws IOException {
-        store().save(new Saved(45, 4));
-        IntervalSettings settings = load();
-
-        settings.update(null, 9L);
-
-        assertEquals(new Saved(45, 9), store().load());
+        assertEquals(120, settings.usageSeconds());
+        assertEquals(new Saved(120), store().load());
     }
 
     @Test
     void aSavedValueSurvivesARestart() {
-        load().update(120L, 7L);
+        load().updateUsage(120);
 
-        IntervalSettings restarted = load();
-
-        assertEquals(120, restarted.usageSeconds());
-        assertEquals(7, restarted.pollSeconds());
+        assertEquals(120, load().usageSeconds());
     }
 
     @Test
-    void theUsageListenerHearsAboutUsageChangesOnly() {
+    void theUsageListenerHearsAboutAChange() {
         IntervalSettings settings = load();
 
-        settings.update(null, 5L);
-        settings.update(90L, null);
+        settings.updateUsage(90);
 
         assertEquals(List.of(Duration.ofSeconds(90)), usageChanges);
     }
 
     @Test
-    void recommittingTheSameUsageValueIsNotAChange() {
+    void recommittingTheValueInForceIsNotAChange() {
         IntervalSettings settings = load();
 
-        settings.update(30L, null);
+        settings.updateUsage(60);
 
         assertEquals(List.of(), usageChanges);
-    }
-
-    @Test
-    void bothValuesAreAppliedTogether() {
-        IntervalSettings settings = load();
-
-        settings.update(75L, 6L);
-
-        assertEquals(75, settings.usageSeconds());
-        assertEquals(6, settings.pollSeconds());
-        assertEquals(List.of(Duration.ofSeconds(75)), usageChanges);
     }
 
     @Test
     void theBoundariesAreAccepted() {
         IntervalSettings settings = load();
 
-        settings.update(5L, 1L);
+        settings.updateUsage(5);
         assertEquals(5, settings.usageSeconds());
-        assertEquals(1, settings.pollSeconds());
 
-        settings.update(3600L, 60L);
+        settings.updateUsage(3600);
         assertEquals(3600, settings.usageSeconds());
-        assertEquals(60, settings.pollSeconds());
     }
 
     @Test
-    void valuesJustOutsideTheRangesAreRefusedAndChangeNothing() {
+    void valuesJustOutsideTheRangeAreRefusedAndChangeNothing() {
         IntervalSettings settings = load();
 
-        for (long usage : new long[] {-1, 0, 4, 3601, Long.MAX_VALUE}) {
-            assertThrows(InvalidSettingException.class, () -> settings.update(usage, null), "usage " + usage);
-        }
-        for (long poll : new long[] {-1, 0, 61, Long.MIN_VALUE}) {
-            assertThrows(InvalidSettingException.class, () -> settings.update(null, poll), "poll " + poll);
+        for (long usage : new long[] {-1, 0, 4, 3601, Long.MAX_VALUE, Long.MIN_VALUE}) {
+            assertThrows(InvalidSettingException.class, () -> settings.updateUsage(usage), "usage " + usage);
         }
 
-        assertEquals(30, settings.usageSeconds());
-        assertEquals(1, settings.pollSeconds());
+        assertEquals(60, settings.usageSeconds());
         assertEquals(List.of(), usageChanges);
         assertFalse(Files.exists(dir.resolve("settings.json")));
     }
 
     @Test
-    void oneBadValueRefusesTheWholeUpdate() {
-        IntervalSettings settings = load();
-
-        assertThrows(InvalidSettingException.class, () -> settings.update(45L, 999L));
-        assertThrows(InvalidSettingException.class, () -> settings.update(4L, 5L));
-
-        assertEquals(30, settings.usageSeconds());
-        assertEquals(1, settings.pollSeconds());
-        assertEquals(List.of(), usageChanges);
-    }
-
-    @Test
-    void anUpdateWithNothingInItIsRefused() {
-        assertThrows(InvalidSettingException.class, () -> load().update(null, null));
-    }
-
-    @Test
     void theRefusalNamesTheAcceptedRange() {
-        InvalidSettingException e = assertThrows(InvalidSettingException.class, () -> load().update(1L, null));
+        InvalidSettingException e = assertThrows(InvalidSettingException.class, () -> load().updateUsage(1));
 
         assertEquals("The usage interval must be a whole number of seconds from 5 to 3600.", e.getMessage());
     }
 
     @Test
-    void ifTheFileCannotBeWrittenNothingChanges() throws IOException {
+    void ifTheFileCannotBeWrittenNothingChanges() {
         SettingsStore unwritable = new SettingsStore(dir.resolve("no-such-dir").resolve("settings.json"));
         IntervalSettings settings = IntervalSettings.load(unwritable, OptionalInt.empty(), OptionalInt.empty());
         settings.onUsageIntervalChange(usageChanges::add);
 
-        SettingsException e = assertThrows(SettingsException.class, () -> settings.update(60L, 5L));
+        SettingsException e = assertThrows(SettingsException.class, () -> settings.updateUsage(90));
 
-        assertEquals(30, settings.usageSeconds());
-        assertEquals(1, settings.pollSeconds());
+        assertEquals(60, settings.usageSeconds());
         assertEquals(List.of(), usageChanges);
-        assertEquals(true, e.getMessage().startsWith("The setting could not be saved"));
+        assertTrue(e.getMessage().startsWith("The setting could not be saved"));
+    }
+
+    // ---- the update interval: command line or default, and nothing else
+
+    @Test
+    void theCommandLineSetsTheUpdateInterval() {
+        assertEquals(5, load(OptionalInt.empty(), OptionalInt.of(5)).pollSeconds());
+    }
+
+    @Test
+    void theUpdateIntervalIsNeverSaved() {
+        IntervalSettings settings = load(OptionalInt.empty(), OptionalInt.of(5));
+
+        settings.updateUsage(90);
+
+        assertFalse(readSettingsFile().contains("poll"));
+    }
+
+    @Test
+    void theUpdateIntervalIsForgottenAtTheNextStart() {
+        load(OptionalInt.empty(), OptionalInt.of(5)).updateUsage(90);
+
+        assertEquals(1, load().pollSeconds());
+    }
+
+    @Test
+    void anUpdateIntervalLeftInTheFileByAnEarlierVersionHasNoEffect() throws IOException {
+        Files.writeString(dir.resolve("settings.json"), "{\"usageIntervalSeconds\": 45, \"pollIntervalSeconds\": 5}");
+
+        IntervalSettings settings = load();
+
+        assertEquals(45, settings.usageSeconds());
+        assertEquals(1, settings.pollSeconds());
+    }
+
+    @Test
+    void changingTheUsageIntervalDoesNotTouchTheUpdateInterval() {
+        IntervalSettings settings = load(OptionalInt.empty(), OptionalInt.of(7));
+
+        settings.updateUsage(90);
+
+        assertEquals(7, settings.pollSeconds());
     }
 }

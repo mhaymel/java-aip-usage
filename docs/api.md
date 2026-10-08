@@ -22,27 +22,29 @@ with an `Allow` header.
 
 ## `GET /api/config`
 
-The frontend asks for this once at startup, shows both values, and then polls
-`/api/status` every `pollIntervalSeconds`.
+The frontend asks for this once at startup, and then polls `/api/status` every
+`pollIntervalSeconds`.
 
 ```json
 {
-  "usageIntervalSeconds": 30,
+  "usageIntervalSeconds": 60,
   "pollIntervalSeconds": 1,
   "limits": {
-    "usageIntervalSeconds": { "min": 5, "max": 3600 },
-    "pollIntervalSeconds": { "min": 1, "max": 60 }
+    "usageIntervalSeconds": { "min": 5, "max": 3600 }
   }
 }
 ```
 
 - `usageIntervalSeconds`: how often the backend fetches usage from Anthropic.
-  Default 30.
+  Default 60. This is the one setting a frontend can change.
 - `pollIntervalSeconds`: how often the frontend asks the backend for the latest
-  state. Default 1.
+  state. Default 1. It is read-only: it is set on the command line, for one run, and
+  is never saved or changed through this API. It has no entry under `limits` for that
+  reason.
 
-The values are the ones in force: a command-line option, else the saved
-setting, else the default (see the README), until the frontend changes them.
+The values are the ones in force. For the usage interval that is a command-line
+option, else the saved setting, else the default (see the README), until the
+frontend changes it.
 
 ## `POST /api/config`
 
@@ -50,15 +52,18 @@ setting, else the default (see the README), until the frontend changes them.
 { "usageIntervalSeconds": 45 }
 ```
 
-Either key, or both. A key that is absent or `null` is left alone; unknown keys
-are ignored. Values must be whole JSON numbers within `limits`.
+`usageIntervalSeconds` is required and must be a whole JSON number within
+`limits`. Other unknown keys are ignored. `pollIntervalSeconds` is not: giving it
+(other than `null`) is refused, so that a client written for an earlier version finds
+out and does not believe it worked.
 
 - `200`: applied and saved; the body is the same as `GET /api/config`. The
   change is effective at once and replaces any command-line override for the
   rest of the run.
-- `400`: a value is out of range or not a whole number, the body is not a JSON
-  object, or no setting was given. Nothing is changed, even if the other value
-  was valid.
+- `400`: the value is out of range or not a whole number, the body is not a JSON
+  object, no setting was given, or `pollIntervalSeconds` was given (the message
+  points to `--poll-interval`). Nothing is changed, even if the rest of the body was
+  valid.
 - `413`: the body is larger than 4096 bytes.
 - `415`: the `Content-Type` is not `application/json`.
 - `500`: the values are valid but could not be saved. Nothing is changed.

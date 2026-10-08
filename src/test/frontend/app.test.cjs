@@ -17,9 +17,9 @@ const INDEX_IDS = [...INDEX_HTML.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
 const HIDDEN_AT_START = new Set([...INDEX_HTML.matchAll(/<[^>]*\sid="([^"]+)"[^>]*\shidden[\s>]/g)].map(m => m[1]));
 
 const CONFIG = {
-    usageIntervalSeconds: 30,
+    usageIntervalSeconds: 60,
     pollIntervalSeconds: 1,
-    limits: { usageIntervalSeconds: { min: 5, max: 3600 }, pollIntervalSeconds: { min: 1, max: 60 } },
+    limits: { usageIntervalSeconds: { min: 5, max: 3600 } },
 };
 const NOW = '2026-10-08T14:24:53Z';
 const SPEND_STATUS = {
@@ -301,73 +301,73 @@ test('the config fields are hidden until the config button is pressed', async ()
     assert.equal(page.el('config-toggle').attrs['aria-expanded'], undefined);
 });
 
-test('pressing the config button shows both fields with the current values', async () => {
-    const page = await load(backendOf({ config: { ...CONFIG, pollIntervalSeconds: 5 }, status: SPEND_STATUS }));
+test('pressing the config button shows the fetch interval with its current value', async () => {
+    const page = await load(backendOf({ config: { ...CONFIG, usageIntervalSeconds: 90 }, status: SPEND_STATUS }));
 
     await page.click('config-toggle');
 
     assert.equal(page.el('config').hidden, false);
-    assert.equal(page.el('usage-interval').value, '30');
-    assert.equal(page.el('poll-interval').value, '5');
+    assert.equal(page.el('usage-interval').value, '90');
     assert.equal(page.el('config-toggle').attrs['aria-expanded'], 'true');
-    assert.equal(page.el('usage-interval').focused, true, 'the first field is ready to type in');
+    assert.equal(page.el('usage-interval').focused, true, 'the field is ready to type in');
 });
 
-test('confirming with Enter sends both values at once, then the fields disappear', async () => {
+test('there is no field for the update interval: it is set on the command line only', async () => {
+    const page = await load(backendOf({ config: { ...CONFIG, pollIntervalSeconds: 5 }, status: SPEND_STATUS }));
+
+    await page.click('config-toggle');
+
+    assert.equal(page.el('poll-interval'), undefined);
+    assert.equal(INDEX_IDS.includes('poll-interval'), false);
+});
+
+test('confirming with Enter sends the value, then the field disappears', async () => {
     const state = { config: CONFIG, status: SPEND_STATUS, postConfig: accepting };
     const page = await load(backendOf(state));
     await page.click('config-toggle');
 
-    page.type('usage-interval', '60');
-    page.type('poll-interval', '5');
-    const prevented = await page.press('poll-interval', 'Enter');
+    page.type('usage-interval', '120');
+    const prevented = await page.press('usage-interval', 'Enter');
 
     assert.equal(prevented, true);
-    assert.equal(page.posts().length, 1, 'one request for both values');
+    assert.equal(page.posts().length, 1);
     assert.equal(page.posts()[0].headers['Content-Type'], 'application/json');
-    assert.deepEqual(JSON.parse(page.posts()[0].body), { usageIntervalSeconds: 60, pollIntervalSeconds: 5 });
+    assert.deepEqual(JSON.parse(page.posts()[0].body), { usageIntervalSeconds: 120 });
     assert.equal(page.el('config').hidden, true);
     assert.equal(page.el('config-toggle').attrs['aria-expanded'], 'false');
 });
 
-test('Enter works in either field, and the confirm button does the same', async () => {
-    const state = { config: CONFIG, status: SPEND_STATUS, postConfig: accepting };
-    const first = await load(backendOf(state));
-    await first.click('config-toggle');
-    first.type('usage-interval', '45');
-    await first.press('usage-interval', 'Enter');
-    assert.equal(first.posts().length, 1);
-    assert.equal(first.el('config').hidden, true);
-
-    const second = await load(backendOf(state));
-    await second.click('config-toggle');
-    second.type('usage-interval', '45');
-    await second.click('config-ok');
-    assert.equal(second.posts().length, 1);
-    assert.equal(second.el('config').hidden, true);
-});
-
-test('only the values that changed are sent, so an unchanged one is not saved by accident', async () => {
-    const state = { config: CONFIG, status: SPEND_STATUS, postConfig: accepting };
-    const page = await load(backendOf(state));
+test('the confirm button does the same as Enter', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
     await page.click('config-toggle');
+    page.type('usage-interval', '45');
 
-    page.type('poll-interval', '9');
     await page.click('config-ok');
 
-    assert.deepEqual(JSON.parse(page.posts()[0].body), { pollIntervalSeconds: 9 });
+    assert.equal(page.posts().length, 1);
+    assert.equal(page.el('config').hidden, true);
 });
 
-test('a new update interval is polled at once, in the new rhythm', async () => {
-    const state = { config: CONFIG, status: SPEND_STATUS, postConfig: accepting };
-    const page = await load(backendOf(state));
+test('the window only ever sends the fetch interval, never the update interval', async () => {
+    const page = await load(backendOf({ config: { ...CONFIG, pollIntervalSeconds: 5 }, status: SPEND_STATUS, postConfig: accepting }));
     await page.click('config-toggle');
+    page.type('usage-interval', '90');
 
-    page.type('poll-interval', '5');
     await page.click('config-ok');
 
-    assert.equal(page.calls.at(-1).url, '/api/status');
-    assert.equal(page.timers.filter(t => t.live).pop().ms, 5000);
+    assert.deepEqual(Object.keys(JSON.parse(page.posts()[0].body)), ['usageIntervalSeconds']);
+});
+
+test('changing the fetch interval does not disturb how often the window updates', async () => {
+    const page = await load(backendOf({ config: { ...CONFIG, pollIntervalSeconds: 3 }, status: SPEND_STATUS, postConfig: accepting }));
+    await page.click('config-toggle');
+    const before = page.calls.length;
+
+    page.type('usage-interval', '90');
+    await page.click('config-ok');
+
+    assert.deepEqual(page.calls.slice(before).map(c => c.url), ['/api/config'], 'nothing but the change itself is sent');
+    assert.equal(page.timers.filter(t => t.live).pop().ms, 3000);
 });
 
 test('confirming values that did not change sends nothing and closes the fields', async () => {
@@ -380,7 +380,7 @@ test('confirming values that did not change sends nothing and closes the fields'
     assert.equal(page.el('config').hidden, true);
 });
 
-test('invalid values keep the fields open, flag the field, and send nothing', async () => {
+test('an invalid value keeps the field open, flags it, and sends nothing', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
     await page.click('config-toggle');
 
@@ -409,20 +409,6 @@ test('a valid pair sent after a mistake closes the fields and clears the message
     assert.equal(page.el('config').hidden, true);
     assert.equal(page.el('config-note').hidden, true);
     assert.equal(page.el('usage-interval').attrs['aria-invalid'], undefined);
-});
-
-test('one bad value stops both from being sent', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-
-    page.type('usage-interval', '60');
-    page.type('poll-interval', '99');
-    await page.press('poll-interval', 'Enter');
-
-    assert.equal(page.posts().length, 0);
-    assert.equal(page.el('poll-interval').attrs['aria-invalid'], 'true');
-    assert.equal(page.el('usage-interval').attrs['aria-invalid'], undefined);
-    assert.equal(page.el('config').hidden, false);
 });
 
 test('Escape closes the fields without changing anything', async () => {
@@ -455,7 +441,7 @@ test('reopening after a cancel shows the current values, not what was typed', as
 
     await page.click('config-toggle');
 
-    assert.equal(page.el('usage-interval').value, '30');
+    assert.equal(page.el('usage-interval').value, '60');
 });
 
 test('a value the backend refuses keeps the fields open and shows the reason', async () => {
@@ -466,11 +452,11 @@ test('a value the backend refuses keeps the fields open and shows the reason', a
     const page = await load(backendOf(state));
     await page.click('config-toggle');
 
-    page.type('poll-interval', '9');
-    await page.press('poll-interval', 'Enter');
+    page.type('usage-interval', '90');
+    await page.press('usage-interval', 'Enter');
 
     assert.equal(page.el('config').hidden, false);
-    assert.equal(page.el('poll-interval').value, '9', 'what was typed is kept');
+    assert.equal(page.el('usage-interval').value, '90', 'what was typed is kept');
     assert.equal(page.el('config-note').textContent, 'The setting could not be saved: read-only file system');
 });
 

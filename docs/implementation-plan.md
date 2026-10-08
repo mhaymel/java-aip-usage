@@ -22,26 +22,27 @@ Other decisions confirmed during discussion:
 - Reuse a token for usage requests. On HTTP 401, acquire a fresh token and
   retry the request once. Do not refresh the token for other HTTP or network
   failures.
-- Fetch usage immediately at startup, then use a 30-second default backend
-  usage-fetch interval. Configure it in seconds through both the CLI and a
-  frontend control, allowing 5 through 3600 seconds. Persist frontend changes
-  in the project-root settings file. A committed valid frontend value is sent
-  to the backend and replaces any CLI override for the rest of the run.
+- Fetch usage immediately at startup, then use a 60-second default backend
+  usage-fetch interval. (It was 30 s until phase 8: a live run showed the endpoint
+  accepts about one request a minute over the long run and answers 429 to a faster
+  pace.) Configure it in seconds through both the CLI and a frontend control,
+  allowing 5 through 3600 seconds. Persist a frontend change in the project-root
+  settings file, which holds this one value. A committed valid frontend value is
+  sent to the backend and replaces any CLI override for the rest of the run.
 - Changing the backend usage-fetch interval does not cancel an in-flight
   request. Apply the new interval to the next scheduled request, measured from
   when the current or most recent request was triggered. If the new interval
   has already elapsed, start the next request as soon as no request is running;
   otherwise wait until the interval elapses. Do not trigger an extra immediate
   request merely because the interval changed.
-- Configure the UI-to-backend polling interval through both a CLI option and
-  a frontend control, sending frontend changes to the backend to store in the
-  project-root settings file. Default to 1 second and accept values from 1
-  through 60 seconds. A committed valid
-  frontend value becomes effective immediately and replaces any CLI override
-  for the rest of the run.
-- On startup, the frontend requests both effective intervals from the
-  backend, displays their active values, and uses the UI polling interval to
-  poll for the latest available state.
+- The UI-to-backend polling interval is not a setting. It defaults to 1 second
+  and can be overridden for one run with a CLI option (`--poll-interval`),
+  accepting 1 through 60 seconds. It has no frontend control, never changes while
+  the application runs, and is never saved. (Before phase 8 it was a saved,
+  UI-editable setting; a value left in an old settings file is ignored.)
+- On startup, the frontend requests the effective intervals from the backend:
+  it shows the usage-fetch interval when the config field is opened, and uses the
+  polling interval to poll for the latest available state.
 - Keep scheduled Anthropic fetching on the backend only; UI status polling
   must not trigger usage requests. Provide a separate UI action that calls the
   backend to start an immediate Anthropic usage fetch. The backend action
@@ -63,8 +64,8 @@ Other decisions confirmed during discussion:
 - The window is a compact status strip: as small as its content allows, one row in
   its normal state, readable text of at least 14 px, local time of day only. The
   row holds the percentage, spent and budget (or the plan windows), the refresh
-  time, a small refresh button and a very small config button, which reveals the two interval
-  fields until they are confirmed. See [Compact window](requirements.md#compact-window);
+  time, a small refresh button and a very small config button, which reveals the fetch-interval
+  field until it is confirmed. See [Compact window](requirements.md#compact-window);
   planned as phase 7.
 
 Charts and historical usage are not part of the first version.
@@ -77,21 +78,20 @@ server; the UI communicates with the application through a small JSON API.
 This provides the requested minimal window while keeping the HTML, CSS, and
 JavaScript frontend separate from Java-specific code.
 
-The frontend provides controls for both the backend usage-fetch interval and
-the UI-to-backend polling interval. It sends each committed valid value to the
-backend, which validates and persists it in the project-root settings file. A
-frontend edit replaces a CLI override for that interval for the remainder of
-the run. The usage-fetch interval defaults to 30 seconds and accepts values
-from 5 through 3600 seconds. Changing it does not cancel an in-flight fetch or
-cause an extra immediate fetch. The next scheduled fetch is due one new
+The frontend provides a control for the backend usage-fetch interval. It sends a
+committed valid value to the backend, which validates and persists it in the
+project-root settings file. A frontend edit replaces a CLI override for the
+remainder of the run. The usage-fetch interval defaults to 60 seconds and
+accepts values from 5 through 3600 seconds. Changing it does not cancel an
+in-flight fetch or cause an extra immediate fetch. The next scheduled fetch is due one new
 interval after the current/most recent fetch was triggered; if that due time
 has passed while a request is running, run the next fetch as soon as the
 current one completes. Otherwise wait for the remaining interval. The UI
-polling interval defaults to one second and accepts values from 1 through 60
-seconds.
-At startup, the frontend requests both effective intervals from the backend,
-displays the active values, and uses the UI polling interval to poll a
-read-only JSON status endpoint for the latest snapshot, refresh status, and
+polling interval is not a setting: it is one second unless the command line says
+otherwise (1 through 60 seconds), is reported to the frontend read-only, and the
+backend refuses to change it.
+At startup, the frontend requests the effective intervals from the backend and
+uses the UI polling interval to poll a read-only JSON status endpoint for the latest snapshot, refresh status, and
 errors. Status polls only read current backend state; they never trigger
 Anthropic requests.
 
@@ -284,14 +284,18 @@ a quarter off 23%, an eighth off 14%, a fixed 5 s about 11% but slowly to recove
 eighth gets the readings the server allows with the fewest refusals and still recovers
 from a 5 minute hold in about 18 successes. The test fails for any of the weaker
 steps, so the constant cannot drift unnoticed. At a 60 s interval the model never
-refuses at all, which is why a default of 60 s remains the real fix; this only makes
-30 s tolerable.
+refuses at all, which is why the default became 60 s in phase 8; the back-off now only
+has to make a faster pace, which is still allowed, tolerable.
 
 Not covered by tests: the real endpoint and real `claude`. TLS is left to the JDK
 defaults. Proxy support (`HTTPS_PROXY`, as in `java-aip`'s `EnvProxySelector`) is
 deliberately not included, by decision.
 
 ### 5. Add local API, settings, and UI
+
+*Phase 8 changed two things described here: the usage-fetch default is 60 s, and the
+UI polling interval is a command-line option only, with no frontend control and no
+saved value. The text below is as built in phase 5.*
 
 - Serve the static frontend and a narrowly scoped JSON API from a loopback-only
   HTTP server on an available local port.
@@ -435,10 +439,10 @@ Requirement: [Compact window](requirements.md#compact-window).
 - Show local time of day only. Add a time-only formatter to `view.js` and use it
   for the refresh time and for error times. Show a window's reset as the time
   remaining instead of a date and time.
-- Replace the settings panel with a config button that reveals the two interval
+- Replace the settings panel with a config button that reveals the interval
   fields in the row. They are confirmed together, with Enter or a small confirm
   button, in one `POST /api/config` (the API already accepts both keys at once), and
-  hide again on success. Validation errors keep them open with a brief message;
+  hide again on success. (Phase 8 reduced these to the one fetch-interval field.) Validation errors keep them open with a brief message;
   Escape or the config button closes them unchanged.
 - Move errors and stale notices to a short second line shown only while they apply.
 - Make the window fit its content. The page reports its content size to the Java
@@ -468,12 +472,52 @@ the config open, confirm, invalid and cancel flows, and the message line. A macO
 smoke test confirms the normal state fits one row at the target size, the window
 grows and shrinks around the config fields and messages, and the text is readable.
 
+### 8. A 60 s default, and the update interval off the settings
+
+**Status: done.**
+
+*Why.* Runs at 30 s drew HTTP 429 after about ten minutes. Two clean stretches at 60 s
+(13 requests, then 18 more with the Mac held awake) drew none, with every request 59
+to 61 s apart. That is consistent with the endpoint accepting about one request a
+minute over the long run. It is evidence, not proof: 17 continuous minutes cannot rule
+out a slower limit that only shows after hours.
+
+*What changed.*
+
+- **Default.** The usage-fetch interval defaults to 60 s (`IntervalRange.USAGE`). The
+  range stays 5 to 3600 s, and a faster pace is still allowed; the back-off from
+  phase 4 still protects it.
+- **The update interval is no longer a setting.** It is 1 s, or whatever
+  `--poll-interval` says for one run (1 to 60 s), and nothing changes or saves it.
+  `IntervalSettings` keeps it as a fixed value and only the usage interval can be
+  updated (`updateUsage`). `SettingsStore` keeps one key, `usageIntervalSeconds`; a
+  file from an earlier version that still has `pollIntervalSeconds` is read for the
+  usage interval only, and the old key disappears the next time the file is written.
+- **API.** `POST /api/config` takes only `usageIntervalSeconds`. A body that gives
+  `pollIntervalSeconds` is refused with a 400 that names `--poll-interval`, and
+  nothing in it is applied, valid half included, rather than being silently ignored.
+  `GET /api/config` still reports `pollIntervalSeconds`, because the page needs it to
+  know how often to poll, but its `limits` now cover the usage interval only.
+- **Page.** The config area is one field, `fetch`, and the page sends only that.
+  Changing it does not touch how often the window polls.
+- **Tests and docs.** The settings, API and frontend tests were rewritten for this,
+  and the requirements, README and API contract updated.
+
+*Side effect to know about.* An existing `settings.json` that carried a saved update
+interval no longer has any effect: the window polls every second unless started with
+`--poll-interval`.
+
+**Checkpoint:** the Java and Node suites pass, and each new rule fails a test when
+broken: the 60 s default, the API refusing an update-interval change, and the page
+never sending one.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,
   and stale/error state transitions.
 - Test that the UI obtains its effective polling interval at startup, frontend
-  interval changes are validated and persisted, status polls do not trigger
+  usage-interval changes are validated and persisted, the polling interval cannot
+  be changed or saved, status polls do not trigger
   provider requests, and manual refresh returns immediately and starts at most
   one provider request when another refresh is not already in flight.
 - Test that lifecycle and refresh events and sanitized HTTP diagnostics are
@@ -483,7 +527,7 @@ grows and shrinks around the config fields and messages, and the text is readabl
   live Anthropic credentials in the automated test suite.
 - Include fixtures for both response variants and malformed input.
 - Perform a manual macOS UI smoke test for startup, initial load, both usage
-  views, both polling interval settings, manual refresh, refresh failure
+  views, the fetch-interval setting, manual refresh, refresh failure
   display, and verify closing the window terminates the app cleanly. Once phase 7
   is done, also check the compact layout: one row at the target size, the window
   growing and shrinking around the config fields and messages, readable text, and

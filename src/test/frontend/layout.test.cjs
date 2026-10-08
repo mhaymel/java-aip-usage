@@ -70,10 +70,15 @@ test('the percentage is the very first thing in the strip', () => {
     assert.ok(strip.indexOf('id="amounts"') < strip.indexOf('id="time"'), 'the amounts come before the time');
 });
 
-test('the config fields sit next to the config button, in the same row', () => {
+test('the config field sits next to the config button, in the same row', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
-    assert.ok(strip.includes('id="usage-interval"') && strip.includes('id="poll-interval"'), 'both fields are in the strip');
+    assert.ok(strip.includes('id="usage-interval"'), 'the fetch interval field is in the strip');
     assert.ok(strip.indexOf('id="config-toggle"') < strip.indexOf('id="usage-interval"'));
+});
+
+test('the update interval is not offered in the window', () => {
+    assert.doesNotMatch(html, /poll-interval/);
+    assert.equal([...html.matchAll(/<input\b/g)].length, 1, 'the one input is the fetch interval');
 });
 
 test('the config fields start hidden', () => {

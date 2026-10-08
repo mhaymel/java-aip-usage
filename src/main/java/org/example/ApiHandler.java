@@ -40,6 +40,10 @@ final class ApiHandler implements HttpHandler {
 
     private static final String SOURCE = "anthropic-oauth-usage";
 
+    private static final String USAGE_KEY = "usageIntervalSeconds";
+
+    private static final String POLL_KEY = "pollIntervalSeconds";
+
     private final UsageService service;
 
     private final IntervalSettings settings;
@@ -103,18 +107,23 @@ final class ApiHandler implements HttpHandler {
         return new ConfigBody(
                 settings.usageSeconds(),
                 settings.pollSeconds(),
-                new Limits(
-                        new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max()),
-                        new Range(IntervalRange.POLL.min(), IntervalRange.POLL.max())));
+                new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())));
     }
 
     private void updateConfig(HttpExchange exchange) throws IOException {
         requireJson(exchange);
         JsonNode body = readJson(exchange);
+        if (body.hasNonNull(POLL_KEY)) {
+            // Said outright, not ignored, since an older page would have sent it.
+            throw new ApiException(400,
+                    "The update interval cannot be changed while the application runs; start it with --poll-interval.", null);
+        }
         try {
-            settings.update(
-                    seconds(body, "usageIntervalSeconds", IntervalRange.USAGE),
-                    seconds(body, "pollIntervalSeconds", IntervalRange.POLL));
+            Long usage = seconds(body, USAGE_KEY, IntervalRange.USAGE);
+            if (usage == null) {
+                throw new InvalidSettingException("No setting was given.");
+            }
+            settings.updateUsage(usage);
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
         } catch (SettingsException e) {
@@ -232,7 +241,7 @@ final class ApiHandler implements HttpHandler {
     record Range(int min, int max) {
     }
 
-    record Limits(Range usageIntervalSeconds, Range pollIntervalSeconds) {
+    record Limits(Range usageIntervalSeconds) {
     }
 
     record ConfigBody(int usageIntervalSeconds, int pollIntervalSeconds, Limits limits) {
