@@ -30,6 +30,7 @@
 
 html,
 body {
+    height: 100%;
     margin: 0;
     overflow: hidden;
     background: Canvas;
@@ -51,8 +52,27 @@ body {
 #app {
     display: block;
     width: max-content;
+}
+
+/*
+ * The row and its message lines: the part that is always shown, and what the window is sized to.
+ * Its width is the row's own, never the window's, and a row wider than 900 px wraps.
+ */
+.top {
+    width: max-content;
     max-width: 900px;
     padding: 5px 8px;
+}
+
+/*
+ * While a panel is shown the window is taller than the page's own content and the person can
+ * drag its height, so the app fills the window and the panel takes what the row leaves.
+ */
+#app.open {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
 }
 
 .strip {
@@ -77,15 +97,19 @@ body {
 }
 
 /*
- * The countdown changes every second, so it gets a width that fits "-3 s" up to
- * "120 s": the window is sized to its content, and a width that moved with every
- * digit would resize the window as the count went by.
+ * The countdown changes every second, so it keeps a width that fits the usual values,
+ * "-3 s" to "99 s": the window is sized to its content, and a width that moved with
+ * every digit would resize the window as the count went by. It is left-aligned and pulled
+ * towards the refresh button, so the number sits right beside the icon, and any spare
+ * room falls after it. (Right-aligned, the spare room sat between the icon and the number.)
+ * A longer value, such as "120 s" while backing off, widens the window for a moment.
  */
 .countdown {
     display: inline-block;
-    min-width: 5.5ch;
+    min-width: 4ch;
+    margin-left: -8px; /* takes most of the strip's 10 px gap away, leaving 2 px */
     font-variant-numeric: tabular-nums;
-    text-align: right;
+    text-align: left;
 }
 
 /* Severity is shown by colour alone. */
@@ -141,6 +165,15 @@ body {
     cursor: pointer;
 }
 
+/*
+ * The refresh button sits snug against the amounts before it: its 24 px box leaves about
+ * 5 px of empty room either side of the 14 px icon, and the strip puts 10 px between items,
+ * which is 15 px in all. Pulling the box in by 7 px leaves 8 px between the number and the icon.
+ */
+#refresh {
+    margin-left: -7px;
+}
+
 .icon.tiny {
     width: 20px;
     height: 20px;
@@ -193,13 +226,76 @@ input[aria-invalid="true"] {
     border-color: var(--bad);
 }
 
+/*
+ * A message never makes the window wider: it adds no width of its own (width 0, at least as wide as
+ * the row) and wraps, so it takes more lines instead.
+ */
 .note {
-    max-width: 36em;
+    width: 0;
+    min-width: 100%;
     margin: 3px 0 0;
     font-size: 14px;
     white-space: normal;
     overflow-wrap: anywhere;
 }
 
-.note-stale { color: var(--warn); }
+/* Every error is red, including the one that comes with figures still on show. */
+.note-stale,
 .note-error { color: var(--bad); }
+
+/*
+ * The history and the log panel: small, condensed, like a log file. The one place text is under 14 px,
+ * and regular weight, since it is a long list to scan rather than a figure to read. It keeps
+ * the width of the row above it (width 0 with a minimum of 100%, so it adds nothing to the
+ * width the window is sized to; the log, though, is given three times that width, which the
+ * window has and the panel fills). Its height is what the window leaves it, so a taller window
+ * shows more lines.
+ */
+.panel {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    width: 0;
+    min-width: 100%;
+    min-height: 0;
+    padding: 0 8px 4px;
+    font: 400 12px/15px ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: -0.02em;
+}
+
+.panel-lines {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    white-space: pre;
+    font-variant-numeric: tabular-nums;
+}
+
+.panel-note {
+    margin: 0 0 2px;
+    color: var(--muted);
+}
+
+.panel-error {
+    margin: 0 0 2px;
+    color: var(--bad);
+}
+
+/* A row of the history is a table row: the columns spread over the width, the amounts lined up on the right. */
+.panel-lines .cols-4 {
+    display: grid;
+    grid-template-columns: 1.7fr 1fr 1fr 0.8fr;
+    column-gap: 12px;
+}
+
+.panel-lines .cols-4 > :not(:first-child) {
+    text-align: right;
+}
+
+/* The header stays at the top of the box while the rows scroll under it. */
+.panel-lines .head {
+    position: sticky;
+    top: 0;
+    font-weight: 700;
+    background: Canvas;
+}

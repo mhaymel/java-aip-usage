@@ -41,6 +41,8 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // Lets a test that opens real windows be asked for: ./gradlew test -Daipusage.windows=true
+    System.getProperty("aipusage.windows")?.let { systemProperty("aipusage.windows", it) }
 }
 
 // The frontend's logic and page script, run under Node. Kept out of `build` so

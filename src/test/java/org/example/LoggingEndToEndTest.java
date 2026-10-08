@@ -148,7 +148,7 @@ class LoggingEndToEndTest {
 
         try (Logging logging = Logging.install(logFile)) {
             AppRuntime app = AppRuntime.start(
-                    dir.resolve("settings.json"), LaunchOptions.none(),
+                    new AppFiles(dir.resolve("settings.json"), dir.resolve("history.csv"), logFile), LaunchOptions.none(),
                     new UsageFetcher(tokens, UsageClient.create(endpoint)));
             try {
                 await(() -> done.apply(app));

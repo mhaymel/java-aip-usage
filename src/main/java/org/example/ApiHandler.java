@@ -10,6 +10,7 @@ import org.example.settings.IntervalRange;
 import org.example.settings.IntervalSettings;
 import org.example.settings.InvalidSettingException;
 import org.example.settings.SettingsException;
+import org.example.usage.HistoryReader;
 import org.example.usage.Spend;
 import org.example.usage.UsageService;
 import org.example.usage.UsageSnapshot;
@@ -41,6 +42,13 @@ final class ApiHandler implements HttpHandler {
 
     private static final String SOURCE = "anthropic-oauth-usage";
 
+    /** How much of the log and of the history the windows show: the newest of each. */
+    static final int LOG_LINES = 1000;
+
+    static final int LOG_BYTES = 512 * 1024;
+
+    static final int HISTORY_ROWS = 1000;
+
     private static final String USAGE_KEY = "usageIntervalSeconds";
 
     private static final String POLL_KEY = "pollIntervalSeconds";
@@ -49,11 +57,14 @@ final class ApiHandler implements HttpHandler {
 
     private final IntervalSettings settings;
 
+    private final AppFiles files;
+
     private final ObjectMapper mapper = new ObjectMapper();
 
-    ApiHandler(UsageService service, IntervalSettings settings) {
+    ApiHandler(UsageService service, IntervalSettings settings, AppFiles files) {
         this.service = service;
         this.settings = settings;
+        this.files = files;
     }
 
     @Override
@@ -90,6 +101,18 @@ final class ApiHandler implements HttpHandler {
                     throw new ApiException(405, "Use GET.", "GET");
                 }
                 send(exchange, 200, status(service.state()));
+            }
+            case "/api/log" -> {
+                if (!method.equals("GET")) {
+                    throw new ApiException(405, "Use GET.", "GET");
+                }
+                send(exchange, 200, log());
+            }
+            case "/api/history" -> {
+                if (!method.equals("GET")) {
+                    throw new ApiException(405, "Use GET.", "GET");
+                }
+                send(exchange, 200, history());
             }
             case "/api/refresh" -> {
                 if (!method.equals("POST")) {
@@ -143,6 +166,29 @@ final class ApiHandler implements HttpHandler {
             throw new InvalidSettingException(range.describeLimit());
         }
         return value.longValue();
+    }
+
+    // ---- /api/log and /api/history: read-only views of the two files
+
+    private LogBody log() {
+        try {
+            LogTail.Tail tail = LogTail.read(files.log(), LOG_LINES, LOG_BYTES);
+            return new LogBody(files.log().getFileName().toString(), tail.exists(), tail.truncated(), tail.lines());
+        } catch (IOException e) {
+            LOG.log(System.Logger.Level.WARNING, "Could not read the log: " + e.getMessage());
+            throw new ApiException(500, "The log could not be read.", null);
+        }
+    }
+
+    private HistoryBody history() {
+        try {
+            HistoryReader.Table table = HistoryReader.read(files.history(), HISTORY_ROWS);
+            return new HistoryBody(
+                    files.history().getFileName().toString(), table.exists(), table.columns(), table.total(), table.rows());
+        } catch (IOException e) {
+            LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
+            throw new ApiException(500, "The usage history could not be read.", null);
+        }
     }
 
     // ---- /api/status
@@ -251,6 +297,12 @@ final class ApiHandler implements HttpHandler {
     }
 
     record RefreshBody(boolean started) {
+    }
+
+    record LogBody(String file, boolean exists, boolean truncated, List<String> lines) {
+    }
+
+    record HistoryBody(String file, boolean exists, List<String> columns, int total, List<List<String>> rows) {
     }
 
     record ErrorBody(String message, String at) {

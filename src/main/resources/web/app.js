@@ -14,6 +14,17 @@
     var pollTimer = null;
     var polling = false;
     var lastWindowsKey = null;
+    var lastStale = false;
+    // Which panel is shown below the strip: 'history', 'log', or none.
+    var openPanel = null;
+    var panelLoading = false;
+    // Which reading the history panel shows up to: a new one means it is read again.
+    var panelMark = null;
+    // What the panel shows, to leave it alone when a read finds nothing new.
+    var panelKey = null;
+    // The rows on show, to tell how many came in above what the person was reading.
+    var panelRows = [];
+    var panelHasHeader = false;
 
     // The one setting the window offers. How often the window itself updates is not
     // a setting: it comes from the command line and is only read here.
@@ -77,6 +88,7 @@
             lastStatus = await request('/api/status');
             show('connection', false);
             render();
+            refreshPanel();
         } catch (e) {
             show('connection', true);
         } finally {
@@ -103,7 +115,8 @@
         }
         var v = view.describeStatus(lastStatus, Date.now());
 
-        $('app').className = v.stale ? 'stale' : '';
+        lastStale = v.stale;
+        applyAppClass();
         $('refresh').className = 'icon' + (v.refreshing ? ' busy' : '');
 
         show('time', Boolean(v.time));
@@ -131,6 +144,10 @@
         $('countdown').title = v.countdown ? v.countdown.tooltip : '';
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
+    }
+
+    function applyAppClass() {
+        $('app').className = (lastStale ? 'stale' : '') + (panelIsOpen() ? ' open' : '');
     }
 
     function renderWindows(windows) {
@@ -168,7 +185,16 @@
         return !$('config').hidden;
     }
 
-    function openConfig() {
+    /**
+     * Asks the backend for its interval every time, since it may have changed since the page
+     * started. If it cannot be asked, the last value known is shown.
+     */
+    async function openConfig() {
+        try {
+            config = await request('/api/config');
+        } catch (e) {
+            // Keep what we had; the lost-contact banner is the poll's to show.
+        }
         $(INTERVAL.input).value = String(config[INTERVAL.key]);
         $(INTERVAL.input).removeAttribute('aria-invalid');
         setNote('config-note', '');
@@ -228,16 +254,155 @@
         }
     }
 
+    // ---- the panel below the strip: the usage history or the log, one at a time
+
+    var PANELS = {
+        history: {
+            button: 'history-button',
+            path: '/api/history',
+            describe: view.describeHistory,
+            show: 'Show the usage history',
+            hide: 'Hide the usage history',
+            failure: 'The usage history could not be read: '
+        },
+        log: {
+            button: 'log-button',
+            path: '/api/log',
+            describe: view.describeLog,
+            show: 'Show the log',
+            hide: 'Hide the log',
+            failure: 'The log could not be read: '
+        }
+    };
+
+    function fetchedAt() {
+        return lastStatus && lastStatus.usage ? lastStatus.usage.fetched_at : null;
+    }
+
+    function panelIsOpen() {
+        return openPanel !== null;
+    }
+
+    /**
+     * Reads what the open panel shows and puts it on the page. The lines are replaced only when they
+     * changed, and what the person has scrolled to stays where it is, though lines come in above it.
+     */
+    async function loadPanel() {
+        if (panelLoading || !openPanel) {
+            return;
+        }
+        var name = openPanel;
+        var spec = PANELS[name];
+        panelLoading = true;
+        panelMark = fetchedAt();
+        try {
+            var shown = spec.describe(await request(spec.path));
+            if (name === openPanel) {
+                showPanel(shown);
+            }
+        } catch (e) {
+            // What was shown stays; only the error is added.
+            if (name === openPanel) {
+                setNote('panel-error', spec.failure + e.message);
+            }
+        } finally {
+            panelLoading = false;
+        }
+    }
+
+    function cells(className, values) {
+        var row = document.createElement('div');
+        row.className = className + ' cols-' + values.length;
+        values.forEach(function (value) {
+            var cell = document.createElement('span');
+            cell.textContent = value;
+            row.append(cell);
+        });
+        return row;
+    }
+
+    function showPanel(shown) {
+        var key = JSON.stringify(shown);
+        setNote('panel-error', '');
+        if (key === panelKey) {
+            return;
+        }
+        panelKey = key;
+        var box = $('panel-lines');
+        var scrolled = box.scrollTop;
+        var perRow = box.scrollHeight && panelRows.length ? box.scrollHeight / (panelRows.length + (panelHasHeader ? 1 : 0)) : 0;
+        var rowKeys = shown.rows.map(function (row) { return row.join('\u0000'); });
+        box.replaceChildren();
+        if (shown.header) {
+            // The first child of the box, kept at its top as the rows scroll under it.
+            box.append(cells('row head', shown.header));
+        }
+        shown.rows.forEach(function (row) {
+            box.append(cells('row', row));
+        });
+        // Rows that came in above what the person was reading push it down; follow it.
+        var added = panelRows.length ? rowKeys.indexOf(panelRows[0]) : 0;
+        box.scrollTop = scrolled > 0 && added > 0 ? scrolled + added * perRow : scrolled;
+        panelRows = rowKeys;
+        panelHasHeader = Boolean(shown.header);
+        show('panel-lines', shown.rows.length > 0);
+        setNote('panel-note', shown.note);
+    }
+
+    /** Reads the open panel again when there may be more to show: a new reading, or any time for the log. */
+    function refreshPanel() {
+        if (openPanel === 'log' || (openPanel === 'history' && fetchedAt() !== panelMark)) {
+            loadPanel();
+        }
+    }
+
+    function labelButtons() {
+        Object.keys(PANELS).forEach(function (name) {
+            var spec = PANELS[name];
+            var label = openPanel === name ? spec.hide : spec.show;
+            var button = $(spec.button);
+            button.title = label;
+            button.setAttribute('aria-label', label);
+            button.setAttribute('aria-expanded', String(openPanel === name));
+        });
+    }
+
+    /** Opens the panel, or closes it if it is the one shown; opening one replaces the other. */
+    function togglePanel(name) {
+        openPanel = openPanel === name ? null : name;
+        panelKey = null;
+        panelRows = [];
+        panelHasHeader = false;
+        $('panel-lines').replaceChildren();
+        setNote('panel-note', '');
+        setNote('panel-error', '');
+        labelButtons();
+        show('panel', panelIsOpen());
+        applyAppClass();
+        loadPanel();
+    }
+
     // ---- the window host
 
     /**
-     * The size, in CSS pixels, the window needs to show all of this page. The
-     * Java host asks for it and resizes the window to match; see docs/api.md.
-     * It is the page's own size, not the window's, so asking does not change it.
+     * The size, in CSS pixels, the window needs to show all of this page, and what of it the person
+     * may drag: `width,height,resizable`. The Java host asks for it and resizes the window to
+     * match; see docs/api.md. It is the page's own size, not the window's, so asking does not
+     * change it. With a panel shown the height is ten times the row's, and the height is the
+     * person's to change from there; with the log the width is three times the row's, and that is
+     * theirs too. The page never reports the size the window was dragged to.
      */
     window.contentSize = function () {
-        var box = $('app').getBoundingClientRect();
-        return Math.ceil(box.width) + ',' + Math.ceil(box.height);
+        var box = $('top').getBoundingClientRect();
+        var width = Math.ceil(box.width);
+        var height = Math.ceil(box.height);
+        if (openPanel === 'log') {
+            return 3 * width + ',' + 10 * height + ',2';
+        }
+        if (openPanel === 'history') {
+            return width + ',' + 10 * height + ',1';
+        }
+        return width + ',' + height + ',0';
     };
 
     // ---- start
@@ -252,6 +417,8 @@
         }
         show('connection', false);
 
+        $('log-button').addEventListener('click', function () { togglePanel('log'); });
+        $('history-button').addEventListener('click', function () { togglePanel('history'); });
         $('config-toggle').addEventListener('click', toggleConfig);
         $('config-ok').addEventListener('click', confirmConfig);
         $(INTERVAL.input).addEventListener('keydown', onConfigKey);

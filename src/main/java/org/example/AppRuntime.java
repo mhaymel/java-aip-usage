@@ -3,6 +3,7 @@ package org.example;
 import org.example.settings.IntervalSettings;
 import org.example.settings.LaunchOptions;
 import org.example.settings.SettingsStore;
+import org.example.usage.UsageHistory;
 import org.example.usage.UsageService;
 import org.example.usage.UsageSnapshot;
 
@@ -19,6 +20,8 @@ import java.util.function.Supplier;
  */
 final class AppRuntime implements AutoCloseable {
 
+    private static final System.Logger LOG = System.getLogger(AppRuntime.class.getName());
+
     private final IntervalSettings settings;
 
     private final UsageService service;
@@ -34,20 +37,42 @@ final class AppRuntime implements AutoCloseable {
     /**
      * Loads the settings, starts the web server, then begins fetching at once.
      *
-     * @param settingsFile where the UI's interval choices are kept
+     * @param files where the interval choice, the usage history and the log are kept
      * @param options command-line overrides
      * @param fetcher produces one usage reading; a parameter so tests need no network
      */
-    static AppRuntime start(Path settingsFile, LaunchOptions options, Supplier<UsageSnapshot> fetcher)
+    static AppRuntime start(AppFiles files, LaunchOptions options, Supplier<UsageSnapshot> fetcher)
             throws IOException {
         IntervalSettings settings =
-                IntervalSettings.load(new SettingsStore(settingsFile), options.usageInterval(), options.pollInterval());
-        UsageService service = new UsageService(fetcher, settings.usageInterval());
+                IntervalSettings.load(new SettingsStore(files.settings()), options.usageInterval(), options.pollInterval());
+        UsageHistory history = new UsageHistory(files.history());
+        UsageService service = new UsageService(recording(fetcher, history), settings.usageInterval());
+        history.latest().ifPresent(earlier -> {
+            service.restore(earlier);
+            LOG.log(System.Logger.Level.INFO, "Showing the newest reading in the usage history until the first refresh is done");
+        });
         settings.onUsageIntervalChange(service::setInterval);
 
-        LocalWebServer server = LocalWebServer.start(new ApiHandler(service, settings));
+        LocalWebServer server = LocalWebServer.start(new ApiHandler(service, settings, files));
         service.start();
         return new AppRuntime(settings, service, server);
+    }
+
+    /**
+     * The fetcher, with each reading it returns added to the history. A history that cannot be
+     * written is logged and nothing more: the reading is good, and the refresh did succeed.
+     */
+    private static Supplier<UsageSnapshot> recording(Supplier<UsageSnapshot> fetcher, UsageHistory history) {
+        return () -> {
+            UsageSnapshot snapshot = fetcher.get();
+            try {
+                history.append(snapshot);
+            } catch (IOException | RuntimeException e) {
+                LOG.log(System.Logger.Level.WARNING,
+                        "Could not add the reading to " + history.file() + ": " + e.getMessage());
+            }
+            return snapshot;
+        };
     }
 
     URI baseUri() {

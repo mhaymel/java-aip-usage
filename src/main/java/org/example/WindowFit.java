@@ -7,7 +7,9 @@ import java.util.regex.Pattern;
 /**
  * Decides how big the window should be, from what the page says it needs.
  *
- * <p>The page reports {@code "<width>,<height>"} in CSS pixels, taken from its own
+ * <p>The page reports {@code "<width>,<height>"}, optionally followed by {@code ,1} when the window
+ * may be resized in height, {@code ,2} when it may be resized in width too, and {@code ,0} when it
+ * may not be resized, in CSS pixels, taken from its own
  * content and not from the window, so resizing the window to match never changes
  * the answer. Everything else is defence: a reading that is not that shape is
  * ignored, a size is kept within sane limits, and a size equal to the one already
@@ -15,15 +17,32 @@ import java.util.regex.Pattern;
  */
 final class WindowFit {
 
-    /** A window size in pixels. */
-    record Size(int width, int height) {
+    /**
+     * A window size in pixels.
+     *
+     * @param resize what of the window the person may drag
+     */
+    record Size(int width, int height, Resize resize) {
+
+        Size(int width, int height) {
+            this(width, height, Resize.NONE);
+        }
+
+        boolean resizable() {
+            return resize != Resize.NONE;
+        }
+    }
+
+    /** What of the window the person may drag. */
+    enum Resize {
+        NONE, HEIGHT, BOTH
     }
 
     static final Size MIN = new Size(160, 32);
 
-    static final Size MAX = new Size(1000, 500);
+    static final Size MAX = new Size(2400, 1600);
 
-    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})");
+    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([012]))?");
 
     private WindowFit() {
     }
@@ -53,6 +72,7 @@ final class WindowFit {
         }
         return Optional.of(new Size(
                 Math.clamp(width, MIN.width(), MAX.width()),
-                Math.clamp(height, MIN.height(), MAX.height())));
+                Math.clamp(height, MIN.height(), MAX.height()),
+                match.group(3) == null ? Resize.NONE : Resize.values()[Integer.parseInt(match.group(3))]));
     }
 }

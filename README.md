@@ -35,6 +35,19 @@ Hover over things to see what they are:
 | the percentage | how much of the budget is spent, and the severity |
 | the countdown | seconds until the next refresh, negative when overdue |
 
+- **Log** and **History** buttons, at the right-hand end of the row, show the end of the log file or the usage
+  history inside the main window: the window becomes ten times as tall and shows the lines below the first row,
+  newest first, in a small condensed font like a log file. The history is a table with a header
+  (`datetime`, `used`, `limit`, `currency`) whose columns are spread over the full width; the log is plain lines,
+  and its window is also three times as wide as the row. Only one is shown at a time; pressing the other
+  button switches, pressing the same one again hides the panel and the window shrinks back. While a panel is
+  open the window can be dragged taller (the log's also wider, the history's not) and the panel fills it,
+  scrolling. New readings and new log lines appear at the top by themselves, without moving what you are
+  reading. The log shows the newest 1,000 lines (reading at most the last 512 KB); the history the newest 1,000
+  readings.
+- **At startup** the newest reading in the history file is shown straight away, until the first refresh
+  replaces it (and kept, dimmed, with the error if that refresh fails). Nothing is added to the history for it.
+- A message line, such as an error, never makes the window wider: it wraps and takes more lines.
 - **Refresh** (⟳) fetches now. It stays clickable; clicks during a fetch do nothing extra.
 - **Countdown** (`42 s`) is the seconds until the next scheduled refresh, worked out by
   the application and shown as it reports it. It starts again after a manual refresh,
@@ -42,14 +55,16 @@ Hover over things to see what they are:
   (`-3 s`) if the refresh is overdue, for example because a request is slow. It is
   empty until the first request has been made.
 - **Config** (≡) shows one field next to it, `fetch`: how often the application asks
-  Anthropic, in seconds (default 60). Change it and press **Enter** or ✓ to save and
-  apply it; the field then disappears. A bad value keeps it open with a short message.
+  Anthropic, in seconds (default 60). The value shown is read from the application each time
+  you open it, so it is right even if it changed after the window started. Change it and
+  press **Enter** or ✓ to save and apply it; the field then disappears. A bad value keeps it open with a short message.
   **Escape**, or the config button again, closes it without changing anything.
 - The title bar reads `aip usage v0.01`. The version is one constant, `AppInfo.VERSION`,
   written by hand and increased by hand when the program changes; it has nothing to do
   with the Gradle project version.
 - A failed refresh, or a missing or logged-out Claude Code, adds a short message
-  line under the strip while it lasts; the window grows to hold it and shrinks back.
+  line under the strip while it lasts, **in red**; the window grows to hold it and shrinks
+  back. The last figures stay on show, dimmed, until a refresh succeeds again.
 
 It doubles as a playground for exercising the neighboring
 [`java-aip`](../java-aip) tooling and reusing auth patterns from the sibling
@@ -111,6 +126,12 @@ loaded from 'unnamed module'", and the JDK's note that native access will need t
 enabled in a future release. Both are harmless. To silence the second, add
 `--enable-native-access=ALL-UNNAMED` to the run configuration's VM options.
 
+The test that opens the real window (the panels, and the size the page asks for) runs only when asked for, since it puts a window on the screen for a few seconds:
+
+```sh
+./gradlew test --tests '*PanelWindowTest' -Daipusage.windows=true
+```
+
 The frontend's logic is tested with Node, outside the JVM build:
 
 ```sh
@@ -167,6 +188,26 @@ the way [`java-aip`](../java-aip) does:
 This takes about a second, at startup and after a 401. If `ANTHROPIC_API_KEY` or
 `ANTHROPIC_AUTH_TOKEN` is set, the application refuses to start the capture,
 because `claude` would send that instead of its login token: unset it and restart.
+
+## Usage history
+
+Every successful refresh that has amounts adds a row to `java-aip-usage.csv` in the project root:
+
+```
+datetime,used,limit,currency
+2026-10-08 16:24:53,186.02,1000.00,USD
+2026-10-08 16:25:53,186.07,1000.00,USD
+```
+
+The time is your local date and time to the second, in the form Excel recognises as a date and
+time, and it is the clock the window shows. The file does not name a zone, and the hour in which the clocks
+go back appears twice. To open it in Excel use Data, From Text/CSV: the columns are separated by commas and the
+numbers use a dot, so if your Excel uses a decimal comma, choose comma as the delimiter and the dot as the
+decimal in that dialog. (I have not opened it in Excel myself.) The amounts are plain numbers with a dot and two decimals, no currency sign; the currency is its own column. A file from before that column (header `datetime,used,limit`) is upgraded in place when the next row is added: its rows get an empty currency, since the file never said. The file
+is added to, never overwritten, and never rotated, so delete or move it when you like; at the default
+interval of a minute it grows by about 60 KB a day. A failed refresh adds nothing, nor does a Pro or Max
+account, which has no amounts. If the file cannot be written the log says so and the refresh still
+counts as a success. It holds spending figures, so it stays on this machine and out of git.
 
 ## Logging
 
@@ -239,12 +280,13 @@ would still not reach the file.
 | `src/main/java/org/example/token/` | OAuth token acquisition via the Claude Code CLI |
 | `src/main/java/org/example/usage/` | Usage model, parser, HTTP client, refresh service |
 | `src/main/java/org/example/settings/` | Interval settings, `settings.json`, command-line options |
-| `src/main/resources/web/` | Frontend: HTML, CSS, JavaScript |
+| `src/main/resources/web/` | Frontend: the strip with its log and history panel (`index.html`), with its CSS and JavaScript |
 | `src/test/java/`, `src/test/frontend/` | JUnit tests, and Node tests for the frontend |
 | `docs/` | Requirements, implementation plan, and the local API contract |
 | `build.gradle.kts` | Build config — JDK 25 toolchain, JavaFX, JUnit 6 |
 | `settings.json` | UI-edited settings, written at run time (git-ignored) |
 | `java-aip-usage.log` | Append-mode run log, written at run time (git-ignored) |
+| `java-aip-usage.csv` | The usage history, one row per refresh, written at run time (git-ignored) |
 
 ## Related repos
 

@@ -7,6 +7,7 @@
 </head>
 <body>
 <div id="app">
+<div id="top" class="top">
     <div class="strip">
         <span id="time" class="time" title="Last update" hidden></span>
         <span id="spend" class="spend" hidden>
@@ -44,11 +45,35 @@
                 </svg>
             </button>
         </span>
+
+        <button id="log-button" class="icon tiny" type="button" aria-label="Show the log" title="Show the log"
+                aria-expanded="false">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3.5 1.8h6l3 3v9.4h-9z"/>
+                <path d="M9.5 1.8v3h3M5.5 8h5M5.5 10.6h5"/>
+            </svg>
+        </button>
+        <button id="history-button" class="icon tiny" type="button" aria-label="Show the usage history" title="Show the usage history"
+                aria-expanded="false">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="2.5" width="12" height="11" rx="1"/>
+                <path d="M2 6.2h12M2 9.8h12M6.4 2.5v11"/>
+            </svg>
+        </button>
     </div>
 
     <p id="note" class="note" role="status" hidden></p>
     <p id="config-note" class="note note-error" role="alert" hidden></p>
     <p id="connection" class="note note-error" role="alert" hidden>Lost contact with the application. Still trying.</p>
+</div>
+
+    <div id="panel" class="panel" hidden>
+        <p id="panel-note" class="panel-note" hidden></p>
+        <p id="panel-error" class="panel-error" role="alert" hidden></p>
+        <div id="panel-lines" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
+    </div>
 </div>
 <script src="view.js"></script>
 <script src="app.js"></script>

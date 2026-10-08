@@ -60,6 +60,23 @@ public final class UsageService implements AutoCloseable {
         this.backoff = new Backoff(positive(maxBackoff).toNanos());
     }
 
+    /**
+     * Shows a reading from before this run, until the first refresh has an answer. For the newest
+     * reading in the history, so the window is not empty while the first request is on its way.
+     * Must be called before {@link #start()}.
+     */
+    public void restore(UsageSnapshot earlier) {
+        lock.lock();
+        try {
+            if (thread != null || closed) {
+                throw new IllegalStateException("already started or closed");
+            }
+            state = new UsageState(earlier, null, null, false);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /** Starts the refresh thread; the first request begins at once. */
     public void start() {
         lock.lock();

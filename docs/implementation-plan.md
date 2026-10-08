@@ -629,6 +629,186 @@ The tests cannot see the `Main` ordering above, which is why the warning exists.
 **Not done.** `SIGKILL` cannot be caught. Which signal IntelliJ's stop button sends has not been
 checked.
 
+### 11. Tighter icon, red errors, a fresh interval on open, and the requirements brought level
+
+**Status: done.**
+
+- **Spacing.** The refresh icon sat about 15 px from the amounts before it: the strip's 10 px gap
+  plus about 5 px of empty room inside its 24 px button. `#refresh` is pulled in by 7 px, which
+  leaves about 8 px between the number and the icon, close to the 7 px that the countdown already
+  sits from the icon on its other side. The pull stays under the 10 px gap, so the button's box
+  never covers the number.
+- **Error text is red.** The failed-refresh message that comes with figures still on show was amber
+  (`--warn`), and only the no-figures one was red. Both are red (`--bad`) now, as are the
+  lost-contact banner and an invalid config value, and no message is amber.
+- **A fresh interval on open.** The page read the usage interval once, at startup, so a change made
+  elsewhere never reached the config field. `openConfig` now asks `GET /api/config` each time and
+  falls back to the last value known if the backend cannot be reached. It also refreshes the limits and
+  the value that "unchanged" is judged against, so confirming what the backend now has sends
+  nothing, and confirming the old value sends it. Nothing is pushed to a field that is already open.
+- **Requirements audit.** Reading `requirements.md` against the application found drift, all fixed:
+  the old Display requirements still demanded `currency` and `severity` as displayed fields (now a
+  tooltip and a colour); the size said about 400 x 50 when it is about 330 x 35; and the application
+  did several things no requirement covered: the `Loading… / No data / No usage reported` states, dimmed
+  stale figures, the lost-contact banner, the percentage tooltip with its severity, the window being
+  fixed to its content and wrapping past about 900 px, the environment-variable refusal and the
+  not-on-the-PATH message, the logging detail and masking, the local server's protections, and starting
+  from an IDE. The Future extension list still stands.
+- **Tests.** Node tests cover the red errors, the icon's pull, and re-reading the interval on open (it
+  changed, the fetch fails, confirming what the backend now has, and confirming the old value). Each was seen
+  to fail when broken.
+
+**The usage history (CSV).** Every successful refresh that has amounts adds a row to
+`java-aip-usage.csv` in the project root: `datetime,used,limit`, for example
+`2026-10-08T14:24:53Z,186.02,1000.00`.
+
+- *Decided by you:* a row for every successful refresh, and the three columns `datetime, used, limit`.
+- *Assumed, because the questions went unanswered, and easy to change:* the date and time are ISO 8601 in
+  UTC to the second (**changed in phase 12 to a local time Excel reads**); and a plan account's reading, which has no
+  amounts, writes nothing. The file name and place (project root, beside the log), the header written only
+  for a new or empty file, and never rotating it, were also my choices.
+- *Built.* `UsageHistory` (in `org.example.usage`) appends one row: it truncates the time to the second,
+  formats the numbers with `BigDecimal` to two decimals so the machine's language and zone cannot change
+  them, leaves a missing amount empty, and writes nothing for a reading without a spend. `AppRuntime` wraps
+  the fetcher so that each reading it returns is added; a failure to write is logged and swallowed, because
+  the reading is good and the refresh did succeed. `UsageApp` supplies the path, and `.gitignore` lists it.
+- *Tests.* `UsageHistoryTest` covers the file format, the header rule, the time and number formats under
+  another zone and language, empty amounts, zero, and a reading with nothing to write. `ApiTest` runs the
+  whole application against a stand-in fetch and checks the rows, one more for a manual refresh, none for a
+  failure or a plan reading, and that an unwritable history leaves the refresh a success. Each rule was seen
+  to fail a test when broken.
+- *Not done.* Nothing reads the file back; charts remain a future extension.
+
+### 12. An Excel-friendly date, a log window and a usage-history window
+
+**Status: done; how it looks in the window is for a person to judge.**
+
+- **The CSV.** It was already in the project root and already appended to. The date and time are now
+  `yyyy-MM-dd HH:mm:ss` in the machine's local zone, which Excel recognises as a date and time, where the
+  earlier `2026-10-08T14:24:53Z` it would leave as text. Local, so it is the window's clock; the price is that
+  the file names no zone and the hour when the clocks go back appears twice, which the requirement says. `UsageHistory`
+  takes the zone as a parameter, so a test is not at the mercy of the machine's. The three rows the file already held,
+  all from test runs, were converted once by hand (a backup was kept), since two formats in one column would
+  break an import. Not opened in Excel here; the requirement says how to import with a decimal comma.
+- **Two buttons at the right-hand end** of the row, after the config button and its field: the log and the
+  history, each an icon with a tooltip. Each calls `window.open` on a page of the application's own server
+  (`log.html`, `history.html`), so the page stays the same for any host that can open a window.
+- **The windows.** (The history window was replaced by a panel in phase 13.) `PopupWindows` installs the web view's popup handler: a new, resizable `Stage` owned by the main
+  one, with a web view of its own, titled from the page. Owned, so it closes with the main window, and closing
+  the main window ends the program even with one open. `AppFiles` carries the three file paths to where they are needed.
+  The log page shows the tail; the history page a table.
+- **The endpoints.** `GET /api/log` gives the last 1,000 lines, reading at most 512 KB from the end (`LogTail`: a cut
+  line, or a character cut in two, is dropped so none is shown half). `GET /api/history` gives the newest 1,000
+  rows (`HistoryReader`), **sorted by `datetime` descending, not just reversed**, skipping any line without three
+  columns. Both are read-only, name the file and never its path, and add nothing to the log or the history.
+- **View logic.** `view.js` gains `describeLog` and `describeHistory`: the notes ("Showing the newest N of M
+  rows"), and which columns line up left or right. The two page scripts only fetch and fill, with `textContent`.
+- **Tests.** Java: `UsageHistoryTest` (the format, zones, DST, Excel's shape), `HistoryReaderTest` (the sort, the
+  limit, damaged lines), `LogTailTest` (the cuts, a character split by the byte limit), `ApiTest` (both endpoints, the
+  cuts, no path). Node: the view logic, both pages against a fake DOM and backend, the buttons and their place, the CSS
+  (no text under 14 px, errors red). **`PopupWindowsTest`** opens real windows in a child JVM with a stand-in for the network,
+  presses both buttons by running the page's own script, and checks the titles, the owner, the log text and the history
+  rows in order, and that closing the main window ends the program. It puts windows on screen for a few seconds, so
+  it runs only when asked: `./gradlew test --tests '*PopupWindowsTest' -Daipusage.windows=true`. Each rule was seen to fail
+  a test when broken, the popup handler included.
+- **Along the way.** The first version of the probe judged "the program ended" by whether a thread called
+  `JavaFX Application Thread` was alive, which on macOS it stays after JavaFX exits; it now starts through
+  `Application.launch` as the application does, and the test judges by whether the process really ends.
+
+**Not done.** The log window does not update by itself, only on Reload, and does not colour warnings. Another
+click opens another window; none is reused. How the two windows look has not been seen.
+
+### 13. The usage history inside the main window
+
+**Status: done; how the panel looks in the window is for a person to judge.** Requirement:
+[The usage history panel](requirements.md#compact-window).
+
+The history button no longer opens a window. It makes the main window taller and shows the recorded
+data below the first row, small and condensed like a log file; pressed again, it hides it and the window
+shrinks back. This **replaces the history window of phase 12**; the log window stays as it is.
+
+*What changes when it is built.*
+
+- **Removed:** `history.html`, `history.js`, the history rows of `popup.css`, `describeHistory`'s
+  window-shaped output, their tests, and the history half of `PopupWindowsTest` (the popup count there
+  falls from two to one).
+- **Kept:** `GET /api/history`, `HistoryReader`, the sort by `datetime` descending, `UsageHistory` and the
+  CSV format. Only the page that shows them changes.
+- **The panel.** In `index.html`, below the strip and its message lines, a `hidden` element holding a
+  scrolling box with one line per reading. `app.js` toggles it with the history button (`aria-expanded`, and
+  a tooltip that switches between `Show the usage history` and `Hide the usage history`), fetches
+  `/api/history` when it opens, and refreshes it when a new reading arrives (the status carries `fetched_at`,
+  so a change of it is the signal; no extra polling), keeping the scroll position.
+- **The window follows by itself.** The host already resizes the stage to what `window.contentSize()`
+  reports, so the window grows when the panel appears and shrinks when it goes, with no host change. The
+  panel has a fixed height, so the size changes once, not with each reading.
+- **Style.** About 12 px, monospace, tight line height, regular weight, in a box about twelve lines tall that
+  scrolls. The layout test that forbids text under 14 px gets one named exception for this box and no other.
+  The `[hidden]` rule already makes the panel really disappear.
+- **Tests.** Node: the toggle shows and hides it and switches the tooltip and `aria-expanded`; the lines
+  are in the order the backend sent, newest first; each line has the date and time then `used / limit`; a new
+  reading appears at the top and the scroll position stays; it can be opened with no history, with a damaged
+  file, and when the backend cannot be reached; text goes in with `textContent`. Layout: the panel is below
+  the strip, hidden at the start, a fixed height, small and condensed, and the exception is the only one.
+  `PopupWindowsTest`: one popup, not two.
+
+*Assumed, easy to change:* newest line first, as the earlier table was; about 12 px and about twelve lines
+visible; the line `datetime  used / limit` in the file's own form; the panel updates by itself while open;
+and the panel sits below any message line. The button's tooltip switching to `Hide…` is mine.
+
+### 14. The history window twice as tall, and resizable in height
+
+**Status: done; how it feels to drag is for a person to judge.** Requirement:
+[The usage history panel](requirements.md#compact-window). Replaces the fixed twelve-line height of phase 13.
+
+- **Page.** `#top` wraps the strip and the message lines; `#history` fills the rest of `#app`, which fills the
+  window while the panel is open (a flex column). `window.contentSize()` reports `w,h,r`: with the panel
+  open the height is twice the height of `#top` and `r` is `1`; closed, `r` is `0`. It never reads the
+  height of `#app`, which follows the window, so dragging the window does not change the report.
+- **Host.** `WindowFit.Size` gains `heightResizable`. `UsageApp.resize` makes the stage resizable only when
+  it is set, with the width pinned (min = max) and the height free; the host resizes only when the report
+  changes, so a dragged height is kept until the panel closes, opens again or a message line comes or goes.
+- **Tests.** Node: the report doubles when open and says resizable; layout: no fixed height, the panel
+  flexes; `WindowFitTest`: the third field; the real-window probe: open height is twice the closed one.
+
+*Assumed:* resizable only while the panel is shown; the minimum height is the doubled size.
+
+### 15. Five times as tall, a fixed width, and the log as a panel
+
+**Status: done; how it looks and drags is for a person to judge.** Requirements: [Compact window](requirements.md#compact-window),
+The log panel and The usage history panel.
+
+- **Height.** Opening a panel makes the window five times the row's height (phase 14 made it twice).
+- **Width.** `.note` and the other message lines get `width: 0; min-width: 100%` like the history, so they
+  wrap to the row's width and add height only.
+- **The log as a panel.** The log button toggles a panel in the same area as the history; one shown at
+  a time. `GET /api/log` stays; its lines are shown newest first; it is read again when its file grows
+  (the response gains a size or line count to compare, no extra request kinds). Removed: `log.html`,
+  `log.js`, `popup.css`, `PopupWindows`, `PopupProbe`/`PopupWindowsTest`'s popup half, `describeLog`'s
+  window shape. The closing-main-ends-program rule loses its second window.
+
+*Assumed:* "5 times the size of the width" means five times the row's height (five times the width would be
+about 2,000 px); "handled like the csv files" means shown in the window like the history (the file
+itself is already handled that way); newest first for the log; one panel at a time.
+
+### 16. Currency column, a spread-out table, ten times as tall, the newest reading at startup, a wide log
+
+**Status: done; how it looks and drags is for a person to judge.**
+
+- **Currency.** `UsageHistory` writes `datetime,used,limit,currency`, and upgrades an old three-column file in
+  place on its first append (temp file, then move). `HistoryReader` reads three or four columns and always
+  returns four.
+- **Table.** The panel gets rows of cells: `describeHistory` returns a header and rows of cells, `describeLog`
+  rows of one cell. CSS grid spreads four columns over the width; the header sits above the scrolling box.
+- **Size.** Ten times the row height for both panels; the log also three times the row width. The page
+  reports `w,h,r` with `r` 0 none, 1 height, 2 height and width; the host pins the width only for 1.
+  `WindowFit.MAX` grows to fit.
+- **Startup.** `UsageHistory.latest()` builds a snapshot from the newest row; `UsageService.restore` puts it
+  in the state before the first refresh. A row with no amounts restores nothing.
+
+*Assumed:* "double the height" means twice what it was, so ten times the row; "the table" is the history
+table; "the news entry" is the newest entry; a startup reading is not dimmed unless the refresh then fails.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

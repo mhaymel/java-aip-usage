@@ -202,6 +202,44 @@
         return view;
     }
 
+    /**
+     * What the log panel shows, from GET /api/log, which sends the lines oldest first: the same
+     * lines, newest first, each a row of one cell.
+     * @returns {note, header, rows}: a line of explanation or null, no header, and the rows
+     */
+    function describeLog(data) {
+        if (!data.exists) {
+            return { note: 'There is no log file yet.', header: null, rows: [] };
+        }
+        if (data.lines.length === 0) {
+            return { note: 'The log is empty.', header: null, rows: [] };
+        }
+        return {
+            note: data.truncated ? 'Showing the newest ' + data.lines.length + ' lines of the log.' : null,
+            header: null,
+            rows: data.lines.slice().reverse().map(function (line) { return [line]; })
+        };
+    }
+
+    /**
+     * What the history panel shows, from GET /api/history: a table with the file's columns as its
+     * header and a row of cells for each reading, newest first as the backend sorted them.
+     * @returns {note, header, rows}
+     */
+    function describeHistory(data) {
+        if (!data.exists) {
+            return { note: 'There is no usage history yet.', header: null, rows: [] };
+        }
+        if (data.total === 0) {
+            return { note: 'The history has no rows yet.', header: null, rows: [] };
+        }
+        return {
+            note: data.rows.length < data.total ? 'Showing the newest ' + data.rows.length + ' of ' + data.total + ' rows.' : null,
+            header: data.columns,
+            rows: data.rows
+        };
+    }
+
     /** Checks a typed interval against the limits the backend reported. Returns an error text, or null. */
     function checkInterval(text, limits, label) {
         var trimmed = String(text).trim();
@@ -224,6 +262,8 @@
         formatPercent: formatPercent,
         formatAmount: formatAmount,
         describeCountdown: describeCountdown,
+        describeLog: describeLog,
+        describeHistory: describeHistory,
         severityKind: severityKind
     };
     if (typeof module !== 'undefined' && module.exports) {

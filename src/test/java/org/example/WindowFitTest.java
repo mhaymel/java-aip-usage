@@ -19,24 +19,40 @@ class WindowFitTest {
     }
 
     @Test
+    void readsWhetherTheHeightMayBeResized() {
+        assertEquals(Optional.of(new Size(400, 340, WindowFit.Resize.HEIGHT)), WindowFit.parse("400,340,1"));
+        assertEquals(Optional.of(new Size(1200, 340, WindowFit.Resize.BOTH)), WindowFit.parse("1200,340,2"));
+        assertEquals(Optional.of(new Size(400, 34, WindowFit.Resize.NONE)), WindowFit.parse("400,34,0"));
+        assertEquals(Optional.of(new Size(400, 34, WindowFit.Resize.NONE)), WindowFit.parse("400,34"));
+    }
+
+    @Test
+    void aChangeOfResizabilityAloneIsAChange() {
+        Optional<Size> applied = Optional.of(new Size(400, 68, WindowFit.Resize.NONE));
+        assertEquals(Optional.of(new Size(400, 68, WindowFit.Resize.HEIGHT)), WindowFit.next("400,68,1", applied));
+        assertEquals(Optional.of(new Size(400, 68, WindowFit.Resize.BOTH)), WindowFit.next("400,68,2", applied));
+        assertEquals(Optional.empty(), WindowFit.next("400,68,1", Optional.of(new Size(400, 68, WindowFit.Resize.HEIGHT))));
+    }
+
+    @Test
     void keepsTheWindowWithinSaneLimits() {
         assertEquals(Optional.of(WindowFit.MIN), WindowFit.parse("1,1"));
         assertEquals(Optional.of(new Size(WindowFit.MIN.width(), 50)), WindowFit.parse("20,50"));
         assertEquals(Optional.of(WindowFit.MAX), WindowFit.parse("99999,99999"));
-        assertEquals(Optional.of(new Size(1000, 42)), WindowFit.parse("5000,42"));
-        assertEquals(Optional.of(new Size(400, 500)), WindowFit.parse("400,800"));
+        assertEquals(Optional.of(new Size(2400, 42)), WindowFit.parse("5000,42"));
+        assertEquals(Optional.of(new Size(400, 1600)), WindowFit.parse("400,2000"));
     }
 
     @Test
     void theBoundsAreAcceptedAsTheyAre() {
         assertEquals(Optional.of(WindowFit.MIN), WindowFit.parse("160,32"));
-        assertEquals(Optional.of(WindowFit.MAX), WindowFit.parse("1000,500"));
+        assertEquals(Optional.of(WindowFit.MAX), WindowFit.parse("2400,1600"));
     }
 
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {
-            "", "undefined", "null", "NaN,NaN", "400", "400,", ",42", "400;42", "400,42,1", "400, 42",
+            "", "undefined", "null", "NaN,NaN", "400", "400,", ",42", "400;42", "400,42,3", "400,42,", "400,42,1,1", "400, 42",
             "-5,10", "10,-5", "4.5,10", "0,0", "0,50", "50,0", "abc", "400x42", "999999,5", "5,999999",
             "99999999999999999999,5"})
     void ignoresAnythingThatIsNotASize(String reported) {

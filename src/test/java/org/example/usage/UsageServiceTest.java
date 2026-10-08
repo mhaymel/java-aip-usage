@@ -785,4 +785,23 @@ class UsageServiceTest {
             }
         }
     }
+
+    @Test
+    void anEarlierReadingIsShownBeforeTheFirstRefreshAndIsNotStale() {
+        UsageService service = new UsageService(() -> snapshot(2), HOUR);
+        started.add(service);
+
+        service.restore(snapshot(1));
+
+        assertEquals(snapshot(1), service.state().snapshot());
+        assertFalse(service.state().stale());
+        assertNull(service.state().error());
+    }
+
+    @Test
+    void anEarlierReadingCannotBeRestoredOnceRunning() {
+        UsageService service = start(() -> snapshot(2), HOUR);
+
+        assertThrows(IllegalStateException.class, () -> service.restore(snapshot(1)));
+    }
 }

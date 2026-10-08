@@ -7,6 +7,7 @@ import org.example.settings.SettingsStore;
 import org.example.usage.Spend;
 import org.example.usage.UsageFetchException;
 import org.example.usage.UsageSnapshot;
+import org.example.usage.UsageState;
 import org.example.usage.UsageWindow;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -109,7 +110,7 @@ class ApiTest {
     }
 
     private AppRuntime start(FakeFetch fetch, LaunchOptions options) throws IOException {
-        AppRuntime runtime = AppRuntime.start(dir.resolve("settings.json"), options, fetch);
+        AppRuntime runtime = AppRuntime.start(AppFiles.in(dir), options, fetch);
         runtimes.add(runtime);
         return runtime;
     }
@@ -308,7 +309,8 @@ class ApiTest {
     @Test
     void whenTheFileCannotBeWrittenTheChangeIsRefusedAndNothingChanges() throws Exception {
         AppRuntime app = AppRuntime.start(
-                dir.resolve("no-such-dir").resolve("settings.json"), LaunchOptions.none(), new FakeFetch());
+                new AppFiles(dir.resolve("no-such-dir").resolve("settings.json"), dir.resolve("history.csv"), dir.resolve("log")),
+                LaunchOptions.none(), new FakeFetch());
         runtimes.add(app);
 
         HttpResponse<String> response = post(app, "/api/config", "{\"usageIntervalSeconds\": 90}");
@@ -447,6 +449,50 @@ class ApiTest {
     }
 
     @Test
+    void theNewestReadingInTheHistoryIsShownAtOnceWhileTheFirstFetchIsStillRunning() throws Exception {
+        writeHistory("datetime,used,limit,currency",
+                "2026-10-08 14:24:53,186.02,1000.00,USD",
+                "2026-10-08 14:26:53,263.89,1000.00,EUR");
+        FakeFetch fetch = new FakeFetch();
+        CountDownLatch release = fetch.holdNext();
+        AppRuntime app = start(fetch);
+        assertTrue(fetch.entered.await(5, TimeUnit.SECONDS));
+
+        JsonNode status = json(get(app, "/api/status"));
+
+        assertEquals(263.89, status.at("/usage/spend/used").asDouble());
+        assertEquals(1000.0, status.at("/usage/spend/limit").asDouble());
+        assertEquals("EUR", status.at("/usage/spend/currency").asText());
+        assertEquals(26, status.at("/usage/spend/percent").asInt());
+        assertTrue(status.get("error").isNull());
+        assertFalse(status.get("stale").asBoolean());
+        assertEquals(2, history(app).size() - 1, "showing it adds nothing to the history");
+        release.countDown();
+    }
+
+    @Test
+    void theReadingFromTheHistoryIsReplacedByTheFirstRefreshAndKeptDimmedIfThatFails() throws Exception {
+        writeHistory("datetime,used,limit,currency", "2026-10-08 14:24:53,5.00,10.00,USD");
+        FakeFetch fetch = new FakeFetch();
+        AppRuntime app = start(fetch);
+        await(() -> app.service().state().snapshot() != null && app.service().state().snapshot().spend().used() > 100);
+        assertEquals(186.02, json(get(app, "/api/status")).at("/usage/spend/used").asDouble());
+
+        writeHistory("datetime,used,limit,currency", "2026-10-08 14:24:53,5.00,10.00,USD");
+        FakeFetch failing = new FakeFetch();
+        failing.answer = () -> {
+            throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
+        };
+        AppRuntime second = start(failing);
+        await(() -> second.service().state().error() != null);
+
+        JsonNode status = json(get(second, "/api/status"));
+        assertTrue(status.get("stale").asBoolean());
+        assertEquals(5.0, status.at("/usage/spend/used").asDouble(), "the reading from the file stays, marked stale");
+        assertEquals("Anthropic returned HTTP 503.", status.at("/error/message").asText());
+    }
+
+    @Test
     void statusWhileTheFirstFetchIsStillRunningHasNothingYet() throws Exception {
         FakeFetch fetch = new FakeFetch();
         CountDownLatch release = fetch.holdNext();
@@ -555,6 +601,247 @@ class ApiTest {
         await(() -> fetch.calls.get() >= 3);
 
         assertEquals(1, fetch.maxInFlight.get());
+    }
+
+    // ---- the usage history
+
+    /** The history file's lines so far; empty if there is no file yet. */
+    private List<String> history(AppRuntime app) {
+        Path file = AppFiles.in(dir).history();
+        try {
+            return Files.exists(file) ? Files.readAllLines(file) : List.of();
+        } catch (IOException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Test
+    void aReadingWithAmountsIsAddedToTheHistoryWithAHeader() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> history(app).size() >= 2);
+
+        List<String> lines = history(app);
+
+        assertEquals("datetime,used,limit,currency", lines.get(0));
+        assertTrue(lines.get(1).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},186\\.02,1000\\.00,USD"), lines.get(1));
+    }
+
+    @Test
+    void theTimeInTheHistoryIsTheReadingsLocalDateAndTimeInAFormExcelReads() throws Exception {
+        java.util.TimeZone before = java.util.TimeZone.getDefault();
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Europe/Vienna"));
+            AppRuntime app = start(new FakeFetch());
+            await(() -> history(app).size() >= 2);
+
+            // FakeFetch answers with a reading stamped 12:00 UTC, which is 14:00 in Vienna in October.
+            assertTrue(history(app).get(1).startsWith("2026-10-08 14:00:00,"), history(app).get(1));
+        } finally {
+            java.util.TimeZone.setDefault(before);
+        }
+    }
+
+    @Test
+    void everySuccessfulRefreshAddsARow() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> history(app).size() >= 2);
+
+        assertEquals(202, post(app, "/api/refresh", "{}").statusCode());
+        await(() -> history(app).size() >= 3);
+
+        assertEquals(3, history(app).size(), "the header and two rows");
+    }
+
+    @Test
+    void aFailedRefreshWritesNothing() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        fetch.answer = () -> {
+            throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
+        };
+        AppRuntime app = start(fetch);
+        await(() -> app.service().state().error() != null);
+
+        assertEquals(List.of(), history(app));
+    }
+
+    @Test
+    void aPlanAccountsReadingWritesNothing() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        fetch.answer = () -> WINDOWS;
+        AppRuntime app = start(fetch);
+        await(() -> app.service().state().snapshot() != null);
+
+        assertEquals(List.of(), history(app));
+    }
+
+    @Test
+    void aHistoryThatCannotBeWrittenDoesNotMakeTheRefreshFail() throws Exception {
+        AppRuntime app = AppRuntime.start(
+                new AppFiles(dir.resolve("settings.json"), dir.resolve("no-such-dir").resolve("history.csv"), dir.resolve("log")),
+                LaunchOptions.none(), new FakeFetch());
+        runtimes.add(app);
+
+        await(() -> app.service().state().snapshot() != null);
+
+        UsageState state = app.service().state();
+        assertEquals(null, state.error(), "the reading is good and the refresh did succeed");
+        assertFalse(state.stale());
+        assertEquals(186.02, state.snapshot().spend().used());
+    }
+
+    @Test
+    void theHistoryNeverHoldsAnythingButTheFourColumns() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> history(app).size() >= 2);
+        post(app, "/api/refresh", "{}");
+        await(() -> history(app).size() >= 3);
+
+        for (String line : history(app)) {
+            assertEquals(3, line.chars().filter(c -> c == ',').count(), line);
+        }
+    }
+
+    // ---- the log and the history, for the two windows that show them
+
+    private void writeLog(String... lines) throws IOException {
+        Files.write(AppFiles.in(dir).log(), List.of(lines));
+    }
+
+    private void writeHistory(String... rows) throws IOException {
+        Files.write(AppFiles.in(dir).history(), List.of(rows));
+    }
+
+    @Test
+    void theLogEndpointGivesTheLinesOfTheLogFile() throws Exception {
+        writeLog("first line", "second line");
+        AppRuntime app = start(new FakeFetch());
+
+        JsonNode log = json(get(app, "/api/log"));
+
+        assertTrue(log.get("exists").asBoolean());
+        assertFalse(log.get("truncated").asBoolean());
+        assertEquals("java-aip-usage.log", log.get("file").asText(), "the name, not the path");
+        assertEquals(List.of("first line", "second line"), java.util.stream.StreamSupport.stream(log.get("lines").spliterator(), false).map(JsonNode::asText).toList());
+    }
+
+    @Test
+    void theLogEndpointSaysSoWhenThereIsNoLog() throws Exception {
+        JsonNode log = json(get(start(new FakeFetch()), "/api/log"));
+
+        assertFalse(log.get("exists").asBoolean());
+        assertEquals(0, log.get("lines").size());
+    }
+
+    @Test
+    void aLongLogIsCutToTheLastThousandLines() throws Exception {
+        writeLog(java.util.stream.IntStream.rangeClosed(1, 1500).mapToObj(i -> "line " + i).toArray(String[]::new));
+        AppRuntime app = start(new FakeFetch());
+
+        JsonNode log = json(get(app, "/api/log"));
+
+        assertTrue(log.get("truncated").asBoolean());
+        assertEquals(1000, log.get("lines").size());
+        assertEquals("line 501", log.at("/lines/0").asText());
+        assertEquals("line 1500", log.at("/lines/999").asText());
+    }
+
+    @Test
+    void theHistoryEndpointGivesTheRowsNewestFirst() throws Exception {
+        writeHistory("datetime,used,limit,currency",
+                "2026-10-08 14:24:53,186.02,1000.00,USD",
+                "2026-10-08 14:26:53,186.12,1000.00,USD",
+                "2026-10-08 14:25:53,186.07,1000.00,USD");
+        AppRuntime app = start(new FakeFetch());
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        assertTrue(history.get("exists").asBoolean());
+        assertEquals("java-aip-usage.csv", history.get("file").asText());
+        assertEquals("datetime", history.at("/columns/0").asText());
+        assertEquals("limit", history.at("/columns/2").asText());
+        assertEquals("currency", history.at("/columns/3").asText());
+        assertEquals("USD", history.at("/rows/0/3").asText());
+        assertEquals(history.get("total").asInt(), history.get("rows").size());
+        assertEquals("2026-10-08 14:26:53", history.at("/rows/0/0").asText(), "sorted by datetime, newest first");
+        assertEquals("186.12", history.at("/rows/0/1").asText());
+        assertEquals("1000.00", history.at("/rows/0/2").asText());
+    }
+
+    @Test
+    void theHistoryEndpointShowsTheRowsTheApplicationWritesItself() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> history(app).size() >= 2);
+        assertEquals(202, post(app, "/api/refresh", "{}").statusCode());
+        await(() -> history(app).size() >= 3);
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        assertEquals(2, history.get("total").asInt());
+        assertEquals("186.02", history.at("/rows/0/1").asText());
+    }
+
+    @Test
+    void theHistoryEndpointSaysSoWhenThereIsNoHistory() throws Exception {
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+        await(() -> app.service().state().snapshot() != null);
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        assertFalse(history.get("exists").asBoolean());
+        assertEquals(0, history.get("rows").size());
+    }
+
+    @Test
+    void aLongHistoryIsCutToTheNewestThousandRows() throws Exception {
+        java.util.List<String> rows = new java.util.ArrayList<>(List.of("datetime,used,limit"));
+        for (int i = 0; i < 1500; i++) {
+            rows.add(String.format("2026-01-01 00:00:%02d,1.00,2.00", 0).replace("00:00:00", String.format("%02d:%02d:00", i / 60 % 24, i % 60)));
+        }
+        writeHistory(rows.toArray(String[]::new));
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        assertEquals(1500, history.get("total").asInt());
+        assertEquals(1000, history.get("rows").size());
+    }
+
+    @Test
+    void neitherEndpointRevealsWhereTheFilesAre() throws Exception {
+        writeLog("a line");
+        writeHistory("datetime,used,limit", "2026-10-08 14:24:53,1.00,2.00");
+        AppRuntime app = start(new FakeFetch());
+
+        assertFalse(get(app, "/api/log").body().contains(dir.toString()));
+        assertFalse(get(app, "/api/history").body().contains(dir.toString()));
+    }
+
+    @Test
+    void theLogAndHistoryAreReadOnly() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        for (String path : new String[] {"/api/log", "/api/history"}) {
+            HttpResponse<String> response = post(app, path, "{}");
+            assertEquals(405, response.statusCode(), path);
+            assertEquals("GET", response.headers().firstValue("Allow").orElse(""), path);
+        }
+    }
+
+    @Test
+    void anUnreadableLogIsAnErrorThatDoesNotShowTheReason() throws Exception {
+        // A directory where the log file should be: it exists, but cannot be read as a file.
+        Files.createDirectory(AppFiles.in(dir).log());
+        AppRuntime app = start(new FakeFetch());
+
+        HttpResponse<String> response = get(app, "/api/log");
+
+        // A directory is simply not a regular file, so the log counts as not there.
+        assertEquals(200, response.statusCode());
+        assertFalse(json(response).get("exists").asBoolean());
     }
 
     // ---- the contract around the endpoints

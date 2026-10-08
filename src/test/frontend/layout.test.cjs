@@ -87,6 +87,33 @@ test('the amounts are two separate numbers, each able to carry its own tooltip',
     assert.doesNotMatch(html, /\$/, 'no currency sign in the page');
 });
 
+test('the countdown sits close to the refresh button: left-aligned and pulled in, not right-aligned', () => {
+    const rule = css.match(/\.countdown\s*{([^}]*)}/)[1];
+    // Right-aligned in a wider box, spare room would sit between the icon and the number.
+    assert.match(rule, /text-align:\s*left/);
+    assert.doesNotMatch(rule, /text-align:\s*right/);
+    const pull = rule.match(/margin-left:\s*(-?\d+)px/);
+    assert.ok(pull && Number(pull[1]) < 0, 'it is pulled towards the button by a negative margin');
+    assert.ok(Number(pull[1]) > -10, 'but not so far that it would touch the icon: the strip gap is 10 px');
+});
+
+test('the refresh icon sits snug against the amounts before it', () => {
+    const rule = css.match(/#refresh\s*{([^}]*)}/)[1];
+    const pull = rule.match(/margin-left:\s*(-?\d+)px/);
+    assert.ok(pull && Number(pull[1]) < 0, 'it is pulled towards what comes before it');
+    assert.ok(Number(pull[1]) > -10, 'but not so far that its box covers the number: the strip gap is 10 px');
+});
+
+test('every error is red: the failed refresh with figures still shown, the one without, and the rest', () => {
+    for (const kind of ['note-stale', 'note-error']) {
+        const rule = css.match(new RegExp('\\.' + kind + '[^{]*{([^}]*)}'));
+        assert.ok(rule, 'no rule for ' + kind);
+        assert.match(rule[1], /color:\s*var\(--bad\)/, kind + ' is red');
+    }
+    assert.doesNotMatch(css, /\.note[a-z-]*[^{]*{[^}]*var\(--warn\)/, 'no message is amber');
+    assert.match(css, /--bad:\s*#[0-9a-f]{6}/i, 'the red is a real red');
+});
+
 test('the countdown starts hidden and keeps a width that does not move with every digit', () => {
     assert.match(html, /id="countdown"[^>]*\shidden/);
     assert.match(css, /\.countdown\s*{[^}]*min-width:\s*[0-9.]+ch/);
@@ -124,8 +151,91 @@ test('the hidden attribute really hides, even on elements the stylesheet gives a
     assert.ok(overridden.length > 0, 'at least one hidden element has a display rule, which is why the [hidden] rule is needed: ' + hiddenIds);
 });
 
+test('the log and history buttons are at the right-hand end of the row, after everything else', () => {
+    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
+    const log = strip.indexOf('id="log-button"');
+    const history = strip.indexOf('id="history-button"');
+    assert.ok(log >= 0 && history >= 0, 'both are in the row');
+    for (const earlier of ['id="time"', 'id="percent"', 'id="used"', 'id="refresh"', 'id="countdown"', 'id="config-toggle"', 'id="config"', 'id="usage-interval"', 'id="config-ok"']) {
+        assert.ok(strip.indexOf(earlier) < log, earlier + ' comes before the log button');
+    }
+    assert.ok(log < history, 'the log button, then the history button');
+});
+
+test('neither the log nor the history is a window: there are no pages for them, and nothing opens a window', () => {
+    for (const gone of ['history.html', 'history.js', 'log.html', 'log.js', 'popup.css']) {
+        assert.ok(!fs.existsSync(path.join(WEB, gone)), gone + ' is gone');
+    }
+    assert.doesNotMatch(fs.readFileSync(path.join(WEB, 'app.js'), 'utf8'), /window\.open/);
+});
+
+test('the panel is below the strip and below every message line, and closed at the start', () => {
+    const panel = html.indexOf('id="panel"');
+    assert.ok(panel > html.indexOf('class="strip"'), 'after the strip');
+    for (const note of ['id="note"', 'id="config-note"', 'id="connection"']) {
+        assert.ok(panel > html.indexOf(note), 'after ' + note);
+    }
+    assert.match(html, /<div id="panel"[^>]*\shidden/);
+    assert.match(html, /id="history-button"[^>]*aria-expanded="false"/);
+    assert.match(html, /id="log-button"[^>]*aria-expanded="false"/);
+    assert.match(html, /id="panel-error"[^>]*role="alert"/);
+});
+
+/** The declarations of the rule for one selector in app.css. */
+function ruleOf(selector) {
+    const escaped = selector.replace(/[.#()>:*+?^$|]/g, '\\$&');
+    const match = css.match(new RegExp('(?:^|\\n)' + escaped + '\\s*{([^}]*)}'));
+    assert.ok(match, 'no rule for ' + selector);
+    return match[1];
+}
+
+test('the panel is small, condensed, regular-weight monospace with a tight line height', () => {
+    const font = ruleOf('.panel').match(/font:\s*(\d+)\s+(\d+)px\/(\d+)px\s+([^;]+);/);
+    assert.ok(font, 'the panel sets its font in one declaration');
+    assert.ok(Number(font[1]) >= 400, 'never thin');
+    assert.ok(Number(font[2]) <= 13 && Number(font[2]) >= 11, 'about 12 px');
+    assert.ok(Number(font[3]) <= Number(font[2]) * 1.35, 'tight line height');
+    assert.match(font[4], /monospace/);
+    assert.match(ruleOf('.panel'), /letter-spacing:\s*-/, 'condensed');
+});
+
+test('the panel keeps the width of the row and takes the height the window leaves it, scrolling', () => {
+    assert.match(ruleOf('.panel'), /width:\s*0;[^}]*min-width:\s*100%/);
+    assert.match(ruleOf('.panel'), /flex:\s*1\b/);
+    const box = ruleOf('.panel-lines');
+    assert.match(box, /flex:\s*1\b/);
+    assert.match(box, /overflow:\s*auto/);
+    assert.match(box, /min-height:\s*0/, 'a flex child may shrink below its content, or it would not scroll');
+    assert.doesNotMatch(box, /(^|[^-])height:\s*\d/, 'no fixed height');
+});
+
+test('with the history open the page fills the window, in a column; the row and its messages are what is sized to', () => {
+    const open = ruleOf('#app.open');
+    assert.match(open, /display:\s*flex/);
+    assert.match(open, /flex-direction:\s*column/);
+    assert.match(open, /height:\s*100%/);
+    assert.match(css, /html,\s*body\s*{[^}]*height:\s*100%/);
+    assert.match(html, /<div id="top"[\s\S]*id="note"[\s\S]*id="connection"[^>]*>[^<]*<\/p>\s*<\/div>\s*<div id="panel"/);
+});
+
+test('the panel is the only text under 14 px', () => {
+    const small = [...css.matchAll(/([^{}]+){([^}]*)}/g)]
+        .filter(rule => [...rule[2].matchAll(/font(?:-size)?:\s*(?:[a-z0-9 ]*\s)?([0-9.]+)px/g)].some(m => Number(m[1]) < 14))
+        .map(rule => rule[1].trim().split('\n').pop().trim());
+    assert.deepEqual(small, ['.panel']);
+});
+
+test('an error in the panel is red', () => {
+    assert.match(ruleOf('.panel-error'), /color:\s*var\(--bad\)/);
+});
+
+test('the log and history buttons say what they open', () => {
+    assert.match(html, /id="log-button"[^>]*title="Show the log"/);
+    assert.match(html, /id="history-button"[^>]*title="Show the usage history"/);
+});
+
 test('the two buttons are icons with accessible names, not words', () => {
-    for (const id of ['refresh', 'config-toggle', 'config-ok']) {
+    for (const id of ['refresh', 'config-toggle', 'config-ok', 'log-button', 'history-button']) {
         const element = html.match(new RegExp('<button[^>]*id="' + id + '"[\\s\\S]*?</button>'));
         assert.ok(element, id + ' is a button');
         const button = element[0];
@@ -139,4 +249,45 @@ test('the two buttons are icons with accessible names, not words', () => {
 test('the page is sized by its own content, not by the window', () => {
     assert.match(css, /#app\s*{[^}]*width:\s*max-content/);
     assert.match(css, /html,\s*body\s*{[^}]*overflow:\s*hidden/);
+});
+
+test('a message line never makes the window wider: it adds no width of its own and wraps', () => {
+    const note = ruleOf('.note');
+    assert.match(note, /width:\s*0;[^}]*min-width:\s*100%/);
+    assert.doesNotMatch(note, /white-space:\s*(nowrap|pre)/);
+    assert.match(note, /white-space:\s*normal/);
+    assert.match(note, /overflow-wrap:\s*anywhere/);
+    assert.doesNotMatch(note, /max-width/);
+});
+
+test('the row has its own width, which the window follows: it wraps at 900 px, and the open page fills the window', () => {
+    assert.match(ruleOf('.top'), /width:\s*max-content/);
+    assert.match(ruleOf('.top'), /max-width:\s*900px/);
+    assert.match(ruleOf('#app.open'), /width:\s*100%/);
+    assert.doesNotMatch(ruleOf('#app'), /max-width/, 'a wide log is not held to the width of the row');
+});
+
+test('the history is a table: four columns spread over the width with space between, amounts on the right', () => {
+    const table = ruleOf('.panel-lines .cols-4');
+    assert.match(table, /display:\s*grid/);
+    const columns = table.match(/grid-template-columns:\s*([^;]+);/)[1].trim().split(/\s+/);
+    assert.equal(columns.length, 4);
+    for (const column of columns) {
+        assert.match(column, /^[0-9.]+fr$/, 'each column takes a share of the width, so they spread to fill it');
+    }
+    assert.match(table, /column-gap:\s*\d+px/, 'with space between the columns');
+    assert.match(ruleOf('.panel-lines .cols-4 > :not(:first-child)'), /text-align:\s*right/);
+});
+
+test('the table header stays at the top of the panel as the rows scroll, and is bold', () => {
+    const head = ruleOf('.panel-lines .head');
+    assert.match(head, /position:\s*sticky/);
+    assert.match(head, /top:\s*0/);
+    assert.match(head, /font-weight:\s*700/);
+    assert.match(head, /background:\s*Canvas/, 'rows do not show through it');
+});
+
+test('a log line is never wrapped: a long one scrolls sideways', () => {
+    assert.match(ruleOf('.panel-lines'), /white-space:\s*pre/);
+    assert.match(ruleOf('.panel-lines'), /overflow:\s*auto/);
 });

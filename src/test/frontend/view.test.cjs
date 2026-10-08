@@ -336,3 +336,60 @@ test('interval input is checked against the limits the backend reported', () => 
         assert.equal(view.checkInterval(bad, limits, 'The usage interval'), 'The usage interval must be a whole number of seconds.', JSON.stringify(bad));
     }
 });
+
+// ---- the log panel and the history panel
+
+test('the log panel shows the lines newest first, the reverse of the order the log sends them, each a row of one cell', () => {
+    const v = view.describeLog({ exists: true, truncated: false, lines: ['a', 'b', 'c'] });
+
+    assert.deepEqual(v.rows, [['c'], ['b'], ['a']]);
+    assert.equal(v.header, null);
+    assert.equal(v.note, null);
+});
+
+test('describing the log does not change what it was given', () => {
+    const lines = ['a', 'b'];
+    view.describeLog({ exists: true, truncated: false, lines });
+    assert.deepEqual(lines, ['a', 'b']);
+});
+
+test('a log that was cut says how much is shown', () => {
+    const v = view.describeLog({ exists: true, truncated: true, lines: ['x', 'y', 'z'] });
+
+    assert.equal(v.note, 'Showing the newest 3 lines of the log.');
+    assert.deepEqual(v.rows, [['z'], ['y'], ['x']]);
+});
+
+test('a missing or empty log says so', () => {
+    assert.equal(view.describeLog({ exists: false, truncated: false, lines: [] }).note, 'There is no log file yet.');
+    assert.equal(view.describeLog({ exists: true, truncated: false, lines: [] }).note, 'The log is empty.');
+});
+
+const ROWS = [['2026-10-08 14:26:53', '186.12', '1000.00', 'USD'], ['2026-10-08 14:25:53', '186.07', '1000.00', '']];
+const COLUMNS = ['datetime', 'used', 'limit', 'currency'];
+
+test('the history panel is a table: the columns as the header and a row of four cells for each reading, newest first', () => {
+    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 2, rows: ROWS });
+
+    assert.deepEqual(v.header, COLUMNS);
+    assert.deepEqual(v.rows, ROWS);
+    assert.equal(v.note, null);
+});
+
+test('a history that was cut says how much of it is shown', () => {
+    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 5000, rows: ROWS });
+
+    assert.equal(v.note, 'Showing the newest 2 of 5000 rows.');
+    assert.equal(v.rows.length, 2);
+});
+
+test('a missing or empty history says so, with no header and no rows', () => {
+    const none = view.describeHistory({ exists: false, columns: COLUMNS, total: 0, rows: [] });
+    assert.equal(none.note, 'There is no usage history yet.');
+    assert.deepEqual(none.rows, []);
+    assert.equal(none.header, null);
+    const empty = view.describeHistory({ exists: true, columns: COLUMNS, total: 0, rows: [] });
+    assert.equal(empty.note, 'The history has no rows yet.');
+    assert.deepEqual(empty.rows, []);
+    assert.equal(empty.header, null);
+});

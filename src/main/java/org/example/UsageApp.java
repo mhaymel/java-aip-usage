@@ -45,7 +45,6 @@ public class UsageApp extends Application {
     /** The page's own answer to "how big do you need to be?", see docs/api.md. */
     private static final String ASK_CONTENT_SIZE = "window.contentSize ? window.contentSize() : null";
 
-    private static final String SETTINGS_FILE_NAME = "settings.json";
 
     /** The window that is running, so that a shutdown hook can release what it holds. */
     private static volatile UsageApp running;
@@ -75,7 +74,7 @@ public class UsageApp extends Application {
         LaunchOptions options = LaunchOptions.parse(getParameters().getRaw());
         try {
             runtime = AppRuntime.start(
-                    Path.of(SETTINGS_FILE_NAME).toAbsolutePath(),
+                    AppFiles.inWorkingDirectory(),
                     options,
                     new UsageFetcher(ClaudeTokenProvider.create(), UsageClient.create()));
         } catch (Exception e) {
@@ -90,7 +89,8 @@ public class UsageApp extends Application {
 
         stage.setTitle(AppInfo.windowTitle());
         stage.setScene(new Scene(webView, INITIAL_WIDTH, INITIAL_HEIGHT));
-        // The window is as big as the page needs and no bigger, so there is nothing to drag.
+        // The window is as big as the page needs and no bigger, so there is nothing to drag,
+        // except while a panel is shown; see resize.
         stage.setResizable(false);
         stage.show();
         keepFitting(webView, stage);
@@ -121,9 +121,25 @@ public class UsageApp extends Application {
             decorationHeight = height;
         }
         appliedSize = Optional.of(size);
-        stage.setWidth(size.width() + decorationWidth);
-        stage.setHeight(size.height() + decorationHeight);
-        LOG.log(Level.INFO, "Window fitted to " + size.width() + "x" + size.height()
+        double width = size.width() + decorationWidth;
+        double height = size.height() + decorationHeight;
+        // Limits first, so that they never forbid the size set next.
+        stage.setMinWidth(0);
+        stage.setMaxWidth(Double.MAX_VALUE);
+        stage.setMinHeight(0);
+        stage.setMaxHeight(Double.MAX_VALUE);
+        stage.setWidth(width);
+        stage.setHeight(height);
+        stage.setResizable(size.resizable());
+        if (size.resizable()) {
+            // No smaller than the size the page asked for. The width is the person's only if the page said so.
+            stage.setMinWidth(width);
+            stage.setMinHeight(height);
+            if (size.resize() == WindowFit.Resize.HEIGHT) {
+                stage.setMaxWidth(width);
+            }
+        }
+        LOG.log(Level.INFO, "Window fitted to " + size.width() + "x" + size.height() + (size.resizable() ? " (resizable: " + size.resize().name().toLowerCase() + ")" : "")
                 + " (window " + Math.round(stage.getWidth()) + "x" + Math.round(stage.getHeight()) + ")");
     }
 

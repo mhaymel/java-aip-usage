@@ -129,6 +129,50 @@ Before the first reading, `usage` is `null`: with `error` also `null` the first
 fetch is still running; with `error` set it failed, and the message says what to
 do (for example log in with Claude Code).
 
+## `GET /api/log`
+
+Read-only. The end of the log file, for the panel the log button shows in the main window. The lines are oldest first; the panel shows them newest first. It names the file, never its path.
+
+```json
+{
+  "file": "java-aip-usage.log",
+  "exists": true,
+  "truncated": false,
+  "lines": ["2026-10-08T14:24:53Z INFO    [UsageApp] Starting java-aip-usage", "..."]
+}
+```
+
+- `lines`: the last 1,000 lines at most, oldest first, so the newest is last. Only the last 512
+  kilobytes of the file are read, since the log is never rotated.
+- `truncated`: `true` when earlier lines were left out. A line the byte limit cut in two is dropped,
+  never shown half.
+- `exists`: `false`, with no lines, when there is no log yet.
+- `500` with `{"error": "The log could not be read."}` if the file cannot be read.
+
+## `GET /api/history`
+
+Read-only. The usage history, for the panel the history button opens in the main window.
+
+```json
+{
+  "file": "java-aip-usage.csv",
+  "exists": true,
+  "columns": ["datetime", "used", "limit", "currency"],
+  "total": 1440,
+  "rows": [["2026-10-08 16:46:11", "260.66", "1000.00", "USD"], ["2026-10-08 16:45:11", "260.66", "1000.00", ""]]
+}
+```
+
+- `rows`: the newest 1,000 at most, **sorted by `datetime`, latest first**, each as strings exactly as
+  in the file (an empty field stays empty). It sorts by the column and does not merely reverse the
+  file, so a file that is out of order is still right. A line of the file without the columns (a row from before the currency was one, with three, is
+  given an empty currency), and the header, are not rows.
+- `total`: how many rows the file has, which can be more than `rows` holds.
+- `exists`: `false`, with no rows, when there is no history yet.
+- `500` with `{"error": "The usage history could not be read."}` if the file cannot be read.
+
+Both are `GET` only: any other method is `405` with an `Allow` header.
+
 ## `POST /api/refresh`
 
 Body: `{}`. Starts a usage fetch now instead of waiting for the next scheduled
@@ -150,16 +194,19 @@ not part of the HTTP API. The window is sized to fit the page, and only the host
 can resize a window, so the page offers a function the host calls:
 
 ```js
-window.contentSize()   // "400,42"
+window.contentSize()   // "400,42,0"
 ```
 
-It returns `"<width>,<height>"`: the size in CSS pixels the page needs to show all
-of itself, as whole numbers. The host asks about every 150 ms and resizes its
-window when the answer changes. The page measures its own content, never the
-window, so resizing the window to match does not change the answer. The Java host
-(`WindowFit`) ignores anything that is not that shape, keeps the size between
-160 x 32 and 1000 x 500, and does not apply a size twice. A different host, such
-as the future Go one, needs only to call the function and resize.
+It returns `"<width>,<height>,<resizable>"`: the size in CSS pixels the page needs to show all
+of itself, as whole numbers, and what the person may drag: `0` nothing, `1` the height, `2` the height
+and the width (the last may be left out, meaning `0`). Only while the log or the usage history is
+shown does the page ask for more: the height it reports is then ten times the row's, and for the log
+the width is three times the row's too. Those are the starting point, not the size the window was dragged
+to. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
+resize only what it is told may be. The page measures its own content, never the window, so resizing the
+window to match does not change the answer. The Java host (`WindowFit`) ignores anything that is not that
+shape, keeps the size between 160 x 32 and 2400 x 1600, and does not apply a size twice. A different host,
+such as the future Go one, needs only to call the function and resize.
 
 The page exposes nothing else to its host, and the host exposes nothing to the page.
 
