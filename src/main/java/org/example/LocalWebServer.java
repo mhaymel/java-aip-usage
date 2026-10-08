@@ -1,6 +1,8 @@
 package org.example;
 
+import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
@@ -11,14 +13,21 @@ import java.lang.System.Logger.Level;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 
 /**
- * Serves the bundled frontend over HTTP on the loopback interface only.
+ * Serves the bundled frontend and the JSON API over HTTP on the loopback
+ * interface only.
  *
  * <p>The port is chosen by the operating system so that several instances can
  * run side by side; {@link #baseUri()} reports the address actually bound.
+ * Requests whose {@code Host} header is not this server's own address are
+ * refused, which stops a web page elsewhere from reaching the API by pointing a
+ * hostname of its own at 127.0.0.1 (DNS rebinding).
  */
 final class LocalWebServer implements AutoCloseable {
 
@@ -42,13 +51,21 @@ final class LocalWebServer implements AutoCloseable {
         this.server = server;
     }
 
-    /** Binds to an ephemeral loopback port and starts serving the frontend. */
-    static LocalWebServer start() throws IOException {
+    /**
+     * Binds to an ephemeral loopback port and starts serving.
+     *
+     * @param api handles everything under {@code /api/}
+     */
+    static LocalWebServer start(HttpHandler api) throws IOException {
         InetSocketAddress address = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
         HttpServer server = HttpServer.create(address, 0);
-        // Daemon threads so a closed window cannot keep the JVM alive.
+        // Virtual threads are daemon threads, so a closed window cannot keep the JVM alive.
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
-        server.createContext("/", LocalWebServer::serveStatic);
+
+        int port = server.getAddress().getPort();
+        Filter hostCheck = new HostFilter(Set.of("127.0.0.1:" + port, "localhost:" + port));
+        server.createContext("/", LocalWebServer::serveStatic).getFilters().add(hostCheck);
+        server.createContext("/api/", api).getFilters().add(hostCheck);
         server.start();
 
         LocalWebServer started = new LocalWebServer(server);
@@ -86,6 +103,8 @@ final class LocalWebServer implements AutoCloseable {
             }
 
             exchange.getResponseHeaders().set("Content-Type", contentTypeOf(path));
+            exchange.getResponseHeaders().set("Cache-Control", "no-store");
+            exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
             exchange.sendResponseHeaders(200, body.length);
             try (OutputStream out = exchange.getResponseBody()) {
                 out.write(body);
@@ -94,9 +113,13 @@ final class LocalWebServer implements AutoCloseable {
     }
 
     private static void respondNotFound(HttpExchange exchange) throws IOException {
-        byte[] body = "Not found".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        respond(exchange, 404, "Not found");
+    }
+
+    private static void respond(HttpExchange exchange, int status, String text) throws IOException {
+        byte[] body = text.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
-        exchange.sendResponseHeaders(404, body.length);
+        exchange.sendResponseHeaders(status, body.length);
         try (OutputStream out = exchange.getResponseBody()) {
             out.write(body);
         }
@@ -104,8 +127,35 @@ final class LocalWebServer implements AutoCloseable {
 
     private static String contentTypeOf(String path) {
         int dot = path.lastIndexOf('.');
-        String extension = dot < 0 ? "" : path.substring(dot + 1).toLowerCase(java.util.Locale.ROOT);
+        String extension = dot < 0 ? "" : path.substring(dot + 1).toLowerCase(Locale.ROOT);
         return CONTENT_TYPES.getOrDefault(extension, "application/octet-stream");
+    }
+
+    /** Refuses any request not addressed to this server by its own loopback name. */
+    private static final class HostFilter extends Filter {
+
+        private final Set<String> allowed;
+
+        HostFilter(Set<String> allowed) {
+            this.allowed = allowed;
+        }
+
+        @Override
+        public void doFilter(HttpExchange exchange, Chain chain) throws IOException {
+            String host = exchange.getRequestHeaders().getFirst("Host");
+            if (host != null && allowed.contains(host.toLowerCase(Locale.ROOT))) {
+                chain.doFilter(exchange);
+                return;
+            }
+            try (exchange) {
+                respond(exchange, 403, "Forbidden");
+            }
+        }
+
+        @Override
+        public String description() {
+            return "Only requests addressed to this server's own loopback host are accepted";
+        }
     }
 
     @Override

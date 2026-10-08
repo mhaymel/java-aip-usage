@@ -17,8 +17,9 @@ repos.
 - [Requirements](docs/requirements.md) — what the tool must do
 - [Implementation plan](docs/implementation-plan.md) — how it is to be built
 
-> **Status:** early. The JavaFX window loads a placeholder page from a
-> loopback server; fetching and showing usage is still to be written.
+> **Status:** feature-complete for a first run, not yet smoke-tested in the
+> window. Fetching, the API, the settings and the UI are implemented and covered
+> by automated tests; see the plan for what a person still has to check.
 
 ## Prerequisites
 
@@ -41,14 +42,33 @@ The first version targets macOS.
 ./gradlew run            # open the desktop window
 ```
 
+Options go after `--args`:
+
+```sh
+./gradlew run --args="--usage-interval 10 --poll-interval 2"
+./gradlew run --args="--help"
+```
+
 Or start `org.example.Main` from IntelliJ (▶ in the gutter next to `main`).
+
+The frontend's logic is tested with Node, outside the JVM build:
+
+```sh
+./gradlew frontendTest     # needs node on the PATH; same as: node --test src/test/frontend
+```
+
+If Gradle reports `problem occurred starting process 'command 'node''`, its
+daemon was started without `node` on its `PATH`; run `./gradlew --stop` from a
+shell that has it and try again.
 
 Closing the window terminates the program, including the backend server and
 its scheduled work.
 
 ## Configuration
 
-Two independent intervals, both settable on the command line and from the UI:
+Two independent intervals, both settable on the command line and from the UI.
+For each, the command line wins over the saved setting, which wins over the
+default:
 
 | Setting | CLI option | Default | Range |
 | --- | --- | --- | --- |
@@ -60,17 +80,24 @@ trigger a request. A manual refresh button fetches immediately, and refreshes
 never overlap.
 
 Changes committed in the UI are persisted to `settings.json` and replace the
-corresponding CLI value for the rest of the run.
+corresponding CLI value for the rest of the run. A CLI value is not saved on its
+own, so the file keeps what you last chose in the window. The file holds only the
+two intervals, never a credential.
+
+The window talks to the application through a small local API, described in
+[docs/api.md](docs/api.md).
 
 ## Layout
 
 | Path | What lives there |
 | --- | --- |
-| `src/main/java/org/example/` | Application sources (`Main` window, `LocalWebServer`, `Logging`) |
+| `src/main/java/org/example/` | Application sources (`Main` window, `AppRuntime`, `LocalWebServer`, `ApiHandler`, `Logging`) |
 | `src/main/java/org/example/usage/` | Usage model, parser, HTTP client, refresh service |
+| `src/main/java/org/example/settings/` | Interval settings, `settings.json`, command-line options |
+| `src/test/frontend/` | Node tests for the frontend |
 | `src/main/java/org/example/token/` | OAuth token acquisition via the Claude Code CLI |
 | `src/main/resources/web/` | Frontend: HTML, CSS, JavaScript |
-| `docs/` | Requirements and implementation plan |
+| `docs/` | Requirements, implementation plan, and the local API contract |
 | `build.gradle.kts` | Build config — JDK 25 toolchain, JavaFX, JUnit 6 |
 | `settings.json` | UI-edited settings, written at run time (git-ignored) |
 | `java-aip-usage.log` | Append-mode run log, written at run time (git-ignored) |

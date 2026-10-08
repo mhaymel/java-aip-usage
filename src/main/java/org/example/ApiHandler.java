@@ -1,0 +1,262 @@
+package org.example;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import org.example.settings.IntervalRange;
+import org.example.settings.IntervalSettings;
+import org.example.settings.InvalidSettingException;
+import org.example.settings.SettingsException;
+import org.example.usage.Spend;
+import org.example.usage.UsageService;
+import org.example.usage.UsageSnapshot;
+import org.example.usage.UsageState;
+import org.example.usage.UsageWindow;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * The JSON API the frontend talks to; its contract is in {@code docs/api.md}.
+ *
+ * <p>Deliberately small: two reads and two actions. Reading the status never
+ * causes a request to Anthropic; only {@code POST /api/refresh} can, and it
+ * answers before the fetch is done. Nothing here ever touches a credential, so
+ * nothing in a response can leak one.
+ */
+final class ApiHandler implements HttpHandler {
+
+    private static final System.Logger LOG = System.getLogger(ApiHandler.class.getName());
+
+    /** A settings update is a few dozen bytes; anything larger is not one. */
+    private static final int MAX_BODY_BYTES = 4096;
+
+    private static final String SOURCE = "anthropic-oauth-usage";
+
+    private final UsageService service;
+
+    private final IntervalSettings settings;
+
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    ApiHandler(UsageService service, IntervalSettings settings) {
+        this.service = service;
+        this.settings = settings;
+    }
+
+    @Override
+    public void handle(HttpExchange exchange) throws IOException {
+        try (exchange) {
+            try {
+                route(exchange);
+            } catch (ApiException e) {
+                if (e.allow != null) {
+                    exchange.getResponseHeaders().set("Allow", e.allow);
+                }
+                send(exchange, e.status, Map.of("error", e.getMessage()));
+            } catch (RuntimeException e) {
+                LOG.log(System.Logger.Level.WARNING, "API request failed: " + exchange.getRequestURI().getPath(), e);
+                send(exchange, 500, Map.of("error", "Internal error; see the log."));
+            }
+        }
+    }
+
+    private void route(HttpExchange exchange) throws IOException {
+        String method = exchange.getRequestMethod();
+        switch (exchange.getRequestURI().getPath()) {
+            case "/api/config" -> {
+                if (method.equals("GET")) {
+                    send(exchange, 200, config());
+                } else if (method.equals("POST")) {
+                    updateConfig(exchange);
+                } else {
+                    throw new ApiException(405, "Use GET or POST.", "GET, POST");
+                }
+            }
+            case "/api/status" -> {
+                if (!method.equals("GET")) {
+                    throw new ApiException(405, "Use GET.", "GET");
+                }
+                send(exchange, 200, status(service.state()));
+            }
+            case "/api/refresh" -> {
+                if (!method.equals("POST")) {
+                    throw new ApiException(405, "Use POST.", "POST");
+                }
+                requireJson(exchange);
+                refresh(exchange);
+            }
+            default -> throw new ApiException(404, "No such endpoint.", null);
+        }
+    }
+
+    // ---- /api/config
+
+    private ConfigBody config() {
+        return new ConfigBody(
+                settings.usageSeconds(),
+                settings.pollSeconds(),
+                new Limits(
+                        new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max()),
+                        new Range(IntervalRange.POLL.min(), IntervalRange.POLL.max())));
+    }
+
+    private void updateConfig(HttpExchange exchange) throws IOException {
+        requireJson(exchange);
+        JsonNode body = readJson(exchange);
+        try {
+            settings.update(
+                    seconds(body, "usageIntervalSeconds", IntervalRange.USAGE),
+                    seconds(body, "pollIntervalSeconds", IntervalRange.POLL));
+        } catch (InvalidSettingException e) {
+            throw new ApiException(400, e.getMessage(), null);
+        } catch (SettingsException e) {
+            throw new ApiException(500, e.getMessage(), null);
+        }
+        send(exchange, 200, config());
+    }
+
+    /** The value of {@code key}, or {@code null} if absent. Only whole numbers qualify. */
+    private static Long seconds(JsonNode body, String key, IntervalRange range) {
+        JsonNode value = body.get(key);
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (!value.isIntegralNumber() || !value.canConvertToLong()) {
+            throw new InvalidSettingException(range.describeLimit());
+        }
+        return value.longValue();
+    }
+
+    // ---- /api/status
+
+    private static StatusBody status(UsageState state) {
+        UsageSnapshot snapshot = state.snapshot();
+        return new StatusBody(
+                state.refreshing(),
+                state.stale(),
+                state.error() == null ? null : new ErrorBody(state.error(), state.errorAt().toString()),
+                snapshot == null ? null : usage(snapshot));
+    }
+
+    private static UsageBody usage(UsageSnapshot snapshot) {
+        Spend spend = snapshot.spend();
+        return new UsageBody(
+                SOURCE,
+                snapshot.fetchedAt().toString(),
+                spend == null
+                        ? null
+                        : new SpendBody(spend.used(), spend.limit(), spend.currency(), spend.percent(), spend.severity()),
+                snapshot.windows().stream().map(ApiHandler::window).toList());
+    }
+
+    private static WindowBody window(UsageWindow window) {
+        return new WindowBody(window.key(), window.utilization(), window.resetsAt());
+    }
+
+    // ---- /api/refresh
+
+    private void refresh(HttpExchange exchange) throws IOException {
+        boolean started = service.refreshNow();
+        if (started) {
+            LOG.log(System.Logger.Level.INFO, "Manual refresh requested");
+        }
+        // 202: the fetch has been started, not finished. 200: one was already under way.
+        send(exchange, started ? 202 : 200, new RefreshBody(started));
+    }
+
+    // ---- plumbing
+
+    /**
+     * Every POST must declare JSON. A web page on another origin cannot do
+     * that without a CORS preflight, which this server never grants, so no
+     * other page can drive these actions.
+     */
+    private static void requireJson(HttpExchange exchange) {
+        String type = exchange.getRequestHeaders().getFirst("Content-Type");
+        if (type == null || !type.toLowerCase(Locale.ROOT).startsWith("application/json")) {
+            throw new ApiException(415, "Send Content-Type: application/json.", null);
+        }
+    }
+
+    private JsonNode readJson(HttpExchange exchange) throws IOException {
+        byte[] bytes = exchange.getRequestBody().readNBytes(MAX_BODY_BYTES + 1);
+        if (bytes.length > MAX_BODY_BYTES) {
+            throw new ApiException(413, "The request body is too large.", null);
+        }
+        JsonNode body;
+        try {
+            body = mapper.readTree(bytes);
+        } catch (JsonProcessingException e) {
+            throw new ApiException(400, "The request body is not valid JSON.", null);
+        }
+        if (body == null || !body.isObject()) {
+            throw new ApiException(400, "The request body must be a JSON object.", null);
+        }
+        return body;
+    }
+
+    private void send(HttpExchange exchange, int status, Object body) throws IOException {
+        byte[] bytes = mapper.writeValueAsString(body).getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        exchange.getResponseHeaders().set("Cache-Control", "no-store");
+        exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
+        exchange.sendResponseHeaders(status, bytes.length);
+        try (OutputStream out = exchange.getResponseBody()) {
+            out.write(bytes);
+        }
+    }
+
+    private static final class ApiException extends RuntimeException {
+
+        final int status;
+
+        final String allow;
+
+        ApiException(int status, String message, String allow) {
+            super(message);
+            this.status = status;
+            this.allow = allow;
+        }
+    }
+
+    // ---- response shapes: the contract in docs/api.md
+
+    record Range(int min, int max) {
+    }
+
+    record Limits(Range usageIntervalSeconds, Range pollIntervalSeconds) {
+    }
+
+    record ConfigBody(int usageIntervalSeconds, int pollIntervalSeconds, Limits limits) {
+    }
+
+    record RefreshBody(boolean started) {
+    }
+
+    record ErrorBody(String message, String at) {
+    }
+
+    record SpendBody(Double used, Double limit, String currency, Integer percent, String severity) {
+    }
+
+    record WindowBody(String window, double utilization, @JsonProperty("resets_at") String resetsAt) {
+    }
+
+    record UsageBody(
+            String source,
+            @JsonProperty("fetched_at") String fetchedAt,
+            SpendBody spend,
+            List<WindowBody> windows) {
+    }
+
+    record StatusBody(boolean refreshing, boolean stale, ErrorBody error, UsageBody usage) {
+    }
+}

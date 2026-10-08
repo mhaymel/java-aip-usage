@@ -39,3 +39,11 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
+// The frontend's logic and page script, run under Node. Kept out of `build` so
+// that building needs nothing but a JDK; run it with `./gradlew frontendTest`.
+tasks.register<Exec>("frontendTest") {
+    group = "verification"
+    description = "Runs the frontend tests with Node"
+    commandLine("node", "--test", "src/test/frontend")
+}

@@ -299,6 +299,46 @@ response types render, refresh errors are visible without removing the last
 successful data, the UI remains open and allows a retry when Claude Code is
 missing or unauthenticated, and closing the window terminates the program.
 
+**Status: implemented; the macOS smoke test is still to be done by a person.**
+Everything below is covered by automated tests, 200 Java and 35 Node, except
+what needs the real window, the real `claude`, or the real endpoint.
+
+- **Settings** (`org.example.settings`): `IntervalSettings` resolves each
+  interval as command line, else `settings.json`, else default. A value
+  committed in the UI is validated (5-3600 s and 1-60 s), saved, and applied at
+  once, replacing the command-line value for the run. A command-line value is
+  never saved on its own. If the file cannot be written, nothing changes and the
+  UI is told why. `SettingsStore` writes atomically and reads forgivingly: a
+  damaged file or value is logged and ignored, never fatal. The file holds only
+  the two intervals. `LaunchOptions` parses `--usage-interval` and
+  `--poll-interval` (and `--help`) before anything starts, so a bad value fails
+  at once with exit code 2.
+- **API** (`ApiHandler`, `LocalWebServer`): documented in
+  [api.md](api.md). Status polling never fetches; `POST /api/refresh` returns at
+  once and declines while a fetch is running. Requests with a foreign `Host`
+  header are refused, and POSTs must be JSON, so no other web page can drive
+  the API.
+- **Wiring** (`AppRuntime`, `Main`): the runtime is assembled without JavaFX so
+  tests can drive it end to end over HTTP with a stand-in for the fetch. The
+  first fetch starts at once; closing the window stops the refresh service
+  (interrupting a fetch or `claude` in flight) and then the server.
+- **Frontend** (`web/`): `view.js` holds all the logic as pure functions;
+  `app.js` is thin DOM glue that assigns backend text only with `textContent`.
+  Spend and plan-window views show only what the response shape carries; stale
+  data stays visible under a banner naming the error; the refresh button is never
+  disabled. `./gradlew frontendTest` runs the Node tests, including `app.js`
+  against a fake DOM and backend.
+
+**Found while testing:** on macOS JavaFX starts a non-daemon keep-alive thread
+before `main`, so a `main` that returns without calling `System.exit` leaves the
+JVM running. `--help` hit this; a test now launches the real `Main` and checks it
+exits.
+
+**Smoke test still to do on macOS** (needs the real window and a logged-in
+Claude Code): both response types render, a refresh error leaves the last
+reading visible, the window stays open and the refresh button retries when
+Claude Code is missing or not logged in, and closing the window ends the process.
+
 ### 6. Run, package, and document the first version
 
 - Confirm `./gradlew run` and the IDE run configuration still work once the
