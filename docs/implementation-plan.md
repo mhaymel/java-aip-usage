@@ -60,6 +60,12 @@ Other decisions confirmed during discussion:
   file in the project root alongside `gradlew`. Do not rotate the log in v1.
 - Sanitize log output: never log access tokens, credentials, or sensitive
   request/response content.
+- The window is a compact status strip: as small as its content allows, one row in
+  its normal state, readable text of at least 14 px, local time of day only. The
+  row holds the refresh time, spent and budget (or the plan windows), a small
+  refresh button and a very small config button, which reveals the two interval
+  fields until they are confirmed. See [Compact window](requirements.md#compact-window);
+  planned as phase 7.
 
 Charts and historical usage are not part of the first version.
 
@@ -97,6 +103,13 @@ immediately without starting another. Keep the manual-refresh control enabled;
 extra clicks during an in-progress fetch do not start additional requests.
 Keep the API small and document its response shapes so a future Go backend can
 provide the same contract.
+
+The compact window (phase 7) adds one thing outside that API. The window must fit
+its content, so it has to change size when a message or the config fields appear,
+and only the host can resize a window. The page therefore reports its content size
+to the Java host, which resizes the stage. This is a window-management concern, not
+part of the contract a Go backend provides: a Go host would need its own way to
+resize its window, as it needs its own window host anyway.
 
 JavaFX WebView is the selected host because it is a direct fit for a Java
 desktop app and avoids bundling a full Chromium runtime. Revisit this choice
@@ -386,6 +399,35 @@ plan-window view against a Pro or Max account, and Windows and Linux.
 
 **Decided against:** `HTTPS_PROXY` support. The application connects directly.
 
+### 7. Compact window
+
+**Status: not started.** Requirement: [Compact window](requirements.md#compact-window).
+
+- Rework the page into one row: time, spent and budget (or the plan windows), a
+  small refresh button, a very small config button, with small gaps and a font of
+  at least 14 px in a regular or heavier weight. Percent and severity stay, in
+  compact form (percent as small text, severity as colour).
+- Show local time of day only. Add a time-only formatter to `view.js` and use it
+  for the refresh time and for error times. Show a window's reset as the time
+  remaining instead of a date and time.
+- Replace the settings panel with a config button that reveals the two interval
+  fields in the row. They are confirmed together, with Enter or a small confirm
+  button, in one `POST /api/config` (the API already accepts both keys at once), and
+  hide again on success. Validation errors keep them open with a brief message;
+  Escape or the config button closes them unchanged.
+- Move errors and stale notices to a short second line shown only while they apply.
+- Make the window fit its content. The page reports its content size to the Java
+  host, which resizes the stage when the size changes (message or config fields
+  shown or hidden), with a minimum size and a guard against resize loops. This is
+  the one part that needs host code; everything else is in `web/`.
+- Update the Node tests for the new view logic and page script, and the README's
+  description of the window.
+
+**Checkpoint:** Node tests cover the time-only formatting, the compact windows text,
+the config open, confirm, invalid and cancel flows, and the message line. A macOS
+smoke test confirms the normal state fits one row at the target size, the window
+grows and shrinks around the config fields and messages, and the text is readable.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,
@@ -402,7 +444,10 @@ plan-window view against a Pro or Max account, and Windows and Linux.
 - Include fixtures for both response variants and malformed input.
 - Perform a manual macOS UI smoke test for startup, initial load, both usage
   views, both polling interval settings, manual refresh, refresh failure
-  display, and verify closing the window terminates the app cleanly.
+  display, and verify closing the window terminates the app cleanly. Once phase 7
+  is done, also check the compact layout: one row at the target size, the window
+  growing and shrinking around the config fields and messages, readable text, and
+  time of day only.
 
 ## Related repositories
 

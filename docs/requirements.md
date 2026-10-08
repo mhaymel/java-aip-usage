@@ -98,6 +98,9 @@ Example token output:
 
 ## Display requirements
 
+The layout of the window is governed by [Compact window](#compact-window); where
+that section and the descriptions below differ on presentation, it wins.
+
 The usage data must be displayed in a simple graphical user interface (GUI)
 that is easy to read at a glance. `fetched_at` must always be shown. The
 remaining fields depend on which response shape the account returns; show only
@@ -129,6 +132,63 @@ The application should serve its HTML, CSS, and JavaScript or TypeScript
 interface locally and open it automatically in the JavaFX WebView window.
 Prefer keeping the frontend dependency-light and independent of Java-specific
 implementation details.
+
+## Compact window
+
+The window is a status strip that a software engineer keeps beside their work,
+so it must take as little screen space as it can while staying easy to read.
+
+**Size and text**
+
+- The window is as small as its content allows, with no empty space around it.
+  In its normal state it is a single row, roughly 400 by 50 pixels.
+- The text is easy to read: a sans-serif font of at least 14 pixels, regular
+  weight or heavier, with strong contrast. No thin or light weights, no fine print.
+- Every time the window shows is the local time of day only, with no date, for
+  example `14:24:53`. This applies to the time of the last refresh and to the time
+  of an error alike.
+
+**The row**
+
+The controls sit in one horizontal row, one after another, with small gaps, in
+this order:
+
+1. the time the usage was last refreshed (`fetched_at`);
+2. what has been spent and the budget: `used` and `limit` with the currency, for
+   example `$186.02 / $1,000.00`, with the percentage in the most compact form and
+   the severity shown by colour rather than by extra words;
+3. a small refresh button;
+4. a very small config button, an icon rather than a word.
+
+For an account with Pro or Max plan windows instead of spend, the windows take the
+place of item 2 in the same row, each as its name exactly as supplied, its
+utilization and the time remaining until it resets (for example `five_hour 12%
+in 2 h 5 min`). Remaining time is used because a reset can be days away, and a
+time of day alone would then mislead. An unknown reset time is shown as unknown.
+
+**Config**
+
+- Pressing the config button shows two input fields in the same row, next to the
+  button: the usage fetch interval and the window update interval, in seconds. Each
+  has a short label saying which it is, and shows its current value.
+- The two values are confirmed together, with Enter or a small confirm button.
+  When valid values are confirmed they are saved and take effect, as described under
+  Refresh behavior, and the input fields disappear.
+- Invalid values keep the fields open and show a brief message; they are not sent.
+  Pressing Escape, or the config button again, closes the fields without changing
+  anything.
+
+**Messages**
+
+- A failed refresh, stale data, or a missing or logged-out Claude Code must still be
+  visible, as required elsewhere. In the compact window this is a short message on
+  a second line, shown only while the condition lasts. The window grows to hold it
+  and returns to its single-row size afterwards. The last good figures stay in the
+  row meanwhile.
+- The window also resizes to fit when the config fields appear and disappear.
+
+The refresh button stays enabled at all times, and the behavior of everything
+behind these controls is unchanged.
 
 ## Future extension
 
