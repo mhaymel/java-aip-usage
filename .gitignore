@@ -1,3 +1,8 @@
+### Application runtime files ###
+# Written into the project root at run time; see docs/requirements.md.
+/java-aip-usage.log
+/settings.json
+
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar
