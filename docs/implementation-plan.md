@@ -592,6 +592,43 @@ confirm.
 broken, and a macOS check confirms the row, the countdown moving and going negative on a
 slow request, and the tooltips.
 
+### 10. Clean shutdown when the process is stopped
+
+**Status: done.**
+
+*Why.* Cleanup ran only when the window was closed. A process told to stop (`SIGTERM`, `SIGINT`)
+just ended: no `Shutting down` lines in the log, and the refresh service and web server were not
+closed, nor a `claude -p ping` that happened to be running. An IDE's stop button may do the same.
+
+*What was built.* `ShutdownHook` installs a JVM shutdown hook that runs the same cleanup and then
+closes the log, in that order and in one hook, since hooks run side by side in no set order.
+`RunOnce` makes the cleanup run exactly once however it is reached: `UsageApp.stop()` after a window
+close, and the hook after a signal, with a second caller waiting for the first. `Logging.close()` is
+safe to call twice, since the hook may close what the normal exit has closed.
+
+*Two things went wrong on the way.* Both were found by running it, not by thinking about it.
+
+- **The JDK closes the log first.** With the hook in place a test that sends the process `SIGTERM`
+  still found the shutdown lines missing every time. The JDK's own `LogManager` shutdown hook calls
+  `reset()`, which closes every log handler, and it won. `ShutdownSafeLogManager` makes `reset()` do
+  nothing, and `Logging` closes its own handlers last. The JDK reads the manager from a system
+  property once, on first use, so `Logging.install` sets it before anything logs, and warns, in the
+  log file and on the console, if logging was already in use.
+- **A real app failed where the test passed.** The warning above showed that the application had
+  used logging before `Logging.install`: `Main` called `UsageApp.configure(...)` first, and merely
+  loading `UsageApp` creates its logger. `Main` now hands `UsageApp` nothing, and `UsageApp` reads
+  its options from the launch arguments when it starts.
+
+*Tests.* `RunOnceTest`; `ShutdownHookTest`, which runs the real hook in a child JVM through
+`ShutdownProbe` and stops it with `SIGTERM` (six times, since a race would show only sometimes) and
+with `SIGINT`, and checks the lines, their order and that the lock file is gone, plus the normal
+exit logging once; and a stronger `LoggingTest` for double close. Each rule was seen to fail a test
+when broken. A live check stopped the real application with `SIGTERM` and found the three lines.
+The tests cannot see the `Main` ordering above, which is why the warning exists.
+
+**Not done.** `SIGKILL` cannot be caught. Which signal IntelliJ's stop button sends has not been
+checked.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

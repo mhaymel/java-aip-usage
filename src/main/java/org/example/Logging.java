@@ -10,6 +10,7 @@ import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
 import java.util.logging.Handler;
 import java.util.logging.Level;
+import java.util.logging.LogManager;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
@@ -21,6 +22,8 @@ import java.util.logging.Logger;
  * The file is never rotated or truncated: each run appends to it.
  */
 final class Logging implements AutoCloseable {
+
+    private static final String MANAGER_PROPERTY = "java.util.logging.manager";
 
     /** Name of the log file, created in the working directory (the project root). */
     static final String LOG_FILE_NAME = "java-aip-usage.log";
@@ -41,6 +44,7 @@ final class Logging implements AutoCloseable {
      * console logging only, and the failure is reported there.
      */
     static Logging install(Path logFile) {
+        useShutdownSafeLogManager();
         Logging logging = new Logging();
         Logger root = logging.root;
         for (Handler handler : logging.previousHandlers) {
@@ -63,6 +67,7 @@ final class Logging implements AutoCloseable {
             root.addHandler(file);
             System.getLogger(Logging.class.getName())
                     .log(System.Logger.Level.INFO, "Logging to {0}", logFile);
+            warnIfShutdownCouldLoseLines();
         } catch (IOException | SecurityException e) {
             System.getLogger(Logging.class.getName())
                     .log(System.Logger.Level.WARNING, "Cannot write log file " + logFile + "; logging to console only", e);
@@ -70,8 +75,38 @@ final class Logging implements AutoCloseable {
         return logging;
     }
 
+    private boolean closed;
+
+    /** Closing twice is harmless: the shutdown hook may close what the normal exit already has. */
+    /**
+     * Something using logging before {@link #install} means the JDK had already chosen its
+     * standard manager, which closes the log in a hook of its own and can lose the lines that say
+     * how the program stopped. That is a bug in whatever came first, so it is said where it will
+     * be seen: in the log file as well as on the console.
+     */
+    private static void warnIfShutdownCouldLoseLines() {
+        if (!(LogManager.getLogManager() instanceof ShutdownSafeLogManager)) {
+            System.getLogger(Logging.class.getName()).log(System.Logger.Level.WARNING,
+                    "Logging was already in use, so lines logged while the process is being stopped may be lost");
+        }
+    }
+
+    /**
+     * Asks for {@link ShutdownSafeLogManager}. The JDK reads the property once, when logging is
+     * first used, so this must come before anything logs; later it changes nothing.
+     */
+    private static void useShutdownSafeLogManager() {
+        if (System.getProperty(MANAGER_PROPERTY) == null) {
+            System.setProperty(MANAGER_PROPERTY, ShutdownSafeLogManager.class.getName());
+        }
+    }
+
     @Override
-    public void close() {
+    public synchronized void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
         for (Handler handler : root.getHandlers()) {
             root.removeHandler(handler);
             handler.close();

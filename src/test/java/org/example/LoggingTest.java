@@ -80,6 +80,46 @@ class LoggingTest {
         assertTrue(content.contains("IllegalStateException"), "the stack trace itself is kept");
     }
 
+    /** A handler that counts how often it is closed. */
+    private static final class CountingHandler extends java.util.logging.Handler {
+
+        int closes;
+
+        @Override
+        public void publish(java.util.logging.LogRecord record) {
+        }
+
+        @Override
+        public void flush() {
+        }
+
+        @Override
+        public void close() {
+            closes++;
+        }
+    }
+
+    @Test
+    void closingTwiceHarmsNothingThatWasThereBefore() throws Exception {
+        java.util.logging.Logger root = java.util.logging.Logger.getLogger("");
+        CountingHandler existing = new CountingHandler();
+        root.addHandler(existing);
+        try {
+            Path file = dir.resolve("app.log");
+            Logging logging = Logging.install(file);
+
+            logging.close();
+            logging.close();
+
+            // Installing set it aside and closing put it back. A second close must not reach it again.
+            assertEquals(0, existing.closes, "a handler that was already there is not ours to close");
+            assertTrue(java.util.List.of(root.getHandlers()).contains(existing), "and it is back in place");
+            assertFalse(Files.exists(Path.of(file + ".lck")));
+        } finally {
+            root.removeHandler(existing);
+        }
+    }
+
     @Test
     void unwritableFileFallsBackToConsoleOnly() throws Exception {
         Path missingDir = dir.resolve("no-such-dir").resolve("app.log");

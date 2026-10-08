@@ -170,6 +170,10 @@ because `claude` would send that instead of its login token: unset it and restar
 
 ## Logging
 
+On the way out the program logs `Shutting down`, `Usage refresh stopped` and
+`Frontend server stopped`, whether the window was closed or the process was told to stop
+(`SIGTERM`, `SIGINT`).
+
 Everything is written to the console and appended to `java-aip-usage.log` in the
 working directory. The file is never rotated; delete it when it gets large.
 
@@ -214,6 +218,10 @@ would still not reach the file.
   machine, as it is on any loopback port; other web pages are refused (see
   [docs/api.md](docs/api.md)). Do not run it on a machine shared with people you
   do not trust.
+- **A forced kill leaves no shutdown lines.** Closing the window, `SIGTERM` and `SIGINT` all
+  shut the program down in the same way, and log it. `SIGKILL` cannot be caught by any program,
+  so a process stopped that way just ends. I have not checked which signal an IDE's stop
+  button sends.
 - **One instance at a time.** Nothing stops two copies from starting; they would
   share `settings.json` and the log, and the last write wins.
 - **A long list of plan windows wraps.** The strip is at most 900 px wide, so an

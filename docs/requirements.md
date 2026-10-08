@@ -107,6 +107,7 @@ Example token output:
 - When the UI starts, it must request the effective intervals from the backend: it shows the usage-fetch interval when the config field is opened, and uses the polling interval to poll the backend for the latest available state.
 - Provide a UI action to fetch usage immediately. It must call the backend, which starts an Anthropic usage request without waiting for the next scheduled refresh and returns immediately. Do not run overlapping usage requests; if a refresh is already in progress, return immediately without starting another one. Keep the manual-refresh action enabled; extra clicks while a request is in progress do not start additional requests.
 - Closing the application window must terminate the program and stop its backend server, scheduled tasks, and other background resources.
+- The program shuts down the same way, with the same lines in the log, when the process is asked to stop without the window being closed, for example by `SIGTERM` or `SIGINT`. A forced kill (`SIGKILL`) cannot be caught by any program, so it leaves nothing in the log.
 
 ## Display requirements
 

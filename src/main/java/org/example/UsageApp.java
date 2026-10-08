@@ -47,10 +47,13 @@ public class UsageApp extends Application {
 
     private static final String SETTINGS_FILE_NAME = "settings.json";
 
-    /** Handed from {@link Main} to the instance JavaFX creates. */
-    private static volatile LaunchOptions options = LaunchOptions.none();
+    /** The window that is running, so that a shutdown hook can release what it holds. */
+    private static volatile UsageApp running;
 
     private AppRuntime runtime;
+
+    /** Releases the runtime once, whether the window was closed or the process was told to stop. */
+    private final RunOnce cleanup = new RunOnce(this::release);
 
     private Timeline fitTimer;
 
@@ -63,14 +66,13 @@ public class UsageApp extends Application {
 
     private boolean fitFailureReported;
 
-    /** Sets what the command line asked for; call before {@link Application#launch}. */
-    static void configure(LaunchOptions launchOptions) {
-        options = launchOptions;
-    }
-
     @Override
     public void start(Stage stage) throws Exception {
         LOG.log(Level.INFO, "Starting java-aip-usage");
+        // Main has already checked these, so they are fine. They are read here, from the launch
+        // arguments, so that Main hands this class nothing before logging is set up: merely
+        // loading this class starts the logging system.
+        LaunchOptions options = LaunchOptions.parse(getParameters().getRaw());
         try {
             runtime = AppRuntime.start(
                     Path.of(SETTINGS_FILE_NAME).toAbsolutePath(),
@@ -80,6 +82,7 @@ public class UsageApp extends Application {
             LOG.log(Level.ERROR, "Could not start", e);
             throw e;
         }
+        running = this;
 
         WebView webView = new WebView();
         logLoadResult(webView);
@@ -156,13 +159,32 @@ public class UsageApp extends Application {
      */
     @Override
     public void stop() {
-        LOG.log(Level.INFO, "Shutting down");
         if (fitTimer != null) {
             fitTimer.stop();
         }
+        cleanup.run();
+        Platform.exit();
+    }
+
+    /**
+     * Stops the refresh service and the web server, logging that it does. Run once, by
+     * {@link #stop()} or by {@link #shutDown()}, whichever comes first.
+     */
+    private void release() {
+        LOG.log(Level.INFO, "Shutting down");
         if (runtime != null) {
             runtime.close();
         }
-        Platform.exit();
+    }
+
+    /**
+     * What the shutdown hook calls when the process is told to stop without the window being
+     * closed. Does nothing if the window was never opened or has already been cleaned up.
+     */
+    static void shutDown() {
+        UsageApp app = running;
+        if (app != null) {
+            app.cleanup.run();
+        }
     }
 }
