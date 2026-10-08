@@ -17,8 +17,8 @@ repos.
 - [Requirements](docs/requirements.md) — what the tool must do
 - [Implementation plan](docs/implementation-plan.md) — how it is to be built
 
-> **Status:** scaffold. The Gradle build and a `Main` entry point are in
-> place; the client itself is still to be written.
+> **Status:** early. The JavaFX window loads a placeholder page from a
+> loopback server; fetching and showing usage is still to be written.
 
 ## Prerequisites
 
@@ -38,11 +38,10 @@ The first version targets macOS.
 ```
 
 ```sh
-./gradlew run            # not wired up yet; run Main from the IDE for now
+./gradlew run            # open the desktop window
 ```
 
-Until a `run` task exists, start `org.example.Main` straight from IntelliJ
-(▶ in the gutter next to `main`).
+Or start `org.example.Main` from IntelliJ (▶ in the gutter next to `main`).
 
 Closing the window terminates the program, including the backend server and
 its scheduled work.
@@ -67,9 +66,10 @@ corresponding CLI value for the rest of the run.
 
 | Path | What lives there |
 | --- | --- |
-| `src/main/java/org/example/` | Application sources |
+| `src/main/java/org/example/` | Application sources (`Main` window, `LocalWebServer`) |
+| `src/main/resources/web/` | Frontend: HTML, CSS, JavaScript |
 | `docs/` | Requirements and implementation plan |
-| `build.gradle.kts` | Build config — Java plugin, JDK 25 toolchain, JUnit 6 on the test path |
+| `build.gradle.kts` | Build config — JDK 25 toolchain, JavaFX, JUnit 6 |
 | `settings.json` | UI-edited settings, written at run time (git-ignored) |
 | `java-aip-usage.log` | Append-mode run log, written at run time (git-ignored) |
 

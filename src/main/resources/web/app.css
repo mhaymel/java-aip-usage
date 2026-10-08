@@ -1,0 +1,29 @@
+:root {
+    color-scheme: light dark;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+}
+
+body {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+main {
+    text-align: center;
+    padding: 1rem 1.5rem;
+}
+
+h1 {
+    font-size: 1.25rem;
+    margin: 0 0 0.75rem;
+}
+
+.note,
+.served-from {
+    margin: 0.25rem 0;
+    font-size: 0.85rem;
+    opacity: 0.75;
+}

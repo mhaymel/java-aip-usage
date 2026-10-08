@@ -1,5 +1,7 @@
 plugins {
     id("java")
+    id("application")
+    id("org.openjfx.javafxplugin") version "0.1.0"
 }
 
 group = "org.example"
@@ -9,6 +11,16 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
     }
+}
+
+javafx {
+    version = "25.0.4"
+    modules = listOf("javafx.controls", "javafx.web")
+}
+
+application {
+    mainClass = "org.example.Main"
+    applicationName = "java-aip-usage"
 }
 
 repositories {

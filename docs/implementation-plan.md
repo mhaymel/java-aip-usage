@@ -139,6 +139,17 @@ than substituting empty usage data.
 **Checkpoint:** the Gradle application launches a minimal JavaFX window and
 can display a locally served test page.
 
+**Status: done.** `./gradlew run` opens the window and the WebView loads the
+placeholder page from `LocalWebServer`, which binds to an OS-assigned loopback
+port. Closing the window stops the server and ends the process; server tests
+cover loopback binding, content types, 404s, and path traversal.
+
+Logging infrastructure was pulled forward from phase 6: `Logging` sends every
+`System.Logger` record to the console and to an append-mode
+`java-aip-usage.log` in the project root, falling back to console-only if the
+file cannot be opened. Phase 6 still owns the refresh events and sanitized HTTP
+diagnostics.
+
 ### 2. Model and decode usage data
 
 - Add typed models for the response envelope, optional spend object, and
@@ -236,13 +247,14 @@ missing or unauthenticated, and closing the window terminates the program.
 
 ### 6. Run, package, and document the first version
 
-- Make the application runnable with `./gradlew run` and from the IDE.
-- Confirm the frontend is available to the Gradle run task.
-- Configure logging to record lifecycle events, every refresh success and
-  failure, and detailed but sanitized HTTP diagnostics to both the console and
-  `java-aip-usage.log`, appended in the project root beside `gradlew`. Do not
-  rotate the log in v1. Verify that tokens, credentials, and sensitive
-  request/response content are never logged.
+- Confirm `./gradlew run` and the IDE run configuration still work once the
+  real backend is wired in. (`./gradlew run` and frontend loading are already
+  done in phase 1.)
+- Extend the existing console and `java-aip-usage.log` logging (done in
+  phase 1: appended in the project root beside `gradlew`, not rotated) to
+  record every refresh success and failure and detailed but sanitized HTTP
+  diagnostics. Verify that tokens, credentials, and sensitive request/response
+  content are never logged.
 - Add macOS run instructions and document configuration, token
   prerequisites, and known limitations.
 - Update the README layout and requirements links to match the completed
