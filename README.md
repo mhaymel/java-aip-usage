@@ -45,6 +45,9 @@ Hover over things to see what they are:
   Anthropic, in seconds (default 60). Change it and press **Enter** or ✓ to save and
   apply it; the field then disappears. A bad value keeps it open with a short message.
   **Escape**, or the config button again, closes it without changing anything.
+- The title bar reads `aip usage v0.01`. The version is one constant, `AppInfo.VERSION`,
+  written by hand and increased by hand when the program changes; it has nothing to do
+  with the Gradle project version.
 - A failed refresh, or a missing or logged-out Claude Code, adds a short message
   line under the strip while it lasts; the window grows to hold it and shrinks back.
 

@@ -547,7 +547,10 @@ up, and `ApiHandler` puts it in `/api/status` as `nextRefreshInSeconds`. On the 
 14:24:53`, the same in any language) and `describeCountdown` (`42 s`, `-3 s`, none for
 `null`). The row is time, percentage, used, limit, plan windows, refresh button,
 countdown, config. The countdown has a minimum width, so the window is not resized as
-its digits change. One addition beyond the requirement: the percentage's tooltip says
+its digits change. The window is titled `aip usage v0.01`, built by `AppInfo.windowTitle()` from the name and
+the version, which is one hand-written constant (`AppInfo.VERSION`); the page inside it is
+titled with the name alone, so a new version means changing one line.
+One addition beyond the requirement: the percentage's tooltip says
 what it is and the severity, since the colour alone carried that.
 
 The row becomes: time, percentage, amounts as plain numbers (no `$`), refresh button,

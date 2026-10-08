@@ -44,7 +44,7 @@ class LocalWebServerTest {
             HttpResponse<String> response = get(server.baseUri());
             assertEquals(200, response.statusCode());
             assertTrue(response.headers().firstValue("Content-Type").orElse("").startsWith("text/html"));
-            assertTrue(response.body().contains("java-aip usage"));
+            assertTrue(response.body().contains("<title>" + AppInfo.NAME + "</title>"), "the page carries the name, not the version");
         }
     }
 

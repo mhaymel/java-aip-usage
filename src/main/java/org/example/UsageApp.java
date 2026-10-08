@@ -85,7 +85,7 @@ public class UsageApp extends Application {
         logLoadResult(webView);
         webView.getEngine().load(runtime.baseUri().toString());
 
-        stage.setTitle("java-aip usage");
+        stage.setTitle(AppInfo.windowTitle());
         stage.setScene(new Scene(webView, INITIAL_WIDTH, INITIAL_HEIGHT));
         // The window is as big as the page needs and no bigger, so there is nothing to drag.
         stage.setResizable(false);

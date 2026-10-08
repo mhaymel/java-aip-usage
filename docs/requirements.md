@@ -152,6 +152,10 @@ so it must take as little screen space as it can while staying easy to read.
 
 **Size and text**
 
+- The window's title is `aip usage` followed by the program's version, for example
+  `aip usage v0.01`. The version is written in the source code as one constant, is
+  increased by hand whenever the program changes, and starts at 0.01. The page inside
+  the window is titled `aip usage` without the version, so the version is in one place.
 - The window is as small as its content allows, with no empty space around it.
   In its normal state it is a single row, roughly 400 by 50 pixels.
 - The text is easy to read: a sans-serif font of at least 14 pixels, with strong
