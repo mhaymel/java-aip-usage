@@ -1,0 +1,39 @@
+{
+  "five_hour": null,
+  "seven_day": null,
+  "seven_day_oauth_apps": null,
+  "seven_day_opus": null,
+  "seven_day_sonnet": null,
+  "tangelo": null,
+  "iguana_necktie": null,
+  "brass_thimble": null,
+  "extra_usage": {
+    "is_enabled": true,
+    "monthly_limit": 100000,
+    "used_credits": 18602.0,
+    "utilization": 18.602,
+    "currency": "USD",
+    "decimal_places": 2,
+    "disabled_reason": null,
+    "user_disabled": false,
+    "spend_limit_reached": false,
+    "credits_ever_enabled": true,
+    "daily": null,
+    "weekly": null
+  },
+  "limits": [],
+  "spend": {
+    "used": {"amount_minor": 18602, "currency": "USD", "exponent": 2},
+    "limit": {"amount_minor": 100000, "currency": "USD", "exponent": 2},
+    "percent": 19,
+    "severity": "normal",
+    "enabled": true,
+    "disabled_reason": null,
+    "balance": null,
+    "auto_reload": null,
+    "can_purchase_credits": false,
+    "can_toggle": false
+  },
+  "member_dashboard_available": true,
+  "seven_day_breakdown": null
+}

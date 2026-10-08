@@ -1,0 +1,8 @@
+{
+  "five_hour": null,
+  "seven_day": null,
+  "extra_usage": null,
+  "limits": [],
+  "spend": {"enabled": false},
+  "member_dashboard_available": false
+}

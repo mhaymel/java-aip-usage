@@ -152,8 +152,11 @@ diagnostics.
 
 ### 2. Model and decode usage data
 
-- Add typed models for the response envelope, optional spend object, and
-  window entries.
+- Add typed models for the usage snapshot, optional spend object, and window
+  entries. The snapshot is the application's normalised view, not the raw
+  response: the endpoint sends no `fetched_at`, so the application stamps it.
+  Decode the real wire format (minor-unit amounts, windows as top-level keys),
+  adapting the `java-aip` parser.
 - Add JSON decoding and fixtures for usage-based and plan-based responses,
   including null spend, empty windows, and nullable fields.
 - Reject invalid response shapes with an error that can be presented to the
@@ -161,6 +164,15 @@ diagnostics.
 
 **Checkpoint:** unit tests decode both example response shapes without
 discarding fields needed by the UI.
+
+**Status: done.** `org.example.usage` holds `UsageSnapshot`, `Spend`,
+`UsageWindow`, `UsageParser` and `UsageParseException`. Fixtures are the three
+`java-aip` responses (usage-based, plan, empty) in
+`src/test/resources/fixtures/`. A body is rejected, with a message safe to
+show the user, when it is not valid JSON or not an object, has neither a
+`spend` object nor any window, or enables spend without any amount. An account
+that legitimately reports nothing decodes as an empty snapshot rather than an
+error.
 
 ### 3. Implement OAuth token acquisition
 

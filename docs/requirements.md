@@ -12,8 +12,18 @@ The application fetches usage data from the Anthropic OAuth usage endpoint:
 
 `https://api.anthropic.com/api/oauth/usage`
 
-The response shape depends on the account's subscription. For usage-based
-accounts, the response contains spend details and an empty `windows` array:
+The JSON examples below show the application's normalised view of a usage
+reading, the same shape `java-aip usage --format json` prints. They are not the
+raw HTTP response. The endpoint sends no `source` or `fetched_at`: the
+application stamps `fetched_at` with the time it received the response. It
+sends spend as minor units under a `spend.enabled` flag (`{"amount_minor":
+18602, "exponent": 2}` is 186.02) and plan windows as top-level keys holding a
+`utilization`, among unrelated and placeholder keys. The application maps the
+raw response to the shape below; real responses are in
+`src/test/resources/fixtures/`.
+
+The shape depends on the account's subscription. For usage-based accounts,
+the reading contains spend details and an empty `windows` array:
 
 ```json
 {
