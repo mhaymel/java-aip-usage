@@ -94,7 +94,9 @@ Example token output:
 - If Anthropic answers HTTP 429 (rate limited), the application slows down instead of
   carrying on at the same pace. The next scheduled request waits twice the usage
   interval, and each further 429 in a row doubles the wait, up to 5 minutes, or the
-  `Retry-After` the server gave if that is longer. A success eases the wait and does
+  `Retry-After` the server gave if that is longer (only a whole number of seconds is believed, and no more than an hour; with an interval of
+  150 seconds or more twice the interval is over the 5 minutes already, so the wait is the 5 minutes at most, and at 3600 seconds a 429 alone
+  changes nothing). A success eases the wait and does
   not drop it: it takes an eighth off, and the eased value is the new wait, until it
   is no longer than the usual interval. Dropping it at once would return to the very
   pace the server has just refused. A failure that is not a 429 leaves the wait as it
@@ -103,7 +105,7 @@ Example token output:
 - **The longer wait is the interval in force.** While the application waits longer than the configured usage interval
   because of 429s, that longer wait, in whole seconds (rounded up), is the interval the application is using, and it is the
   one that is shown: in the row's interval item, if its setting is on, and in the interval box when the settings view is opened, and
-  where the backend reports the interval to a client. It falls back, as the wait eases after successes, to the configured
+  where the backend reports the interval to a client (`GET /api/config` reports what is configured, not the longer wait). It falls back, as the wait eases after successes, to the configured
   interval, which is what the settings file keeps until a value is applied. Applying settings saves what the interval box
   shows, so applying while the application is backing off saves the longer wait as the configured interval, unless the person typed or picked another; it then is the
   interval, and no longer eases back.
@@ -553,7 +555,7 @@ The history is shown inside the main window, not in a window of its own.
 - The text is **small and condensed**, in the manner of a log file: a fixed-width font of about
   12 pixels with tight line spacing and no padding between lines, so that many readings fit in
   little space. This is the one place the 14-pixel minimum does not apply. It is regular weight,
-  not bold, and not thin.
+  not bold, and not thin; only the header row of the history is bold.
 - The panel scrolls: older readings are reached by scrolling it, or by making the window taller. It
   holds the newest 1,000 of the lines that are not hidden; the line above the table says so (see above).
 - While the panel is shown it keeps up with the history: a new reading appears at the top soon
@@ -663,8 +665,9 @@ Every reading the application gets is kept, so the usage can be looked at afterw
   records no row marks nothing. The mark is the first row actually written, so a reading with no amounts,
   which writes nothing, leaves it for the next row that is written.
 - `interval` is the time between usage requests that was set when the request was made, in whole seconds.
-  `duration_ms` is how long the request took, from sending it to the answer or the failure, in
-  whole milliseconds. Both are on every row, failed ones included, and plain numbers.
+  `duration_ms` is how long the query took, from the start of the refresh to the answer or the failure, which **includes getting the token** (a
+  run of `claude`, up to 30 seconds) and the one retry after an HTTP 401, in whole milliseconds, so the first row of a run is usually the longest.
+  The `interval` is the interval the application was using, the configured one or the one from the command line, not the longer wait of a back-off. Both are on every row, failed ones included, and plain numbers.
 - A failed query's row has `datetime` of the time of the failure, since there is no `fetched_at`, and
   empty `used`, `limit` and `currency`. What went wrong is in the log, not in the file.
 
@@ -683,15 +686,109 @@ Every reading the application gets is kept, so the usage can be looked at afterw
   empty field. `currency` is the code the response names, for example `USD`, or empty when it named none.
 - A file written before these columns is upgraded in place the first time a row is added: the header
   gets the new columns and the rows already in it get empty fields where the file never said. The header
-  `datetime,used,limit` gets `currency`, `status`, `interval` and `duration_ms`. The header
-  `datetime,used,limit,currency,startup` is replaced by the new one, and a `1` in `startup` becomes
-  `start` in `status`. Nothing else in it changes.
+  `datetime,used,limit` gets `currency`, `status`, `interval` and `duration_ms`; `datetime,used,limit,currency` gets `status`, `interval` and
+  `duration_ms`; and the header `datetime,used,limit,currency,startup` is replaced by the new one, and a `1` in `startup` becomes
+  `start` in `status`. Only an exact match of one of the three old headers is upgraded; any other header leaves the file as it is. Nothing else in it changes.
 - A reading with no amounts, such as the plan windows of a Pro or Max account, writes nothing. A
   failed query does write a row, as above.
 - A history that cannot be written is logged and nothing more. The reading is good, so the
   refresh still counts as a success, and the window shows it as usual.
 - The file holds spending figures, so it stays on this machine, and nothing in it is a
   credential. At the default interval of a minute it grows by about 60 kilobytes a day.
+
+## Details of the behaviour
+
+These are things the program does that the sections above do not say, written down so that the requirements are the whole of it.
+
+**Command line**
+
+- `-h` and `--help` print the usage text and the program ends without opening a window. The options are `--usage-interval <seconds>` and `--poll-interval <seconds>`, each also as `--name=<seconds>`;
+  values are trimmed. A mistake prints one of these messages and then the usage text on the error output, and the program ends with exit code 2 before anything is logged or shown:
+  `Unknown option: X`, `<option> needs a value in seconds.`, `<option> was given more than once.`, `<option> must be a whole number of seconds, not "x".`, `<option> must be from 5 to 3600 seconds.`
+  (1 to 60 for the poll interval).
+- A command-line interval is never saved on its own: `settings.json` keeps what the person last applied.
+
+**The usage request**
+
+- The connection is made within 10 seconds and the answer comes within 20 seconds, else the refresh fails with `Anthropic did not answer within 20 seconds.` A redirect is never followed, so the token cannot
+  be sent to another host; it fails like any other status, `Anthropic returned HTTP 3xx.`
+- The messages of a failed refresh (after `Refresh failed at HH:mm: `): `Anthropic rejected the OAuth token (HTTP 401).`, `Anthropic refused the usage request (HTTP 403).`,
+  `Anthropic is rate limiting usage requests (HTTP 429).` followed by ` Next try in N s.` or ` N min.` (rounded up), `Anthropic returned HTTP n.` for any other status, `Cannot reach api.anthropic.com: <detail>.`,
+  `Interrupted while fetching usage.`, and `Unexpected error (<kind>); see the log.` When the retry with a fresh token is rejected too: `Anthropic rejected a freshly obtained OAuth token (HTTP 401). Log in again with Claude Code, then refresh.`
+- The response is read as follows. `spend` counts only when its `enabled` flag is true; amounts are minor units divided by ten to the power of the exponent (0 if none); the currency is that of `used`, else of `limit`; the percentage is used as sent
+  if it is a number; the severity is the text sent. The plan windows are the top-level objects that have a numeric `utilization`, in the order they come, except `extra_usage`. A response that is not JSON, not an object, empty, has trailing text,
+  enables spend but reports neither `used` nor `limit`, or has neither a `spend` object nor any window is a failed refresh whose message says what is wrong (for example
+  `The usage response has neither a "spend" object nor any usage windows; its format may have changed.`). A `spend` that is not enabled, with no windows, is an account that reports no usage.
+- The wait and the amount of a `Retry-After` header are only believed as a whole number of at most six digits; a date is taken as no header.
+- A manual refresh that has been asked for and has not started yet shows a countdown of 0 or less. `POST /api/refresh` answers 202 with `{"started":true}` when it started a request and 200 with `{"started":false}` when one is already
+  running or asked for.
+
+**Getting the token**
+
+- Each time a token is needed the program runs `claude -p ping` with its base URL pointed at a small server of its own on the loopback interface, takes the credential `claude` sends, and stops `claude` and what it started; nothing is sent to
+  Anthropic by it. It waits 30 seconds at most. After a failure no token is kept, so while the person is logged out a new run of `claude` starts with every scheduled refresh.
+- The messages, as the row shows them: `Claude Code did not send a credential within 30 seconds. Run `claude` in a terminal to check that it works and is logged in, then retry.`, `Claude Code exited without sending a credential, so it is probably
+  not logged in. Run `claude` in a terminal and log in with /login, then retry.`, `Claude Code could not be found on the PATH. Install it, then retry. If it is installed somewhere the PATH does not cover, add that directory and restart this
+  application, which keeps the PATH it was started with.`, and `Claude Code was found but could not be started: <reason>. Check that it is installed correctly and can be run, then retry.`
+- The credential variables count only if they are not empty; the message names the one or both that are set, and the check is made on every acquisition, from the environment the program started with.
+- After a failed attempt the first 2,000 characters of what `claude` printed are written to the log at the warning level as `claude output: ...`, masked like everything the log gets.
+
+**The log**
+
+- A line is `yyyy-MM-dd HH:mm:ss LEVEL [Name] message`, with the level padded to seven characters and any stack trace after it; the console gets the same lines. If the log file cannot be opened the program goes on with the
+  console only and says `Cannot write log file <file>; logging to console only`.
+- The line for each request to Anthropic is `GET api.anthropic.com/api/oauth/usage -> HTTP 200 in 412 ms (1234 bytes, request-id <id>)`, with `retry-after <n>` when the server sent one; the request id is written only if it is made of letters, digits,
+  `_` and `-`. A timeout or a failure is `timed out` or `failed` with the time and no size.
+- With the setting to log the response on, the line is `Response of GET <host><path> (HTTP <status>):` and the pretty printed JSON on the lines after it, for every status; a body that is not JSON is `(not JSON, N bytes, not logged)` and an empty one `(empty)`.
+- A change of settings is logged with all the values, a change of the interval also as `Usage fetch interval is now N s`, and a new remembered height as `The history window height is now N px`. Applying settings that change nothing writes and logs nothing.
+- Two programs started at the same time in one directory write to the same history and settings files; running several at once is not something the program is built for (what happens to the log file then is up to the logging system, and has not been checked).
+
+**The local server**
+
+- The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>` (case does not matter), else the answer is 403 `Forbidden`; this holds for the page as well as the API.
+- A `POST` must have a `Content-Type` that starts with `application/json`, else 415 `Send Content-Type: application/json.`; a body over 4,096 bytes is 413 `The request body is too large.`; a body that is not JSON is 400 `The request body is not valid JSON.`; one that is not an object is
+  400 `The request body must be a JSON object.` A wrong method is 405 with an `Allow` header, an unknown path 404 `{"error":"No such endpoint."}`, a fault of the program 500 `Internal error; see the log.`
+- Every API answer is JSON, and the answers carry `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. No `Access-Control` header is ever sent and `OPTIONS` is refused, so another page cannot post to it.
+- The page and its files are served from inside the program only, never from the file system, and a path with `..` is 404. `/api/log` and `/api/history` name their file by its bare file name, never its path.
+- The settings are strict: every one of them must be in a `POST /api/settings`, else 400 `The setting X is missing.`; a flag must be true or false (`The setting X must be true or false.`); the time format `hh:mm` or `hh:mm:ss`; and the interval a whole number
+  within 5 to 3600 (`The usage interval must be a whole number of seconds from 5 to 3600.`). A file that cannot be written is 500 `The settings could not be saved: <reason>`, and nothing changes.
+
+**Starting, stopping and the files**
+
+- If the program cannot start (for example the port cannot be bound) it logs `Could not start` as an error and ends without a message in a window; if the page cannot be loaded the window is empty and `Frontend failed to load` is logged.
+- When the window is closed, or the process is told to stop, the program logs `Shutting down`, `Usage refresh stopped` and `Frontend server stopped`, interrupts a request that is running, waits up to 5 seconds for it, and then ends; the interrupted request
+  adds no error, no log line of failure and no row to the history. A request cut short is not a failure.
+- The history on the first run is shown from the newest row that has amounts: the percentage is worked out from `used` and `limit` when the budget is above zero, and there is no severity, so the figures have no severity colour until the first refresh.
+- A line of the history file is a row if it has 3 to 7 fields (older files had fewer) and a date and time; the missing fields are empty. The change in time of a row is empty if the row is earlier than the one before it (the clock was set back) or a
+  time cannot be read; a change in the amount of less than half a cent counts as zero in the row and the history cell.
+- The newest lines read of the log are those of its last 512 kilobytes, at most 1,000; a first line cut in half is dropped.
+
+**The window**
+
+- The window is never smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. A remembered height is stored once the person has not changed it for half a second, is at most 1,600, and is
+  kept only if it is more than 0.
+- The window title is `aip usage v0.21`; the program is called `java-aip-usage v0.21` in the log.
+
+**The look of the page**
+
+- **Colours** follow the operating system's light or dark setting, and there is no setting for it. `muted` is `#8a8f98` in both; severity normal is `#1a7f37` and `#3fb950`, warning `#a86a00` and `#d29922`, critical and the red of errors `#cf222e` and `#f85149`, the open
+  panel's button `#00b341` and `#3ddc6b`, the blue of notes `#0969da` and `#58a6ff`. Background and text are the system's. A severity the program does not know is shown in the muted gray.
+- **Severity words:** `normal`; `warning` or `warn`; `critical`, `exceeded` or `error`; any other word is unknown.
+- The refresh icon turns round and round while a refresh is running. When a refresh has failed and the figures are old they are dimmed to 60 percent: the time, the amounts, the percentage and the plan windows, not the countdown, the other items or the buttons.
+- The plan windows are the utilization in heavy weight, the name, and the reset text in muted gray at 14 pixels, 6 pixels apart in a window and 12 pixels between windows; they wrap in the row.
+- The icons are: refresh, an arrow round a circle; log, a sheet with lines; history, a table; error log, a triangle with an exclamation mark; settings, a gear. An icon button has a border that is invisible and turns muted gray when the pointer is over it or it has the keyboard focus.
+- A time that the backend gave no tooltip for has the tooltip `Last update`.
+- Under the row, in this order, there can be the message line, the line with the message of an HTTP 429 that shows while the pointer is over the countdown, and the red line `Lost contact with the application. Still trying.`. The last one is the window's own: it shows when a request to the
+  program fails, including the one for the refresh button, keeps showing the last figures, and goes with the next answer. Before the program has answered at all the window asks again every 2 seconds, the placeholder says `Loading…`, and the buttons do nothing until the first answer; every request to the program
+  is given up after 10 seconds.
+- **The settings view:** the buttons are Apply, Restore defaults (tooltip `Fill in the defaults; Apply makes them take effect`) and Cancel (`Close without changing anything`), in that order; Apply and Restore defaults are disabled when the settings could not be read; Maximum view (`Show everything in the main view`) and Minimum view (`Show as little
+  as possible in the main view`) are inside the Main view group. The time format's two choices read `hh:mm` and `hh:mm:ss`. The interval field is 5 characters wide, right-aligned, with `s` after it. When Apply is pressed the window checks that the field is a whole number
+  (`The interval must be a whole number of seconds.`) and sends nothing otherwise; whether it is within 5 to 3600 is for the backend. Nothing else is bound to the keyboard: there is no Enter to apply and no Escape to cancel; the panels' lines can be reached with Tab, and the buttons say
+  whether their panel is open to a screen reader.
+- **The panels:** while a panel is on show it is read again when its content changes. The log and the error log are read every second; the history when a new reading has arrived. If nothing has changed the lines are left alone; when new lines come in above, what the person
+  is reading does not move, and a panel scrolled to the top stays at the top. If a read fails the old lines stay and a red line says `The usage history could not be read: <reason>` (`The log could not be read: ...`, `The error log could not be read: ...`). A panel with nothing to list shows only its note. The notes of the log are `There is no log file yet.`, `The log is empty.`
+  and `Showing the newest N lines of the log.`; those of the history are written by the program, as above.
+- Text the program sends is put on the page as text, never as HTML.
 
 ## Future extension
 
@@ -721,20 +818,24 @@ These repos are intended as a source of knowledge and reusable implementation id
 - Provide a `./gradlew run` task and keep the solution easy to run from the IDE. A distributable macOS app bundle is out of scope for the first version.
 - Prefer simple, testable interaction boundaries between token acquisition, usage fetching, and rendering.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
-- The first thing logged on each run is a line saying the program was started, with its version, and
-  the next says which file the usage history CSV is written to, as a full path, for example
+- Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
+  (`Starting java-aip-usage v0.21`), and then a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
-  is the one the log panel marks as the start of a run.
+  is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).
 - The settings file, `settings.json` in the same directory as the usage history file, holds all the
   settings, and the two remembered heights (see Remembered heights), stored as JSON, and nothing else. If there is none at startup a new one is created with the
   defaults, and the event is logged. The full path of the settings file is logged at startup, in a line of its
-  own, like that of the history file. A settings file that cannot be read or is invalid is logged and
-  the defaults are used for the run, without overwriting it until a setting is applied. A key the file
+  own, like that of the history file. A settings file that cannot be read, or whose content is not a JSON object, is logged and
+  the defaults are used for the run, without overwriting it until a setting is applied. A single value that is not valid (the wrong type, an
+  interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
-  is ignored. The names of the keys are those of the settings table.
+  is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, and the two heights
+  `historyHeight` and `logHeight`. Where this document says "in the project root, beside `gradlew`", the files are in the working directory the program was
+  started from, which is the project root for `./gradlew run` and for an IDE run configuration set as the notes say.
 - Each line of the log begins with its time in the same form as the usage history file: the local date and time to the second, `yyyy-MM-dd HH:mm:ss`, for example `2026-10-08 16:24:53`, so the log, the history and the window agree on the clock.
 - The log records startup and shutdown, each refresh and how it ended, token acquisition and rejection, settings changes, and for each request to Anthropic its status, duration, size and `request-id`. It never records a token or a header. It records no part of a response body, except that, while the setting to log the response is on, it writes the JSON of each response, pretty printed over several lines, after one entry line that says whose it is. That text is masked like everything else, so anything shaped like a credential in it is hidden before it is written, as a last line of defence. The setting is off by default.
-- Every warning message the window shows in a message line, such as a failed refresh or stale data, is also written to the log, once when it appears, at the warning level.
+- Every failed refresh is also written to the log, once when it happens, at the warning level, as `Usage refresh failed: <the message>` (the message without its `Refresh failed at HH:mm` wrapper), an HTTP 429 included although it has no message line. The window's own `Lost contact with the application` message is the window's only and is not logged.
 - The local web server listens on the loopback interface only, on a port chosen by the operating system. It refuses a request whose `Host` header is not its own address, which stops another web page from reaching it by DNS rebinding, and it accepts a `POST` only as `application/json`, which another origin cannot send without a preflight the server never grants. No endpoint accepts, returns or logs a credential.
 - The program starts from an IDE as a plain `main` method, with no module path or VM options, as well as with `./gradlew run`.

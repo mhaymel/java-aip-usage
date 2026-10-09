@@ -1355,6 +1355,47 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 *Assumed:* "the option icon" is the gear; the extra buttons are in their usual places left of it; the window follows the wider row, as it does for any change of the row.
 
+## Implementation notes, as built
+
+Found by reading the code against the requirements (version 0.21); none of it is a requirement, all of it is how the requirements are met today.
+
+**Page and host**
+- The page asks nothing of the host and the host asks the page every 150 ms: `window.contentSize()` returns `width,height[,flag[,panel]]`, flag `0` the row (fixed), `1` the history (height may be dragged), `2` the log and error log (both),
+  `3` the settings (fixed, not the closed size), panel one of `history`, `log`, `errors`. `WindowFit` ignores anything else or a zero size, clamps to 160 x 32 and 2400 x 1600 and does not apply a size twice; the stage stays resizable and its min and max
+  size do the restricting. `RememberedHeights` and a 500 ms `PauseTransition` store a dragged height. The wire format is documented in `docs/api.md`.
+- The history's width is `max(row width, probe width + 16) + scrollbar`: the 16 is the panel's own padding written as a number in `app.js`, the one fixed number left in the measure (the probe, `#table-probe`, holds the header and the three rows with the
+  most characters, which is a heuristic and not every row). The scrollbar is measured once at start with an off-screen box that always scrolls; it is 0 where scrollbars float over the content (macOS) and the 16 px right padding of `.panel-lines` is what keeps
+  the last column clear. `panelHeight` is ten times the row's height at the moment a panel is opened and is not read again while it stays open.
+- Polling is chained `setTimeout` after each answer (no overlap) at the backend's poll interval; `setInterval(render, 1000)` draws the last status again each second without asking, which mostly keeps the hover line and the open panel's buttons in step. Startup asks
+  `/api/config` and repeats every 2 s with no back-off; the click handlers are attached only after it has answered. Every request has a 10 s abort. A refresh click that fails for any reason shows the lost-contact line.
+- A panel's lines are replaced only when the JSON differs (`panelKey`); the scroll is kept by adding the number of new rows times a row height estimate; at the top it stays at the top. The history is read again when `fetched_at` changes, the log and error log on every poll.
+- The page sets `.fit` on `#app` for the settings; there is no CSS rule for it (the settings are laid out by the absence of `.open`), so it is only a marker. `[hidden]` is forced with `display: none !important`; `box-sizing` is `border-box` throughout; numbers use tabular figures.
+- The log's run grouping and its run-start marker (`^yyyy-MM-dd HH:mm:ss ` and `] Starting java-aip-usage`) are in `view.js`: a hidden contract with the form of the log line.
+
+**Backend**
+- Startup order: settings load, history `latest()` restore, listeners, `ResponseLog`, web server, then `service.start()`. `Main` is not an `Application` so that an IDE `main` works from the class path; `Logging` must be installed before `UsageApp` is loaded.
+  One JVM shutdown hook and `RunOnce` make the window close and the process stop share one cleanup; `ShutdownSafeLogManager` keeps the stop lines from being lost.
+- Writes are `<file>.tmp` and then an atomic move (the plain move when the file system has none), for `settings.json` and for the history upgrade; the history is appended with `CREATE`/`APPEND`, in UTF-8 with `\n`, the header when the file is missing or empty; amounts
+  are rounded HALF_UP to two decimals. `/api/history` reads the whole file on every call, `/api/status` only when `LatestChangeCache` sees a changed size or time.
+- Back-off in nanoseconds: `hold = max(min(max(hold, interval) * 2, 5 min), retryAfter)`, eased by `hold / 8 * 7` until it is not above the interval; `retryAfter` is capped at an hour in `UsageService`. The countdown of a requested but not started refresh is `min(0, left)`.
+- The token: a capture server on `127.0.0.1` answers a canned reply to `claude -p ping`, the first `x-api-key` or `Authorization: Bearer` is taken, `claude` and its descendants are killed and waited for 2 s; the environment is read once at start.
+- The server answers on virtual threads and is stopped with `stop(0)`; the refresh thread is a daemon. Static files come from the class path under `/web`, by extension for the content type; `..` is refused.
+- `Redaction` masks `sk-ant-...`, `Bearer ...`, and `x-api-key`, `authorization`, `api_key`, `access_token`, `refresh_token`, `password`, `secret` followed by `:` or `=`.
+- The JSON shapes of the API are in `docs/api.md`; the settings are one record (`Settings`), read leniently key by key by `SettingsStore`.
+
+## Open points found by the audit
+
+Differences between the code and the requirements that were not settled either way; each needs a decision, and none has been changed.
+
+1. The history panel is read again only when `fetched_at` changes, so a failed refresh (a new row, but no new reading) does not appear until the next success. The requirements say a new row appears soon after it is recorded.
+2. An optional item of the row (the changes, the interval, the percentage) is left out when the backend has no value for it, even if its switch is on, so a refresh can change the row's width. The requirements say a refresh does not change the window's size.
+3. The log's start line is `#e6e6e6` in the dark theme too, where the light text on it is hard to read; the requirements are silent about the dark theme there.
+4. `/api/config` reports the configured interval, while `/api/settings` and the row report the one in force; `docs/api.md` and the requirements now say so, but the page needs both for different things.
+5. The window's lost-contact line is not logged, which the requirements now say; a program that is reachable only by its window has nothing to log it with, so this may be right.
+6. `duration_ms` includes getting the token and the retry after a 401, so the first row of a run is long; the requirements now say so, but a measure of the request alone may be what is wanted.
+7. The window checks the interval field itself (a whole number) before it asks the backend, though the requirements first said the backend refuses a bad value; both messages exist.
+8. The first lines of the log are `Logging to ...`, the start line and the history path, in that order; the requirements now say so, replacing the earlier "the first thing logged is the start line".
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

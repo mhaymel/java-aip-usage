@@ -12,7 +12,7 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/config` | The effective intervals (read-only: the settings view changes the usage interval, through `/api/settings`) |
+| `GET` | `/api/config` | The configured intervals and the polling interval (read-only: the settings view changes the usage interval through `/api/settings`) |
 | `GET` | `/api/settings` | Every setting, the defaults, and the interval choices |
 | `POST` | `/api/settings` | Apply a full set of settings |
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
@@ -94,9 +94,8 @@ The frontend asks for this once at startup, and then polls `/api/status` every
   is never saved or changed through this API. It has no entry under `limits` for that
   reason.
 
-The values are the ones in force. For the usage interval that is a command-line
-option, else the saved setting, else the default (see the README), until the
-frontend changes it.
+The usage interval is the configured one: a command-line option, else the saved setting, else the default (see the README), until the
+frontend changes it. It is not the longer wait of a back-off after HTTP 429s; `GET /api/settings` and the status' `display.interval` have that one.
 
 ## `GET /api/status`
 
