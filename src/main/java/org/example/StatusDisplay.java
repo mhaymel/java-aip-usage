@@ -103,7 +103,7 @@ final class StatusDisplay {
                 new Tip(settings.usageIntervalSeconds() + " s", "Time between usage requests"),
                 deltaUsed(change, usage),
                 change == null || change.deltaTime() == null ? null
-                        : new Tip(change.deltaTimeText(), "Time since the previous reading"),
+                        : new Tip(change.deltaSecondsText(), "Time since the previous reading"),
                 message,
                 new Show(
                         settings.showPercentage(), settings.showCurrency(), settings.showInterval(), settings.showDeltaUsed(),

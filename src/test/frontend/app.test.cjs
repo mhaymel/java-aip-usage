@@ -1685,19 +1685,6 @@ test('a button that was off comes back at the next poll when it is switched on',
     assert.equal(page.el('log-button').hidden, false);
 });
 
-test('a panel whose button goes while it is shown is closed, since it could not be opened again', async () => {
-    const state = { config: CONFIG, status: withShow(WITH_CHANGE, ALL_ICONS) };
-    const page = await load(backendOf(state));
-    await page.click('history-button');
-    assert.equal(page.el('panel').hidden, false);
-
-    state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, historyIcon: false });
-    await page.firePoll();
-
-    assert.equal(page.el('panel').hidden, true);
-    assert.equal(page.el('history-button').hidden, true);
-});
-
 test('Apply that switches off the button of the panel the settings would give back gives nothing back; Cancel still does', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('history-button');
@@ -1847,4 +1834,99 @@ test('the log\'s start line keeps the light gray background class and is not gre
     const start = shown.find(c => /Starting java-aip-usage/.test(c.children.map(x => x.textContent).join(' ')));
     assert.match(start.className, /\bmark\b/);
     assert.doesNotMatch(start.className, /\bstart\b/);
+});
+
+// ---- every button while the settings are open
+
+const BUTTONS = ['log-button', 'history-button', 'errors-button', 'settings-button'];
+const NO_ICONS = { historyIcon: false, logIcon: false, errorIcon: false };
+const visible = page => BUTTONS.filter(id => !page.el(id).hidden);
+
+test('with all three switched off only the gear is there; opening the settings shows all four', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
+    assert.deepEqual(visible(page), ['settings-button']);
+
+    await page.click('settings-button');
+
+    assert.deepEqual(visible(page), ['log-button', 'history-button', 'errors-button', 'settings-button']);
+});
+
+test('the extra buttons are shown at the click, not at the next poll', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
+    const polls = page.calls.filter(c => c.url === '/api/status').length;
+
+    await page.click('settings-button');
+
+    assert.equal(page.calls.filter(c => c.url === '/api/status').length, polls, 'no poll was needed');
+    assert.equal(page.el('log-button').hidden, false);
+});
+
+test('Cancel, Apply and the gear again take the extra buttons away, and leave the configured ones', async () => {
+    for (const leave of ['settings-cancel', 'settings-apply', 'settings-button']) {
+        const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { ...NO_ICONS, logIcon: true }) }));
+        await page.click('settings-button');
+        assert.equal(visible(page).length, 4, leave);
+
+        await page.click(leave);
+
+        assert.deepEqual(visible(page), ['log-button', 'settings-button'], leave + ': only the one that is switched on, and the gear');
+    }
+});
+
+test('an extra button pressed in the settings opens its panel, the settings go, and its button stays while the panel is shown', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
+    await page.click('settings-button');
+
+    await page.click('history-button');
+
+    assert.equal(page.el('settings-view').hidden, true, 'the panel replaces the settings');
+    assert.equal(page.el('history-button').title, 'Hide the usage history');
+    assert.deepEqual(visible(page), ['history-button', 'settings-button'], 'the button of the shown panel stays, the other extras go');
+    assert.ok(classOf(page, 'history-button').includes('active'));
+});
+
+test('closing that panel takes its button away again, since it is switched off', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
+    await page.click('settings-button');
+    await page.click('history-button');
+
+    await page.click('history-button');
+
+    assert.equal(page.el('panel').hidden, true);
+    assert.deepEqual(visible(page), ['settings-button']);
+});
+
+test('the button of a shown panel stays through the polls, whatever its switch says', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
+    await page.click('settings-button');
+    await page.click('log-button');
+
+    await page.firePoll();
+    await page.firePoll();
+
+    assert.equal(page.el('log-button').hidden, false);
+    assert.equal(page.el('panel').hidden, false, 'and the panel is not closed');
+});
+
+test('a panel whose switch is turned off at a poll while it is shown is not closed, and its button stays', async () => {
+    const state = { config: CONFIG, status: withShow(WITH_CHANGE, ALL_ICONS) };
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+
+    state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, historyIcon: false });
+    await page.firePoll();
+
+    assert.equal(page.el('panel').hidden, false);
+    assert.equal(page.el('history-button').hidden, false);
+    assert.equal(page.el('log-button').hidden, false, 'the others are as configured');
+    await page.click('history-button');
+    assert.equal(page.el('history-button').hidden, true, 'it goes when the panel is closed');
+});
+
+test('the row\'s time since the previous reading is the backend\'s seconds', async () => {
+    const status = withShow(WITH_CHANGE, { ...ALL_ICONS, deltaTime: true });
+    status.display = { ...status.display, deltaTime: { text: '105 s', tooltip: 'Time since the previous reading' } };
+    const page = await load(backendOf({ config: CONFIG, status }));
+
+    assert.equal(page.el('delta-time').textContent, '105 s');
 });

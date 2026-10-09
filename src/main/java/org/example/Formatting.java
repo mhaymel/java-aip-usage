@@ -67,25 +67,9 @@ final class Formatting {
         return days + " d" + (hours % 24 != 0 ? " " + (hours % 24) + " h" : "");
     }
 
-    /**
-     * The time since the previous reading, shorter than {@link #span}: {@code 45 s}, {@code 1 m}, {@code 1 h 5 m},
-     * {@code 1 d 4 h}. From a minute on it is rounded to the nearest minute, so 61 seconds is {@code 1 m}.
-     */
-    static String gap(long seconds) {
-        long s = Math.max(0, seconds);
-        if (s < 60) {
-            return s + " s";
-        }
-        long minutes = (s + 30) / 60;
-        if (minutes < 60) {
-            return minutes + " m";
-        }
-        long hours = minutes / 60;
-        if (hours < 24) {
-            return hours + " h" + (minutes % 60 != 0 ? " " + (minutes % 60) + " m" : "");
-        }
-        long days = hours / 24;
-        return days + " d" + (hours % 24 != 0 ? " " + (hours % 24) + " h" : "");
+    /** The time since the previous reading, in whole seconds with the unit and never in minutes: {@code 63 s}, {@code 3600 s}. */
+    static String seconds(long seconds) {
+        return Math.max(0, seconds) + " s";
     }
 
     /** An amount as a plain number with two decimals and no currency sign: 1000 reads {@code 1,000.00}. */

@@ -54,6 +54,7 @@ Hover over things to see what they are:
   is longer while the application is backing off after a rate limit, and goes negative
   (`-3 s`) if the refresh is overdue, for example because a request is slow. It is
   empty until the first request has been made.
+- The time since the previous reading is in whole seconds (`105 s`), in the row and in the history. While the settings are open all the icons are shown beside the gear, and when you leave them only the ones that are switched on stay (the button of a panel that is open always stays).
 - The settings can switch off the **history, log and error log icons** (each on by default; the gear always stays) and switch on a **currency symbol** before the amounts in the row (`$186.02 / $1,000.00`;
   another currency shows its code, `EUR 186.02`). Maximum view turns them all on and Minimum view off. In the history the currency is the right-most column, shown as `$` for US dollars, and the
   change columns sit between the budget and it.

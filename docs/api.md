@@ -120,7 +120,7 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
     },
     "windows": []
   },
-  "change": { "delta_used": 0.05, "delta_time": 60 }
+  "change": { "delta_used": 0.05, "delta_time": 60, "delta_used_text": "+0.05", "delta_seconds_text": "60 s" }
 }
 ```
 
@@ -138,7 +138,8 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
 - `change`: what changed between the newest reading (the newest history row that has amounts) and the row
   directly before it in the history file, worked out by the backend; `null` when there is no usage or no
   history. `delta_used` is the change in the amount used, `delta_time` the whole seconds between the
-  two rows. Either is `null` when it cannot be worked out: the first row of a run has neither, a failed row
+  two rows, with the finished texts `delta_used_text` (`+0.05`, `null` for a change of zero) and `delta_seconds_text` (`63 s`, in seconds, never minutes, as the
+  history has it; there is no short minutes form). Either is `null` when it cannot be worked out: the first row of a run has neither, a failed row
   before it leaves no `delta_used`. See the requirements, Changes between readings.
 - `refreshing`: a fetch is running now.
 - `nextRefreshInSeconds`: whole seconds until the next *scheduled* refresh, to the

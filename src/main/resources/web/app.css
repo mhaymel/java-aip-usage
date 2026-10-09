@@ -220,7 +220,7 @@ body {
 }
 
 .delta-time {
-    min-width: 5ch; /* "1 h 5 m" */
+    min-width: 6ch; /* "3600 s" */
 }
 
 /* The settings: a form in the panel area, in the row's own readable type rather than the log's small one. */

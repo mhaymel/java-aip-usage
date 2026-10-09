@@ -543,3 +543,7 @@ test('the history\'s start line is green text with no background and no bold; th
     assert.match(ruleOf('.panel-lines .mark'), /background:\s*#e6e6e6/, 'the log keeps its gray');
     assert.doesNotMatch(ruleOf('.panel-lines .mark'), /color/);
 });
+
+test('the time since the previous reading in the row has room for six characters: 3600 s', () => {
+    assert.match(ruleOf('.delta-time'), /min-width:\s*6ch/);
+});

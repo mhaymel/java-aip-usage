@@ -160,16 +160,15 @@
     }
 
     /**
-     * The buttons of the history, the log and the error log are there when their settings say so; the gear never goes. A panel whose
-     * button has gone is closed, since it could not be opened again.
+     * The buttons of the history, the log and the error log are there when their settings say so; the gear never goes. While the settings are
+     * shown all of them are there, so that every panel can be reached from them, and the button of the panel that is shown is always there,
+     * so that the panel can be closed: a button that is switched off is never taken away from a panel that is open.
      */
     function renderButtons(show) {
         var flags = { history: show.historyIcon, log: show.logIcon, errors: show.errorIcon };
+        var settingsOpen = openPanel === 'settings';
         Object.keys(flags).forEach(function (name) {
-            $(PANELS[name].button).hidden = flags[name] === false;
-            if (flags[name] === false && openPanel === name) {
-                showPanelNamed(null);
-            }
+            $(PANELS[name].button).hidden = !(flags[name] !== false || settingsOpen || openPanel === name);
         });
     }
 
@@ -544,6 +543,8 @@
         // so that a message line coming or going does not move it; the panel takes up the difference.
         panelHeight = 10 * Math.ceil($('top').getBoundingClientRect().height);
         applyAppClass();
+        // The row changes with the panel (the buttons that are switched off come and go), at once and not at the next poll.
+        render();
         loadPanel();
     }
 

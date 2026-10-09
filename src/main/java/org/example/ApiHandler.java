@@ -517,7 +517,6 @@ final class ApiHandler implements HttpHandler {
             @JsonProperty("delta_used") Double deltaUsed,
             @JsonProperty("delta_time") Long deltaTime,
             @JsonProperty("delta_used_text") String deltaUsedText,
-            @JsonProperty("delta_time_text") String deltaTimeText,
             @JsonProperty("delta_seconds_text") String deltaSecondsText) {
 
         static DeltaBody of(Double used, Long seconds) {
@@ -525,9 +524,8 @@ final class ApiHandler implements HttpHandler {
                     used, seconds,
                     // A change of nothing says nothing: no text for it, so no cell and no item show it.
                     used == null || Math.abs(used) < 0.005 ? null : Formatting.signedAmount(java.math.BigDecimal.valueOf(used)),
-                    seconds == null ? null : Formatting.gap(seconds),
-                    // The history shows the time in whole seconds, never in minutes.
-                    seconds == null ? null : seconds + " s");
+                    // The time is in whole seconds, in the history and in the row, never in minutes.
+                    seconds == null ? null : Formatting.seconds(seconds));
         }
     }
 

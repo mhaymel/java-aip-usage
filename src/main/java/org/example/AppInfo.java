@@ -10,7 +10,7 @@ final class AppInfo {
      * The version, shown in the title bar. It is written here by hand and increased by
      * hand whenever the program changes. It is unrelated to the Gradle project version.
      */
-    static final String VERSION = "0.20";
+    static final String VERSION = "0.21";
 
     private AppInfo() {
     }

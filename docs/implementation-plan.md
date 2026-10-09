@@ -1337,6 +1337,24 @@ or it would have been hidden with the zero usage lines while the failed lines we
 
 *Assumed:* the green is the same as the open panel's button (`--active`), as the requirements say, not the severity green; the hover text and the zero-usage handling of startup lines are unchanged.
 
+### 35. Seconds in the row, and every icon while the settings are open
+
+**Status: done (version 0.21); how the buttons come and go with the gear is for a person to judge.** Built as planned; `Formatting.gap` became `Formatting.seconds` (a plain `N s`) rather than just being removed, so the row and the history share one place for the text. Requirements: The row (item 7, the buttons while the settings are shown), Changes between readings. The first item of the note, the row's change in the amount not showing, was answered by the person as now shown; it
+needs no work (the item is empty exactly when the change is zero or cannot be worked out, as the requirements say).
+
+- **The time in seconds in the row (backend).** `StatusDisplay.deltaTime` uses `change.deltaSecondsText()` (`105 s`) instead of the short form; `Formatting.gap` and `DeltaBody.deltaTimeText` (`delta_time_text`) have no user left and go, so the status' `change` and the
+  history's deltas carry `delta_seconds_text` only. `index.html`/CSS: `.delta-time { min-width: 6ch }` for `3600 s`. Tests: `StatusDisplayTest` (`63 s`, `105 s`, `3600 s`, none for an unknown time), `ApiTest` (the status' `display.deltaTime.text` is seconds, `1 h` is now `3600 s`;
+  the history/status comparison test), `FormattingTest` (the `gap` test is removed), `layout.test.cjs` (the width rule).
+- **Every button while the settings are open (page).** `renderButtons` shows a button when its flag is on, **or** the settings are open (`openPanel === 'settings'`), **or** its panel is the one shown (`openPanel === name`); the rule that closed a panel whose button
+  went is removed, since the button of the shown panel never goes. `showPanelNamed` calls `render()` at its end (when a status has been read) so that the buttons change at the click and not at the next poll. Leaving the settings (the gear, Apply, Cancel) is already a
+  `showPanelNamed`, so the row falls back to the configured buttons by itself; an extra button pressed while the settings are open opens its panel through `togglePanel(name)` (which already forgets `returnTo`), and its button stays while the panel is shown and goes
+  when it is closed if its flag is off. The row gets wider while the settings are open, which the fit already follows (the settings are the row's width). Tests: `app.test.cjs`: flags all off and the settings closed: only the gear; settings open: all four, in the order log,
+  history, error log, gear; Cancel, Apply and the gear again: back to the configured ones; an extra button opens its panel, the settings go, the button stays, and goes when the panel is closed; a configured button stays as it is; a panel whose flag turns off at a poll while it is shown
+  is not closed (the old test of that is replaced); `returnTo` is still dropped by Apply for a panel whose button was switched off. `layout.test.cjs` does not change (the order is the HTML's).
+- **Docs.** `api.md` (the status' `change`: no `delta_time_text`; the row shows seconds), README (seconds in the row, the buttons while the settings are open), the manual checks (the gear shows all the buttons and Apply/Cancel take the extra ones away).
+
+*Assumed:* "the option icon" is the gear; the extra buttons are in their usual places left of it; the window follows the wider row, as it does for any change of the row.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

@@ -1223,7 +1223,7 @@ class ApiTest {
     }
 
     @Test
-    void theHistoryGivesTheTimeInWholeSecondsWhileTheStatusKeepsTheShortForm() throws Exception {
+    void theHistoryAndTheRowBothGiveTheTimeInWholeSeconds() throws Exception {
         writeHistory("datetime,used,limit,currency,status,interval,duration_ms",
                 "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
                 "2026-10-08 14:01:03,10.05,1000.00,USD,,60,400",
@@ -1242,7 +1242,8 @@ class ApiTest {
         assertEquals("126 s", lines.get(1).at("/cells/" + time).asText(), "two minutes and six seconds");
         assertEquals("63 s", lines.get(2).at("/cells/" + time).asText());
         assertEquals("", lines.get(3).at("/cells/" + time).asText(), "the first line of a run has none");
-        assertEquals("1 h", json(get(app, "/api/status")).at("/display/deltaTime/text").asText(), "the row keeps the short form");
+        assertEquals("3600 s", json(get(app, "/api/status")).at("/display/deltaTime/text").asText(), "the row too, in seconds, never in hours");
+        assertFalse(json(get(app, "/api/status")).at("/change").has("delta_time_text"), "no short form is sent any more");
     }
 
     @Test

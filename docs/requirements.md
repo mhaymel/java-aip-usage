@@ -226,7 +226,7 @@ snug against the button, so they read as one group:
    an HTTP 429 (see Refresh behavior);
 7. the change since the previous reading, when its settings are on (both are off by default): first
    the change in the amount used, with its sign, for example `+0.05`, then the time since the previous
-   reading, for example `1 m`; see Changes between readings;
+   reading, **in whole seconds, never in minutes or hours**, for example `63 s` or `105 s`; see Changes between readings;
 8. a small button that shows the log below the row, and hides it again, an icon rather than a word, when its
    setting is on (it is on by default);
 9. next to it, a small button that shows the usage history below the row, and hides it again,
@@ -239,6 +239,13 @@ snug against the button, so they read as one group:
 A button that is switched off is not shown and takes no room, so the row is narrower by it (the window follows when the
 settings are applied, as for any other item). Without its button a panel cannot be opened: if it was the panel that the settings would
 give back when they are left (see Settings), nothing is given back.
+
+**While the settings are shown, all the buttons are shown.** Pressing the gear shows the log, history and error log buttons beside it, to
+its left in their usual places, whether or not their switches are on, so that every panel can be reached from there. When the settings are
+left, by pressing the gear again or Apply or Cancel, the row has only the buttons that are switched on, as configured (the window follows the
+row). The button of a panel that is shown is always shown, whatever its switch says: if an extra button is pressed while the settings are
+shown, its panel replaces the settings and its button stays, so that the panel can be closed again; when the panel is closed the button goes
+if it is switched off. A button that is switched off is therefore never taken away from a panel that is open.
 
 The four icon buttons at the right-hand end sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
@@ -512,7 +519,7 @@ The history is shown inside the main window, not in a window of its own.
   beside the `used` column and are told apart from it by the symbol. Each column is shown only when its setting
   is on, and both are off by default; the columns are between `limit` and the currency, which stays the last. An empty value is an
   empty cell, and a change in the amount used of zero is an empty cell too, not `0.00`. **The time is in whole seconds, with the unit,
-  never in minutes or hours**: `63 s`, `126 s`, `3600 s`. (The row's item keeps its short form, for example `1 m`.)
+  never in minutes or hours**: `63 s`, `126 s`, `3600 s`. (The row's item shows it the same way, in seconds.)
 - **Hiding lines.** Two settings (see Settings) say whether the history shows its zero usage lines and its failed lines; both are
   shown unless switched off. A **zero usage line** is a line whose change in the amount used, as under Changes between readings (against the
   row directly before it, in the same run), is exactly zero: the reading is the same as the one before. **The startup lines count as zero usage

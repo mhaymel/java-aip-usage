@@ -242,7 +242,7 @@ class StatusDisplayTest {
         StatusDisplay.View v = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.05, 61L), Settings.defaults());
         assertEquals("+0.05", v.deltaUsed().text());
         assertEquals("Change in the amount used since the previous reading, in USD", v.deltaUsed().tooltip());
-        assertEquals("1 m", v.deltaTime().text());
+        assertEquals("61 s", v.deltaTime().text(), "in seconds, never minutes");
         assertEquals("Time since the previous reading", v.deltaTime().tooltip());
 
         StatusDisplay.View partly = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(null, 60L), Settings.defaults());
@@ -272,7 +272,7 @@ class StatusDisplayTest {
 
         StatusDisplay.View none = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.0, 60L), Settings.defaults());
         assertNull(none.deltaUsed(), "no 0.00");
-        assertEquals("1 m", none.deltaTime().text());
+        assertEquals("60 s", none.deltaTime().text(), "in seconds, never minutes");
 
         assertNull(build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.004, 60L), Settings.defaults()).deltaUsed(),
                 "rounds to zero");

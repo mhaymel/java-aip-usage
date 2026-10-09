@@ -54,16 +54,14 @@ class FormattingTest {
     }
 
     @Test
-    void theTimeSinceThePreviousReadingIsShortAndRoundedToTheMinute() {
-        assertEquals("0 s", Formatting.gap(0));
-        assertEquals("45 s", Formatting.gap(45));
-        assertEquals("1 m", Formatting.gap(60));
-        assertEquals("1 m", Formatting.gap(61));
-        assertEquals("2 m", Formatting.gap(90));
-        assertEquals("1 h", Formatting.gap(3600));
-        assertEquals("1 h 5 m", Formatting.gap(3900));
-        assertEquals("1 d 4 h", Formatting.gap(28 * 3600));
-        assertEquals("0 s", Formatting.gap(-3));
+    void theTimeSinceThePreviousReadingIsInWholeSecondsNeverMinutes() {
+        assertEquals("0 s", Formatting.seconds(0));
+        assertEquals("45 s", Formatting.seconds(45));
+        assertEquals("63 s", Formatting.seconds(63));
+        assertEquals("105 s", Formatting.seconds(105));
+        assertEquals("3600 s", Formatting.seconds(3600), "an hour is still seconds");
+        assertEquals("100800 s", Formatting.seconds(28 * 3600));
+        assertEquals("0 s", Formatting.seconds(-3));
     }
 
     @Test
