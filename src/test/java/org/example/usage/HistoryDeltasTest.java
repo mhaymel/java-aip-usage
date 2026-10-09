@@ -92,4 +92,59 @@ class HistoryDeltasTest {
     void noRowsGiveNoDeltas() {
         assertEquals(List.of(), HistoryDeltas.compute(List.of()));
     }
+
+    // ---- on the rows that are shown
+
+    private static List<HistoryDeltas.Delta> visible(boolean[] shown, List<String>... rows) {
+        return HistoryDeltas.computeVisible(new ArrayList<>(List.of(rows)), shown);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void whenEverythingIsShownTheChangesAreTheSameAsAgainstTheRowBefore() {
+        List<List<String>> rows = List.of(row("14:00:00", "10.00", "start"), row("14:01:00", "10.25", ""), row("14:03:30", "10.20", ""));
+
+        assertEquals(HistoryDeltas.compute(rows), HistoryDeltas.computeVisible(rows, new boolean[] {true, true, true}));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void aHiddenRowBetweenTwoShownOnesMakesTheChangeAndTheTimeSpanIt() {
+        List<HistoryDeltas.Delta> d = visible(new boolean[] {true, false, true},
+                row("14:00:00", "10.00", "start"), row("14:01:00", "10.10", ""), row("14:05:00", "10.30", ""));
+
+        assertEquals(HistoryDeltas.Delta.NONE, d.get(1), "a hidden row has none");
+        assertEquals(new BigDecimal("0.30"), d.get(2).used(), "against the first row, not the hidden one");
+        assertEquals(300L, d.get(2).seconds());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void aHiddenRowThatBeginsARunStillBeginsItAndTheFirstShownRowAfterItHasNone() {
+        List<HistoryDeltas.Delta> d = visible(new boolean[] {true, false, true},
+                row("14:00:00", "10.00", "start"), row("15:00:00", "", "start-failed"), row("15:01:00", "10.30", ""));
+
+        assertEquals(HistoryDeltas.Delta.NONE, d.get(2), "nothing to compare with in its own run");
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void theFirstShownRowOfARunHasNoneEvenIfRowsBeforeItInTheFileAreShown() {
+        List<HistoryDeltas.Delta> d = visible(new boolean[] {true, true, true},
+                row("14:00:00", "10.00", "start"), row("14:01:00", "10.10", ""), row("16:00:00", "10.20", "start"));
+
+        assertEquals(HistoryDeltas.Delta.NONE, d.get(2));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void aFailedRowThatIsShownHasATimeAndNoChangeAndTheNextOneHasATimeFromItAndNoChange() {
+        List<HistoryDeltas.Delta> d = visible(new boolean[] {true, true, true},
+                row("14:00:00", "10.00", "start"), row("14:01:00", "", "failed"), row("14:02:00", "10.50", ""));
+
+        assertEquals(60L, d.get(1).seconds());
+        assertEquals(null, d.get(1).used());
+        assertEquals(60L, d.get(2).seconds());
+        assertEquals(null, d.get(2).used());
+    }
 }

@@ -15,6 +15,8 @@ import java.util.List;
  * @param historyDeltaUsed whether the history table has a column for the change in the amount used
  * @param historyDeltaTime whether the history table has a column for the time since the previous reading
  * @param historyDate whether the history table shows the date as well as the time
+ * @param historyZeroLines whether the history shows its zero usage lines: the readings with no change since the one before
+ * @param historyFailedLines whether the history shows the lines of failed queries
  */
 public record Settings(
         int usageIntervalSeconds,
@@ -26,28 +28,30 @@ public record Settings(
         TimeFormat timeFormat,
         boolean historyDeltaUsed,
         boolean historyDeltaTime,
-        boolean historyDate) {
+        boolean historyDate,
+        boolean historyZeroLines,
+        boolean historyFailedLines) {
 
     /** What the settings view offers for the time between usage requests; the backend accepts the wider range of {@link IntervalRange#USAGE}. */
     public static final List<Integer> INTERVAL_CHOICES = List.of(60, 120, 180, 240, 300);
 
     public static Settings defaults() {
         return new Settings(
-                IntervalRange.USAGE.defaultValue(), false, false, false, false, false, TimeFormat.HOURS_MINUTES, false, false, false);
+                IntervalRange.USAGE.defaultValue(), false, false, false, false, false, TimeFormat.HOURS_MINUTES, false, false, false, true, true);
     }
 
     public Settings withShowPercentage(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, on, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
-                historyDeltaUsed, historyDeltaTime, historyDate);
+                historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines);
     }
 
     public Settings withLogResponse(boolean on) {
         return new Settings(usageIntervalSeconds, on, showPercentage, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
-                historyDeltaUsed, historyDeltaTime, historyDate);
+                historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines);
     }
 
     public Settings withUsageIntervalSeconds(int seconds) {
         return new Settings(seconds, logResponse, showPercentage, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
-                historyDeltaUsed, historyDeltaTime, historyDate);
+                historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines);
     }
 }

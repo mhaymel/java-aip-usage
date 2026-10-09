@@ -409,7 +409,9 @@ test('the settings texts are the ones the requirements give', () => {
     assert.match(html, /<input id="set-showInterval" type="checkbox"> Interval<\/label>/);
     assert.match(html, /<input id="set-logResponse" type="checkbox"> Log the response<\/label>/);
     assert.match(html, /<legend>History view<\/legend>/);
-    assert.match(html, /<input id="set-historyDate" type="checkbox"> Date as well as the time<\/label>/);
+    assert.match(html, /<input id="set-historyDate" type="checkbox"> Show Date<\/label>/);
+    assert.match(html, /<input id="set-historyZeroLines" type="checkbox"> Show zero usage lines<\/label>/);
+    assert.match(html, /<input id="set-historyFailedLines" type="checkbox"> Show failed lines<\/label>/);
     assert.match(html, /<input id="set-historyDeltaUsed" type="checkbox"> \u0394 used<\/label>/, 'the History view: like the title of the column');
     assert.match(html, /<input id="set-historyDeltaTime" type="checkbox"> \u0394 time<\/label>/);
     assert.match(html, /<input id="set-showDeltaUsed" type="checkbox"> Change in the amount used<\/label>/, 'the Main view keeps the long texts');
@@ -473,4 +475,20 @@ test('the gear is drawn on a grid of 24 units and the other icons of 16, which i
         assert.match(html.match(new RegExp('<button[^>]*id="' + id + '"[\\s\\S]*?</button>'))[0], /viewBox="0 0 16 16"/, id);
     }
     assert.match(html.match(/<button[^>]*id="settings-button"[\s\S]*?<\/button>/)[0], /viewBox="0 0 24 24"/);
+});
+
+test('a checkbox and its text, and a label and its controls, are centred on each other vertically', () => {
+    const rule = ruleOf('.settings label');
+    assert.match(rule, /display:\s*flex/);
+    assert.match(rule, /align-items:\s*center/);
+    assert.match(rule, /flex-wrap:\s*wrap/, 'a line that does not fit wraps, the controls staying centred');
+    assert.match(css, /\.settings label input\[type="checkbox"\]\s*{[^}]*margin:\s*0/, 'no margin of the browser to push it off centre');
+});
+
+test('the history has two new switches, the date and the change columns after them, under the History view heading', () => {
+    const view = html.slice(html.indexOf('<legend>History view</legend>'), html.indexOf('<legend>Log</legend>'));
+    const order = ['set-historyDate', 'set-historyZeroLines', 'set-historyFailedLines', 'set-historyDeltaUsed', 'set-historyDeltaTime'];
+    const positions = order.map(id => view.indexOf('id="' + id + '"'));
+    positions.forEach((p, i) => assert.ok(p >= 0, order[i] + ' is in the History view group'));
+    assert.deepEqual([...positions].sort((a, b) => a - b), positions);
 });

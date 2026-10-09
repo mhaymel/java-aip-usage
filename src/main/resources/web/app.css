@@ -244,8 +244,19 @@ body {
     color: var(--muted);
 }
 
+/*
+ * A checkbox and its text, or a label and its box and dropdown, are centred on each other vertically, so that nothing sits higher or
+ * lower than its label. A line that does not fit wraps, the controls staying centred on one another.
+ */
 .settings label {
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.settings label input[type="checkbox"] {
+    margin: 0;
 }
 
 .settings .buttons {

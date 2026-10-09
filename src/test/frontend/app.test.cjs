@@ -148,7 +148,7 @@ function backendOf(state) {
 
 const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showInterval: false, showDeltaUsed: false, showDeltaTime: false,
-    timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false,
+    timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
 };
 const SETTINGS = {
     settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showInterval: true, timeFormat: 'hh:mm:ss' },
@@ -164,9 +164,12 @@ const ERRORS = {
     ],
 };
 
+// A line of the history as the backend sends it, finished: the cells the table shows, whether it begins a run, whether it failed, its hover text.
+const line = (cells, extra = {}) => ({ cells, start: false, failed: false, title: '', ...extra });
+
 const HISTORY = {
-    file: 'java-aip-usage.csv', exists: true, columns: ['datetime', 'used', 'limit', 'currency'], total: 2,
-    rows: [['2026-10-08 20:46:11', '260.66', '1000.00', 'USD'], ['2026-10-08 20:44:12', '260.36', '1000.00', 'USD']],
+    file: 'java-aip-usage.csv', exists: true, columns: ['time', 'used', 'limit', 'Cur.'], wide: false, note: null, total: 2,
+    lines: [line(['20:46:11', '260.66', '1000.00', 'USD']), line(['20:44:12', '260.36', '1000.00', 'USD'])],
 };
 
 const LOG = {
@@ -460,8 +463,8 @@ test('the history button opens the panel below the strip with a line for each re
 
     assert.equal(page.opened.length, 0, 'no new window');
     assert.equal(page.el('panel').hidden, false);
-    assert.deepEqual(rows(page), [['2026-10-08 20:46:11', '260.66', '1000.00', 'USD'], ['2026-10-08 20:44:12', '260.36', '1000.00', 'USD']]);
-    assert.deepEqual(head(page), [['datetime', 'used', 'limit', 'currency']], 'with a header row');
+    assert.deepEqual(rows(page), [['20:46:11', '260.66', '1000.00', 'USD'], ['20:44:12', '260.36', '1000.00', 'USD']]);
+    assert.deepEqual(head(page), [['time', 'used', 'limit', 'Cur.']], 'with a header row');
     assert.match(page.el('panel-lines').children[0].className, /\bhead\b/, 'which comes first');
     assert.match(page.el('panel-lines').children[1].className, /\bcols-4\b/);
     assert.equal(page.el('panel-lines').hidden, false);
@@ -491,10 +494,10 @@ test('a new reading while the panel is open puts a new line on top and keeps the
     page.el('panel-lines').scrollTop = 45;
 
     state.status = { ...SPEND_STATUS, usage: { ...SPEND_STATUS.usage, fetched_at: '2026-10-08T14:25:53Z' } };
-    state.history = () => ({ status: 200, body: { ...HISTORY, total: 3, rows: [['2026-10-08 20:47:11', '260.90', '1000.00', 'USD'], ...HISTORY.rows] } });
+    state.history = () => ({ status: 200, body: { ...HISTORY, total: 3, lines: [line(['20:47:11', '260.90', '1000.00', 'USD']), ...HISTORY.lines] } });
     await page.firePoll();
 
-    assert.equal(lines(page)[0], '2026-10-08 20:47:11 260.90 1000.00 USD');
+    assert.equal(lines(page)[0], '20:47:11 260.90 1000.00 USD');
     assert.equal(lines(page).length, 3);
     assert.equal(page.el('panel-lines').scrollTop, 45);
 });
@@ -524,21 +527,21 @@ test('a closed panel is not read when a new reading arrives; opening it reads it
 });
 
 test('a history that was cut says so in a note above the lines', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, total: 5000 } }) }));
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, total: 5000, note: 'Showing 2 of 5,000 lines: 4,998 older not shown.' } }) }));
 
     await page.click('history-button');
 
     assert.equal(page.el('panel-note').hidden, false);
-    assert.equal(page.el('panel-note').textContent, 'Showing the newest 2 of 5000 rows.');
+    assert.equal(page.el('panel-note').textContent, 'Showing 2 of 5,000 lines: 4,998 older not shown.', 'the backend wrote it; the page shows it as it is');
 });
 
 test('no history, or no rows, is one line of text and no list', async () => {
-    const none = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, exists: false, total: 0, rows: [] } }) }));
+    const none = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, exists: false, total: 0, lines: [], note: 'There is no usage history yet.' } }) }));
     await none.click('history-button');
     assert.equal(none.el('panel-note').textContent, 'There is no usage history yet.');
     assert.equal(none.el('panel-lines').hidden, true);
 
-    const empty = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, total: 0, rows: [] } }) }));
+    const empty = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, total: 0, lines: [], note: 'The history has no rows yet.' } }) }));
     await empty.click('history-button');
     assert.equal(empty.el('panel-note').textContent, 'The history has no rows yet.');
     assert.equal(empty.el('panel-lines').hidden, true);
@@ -565,7 +568,7 @@ test('an unreadable history shows a red error and keeps the lines it had; the er
 
 test('history text is never handed to the HTML parser', async () => {
     const hostile = '<img src=x onerror=alert(1)>';
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, rows: [[hostile, '1', '2', 'USD']] } }) }));
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, lines: [line([hostile, '1', '2', 'USD'], { title: hostile })] } }) }));
 
     await page.click('history-button');
 
@@ -618,7 +621,7 @@ test('showing the log while the history is shown replaces it, and the window tak
     assert.equal(page.el('log-button').title, 'Hide the log');
 
     await page.click('history-button');
-    assert.match(lines(page)[0], /^2026-10-08 20:46:11/);
+    assert.match(lines(page)[0], /^20:46:11/);
     assert.equal(page.el('log-button').title, 'Show the log');
 });
 
@@ -878,7 +881,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.equal(settingsPosts(page).length, 1);
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
-        timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false,
+        timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
     assert.equal(page.el('settings-view').hidden, true, 'Apply closes the view');
@@ -1301,28 +1304,42 @@ test('hovering a countdown that is not red shows nothing', async () => {
 
 // ---- the history table: time, date, hover and settings
 
-test('a line that begins a run says so when hovered, and the others say nothing', async () => {
-    const history = { ...HISTORY, startTooltip: 'The program started here',
-        rows: [['20:46:11', '260.66', '1000.00', 'USD', '', '60', '400'], ['20:44:12', '260.36', '1000.00', 'USD', 'start', '60', '412']] };
+test('a line that begins a run says so when hovered, and the others say nothing: the text is the backend\'s', async () => {
+    const history = { ...HISTORY, lines: [
+        line(['20:46:11', '260.66', '1000.00', 'USD']),
+        line(['20:44:12', '260.36', '1000.00', 'USD'], { start: true, title: 'The program started here' })] };
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
 
     await page.click('history-button');
 
-    const lines = page.el('panel-lines').children.filter(c => !/\bhead\b/.test(c.className));
-    assert.equal(lines[0].title, '');
-    assert.equal(lines[1].title, 'The program started here');
+    const shown = page.el('panel-lines').children.filter(c => !/\bhead\b/.test(c.className));
+    assert.equal(shown[0].title, '');
+    assert.equal(shown[1].title, 'The program started here');
+    assert.match(shown[1].className, /\bmark\b/, 'and it has the gray');
+    assert.doesNotMatch(shown[0].className, /\bmark\b/);
+});
+
+test('a failed line is marked as the backend says, and its cells are the backend\'s', async () => {
+    const history = { ...HISTORY, lines: [line(['20:46:11', 'failed', '', ''], { failed: true })] };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
+
+    await page.click('history-button');
+
+    const shown = page.el('panel-lines').children.filter(c => !/\bhead\b/.test(c.className));
+    assert.equal(shown[0].children[1].textContent, 'failed');
+    assert.equal(shown[0].children[1].className, 'failed', 'in red');
 });
 
 test('with the date on, the history rows take the wide time class', async () => {
-    const history = { ...HISTORY, columns: ['date time', 'used', 'limit', 'currency'], show: { date: true },
-        rows: [['2026-10-08 20:46:11', '260.66', '1000.00', 'USD', '', '60', '400']] };
+    const history = { ...HISTORY, columns: ['date time', 'used', 'limit', 'Cur.'], wide: true,
+        lines: [line(['2026-10-08 20:46:11', '260.66', '1000.00', 'USD'])] };
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
 
     await page.click('history-button');
 
     assert.match(page.el('panel-lines').children[1].className, /\bdate\b/);
     assert.match(page.el('panel-lines').children[0].className, /\bdate\b/, 'and so does the header');
-    assert.deepEqual(head(page), [['date time', 'used', 'limit', 'currency']]);
+    assert.deepEqual(head(page), [['date time', 'used', 'limit', 'Cur.']]);
 });
 
 test('the date setting is in the settings view and is sent with the rest', async () => {
@@ -1359,15 +1376,13 @@ test('a table narrower than the row leaves the window the width of the row and t
 });
 
 test('the table is measured in a copy of it: the header and the rows with the most text, in the classes of the real ones', async () => {
-    const history = { ...HISTORY, columns: ['date time', 'used', 'limit', 'currency'], show: { date: true, deltaUsed: true, deltaTime: false },
-        deltas: [{ delta_used_text: '+0.05' }, { delta_used_text: null }, { delta_used_text: '+1,234.50' }, { delta_used_text: null }, { delta_used_text: null }],
-        rows: [
-            ['2026-10-08 20:46:11', '1.00', '2.00', 'USD', '', '60', '1'],
-            ['2026-10-08 20:45:11', '1234567.89', '10000000.00', 'USD', '', '60', '1'],
-            ['2026-10-08 20:44:11', '1.00', '2.00', '', '', '60', '1'],
-            ['2026-10-08 20:43:11', '999999.99', '9999999.99', 'EUR', '', '60', '1'],
-            ['2026-10-08 20:42:11', '5.00', '6.00', 'USD', '', '60', '1'],
-        ] };
+    const history = { ...HISTORY, columns: ['date time', 'used', 'limit', 'Cur.', '\u0394 used'], wide: true, lines: [
+        line(['2026-10-08 20:46:11', '1.00', '2.00', 'USD', '+0.05']),
+        line(['2026-10-08 20:45:11', '1234567.89', '10000000.00', 'USD', '']),
+        line(['2026-10-08 20:44:11', '1.00', '2.00', '', '+1,234.50']),
+        line(['2026-10-08 20:43:11', '999999.99', '9999999.99', 'EUR', '']),
+        line(['2026-10-08 20:42:11', '5.00', '6.00', 'USD', '']),
+    ] };
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
 
     await page.click('history-button');
@@ -1377,7 +1392,7 @@ test('the table is measured in a copy of it: the header and the rows with the mo
     assert.match(probe[0].className, /\bhead\b/);
     assert.match(probe[0].className, /\bcols-5\b/, 'the same columns as the table');
     assert.match(probe[0].className, /\bdate\b/);
-    assert.deepEqual(probe[0].children.map(c => c.textContent), ['date time', 'used', 'limit', 'currency', '\u0394 used']);
+    assert.deepEqual(probe[0].children.map(c => c.textContent), ['date time', 'used', 'limit', 'Cur.', '\u0394 used']);
     const texts = probe.slice(1).map(r => r.children[1].textContent);
     assert.ok(texts.includes('1234567.89') && texts.includes('999999.99'), 'the widest rows are in it: ' + texts);
 });
@@ -1395,7 +1410,7 @@ test('the table is measured again at every ask, since a font that loads late cha
 });
 
 test('a table that has not been measured, or has no rows, adds nothing to the width', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { exists: false, columns: [], total: 0, rows: [], deltas: [] } }) }), { scrollbar: 15 });
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { exists: false, columns: [], wide: false, note: 'There is no usage history yet.', total: 0, lines: [] } }) }), { scrollbar: 15 });
     page.el('top').rect = { width: 399.2, height: 41.5 };
 
     await page.click('history-button');
@@ -1505,8 +1520,8 @@ test('Apply brings back the view that was open, and reads it with the new settin
     await page.click('history-button');
     await page.click('settings-button');
     page.el('set-historyDeltaTime').checked = true;
-    state.history = () => ({ status: 200, body: { ...HISTORY, show: { deltaTime: true },
-        deltas: [{ delta_seconds_text: '63 s' }, { delta_seconds_text: '' }] } });
+    state.history = () => ({ status: 200, body: { ...HISTORY, columns: ['time', 'used', 'limit', 'Cur.', '\u0394 time'],
+        lines: [line(['20:46:11', '260.66', '1000.00', 'USD', '63 s']), line(['20:44:12', '260.36', '1000.00', 'USD', ''])] } });
 
     await page.click('settings-apply');
 
@@ -1597,4 +1612,43 @@ test('a failed Apply keeps the settings open and does not bring anything back', 
 
     assert.equal(page.el('settings-view').hidden, false);
     assert.equal(page.el('history-button').title, 'Show the usage history');
+});
+
+test('the two new history switches are in the settings, are posted, and are on in the defaults', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.el('set-historyZeroLines').checked, true);
+    assert.equal(page.el('set-historyFailedLines').checked, true);
+
+    page.el('set-historyZeroLines').checked = false;
+    page.el('set-historyFailedLines').checked = false;
+    await page.click('settings-apply');
+
+    const sent = JSON.parse(settingsPosts(page)[0].body);
+    assert.equal(sent.historyZeroLines, false);
+    assert.equal(sent.historyFailedLines, false);
+});
+
+test('Restore defaults switches the two history lines back on', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-historyZeroLines').checked = false;
+    page.el('set-historyFailedLines').checked = false;
+
+    await page.click('settings-restore');
+
+    assert.equal(page.el('set-historyZeroLines').checked, true);
+    assert.equal(page.el('set-historyFailedLines').checked, true);
+});
+
+test('Maximum view and Minimum view leave the two history lines alone', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-historyZeroLines').checked = false;
+
+    await page.click('settings-maximum');
+    await page.click('settings-minimum');
+
+    assert.equal(page.el('set-historyZeroLines').checked, false);
+    assert.equal(page.el('set-historyFailedLines').checked, true);
 });

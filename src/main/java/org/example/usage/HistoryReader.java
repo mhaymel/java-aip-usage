@@ -32,10 +32,16 @@ public final class HistoryReader {
      * @param rows the newest rows, latest first, as many as were asked for; each has the four columns and
      *     three more: the status ({@code start}, {@code failed},
      *     {@code start-failed} or empty), the interval in seconds and the duration in milliseconds
-     * @param deltas the differences from the row before it in the file, one for each of {@code rows}, in the
-     *     same order; see {@link HistoryDeltas}
+     * @param deltas the differences, one for each of {@code rows}, in the same order, against the previous row
+     *     that is shown in the same run; see {@link HistoryDeltas#computeVisible}
+     * @param hiddenZero how many rows the filter left out for being zero usage lines
+     * @param hiddenFailed how many rows it left out for being failed lines
+     * @param visible how many rows are left once the filter has hidden what it hides, which can be more than {@code rows}
+     *     holds if more were found than were asked for
      */
-    public record Table(boolean exists, int total, List<List<String>> rows, List<HistoryDeltas.Delta> deltas) {
+    public record Table(
+            boolean exists, int total, List<List<String>> rows, List<HistoryDeltas.Delta> deltas,
+            int hiddenZero, int hiddenFailed, int visible) {
 
         public List<String> columns() {
             return COLUMNS;
@@ -45,10 +51,28 @@ public final class HistoryReader {
     private HistoryReader() {
     }
 
-    /** @param limit the most rows to return, the newest of them */
+    /**
+     * Which lines are left out. A <em>zero usage line</em> is a row whose change in the amount used, against the row directly
+     * before it, is exactly zero; the first row of a run, which has no change, is not one, and a failed row, which has
+     * no amounts, is not one. A <em>failed line</em> is a row of a failed query.
+     */
+    public record Filter(boolean showZero, boolean showFailed) {
+
+        public static final Filter ALL = new Filter(true, true);
+    }
+
+    /** @param limit the most rows to return, the newest of them; nothing is left out */
     public static Table read(Path file, int limit) throws IOException {
+        return read(file, limit, Filter.ALL);
+    }
+
+    /**
+     * @param limit the most rows to return, the newest of those that are shown
+     * @param filter which lines are left out before the rows are sorted, cut and worked out
+     */
+    public static Table read(Path file, int limit, Filter filter) throws IOException {
         if (!Files.isRegularFile(file)) {
-            return new Table(false, 0, List.of(), List.of());
+            return new Table(false, 0, List.of(), List.of(), 0, 0, 0);
         }
         List<List<String>> rows = new ArrayList<>();
         for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
@@ -64,17 +88,32 @@ public final class HistoryReader {
                 rows.add(List.copyOf(row));
             }
         }
-        // The differences are of each row to the one before it in the file, so they are worked out before sorting.
-        List<HistoryDeltas.Delta> all = HistoryDeltas.compute(rows);
+        // What a zero usage line is is decided on the whole file, against the row directly before each row, before anything is hidden.
+        List<HistoryDeltas.Delta> against = HistoryDeltas.compute(rows);
+        boolean[] visible = new boolean[rows.size()];
+        int hiddenZero = 0;
+        int hiddenFailed = 0;
         List<Integer> order = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
-            order.add(i);
+            boolean failed = rows.get(i).get(4).contains("failed");
+            boolean zero = against.get(i).used() != null && against.get(i).used().signum() == 0;
+            if (failed && !filter.showFailed()) {
+                hiddenFailed++;
+            } else if (zero && !filter.showZero()) {
+                hiddenZero++;
+            } else {
+                visible[i] = true;
+                order.add(i);
+            }
         }
+        // The differences of what is shown are of each row to the previous one shown in its run, so they are worked out before sorting.
+        List<HistoryDeltas.Delta> all = HistoryDeltas.computeVisible(rows, visible);
         // Newest first; of two with the same time, the one written later.
         order.sort(Comparator.<Integer, String>comparing(i -> rows.get(i).get(0)).thenComparing(Comparator.naturalOrder()).reversed());
         List<Integer> shown = order.subList(0, Math.min(limit, order.size()));
         return new Table(true, rows.size(),
                 shown.stream().map(rows::get).toList(),
-                shown.stream().map(all::get).toList());
+                shown.stream().map(all::get).toList(),
+                hiddenZero, hiddenFailed, order.size());
     }
 }

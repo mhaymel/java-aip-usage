@@ -319,6 +319,12 @@ names, shown as its code, here `USD`.
   the amount used is likewise against the row directly before: if that row is a failed one, with no
   amounts, there is no change, and a failed row itself has none.
 - A value that cannot be worked out is left empty, not shown as zero.
+- **In the history the two are worked out on the lines that are shown.** When the history leaves lines out (see Hiding lines),
+  the change in the amount used and the time since the previous reading of a line are those against the previous
+  line that is shown in the same run, not against the row directly before it in the file: with the unchanged readings hidden, the time is the
+  time since the previous reading that is shown, and so is the change. A run is still what the whole file says: a row whose status marks a start begins
+  a run even if it is hidden, and the first line shown of a run has neither. The main row's items are not affected by what the history hides: they
+  are worked out against the row directly before, as above.
 - **A change in the amount used of exactly zero is left empty too**, as if it could not be worked out: no `0.00` in
   the history column and no change item in the row. It is a figure that says nothing. The time since the previous
   reading is shown whatever it is.
@@ -364,6 +370,8 @@ names, shown as its code, here `USD`.
   | Show the time since the previous reading in the row | on, off | off |
   | Time format in the row | hours and minutes, or hours, minutes and seconds | hours and minutes |
   | Show the date in the history, as well as the time | on, off | off |
+  | Show the zero usage lines in the history | on, off | on |
+  | Show the failed lines in the history | on, off | on |
   | Show the change in the amount used in the history | on, off | off |
   | Show the time since the previous reading in the history | on, off | off |
 
@@ -373,9 +381,12 @@ names, shown as its code, here `USD`.
   five choices offered besides it.
 - **The texts of the view.** The interval's label reads `Interval`, and so does the checkbox for the row's item;
   the row item's tooltip keeps `Time between usage requests`. The checkbox for the log reads `Log the response`.
-  Under the heading `History view` the checkboxes read `Date as well as the time`, `Δ used` and `Δ time`, like the titles of the
-  columns they switch on: no `Column`, and no colon in them. Under `Main view` the two checkboxes for the row keep their longer
+  Under the heading `History view` the checkboxes read `Show Date`, `Show zero usage lines`, `Show failed lines`, `Δ used` and `Δ time`
+  (the last two like the titles of the columns they switch on): no `Column`, and no colon in them. Under `Main view` the two checkboxes for the row keep their longer
   texts, `Change in the amount used` and `Time since the previous reading`.
+- **A checkbox and its text are centred on each other vertically**, and so is every other control and its label
+  (the interval's box and dropdown, the time format), in every line of the view, so that nothing sits higher or lower than its
+  label.
 - **Every control is wide enough for its own value**, the arrow of a dropdown included: the value is never
   covered by the arrow, nor cut off.
 - **The text of the view can be selected and copied.**
@@ -488,6 +499,20 @@ The history is shown inside the main window, not in a window of its own.
   is on, and both are off by default; the columns are the last two, after `currency`. An empty value is an
   empty cell, and a change in the amount used of zero is an empty cell too, not `0.00`. **The time is in whole seconds, with the unit,
   never in minutes or hours**: `63 s`, `126 s`, `3600 s`. (The row's item keeps its short form, for example `1 m`.)
+- **Hiding lines.** Two settings (see Settings) say whether the history shows its zero usage lines and its failed lines; both are
+  shown unless switched off. A **zero usage line** is a line whose change in the amount used, as under Changes between readings (against the
+  row directly before it, in the same run), is exactly zero: the reading is the same as the one before. The first line of a run, which has no
+  change, and a failed line, which has no amounts, are not zero usage lines. A **failed line** is a row of a failed query. What is hidden is
+  left out of the table, and so of its sorting, its count of 1,000 lines and the changes worked out on it (see Changes between readings).
+  The file itself is not touched.
+- **When not all the data is shown, the panel says so.** One line above the table, written by the backend, says how many lines there are,
+  how many are shown, and why the others are not: hidden zero usage lines, hidden failed lines, and older lines beyond the newest 1,000. For example
+  `Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.` It is there whenever anything is left out, and not
+  otherwise; it replaces the line that said how many of the lines were shown. The window shows it as received.
+- **The page does no calculation and makes no decision about the lines.** The backend sends each line finished: its cells, as the table
+  shows them (the time as the setting says, the amounts, `failed` in the place of the amount of a failed line, the changes), whether it is the first
+  line of a run, whether it is a failed line, and its hover text. The page only puts them on the screen. The status, the interval and the duration of
+  a row never reach it.
 - A row of a failed query (status `failed` or `start-failed`, see Usage history) is shown with its
   time, empty amounts and empty currency, and the word `failed` in red in the `used` column.
 - The line of the first row recorded after the program started (a row whose `status` is `start` or
@@ -502,8 +527,7 @@ The history is shown inside the main window, not in a window of its own.
   little space. This is the one place the 14-pixel minimum does not apply. It is regular weight,
   not bold, and not thin.
 - The panel scrolls: older readings are reached by scrolling it, or by making the window taller. It
-  holds the newest 1,000 readings; a line above them says how many readings there are in all and how
-  many are shown, when there are more than are shown.
+  holds the newest 1,000 of the lines that are not hidden; the line above the table says so (see above).
 - While the panel is shown it keeps up with the history: a new reading appears at the top soon
   after it is recorded, without pressing anything. It does not move what the person has scrolled to.
 - A line of the file that does not have the columns `datetime`, `used`, `limit` and `currency` is left out, so one damaged line cannot

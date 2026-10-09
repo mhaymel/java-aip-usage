@@ -176,7 +176,8 @@ final class ApiHandler implements HttpHandler {
 
     private static SettingValues toBody(Settings s) {
         return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showPercentage(), s.showInterval(), s.showDeltaUsed(),
-                s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate());
+                s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate(),
+                s.historyZeroLines(), s.historyFailedLines());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -198,7 +199,9 @@ final class ApiHandler implements HttpHandler {
                     timeFormat(body),
                     flag(body, "historyDeltaUsed"),
                     flag(body, "historyDeltaTime"),
-                    flag(body, "historyDate"));
+                    flag(body, "historyDate"),
+                    flag(body, "historyZeroLines"),
+                    flag(body, "historyFailedLines"));
             settings.apply(given);
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
@@ -252,28 +255,84 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
+    /**
+     * The history, with its lines finished: the page only draws them. The settings decide which lines are left out (the zero usage and
+     * the failed ones), whether the time has the date and which change columns there are; the changes are worked out on the lines
+     * that are shown; and the note says whenever not everything is shown.
+     */
     private HistoryBody history() {
         try {
-            HistoryReader.Table table = HistoryReader.read(files.history(), HISTORY_ROWS);
             Settings now = settings.current();
-            List<String> columns = new java.util.ArrayList<>(table.columns());
-            // The first column is the time of day; with the setting on it has the date too, and says so in its title.
-            columns.set(0, now.historyDate() ? "date time" : "time");
-            columns.set(3, "Cur.");
-            List<List<String>> rows = table.rows().stream().map(row -> {
-                List<String> shown = new java.util.ArrayList<>(row);
-                shown.set(0, historyTime(row.get(0), now.historyDate()));
-                return (List<String>) shown;
-            }).toList();
+            HistoryReader.Table table = HistoryReader.read(
+                    files.history(), HISTORY_ROWS, new HistoryReader.Filter(now.historyZeroLines(), now.historyFailedLines()));
+            List<String> columns = new java.util.ArrayList<>(List.of(
+                    now.historyDate() ? "date time" : "time", "used", "limit", "Cur."));
+            if (now.historyDeltaUsed()) {
+                columns.add("\u0394 used");
+            }
+            if (now.historyDeltaTime()) {
+                columns.add("\u0394 time");
+            }
+            List<HistoryLine> lines = new java.util.ArrayList<>();
+            for (int i = 0; i < table.rows().size(); i++) {
+                List<String> row = table.rows().get(i);
+                boolean failed = row.get(4).contains("failed");
+                boolean start = row.get(4).startsWith("start");
+                DeltaBody delta = deltaBody(table.deltas().get(i));
+                List<String> cells = new java.util.ArrayList<>(List.of(
+                        historyTime(row.get(0), now.historyDate()),
+                        failed ? "failed" : row.get(1),
+                        row.get(2),
+                        row.get(3)));
+                if (now.historyDeltaUsed()) {
+                    cells.add(delta.deltaUsedText() == null ? "" : delta.deltaUsedText());
+                }
+                if (now.historyDeltaTime()) {
+                    cells.add(delta.deltaSecondsText() == null ? "" : delta.deltaSecondsText());
+                }
+                lines.add(new HistoryLine(cells, start, failed, start ? START_TOOLTIP : ""));
+            }
             return new HistoryBody(
-                    files.history().getFileName().toString(), table.exists(), columns, table.total(), rows,
-                    table.deltas().stream().map(ApiHandler::deltaBody).toList(),
-                    new HistoryShow(now.historyDeltaUsed(), now.historyDeltaTime(), now.historyDate()),
-                    START_TOOLTIP);
+                    files.history().getFileName().toString(), table.exists(), columns, now.historyDate(),
+                    historyNote(table), table.total(), lines);
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
             throw new ApiException(500, "The usage history could not be read.", null);
         }
+    }
+
+    /** The one line above the table: why there is nothing, or what is left out; {@code null} when everything is shown. */
+    private static String historyNote(HistoryReader.Table table) {
+        if (!table.exists()) {
+            return "There is no usage history yet.";
+        }
+        if (table.total() == 0) {
+            return "The history has no rows yet.";
+        }
+        int older = table.visible() - table.rows().size();
+        if (table.hiddenZero() + table.hiddenFailed() + older == 0) {
+            return null;
+        }
+        List<String> hidden = new java.util.ArrayList<>();
+        if (table.hiddenZero() > 0) {
+            hidden.add(count(table.hiddenZero()) + " zero usage");
+        }
+        if (table.hiddenFailed() > 0) {
+            hidden.add(count(table.hiddenFailed()) + " failed");
+        }
+        List<String> parts = new java.util.ArrayList<>();
+        if (!hidden.isEmpty()) {
+            parts.add(String.join(" and ", hidden) + " hidden");
+        }
+        if (older > 0) {
+            parts.add(count(older) + " older not shown");
+        }
+        return "Showing " + count(table.rows().size()) + " of " + count(table.total()) + " lines: " + String.join(", ", parts) + ".";
+    }
+
+    /** A count with a comma for thousands, whatever the machine's language, like the amounts. */
+    private static String count(int n) {
+        return String.format(Locale.US, "%,d", n);
     }
 
     // ---- /api/errors: the errors of this run, newest first
@@ -422,7 +481,9 @@ final class ApiHandler implements HttpHandler {
             String timeFormat,
             boolean historyDeltaUsed,
             boolean historyDeltaTime,
-            boolean historyDate) {
+            boolean historyDate,
+            boolean historyZeroLines,
+            boolean historyFailedLines) {
     }
 
     record SettingsBody(SettingValues settings, SettingValues defaults, List<Integer> intervalChoices, Limits limits) {
@@ -453,13 +514,12 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
-    /** Which optional columns of the history table are switched on, and whether its times have the date. */
-    record HistoryShow(boolean deltaUsed, boolean deltaTime, boolean date) {
+    /** One line of the history table, finished: what its cells say, and whether it begins a run, whether it is a failed one, and its hover text. */
+    record HistoryLine(List<String> cells, boolean start, boolean failed, String title) {
     }
 
     record HistoryBody(
-            String file, boolean exists, List<String> columns, int total, List<List<String>> rows, List<DeltaBody> deltas,
-            HistoryShow show, String startTooltip) {
+            String file, boolean exists, List<String> columns, boolean wide, String note, int total, List<HistoryLine> lines) {
     }
 
     record ErrorEntryBody(String time, String message) {

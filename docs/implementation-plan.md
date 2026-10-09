@@ -1223,6 +1223,51 @@ is now a thin function over `showPanelNamed`, with `returnTo` holding what the s
 
 *Assumed:* the amounts that fit the fixed columns are up to `9999999.99`; the error log's height is not restored beyond its opening size, since it is not remembered.
 
+### 31. Hiding zero usage and failed lines, changes on the visible lines, and a history the page only draws
+
+**Status: done (version 0.17); the look of the centred checkboxes and the note line is for a person to judge.** Built as planned. `HistoryDeltas.computeVisible` and `HistoryReader.Filter` carry the logic, with the
+counts the note needs in `Table`; `ApiHandler.history` makes the finished lines and the note, and `describeHistory` is a plain mapping. The old history tests were rewritten to the new body,
+and the page-script test now also forbids status text, `row[4]` and cell cutting in `view.js`. Requirements: Settings (the texts, the vertical centring, the two switches), The usage history panel (Hiding lines, the indicator, the page does no
+calculation), Changes between readings (on the lines that are shown). The work has four parts, in this order.
+
+**A. Two settings.** `Settings` gets `historyZeroLines` and `historyFailedLines` (both default `true`) after `historyDate`; `SettingsStore` reads, validates and writes them
+(`historyZeroLines`, `historyFailedLines`); `/api/settings` carries them and `POST` requires them. The positional `new Settings(...)` calls in the tests get two more arguments (as in
+earlier phases). Tests: `SettingsStoreTest` (defaults on, round trip, file keys), `ApiTest` (the settings body has twelve settings).
+
+**B. The backend makes the lines (the main work).**
+- `HistoryDeltas` gets a second entry point, `computeVisible(rows, visible)`, that returns a delta for each row on the rows that are shown: walking the rows in file
+  order it keeps `previousShown` and clears it at any row whose status begins a run, shown or not; a shown row that begins a run, or has no `previousShown`, gets none;
+  otherwise the change is its amount minus `previousShown`'s (empty if either has no amounts) and the time is the seconds between the two (empty if negative or unreadable). The existing
+  `compute` (against the row directly before) stays: it still decides what a zero usage line is and serves the status' `change`.
+- `HistoryReader.read(file, limit, Filter)` with `Filter(showZero, showFailed)` (and the old two-argument form as "show all"): parse rows, run `compute` over all of them, mark a
+  row **zero usage** when its change is present and `signum() == 0`, **failed** when its status has `failed`; drop what the filter hides; run `computeVisible` on what is left; sort newest
+  first (same rule, later-written first on a tie); cut to `limit`. `Table` adds `hiddenZero`, `hiddenFailed` and `shown`-before-cut counts so that the backend can say what is not shown.
+- `ApiHandler.history` builds **finished lines**. The body becomes
+  `{file, exists, columns, wide, note, total, lines: [{cells, start, failed, title}]}`: `columns` are the titles for what is on (`time` or `date time`, `used`, `limit`, `Cur.`,
+  then `Δ used`, `Δ time`); `cells` the final strings (time cut by the date setting, the amounts, `failed` in the place of a failed row's amount, `Δ used` empty for none or zero, `Δ time` in
+  seconds, `63 s`); `start` true when the status begins with `start`; `failed` true when it has `failed`; `title` is `The program started here` for a start and empty otherwise; `wide`
+  is the date setting; `note` is the one line for every case where the page has something to say: no file (`There is no usage history yet.`), no rows (`The history has no rows yet.`), and
+  `Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.` when anything is left out (parts that are zero are left out of the sentence), else `null`. The
+  `rows`, `deltas`, `show` and `startTooltip` fields and the raw status, interval and duration go; `exists`/`total` stay for other clients. Thousands are written with a comma, as the amounts are.
+- Tests: `HistoryDeltasTest` (`computeVisible`: the first shown line of a run has none; a hidden line between two shown ones makes the time and change span it; a hidden start row still begins a run; a failed row shown
+  has a time and no change; a zero change is empty text), `HistoryReaderTest` (the filter, the counts, a zero usage line is not the first of a run and not a failed one, sorting and the cut after filtering),
+  `ApiTest` (the whole new body, the note in each case, the settings switching lines out and the changes following, the first of a run marked `start` even when its neighbours are hidden). The status's `change`
+  and `LatestChangeCache` keep the show-all reader and a test says the main row ignores the history switches.
+
+**C. The page only draws.** `describeHistory` becomes a mapping: `header = columns`, `rows = lines.map(l => l.cells)`, `marks`/`failed`/`titles` from the lines, `wide`, `note`. The status-string logic
+(`hasStatus`), the `failed` swap, the delta columns and the "newest N of M" text leave `view.js`; `app.js` keeps `cells()`, `showPanel` and the measuring probe, which is layout of finished text, not a calculation on readings.
+The layout test that forbids arithmetic in the page scripts gets `split('-')`, `.slice(0, data.columns.length)` and the like in its list. Tests: `view.test.cjs` and the fake history of `app.test.cjs` are rewritten to the new body.
+
+**D. The settings view.** `index.html`: the date checkbox reads `Show Date`, two new checkboxes `Show zero usage lines` and `Show failed lines` (`set-historyZeroLines`, `set-historyFailedLines`) under `History view`;
+`app.js`: both ids in `SETTING_FLAGS`. CSS: `.settings label` becomes `display: flex; align-items: center; gap: 4px` (the interval label, whose box and dropdown sit in it, `flex-wrap: wrap`), and the checkbox's margin is reset, so that a
+checkbox and its text, and the controls of every line, are centred on each other; the `Maximum view`/`Minimum view`/`Restore defaults` behaviour is unchanged (Restore defaults fills the new defaults, Minimum/Maximum leave the history alone).
+Tests: `layout.test.cjs` (the label rule, the texts, the two ids), `app.test.cjs` (they are in the form and posted, Restore defaults gives `true`, true).
+
+**Docs.** `api.md` (the new `/api/history` body, the two settings, `Show Date`), README (the two switches, the indicator), the manual checks (the note line, hidden lines, checkbox alignment).
+
+*Assumed:* a hidden start row is the one case where the first shown line of a run is not itself a start line (it just has no changes); "zero usage" is decided on the whole file before hiding, so switching the failed lines off does not turn a line after a
+failed one into a zero usage line; the counts in the note are of lines, not rows of the file with the header; the note is plain text with the thousands separator of the amounts.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

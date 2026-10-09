@@ -46,11 +46,6 @@
         };
     }
 
-    /** Whether the status field of a history row (the fifth) says `word`: start, failed, or both as start-failed. */
-    function hasStatus(row, word) {
-        return typeof row[4] === 'string' && row[4].split('-').indexOf(word) !== -1;
-    }
-
     /** Whether a log line is the one that records the start of a run. */
     function isRunStart(line) {
         return /\] Starting java-aip-usage( |$)/.test(line);
@@ -92,53 +87,22 @@
     }
 
     /**
-     * What the history panel shows, from GET /api/history: a table with the file's columns as its
-     * header and a row of cells for each reading, newest first as the backend sorted them.
-     * @returns {note, header, rows, marks}
+     * What the history panel shows, from GET /api/history. The backend has finished every line (its cells, whether it begins a run,
+     * whether it failed, its hover text) and the one line of explanation, so this only reads them into the shape the page
+     * draws: nothing is worked out, sorted or chosen here.
+     * @returns {note, header, wide, rows, marks, failed, titles}
      */
     function describeHistory(data) {
-        if (!data.exists) {
-            return { note: 'There is no usage history yet.', header: null, rows: [] };
-        }
-        if (data.total === 0) {
-            return { note: 'The history has no rows yet.', header: null, rows: [] };
-        }
-        // The two change columns come last, when the settings switch them on; their texts are the backend's.
-        var show = data.show || {};
-        var header = data.columns.slice();
-        if (show.deltaUsed) {
-            header.push('\u0394 used');
-        }
-        if (show.deltaTime) {
-            header.push('\u0394 time');
-        }
+        var lines = data.lines || [];
         return {
-            note: data.rows.length < data.total ? 'Showing the newest ' + data.rows.length + ' of ' + data.total + ' rows.' : null,
-            header: header,
+            note: data.note || null,
+            header: lines.length > 0 ? data.columns : null,
             // A time with the date is wider than one without.
-            wide: Boolean(show.date),
-            // The first line of a run says so when hovered.
-            titles: data.rows.map(function (row) { return hasStatus(row, 'start') ? (data.startTooltip || '') : ''; }),
-            // The fifth field is the row's status: `start` and `start-failed` begin a run and are marked,
-            // `failed` and `start-failed` are queries that did not succeed. The status, the interval and the
-            // duration are not shown; a failed row says so in the place of its amount.
-            rows: data.rows.map(function (row, i) {
-                var cells = row.slice(0, data.columns.length);
-                if (hasStatus(row, 'failed')) {
-                    cells[1] = 'failed';
-                }
-                var delta = (data.deltas || [])[i] || {};
-                if (show.deltaUsed) {
-                    cells.push(delta.delta_used_text || '');
-                }
-                if (show.deltaTime) {
-                    // The history gives the time in seconds, never in minutes; the row's item has the short form.
-                    cells.push(delta.delta_seconds_text || '');
-                }
-                return cells;
-            }),
-            marks: data.rows.map(function (row) { return hasStatus(row, 'start'); }),
-            failed: data.rows.map(function (row) { return hasStatus(row, 'failed'); })
+            wide: Boolean(data.wide),
+            rows: lines.map(function (line) { return line.cells; }),
+            marks: lines.map(function (line) { return Boolean(line.start); }),
+            failed: lines.map(function (line) { return Boolean(line.failed); }),
+            titles: lines.map(function (line) { return line.title || ''; })
         };
     }
 

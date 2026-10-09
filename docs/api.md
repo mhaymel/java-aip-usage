@@ -38,7 +38,9 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "timeFormat": "hh:mm",
     "historyDeltaUsed": false,
     "historyDeltaTime": false,
-    "historyDate": false
+    "historyDate": false,
+    "historyZeroLines": true,
+    "historyFailedLines": true
   },
   "defaults": { "...": "the same keys, with the defaults" },
   "intervalChoices": [60, 120, 180, 240, 300],
@@ -56,7 +58,7 @@ is created with the defaults if it is missing.
 
 ## `POST /api/settings`
 
-The body is an object with all eight keys of `settings`. A missing key, a value of the wrong type, an
+The body is an object with all keys of `settings`. A missing key, a value of the wrong type, an
 unknown `timeFormat` or an interval outside `limits` is a `400` and nothing is changed or saved; keys that
 are not settings are ignored.
 
@@ -188,46 +190,39 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
 
 ## `GET /api/history`
 
-Read-only. The usage history, for the panel the history button opens in the main window.
+Read-only. The usage history, for the panel the history button opens in the main window. The backend sends the lines **finished**: the
+page only draws them, and works out, sorts and decides nothing. The status, the interval and the duration of a row never reach it.
 
 ```json
 {
   "file": "java-aip-usage.csv",
   "exists": true,
-  "columns": ["time", "used", "limit", "Cur."],
-  "total": 1440,
-  "rows": [
-    ["16:46:11", "260.66", "1000.00", "USD", "", "60", "412"],
-    ["16:45:11", "260.66", "1000.00", "", "start", "60", "388"]
-  ],
-  "deltas": [{ "delta_used": 0.0, "delta_time": 60 }, { "delta_used": null, "delta_time": null }],
-  "show": { "deltaUsed": false, "deltaTime": false, "date": false },
-  "startTooltip": "The program started here"
+  "columns": ["time", "used", "limit", "Cur.", "\u0394 used", "\u0394 time"],
+  "wide": false,
+  "note": "Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.",
+  "total": 1500,
+  "lines": [
+    { "cells": ["16:46:11", "260.66", "1000.00", "USD", "+0.05", "63 s"], "start": false, "failed": false, "title": "" },
+    { "cells": ["16:44:08", "failed", "", "", "", "121 s"], "start": false, "failed": true, "title": "" },
+    { "cells": ["16:42:07", "260.61", "1000.00", "USD", "", ""], "start": true, "failed": false, "title": "The program started here" }
+  ]
 }
 ```
 
-- `columns`: the four the panel shows. The fourth, the currency, is titled `Cur.` (its cells keep the code, `USD`). The first is `time`, and `date time` when the date setting is on; the
-  first field of a row is then the time of day, `16:46:11`, or the date and time, `2026-10-08 16:46:11` (a value
-  that is not in that form is sent as it is). The file itself always holds the full date and time.
-  A row has three more fields after the four: the `status` (`start`,
-  `failed`, `start-failed` or empty), the `interval` in seconds and the `duration_ms`.
-- `startTooltip`: what hovering over the first line of a run (a row whose status begins with `start`) says.
-- `show`: `{deltaUsed, deltaTime, date}`, whether the settings switch on the two change columns of the table, and
-  whether the times have the date. A client
-  that shows them puts them after the currency, with the titles `delta used` and `delta time`.
-- `deltas` also carry the finished texts, `delta_used_text` (`+0.05`), `delta_time_text` (`1 m`, the short form the row uses) and
-  `delta_seconds_text` (`63 s`, the same time in whole seconds, never minutes, which the history table shows), or `null`. A change in the amount used of zero has no `delta_used_text` (`null`, though `delta_used` is
-  `0.0`), so no client shows `0.00`; the same goes for the status's `display.deltaUsed`. A client that shows the two columns titles them `\u0394 used` and `\u0394 time`.
-- `deltas`: one for each of `rows`, in the same order: the change in the amount used and the seconds since the
-  row before it **in the file**, as `GET /api/status`'s `change`. A row out of order is still compared with the
-  one written before it.
-
-- `rows`: the newest 1,000 at most, **sorted by the date and time, latest first**, each as strings as
-  in the file (an empty field stays empty), apart from the time. It sorts by the column and does not merely reverse the
-  file, so a file that is out of order is still right. A line of the file without the columns (a row from before the currency was one, with three, is
-  given an empty currency), and the header, are not rows.
-- `total`: how many rows the file has, which can be more than `rows` holds.
-- `exists`: `false`, with no rows, when there is no history yet.
+- `columns`: the titles, in the order of the `cells`: the time (`time`, or `date time` when the date setting is on), `used`, `limit`, the currency (`Cur.`; its cells keep the
+  code, `USD`), and, when their settings are on, `\u0394 used` and `\u0394 time`.
+- `lines`: the newest 1,000 of the lines that are shown, **sorted by the date and time, latest first** (not merely the file reversed, so a file that is out of order is still right; of two
+  with the same time, the one written later is first). Each has `cells` (the strings of the table, an empty cell empty: the time as the setting says, `failed` in the place of the amount of a
+  failed line, `\u0394 used` with its sign and empty for no change or for a change of zero, `\u0394 time` in whole seconds, `63 s`, never minutes), `start` (it is the first line of a run),
+  `failed` (it is the line of a failed query) and `title` (the hover text, `The program started here` for a start, else empty). A line of the file without the columns (a row from before the
+  currency was one, with three, is given an empty currency), and the header, are not lines.
+- **Hidden lines.** The settings `historyZeroLines` and `historyFailedLines` (both on unless switched off) say whether the **zero usage lines** (a line whose change in the amount used, against the row
+  directly before it in the same run, is exactly zero; never the first line of a run or a failed line) and the **failed lines** are shown. The changes of the lines that are shown (`\u0394 used`,
+  `\u0394 time`) are worked out against the previous line that is shown in the same run, so with lines hidden they span them; a row that begins a run begins it even if it is hidden.
+- `note`: one line for the page to show above the table, or `null` when everything is shown: `There is no usage history yet.`, `The history has no rows yet.`, or `Showing N of M lines:` with the zero usage and failed
+  lines hidden and the older lines beyond the newest 1,000 that are not shown (counts with a comma for thousands).
+- `wide`: whether the times have the date, so the first column is wider.
+- `total`: how many rows the file has; `exists`: `false`, with no lines, when there is no history yet.
 - `500` with `{"error": "The usage history could not be read."}` if the file cannot be read.
 
 Both are `GET` only: any other method is `405` with an `Allow` header.

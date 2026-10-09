@@ -211,7 +211,7 @@ class IntervalSettingsTest {
     @Test
     void appliedSettingsTakeEffectAndAreSavedAndTheListenerHearsOnlyAboutTheInterval() {
         IntervalSettings settings = load();
-        Settings changed = new Settings(60, true, true, true, false, true, TimeFormat.HOURS_MINUTES_SECONDS, false, true, false);
+        Settings changed = new Settings(60, true, true, true, false, true, TimeFormat.HOURS_MINUTES_SECONDS, false, true, false, true, true);
 
         settings.apply(changed);
 
@@ -229,7 +229,7 @@ class IntervalSettingsTest {
         IntervalSettings settings = load();
 
         assertThrows(InvalidSettingException.class,
-                () -> settings.apply(new Settings(4, true, true, true, true, true, TimeFormat.HOURS_MINUTES, true, true, false)));
+                () -> settings.apply(new Settings(4, true, true, true, true, true, TimeFormat.HOURS_MINUTES, true, true, false, true, true)));
 
         assertEquals(Settings.defaults(), settings.current());
         assertEquals(Settings.defaults(), store().load());

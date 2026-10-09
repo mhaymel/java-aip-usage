@@ -42,6 +42,8 @@ class SettingsStoreTest {
         assertFalse(d.logResponse());
         assertFalse(d.showPercentage(), "the percentage is off until switched on");
         assertFalse(d.historyDate(), "the history shows the time of day only until the date is switched on");
+        assertTrue(d.historyZeroLines(), "nothing is hidden until a switch is turned off");
+        assertTrue(d.historyFailedLines());
         assertFalse(d.showInterval());
         assertFalse(d.showDeltaUsed());
         assertFalse(d.showDeltaTime());
@@ -70,7 +72,7 @@ class SettingsStoreTest {
     @Test
     void everySettingComesBackAsSaved() throws IOException {
         SettingsStore store = new SettingsStore(file());
-        Settings all = new Settings(120, true, true, true, true, true, TimeFormat.HOURS_MINUTES_SECONDS, true, true, true);
+        Settings all = new Settings(120, true, true, true, true, true, TimeFormat.HOURS_MINUTES_SECONDS, true, true, true, false, false);
 
         store.save(all);
 
@@ -88,14 +90,14 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFileHoldsTheTenSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
+    void theFileHoldsTheTwelveSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
         JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyHeight", "logHeight"),
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }

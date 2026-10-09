@@ -294,7 +294,7 @@ class ApiTest {
     private static String allSettings(int interval, boolean logResponse, String timeFormat) {
         return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
                 + ", \"showPercentage\": true, \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
-                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false}";
+                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true}";
     }
 
     @Test
@@ -306,7 +306,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(10, body.get("settings").size());
+        assertEquals(12, body.get("settings").size());
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertEquals("[60,120,180,240,300]", body.get("intervalChoices").toString());
     }
@@ -753,7 +753,7 @@ class ApiTest {
         await(() -> history(app).size() >= 2);
         post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showPercentage\": false, \"showInterval\": false,"
                 + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
-                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false}");
+                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true}");
         fail.set(false);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);
@@ -764,21 +764,26 @@ class ApiTest {
 
     @Test
     void theHistoryAndTheStatusCarryTheChangeSinceTheRowBefore() throws Exception {
-        FakeFetch fetch = new FakeFetch();
-        AppRuntime app = start(fetch);
-        await(() -> history(app).size() >= 2);
-        post(app, "/api/refresh", "{}");
-        await(() -> history(app).size() >= 3);
+        writeHistory("datetime,used,limit,currency,status,interval,duration_ms",
+                "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:03,10.05,1000.00,USD,,60,400");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
 
         JsonNode history = json(get(app, "/api/history"));
-        assertEquals(2, history.get("deltas").size(), "one for each row");
-        assertTrue(history.at("/deltas/1/delta_used").isNull(), "the first row of the run has none");
-        assertTrue(history.at("/deltas/1/delta_time").isNull());
-        assertEquals(0.0, history.at("/deltas/0/delta_used").asDouble(), 1e-9, "FakeFetch answers the same amount");
-        assertTrue(history.at("/deltas/0/delta_time").isIntegralNumber());
+
+        assertEquals(6, history.get("columns").size(), "both change columns are on");
+        assertEquals("\u0394 used", history.at("/columns/4").asText());
+        assertEquals("\u0394 time", history.at("/columns/5").asText());
+        assertEquals("+0.05", history.at("/lines/0/cells/4").asText());
+        assertEquals("63 s", history.at("/lines/0/cells/5").asText());
+        assertEquals("", history.at("/lines/1/cells/4").asText(), "the first line of the run has none");
+        assertEquals("", history.at("/lines/1/cells/5").asText());
 
         JsonNode change = json(get(app, "/api/status")).get("change");
-        assertEquals(history.at("/deltas/0"), change, "the status has the newest reading's");
+        assertEquals(63, change.get("delta_time").asInt());
     }
 
     @Test
@@ -803,24 +808,21 @@ class ApiTest {
     }
 
     @Test
-    void theHistoryTellsWhichChangeColumnsAreOnAndGivesTheirTextsFinished() throws Exception {
+    void aReadingWithNoChangeHasNoChangeTextAndTheColumnsFollowTheSettings() throws Exception {
         AppRuntime app = start(new FakeFetch());
         await(() -> history(app).size() >= 2);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);
-
-        JsonNode off = json(get(app, "/api/history"));
-        assertFalse(off.at("/show/deltaUsed").asBoolean());
-        assertFalse(off.at("/show/deltaTime").asBoolean());
-        assertTrue(off.at("/deltas/0/delta_used_text").isNull(), "FakeFetch answers the same amount: no change, so no text, never 0.00");
-        assertEquals(0.0, off.at("/deltas/0/delta_used").asDouble(), 1e-9, "the raw value is still there");
-        assertTrue(off.at("/deltas/0/delta_time_text").asText().endsWith(" s"));
-        assertTrue(off.at("/deltas/1/delta_used_text").isNull(), "the first row of the run has none");
+        assertEquals(4, json(get(app, "/api/history")).get("columns").size(), "off until switched on");
 
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
         JsonNode on = json(get(app, "/api/history"));
-        assertTrue(on.at("/show/deltaUsed").asBoolean());
-        assertTrue(on.at("/show/deltaTime").asBoolean(), "allSettings turns the time column on");
+
+        assertEquals(6, on.get("columns").size());
+        // FakeFetch answers the same amount twice: no change, so the cell is empty, never 0.00.
+        assertEquals("", on.at("/lines/0/cells/4").asText());
+        assertTrue(on.at("/lines/0/cells/5").asText().endsWith(" s"), "the time is in seconds");
+        assertEquals("", on.at("/lines/1/cells/4").asText(), "the first line of the run");
     }
 
     @Test
@@ -918,6 +920,188 @@ class ApiTest {
         assertTrue(json(get(app, "/api/errors")).at("/entries/0/message").asText().contains("HTTP 429"));
     }
 
+    // ---- hiding lines: the zero usage and the failed ones
+
+    private static final String CSV_HEADER = "datetime,used,limit,currency,status,interval,duration_ms";
+
+    private void writeMixedHistory() throws IOException {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:00,10.00,1000.00,USD,,60,400",
+                "2026-10-08 14:02:00,10.05,1000.00,USD,,60,400",
+                "2026-10-08 14:03:00,,,,failed,60,5000",
+                "2026-10-08 14:04:00,10.05,1000.00,USD,,60,400",
+                "2026-10-08 14:05:00,10.05,1000.00,USD,,60,400",
+                "2026-10-08 14:06:00,10.20,1000.00,USD,,60,400");
+    }
+
+    private static String withSwitches(boolean zero, boolean failed) {
+        return allSettings(60, false, "hh:mm")
+                .replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true")
+                .replace("\"historyZeroLines\": true", "\"historyZeroLines\": " + zero)
+                .replace("\"historyFailedLines\": true", "\"historyFailedLines\": " + failed);
+    }
+
+    private JsonNode historyWith(boolean zero, boolean failed) throws Exception {
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", withSwitches(zero, failed));
+        return json(get(app, "/api/history"));
+    }
+
+    private static java.util.List<String> times(JsonNode history) {
+        java.util.List<String> times = new java.util.ArrayList<>();
+        history.get("lines").forEach(l -> times.add(l.at("/cells/0").asText()));
+        return times;
+    }
+
+    @Test
+    void everythingIsShownByDefaultAndTheNoteSaysNothing() throws Exception {
+        writeMixedHistory();
+
+        JsonNode history = historyWith(true, true);
+
+        assertEquals(7, history.get("lines").size());
+        assertTrue(history.get("note").isNull());
+    }
+
+    @Test
+    void theZeroUsageLinesCanBeHiddenAndTheNoteCountsThem() throws Exception {
+        writeMixedHistory();
+
+        JsonNode history = historyWith(false, true);
+
+        // 14:01 repeats 14:00 and 14:05 repeats 14:04: zero usage. 14:04 follows a failed row, so it has no change to be zero; 14:00 begins a run.
+        assertEquals(java.util.List.of("14:06:00", "14:04:00", "14:03:00", "14:02:00", "14:00:00"), times(history));
+        assertEquals("Showing 5 of 7 lines: 2 zero usage hidden.", history.get("note").asText());
+    }
+
+    @Test
+    void theFailedLinesCanBeHiddenToo() throws Exception {
+        writeMixedHistory();
+
+        JsonNode history = historyWith(true, false);
+
+        assertEquals(6, history.get("lines").size());
+        assertFalse(times(history).contains("14:03:00"));
+        assertEquals("Showing 6 of 7 lines: 1 failed hidden.", history.get("note").asText());
+    }
+
+    @Test
+    void bothHiddenAndTheNoteSaysBothAndAllThatIsLeftIsShown() throws Exception {
+        writeMixedHistory();
+
+        JsonNode history = historyWith(false, false);
+
+        assertEquals(java.util.List.of("14:06:00", "14:04:00", "14:02:00", "14:00:00"), times(history));
+        assertEquals("Showing 4 of 7 lines: 2 zero usage and 1 failed hidden.", history.get("note").asText());
+    }
+
+    @Test
+    void theChangesAreWorkedOutOnTheLinesThatAreShown() throws Exception {
+        writeMixedHistory();
+
+        JsonNode lines = historyWith(false, false).get("lines");
+
+        // Shown, newest first: 14:06 (10.20), 14:04 (10.05), 14:02 (10.05), 14:00 (start, 10.00). The columns end with the change in the amount; the time is
+        // not switched on here, so the change is the last cell.
+        assertEquals("+0.15", lines.get(0).at("/cells/4").asText(), "against 14:04, the previous line shown");
+        assertEquals("", lines.get(1).at("/cells/4").asText(), "14:04 is the same as 14:02 shown before it: no change to show");
+        assertEquals("+0.05", lines.get(2).at("/cells/4").asText(), "14:02 against 14:00, the line before it");
+        assertEquals("", lines.get(3).at("/cells/4").asText(), "the first line of the run");
+    }
+
+    @Test
+    void theTimeSpansTheLinesThatAreHidden() throws Exception {
+        writeMixedHistory();
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", withSwitches(false, false).replace("\"historyDeltaTime\": true", "\"historyDeltaTime\": true"));
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        int time = history.get("columns").size() - 1;
+        // 14:06 against 14:04: 120 s. 14:04 against 14:02, the failed 14:03 being hidden between them: 120 s, not 60 s.
+        assertEquals("120 s", history.at("/lines/0/cells/" + time).asText());
+        assertEquals("120 s", history.at("/lines/1/cells/" + time).asText());
+    }
+
+    @Test
+    void aHiddenLineThatBeginsARunStillBeginsItSoTheNextLineShownHasNoChange() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:00,10.10,1000.00,USD,,60,400",
+                "2026-10-08 15:00:00,,,,start-failed,60,5000",
+                "2026-10-08 15:01:00,10.30,1000.00,USD,,60,400");
+
+        JsonNode lines = historyWith(true, false).get("lines");
+
+        // The start-failed line is hidden. 15:01 would have been compared with 14:01 across the two runs; it is not.
+        assertEquals("15:01:00", lines.get(0).at("/cells/0").asText());
+        assertEquals("", lines.get(0).at("/cells/4").asText(), "no change across a run that began, hidden or not");
+        assertFalse(lines.get(0).get("start").asBoolean(), "and it is not itself a start line");
+    }
+
+    @Test
+    void theStartAndFailedFlagsAndTheHoverTextAreFinished() throws Exception {
+        writeMixedHistory();
+
+        JsonNode lines = historyWith(true, true).get("lines");
+
+        // Newest first: 14:06 ... 14:03 (failed) ... 14:00 (start).
+        assertFalse(lines.get(0).get("start").asBoolean());
+        assertFalse(lines.get(0).get("failed").asBoolean());
+        assertEquals("", lines.get(0).get("title").asText());
+        assertTrue(lines.get(3).get("failed").asBoolean());
+        assertEquals("failed", lines.get(3).at("/cells/1").asText(), "the word in the place of the amount");
+        assertTrue(lines.get(6).get("start").asBoolean());
+        assertEquals("The program started here", lines.get(6).get("title").asText());
+    }
+
+    @Test
+    void theNoteCountsHiddenAndOlderLinesTogether() throws Exception {
+        java.util.List<String> rows = new java.util.ArrayList<>(java.util.List.of(CSV_HEADER, "2026-01-01 00:00:00,1.00,2.00,USD,start,60,1"));
+        for (int i = 1; i <= 1100; i++) {
+            // Every reading is the same as the one before it: a zero usage line.
+            rows.add(String.format("2026-01-01 %02d:%02d:00,1.00,2.00,USD,,60,1", i / 60 % 24, i % 60));
+        }
+        rows.add("2026-01-02 12:00:00,2.00,2.00,USD,,60,1");
+        writeHistory(rows.toArray(String[]::new));
+
+        JsonNode history = historyWith(false, true);
+
+        assertEquals(1102, history.get("total").asInt());
+        assertEquals(2, history.get("lines").size(), "the one change and the first line of the run");
+        assertEquals("Showing 2 of 1,102 lines: 1,100 zero usage hidden.", history.get("note").asText());
+    }
+
+    @Test
+    void ifEverythingIsHiddenTheNoteSaysSoAndThereAreNoLines() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,,,,failed,60,5000",
+                "2026-10-08 14:01:00,,,,failed,60,5000");
+
+        JsonNode history = historyWith(true, false);
+
+        assertEquals(0, history.get("lines").size());
+        assertEquals("Showing 0 of 2 lines: 2 failed hidden.", history.get("note").asText());
+    }
+
+    @Test
+    void theMainRowsChangeIgnoresWhatTheHistoryHides() throws Exception {
+        writeMixedHistory();
+        AppRuntime withSpend = start(new FakeFetch());
+        await(() -> withSpend.service().state().snapshot() != null);
+        double before = json(get(withSpend, "/api/status")).at("/change/delta_time").asDouble(-1);
+
+        post(withSpend, "/api/settings", withSwitches(false, false));
+
+        assertEquals(before, json(get(withSpend, "/api/status")).at("/change/delta_time").asDouble(-1),
+                "hiding history lines does not change the row's items");
+    }
+
     @Test
     void theHistoryGivesTheTimeInWholeSecondsWhileTheStatusKeepsTheShortForm() throws Exception {
         writeHistory("datetime,used,limit,currency,status,interval,duration_ms",
@@ -928,16 +1112,17 @@ class ApiTest {
         FakeFetch plan = new FakeFetch();
         plan.answer = () -> WINDOWS;
         AppRuntime app = start(plan);
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaTime\": true", "\"historyDeltaTime\": true"));
 
-        JsonNode history = json(get(app, "/api/history"));
+        JsonNode lines = json(get(app, "/api/history")).get("lines");
 
-        // Newest first.
-        assertEquals("3600 s", history.at("/deltas/0/delta_seconds_text").asText(), "an hour, in seconds");
-        assertEquals("126 s", history.at("/deltas/1/delta_seconds_text").asText(), "two minutes and six seconds");
-        assertEquals("63 s", history.at("/deltas/2/delta_seconds_text").asText());
-        assertTrue(history.at("/deltas/3/delta_seconds_text").isNull(), "the first row of a run has none");
-        assertEquals("1 h", history.at("/deltas/0/delta_time_text").asText(), "the short form is still there for the row");
-        assertEquals("1 h", json(get(app, "/api/status")).at("/display/deltaTime/text").asText(), "and the row uses it");
+        // Newest first; the columns are time, used, limit, Cur., then the time (allSettings turns it on, and the amount's change off).
+        int time = json(get(app, "/api/history")).get("columns").size() - 1;
+        assertEquals("3600 s", lines.get(0).at("/cells/" + time).asText(), "an hour, in seconds");
+        assertEquals("126 s", lines.get(1).at("/cells/" + time).asText(), "two minutes and six seconds");
+        assertEquals("63 s", lines.get(2).at("/cells/" + time).asText());
+        assertEquals("", lines.get(3).at("/cells/" + time).asText(), "the first line of a run has none");
+        assertEquals("1 h", json(get(app, "/api/status")).at("/display/deltaTime/text").asText(), "the row keeps the short form");
     }
 
     @Test
@@ -949,13 +1134,14 @@ class ApiTest {
         FakeFetch plan = new FakeFetch();
         plan.answer = () -> WINDOWS;
         AppRuntime app = start(plan);
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
 
-        JsonNode history = json(get(app, "/api/history"));
+        JsonNode lines = json(get(app, "/api/history")).get("lines");
 
-        // Newest first: no change, then +0.05, then the first row of the run.
-        assertTrue(history.at("/deltas/0/delta_used_text").isNull(), "a change of zero has no text");
-        assertEquals("+0.05", history.at("/deltas/1/delta_used_text").asText());
-        assertEquals("1 m", history.at("/deltas/0/delta_time_text").asText(), "the time is shown whatever it is");
+        // Newest first: no change, then +0.05, then the first line of the run.
+        assertEquals("", lines.get(0).at("/cells/4").asText(), "a change of zero says nothing");
+        assertEquals("+0.05", lines.get(1).at("/cells/4").asText());
+        assertEquals("60 s", lines.get(0).at("/cells/5").asText(), "the time is shown whatever it is");
     }
 
     @Test
@@ -1052,12 +1238,14 @@ class ApiTest {
     }
 
     @Test
-    void theHistoryEndpointGivesTheRowsNewestFirst() throws Exception {
+    void theHistoryEndpointGivesTheLinesNewestFirstAndFinished() throws Exception {
         writeHistory("datetime,used,limit,currency",
                 "2026-10-08 14:24:53,186.02,1000.00,USD",
                 "2026-10-08 14:26:53,186.12,1000.00,USD",
                 "2026-10-08 14:25:53,186.07,1000.00,USD");
-        AppRuntime app = start(new FakeFetch());
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
 
         JsonNode history = json(get(app, "/api/history"));
 
@@ -1066,14 +1254,16 @@ class ApiTest {
         assertEquals("time", history.at("/columns/0").asText(), "the time of day only, until the date is switched on");
         assertEquals("limit", history.at("/columns/2").asText());
         assertEquals("Cur.", history.at("/columns/3").asText(), "the currency's title is short; its cells keep the code");
-        assertEquals("USD", history.at("/rows/0/3").asText());
-        assertEquals(history.get("total").asInt(), history.get("rows").size());
-        assertEquals("14:26:53", history.at("/rows/0/0").asText(), "sorted by date and time, newest first, shown as time of day");
-        assertEquals("14:25:53", history.at("/rows/1/0").asText());
-        assertEquals("The program started here", history.get("startTooltip").asText());
-        assertFalse(history.at("/show/date").asBoolean());
-        assertEquals("186.12", history.at("/rows/0/1").asText());
-        assertEquals("1000.00", history.at("/rows/0/2").asText());
+        assertEquals(4, history.get("columns").size(), "no change columns until they are switched on");
+        assertEquals(3, history.get("total").asInt());
+        assertEquals(3, history.get("lines").size());
+        assertEquals("14:26:53", history.at("/lines/0/cells/0").asText(), "sorted by date and time, newest first, shown as time of day");
+        assertEquals("14:25:53", history.at("/lines/1/cells/0").asText());
+        assertEquals("186.12", history.at("/lines/0/cells/1").asText());
+        assertEquals("1000.00", history.at("/lines/0/cells/2").asText());
+        assertEquals("USD", history.at("/lines/0/cells/3").asText());
+        assertFalse(history.get("wide").asBoolean());
+        assertTrue(history.get("note").isNull(), "everything is shown, so there is nothing to say");
     }
 
     @Test
@@ -1085,8 +1275,10 @@ class ApiTest {
         JsonNode history = json(get(app, "/api/history"));
 
         assertEquals("date time", history.at("/columns/0").asText());
-        assertEquals("2026-10-08 14:24:53", history.at("/rows/1/0").asText());
-        assertTrue(history.at("/show/date").asBoolean());
+        assertTrue(history.get("wide").asBoolean());
+        java.util.Set<String> shown = new java.util.HashSet<>();
+        history.get("lines").forEach(l -> shown.add(l.at("/cells/0").asText()));
+        assertTrue(shown.contains("2026-10-08 14:24:53"), shown.toString());
     }
 
     @Test
@@ -1094,10 +1286,10 @@ class ApiTest {
         writeHistory("datetime,used,limit,currency", "2026-10-08 14:24:53,186.02,1000.00,USD", "yesterday,1.00,2.00,USD");
         AppRuntime app = start(new FakeFetch());
 
-        JsonNode rows = json(get(app, "/api/history")).get("rows");
+        JsonNode lines = json(get(app, "/api/history")).get("lines");
 
         java.util.Set<String> shown = new java.util.HashSet<>();
-        rows.forEach(r -> shown.add(r.get(0).asText()));
+        lines.forEach(l -> shown.add(l.at("/cells/0").asText()));
         assertTrue(shown.contains("yesterday"), shown.toString());
         assertTrue(shown.contains("14:24:53"), shown.toString());
     }
@@ -1125,7 +1317,7 @@ class ApiTest {
         JsonNode history = json(get(app, "/api/history"));
 
         assertEquals(2, history.get("total").asInt());
-        assertEquals("186.02", history.at("/rows/0/1").asText());
+        assertEquals("186.02", history.at("/lines/0/cells/1").asText());
     }
 
     @Test
@@ -1138,11 +1330,25 @@ class ApiTest {
         JsonNode history = json(get(app, "/api/history"));
 
         assertFalse(history.get("exists").asBoolean());
-        assertEquals(0, history.get("rows").size());
+        assertEquals(0, history.get("lines").size());
+        assertEquals("There is no usage history yet.", history.get("note").asText());
     }
 
     @Test
-    void aLongHistoryIsCutToTheNewestThousandRows() throws Exception {
+    void aHistoryWithNoRowsSaysSoToo() throws Exception {
+        writeHistory("datetime,used,limit,currency");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        assertTrue(history.get("exists").asBoolean());
+        assertEquals("The history has no rows yet.", history.get("note").asText());
+    }
+
+    @Test
+    void aLongHistoryIsCutToTheNewestThousandRowsAndTheNoteSays() throws Exception {
         java.util.List<String> rows = new java.util.ArrayList<>(List.of("datetime,used,limit"));
         for (int i = 0; i < 1500; i++) {
             rows.add(String.format("2026-01-01 00:00:%02d,1.00,2.00", 0).replace("00:00:00", String.format("%02d:%02d:00", i / 60 % 24, i % 60)));
@@ -1155,7 +1361,8 @@ class ApiTest {
         JsonNode history = json(get(app, "/api/history"));
 
         assertEquals(1500, history.get("total").asInt());
-        assertEquals(1000, history.get("rows").size());
+        assertEquals(1000, history.get("lines").size());
+        assertEquals("Showing 1,000 of 1,500 lines: 500 older not shown.", history.get("note").asText());
     }
 
     @Test

@@ -207,7 +207,7 @@
     var settingsShown = null;
     var settingsDefaults = null;
 
-    var SETTING_FLAGS = ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
+    var SETTING_FLAGS = ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
 
     /**
      * The interval is typed in a box; a dropdown beside it offers the usual values, and picking one fills the box. The box

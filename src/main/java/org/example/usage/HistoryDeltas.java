@@ -49,6 +49,32 @@ public final class HistoryDeltas {
         return deltas;
     }
 
+    /**
+     * The same, on the rows that are shown: each shown row is compared with the previous shown row of its run, not with the row
+     * directly before it. What is hidden has no delta ({@link Delta#NONE}) but still counts for the runs: a row whose status
+     * begins a run begins it even if it is hidden, so the first row shown after it has no previous row to compare with.
+     *
+     * @param rows the rows in the order of the file
+     * @param visible for each row, whether it is shown
+     * @return one delta for each row, in the same order
+     */
+    public static List<Delta> computeVisible(List<List<String>> rows, boolean[] visible) {
+        List<Delta> deltas = new ArrayList<>(rows.size());
+        int previous = -1;
+        for (int i = 0; i < rows.size(); i++) {
+            if (beginsRun(rows.get(i))) {
+                previous = -1;
+            }
+            if (!visible[i]) {
+                deltas.add(Delta.NONE);
+                continue;
+            }
+            deltas.add(previous < 0 ? Delta.NONE : between(rows.get(previous), rows.get(i)));
+            previous = i;
+        }
+        return deltas;
+    }
+
     private static boolean beginsRun(List<String> row) {
         return row.get(4).startsWith("start");
     }

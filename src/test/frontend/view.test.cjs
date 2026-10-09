@@ -69,6 +69,14 @@ test('the page script contains no arithmetic on readings: no date parsing, round
     }
 });
 
+test('the page makes no decision about the lines of the history: no status text, no pick of which are failed, no cutting of columns', () => {
+    const view = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../main/resources/web/view.js'), 'utf8');
+
+    for (const forbidden of ['hasStatus', 'row[4]', "split('-')", 'data.columns.length', "'failed'", 'delta_seconds_text', 'delta_used_text', 'startTooltip']) {
+        assert.equal(view.includes(forbidden), false, forbidden);
+    }
+});
+
 // ---- the log panel and the history panel
 
 test('the log panel shows the lines newest first, the reverse of the order the log sends them, each a row of one cell', () => {
@@ -98,32 +106,64 @@ test('a missing or empty log says so', () => {
 });
 
 const ROWS = [['2026-10-08 14:26:53', '186.12', '1000.00', 'USD'], ['2026-10-08 14:25:53', '186.07', '1000.00', '']];
-const COLUMNS = ['datetime', 'used', 'limit', 'currency'];
 
-test('the history panel is a table: the columns as the header and a row of four cells for each reading, newest first', () => {
-    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 2, rows: ROWS });
+const COLUMNS = ['time', 'used', 'limit', 'Cur.'];
+const line = (cells, extra = {}) => ({ cells, start: false, failed: false, title: '', ...extra });
+
+test('the history panel is a table: the columns as the header and a row of cells for each line, as the backend finished them', () => {
+    const v = view.describeHistory({ exists: true, columns: COLUMNS, wide: false, note: null, total: 2,
+        lines: [line(['14:26:53', '186.12', '1000.00', 'USD']), line(['14:25:53', '186.07', '1000.00', ''])] });
 
     assert.deepEqual(v.header, COLUMNS);
-    assert.deepEqual(v.rows, ROWS);
+    assert.deepEqual(v.rows, [['14:26:53', '186.12', '1000.00', 'USD'], ['14:25:53', '186.07', '1000.00', '']]);
     assert.equal(v.note, null);
+    assert.equal(v.wide, false);
 });
 
-test('a history that was cut says how much of it is shown', () => {
-    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 5000, rows: ROWS });
+test('the note is the backend\'s, shown as it is, and the table is there with it', () => {
+    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 5000, note: 'Showing 1 of 5,000 lines: 4,999 older not shown.',
+        lines: [line(['14:26:53', '1.00', '2.00', 'USD'])] });
 
-    assert.equal(v.note, 'Showing the newest 2 of 5000 rows.');
-    assert.equal(v.rows.length, 2);
+    assert.equal(v.note, 'Showing 1 of 5,000 lines: 4,999 older not shown.');
+    assert.equal(v.rows.length, 1);
 });
 
-test('a missing or empty history says so, with no header and no rows', () => {
-    const none = view.describeHistory({ exists: false, columns: COLUMNS, total: 0, rows: [] });
-    assert.equal(none.note, 'There is no usage history yet.');
-    assert.deepEqual(none.rows, []);
-    assert.equal(none.header, null);
-    const empty = view.describeHistory({ exists: true, columns: COLUMNS, total: 0, rows: [] });
-    assert.equal(empty.note, 'The history has no rows yet.');
-    assert.deepEqual(empty.rows, []);
-    assert.equal(empty.header, null);
+test('with no lines there is a note and no header and no rows, whatever the reason', () => {
+    for (const note of ['There is no usage history yet.', 'The history has no rows yet.', 'Showing 0 of 2 lines: 2 failed hidden.']) {
+        const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 2, note, lines: [] });
+        assert.equal(v.note, note);
+        assert.deepEqual(v.rows, []);
+        assert.equal(v.header, null);
+    }
+});
+
+test('a line that begins a run, one that failed, and the hover text are the backend\'s flags, not worked out here', () => {
+    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 3, lines: [
+        line(['14:27:53', '186.12', '1000.00', 'USD']),
+        line(['14:26:53', 'failed', '', ''], { failed: true }),
+        line(['14:25:53', '186.07', '1000.00', 'USD'], { start: true, title: 'The program started here' })] });
+
+    assert.deepEqual(v.marks, [false, false, true]);
+    assert.deepEqual(v.failed, [false, true, false]);
+    assert.deepEqual(v.titles, ['', '', 'The program started here']);
+    assert.equal(v.rows[1][1], 'failed', 'its cells are as they came');
+});
+
+test('the wide time of a table with the date is the backend\'s say', () => {
+    const v = view.describeHistory({ exists: true, columns: ['date time', 'used', 'limit', 'Cur.'], wide: true, total: 1,
+        lines: [line(['2026-10-08 14:26:53', '1.00', '2.00', 'USD'])] });
+
+    assert.equal(v.wide, true);
+    assert.deepEqual(v.header[0], 'date time');
+});
+
+test('the change columns are simply more cells and more titles: nothing is added up or cut here', () => {
+    const cols = [...COLUMNS, '\u0394 used', '\u0394 time'];
+    const v = view.describeHistory({ exists: true, columns: cols, total: 1,
+        lines: [line(['14:26:53', '186.12', '1000.00', 'USD', '+0.05', '63 s'])] });
+
+    assert.deepEqual(v.header, cols);
+    assert.deepEqual(v.rows[0], ['14:26:53', '186.12', '1000.00', 'USD', '+0.05', '63 s']);
 });
 
 test('the first line of each run in the log is marked, and only that', () => {
@@ -136,40 +176,6 @@ test('the first line of each run in the log is marked, and only that', () => {
 
     // newest first
     assert.deepEqual(v.marks, [false, true, false, true]);
-});
-
-test('a history row is marked as the start of a run by its status, and the status, interval and duration are not shown', () => {
-    const rows = [
-        ['2026-10-08 14:27:53', '186.12', '1000.00', 'USD', '', '60', '400'],
-        ['2026-10-08 14:26:53', '186.07', '1000.00', 'USD', 'start', '60', '412'],
-        ['2026-10-08 14:25:53', '', '', '', 'start-failed', '60', '20']
-    ];
-    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 3, rows });
-
-    assert.deepEqual(v.marks, [false, true, true]);
-    assert.deepEqual(v.rows[0], ['2026-10-08 14:27:53', '186.12', '1000.00', 'USD']);
-    assert.equal(v.rows[1].length, 4);
-});
-
-test('a failed query says failed in the place of its amount, whether or not it began the run', () => {
-    const rows = [
-        ['2026-10-08 14:28:53', '', '', '', 'failed', '60', '5003'],
-        ['2026-10-08 14:27:53', '', '', '', 'start-failed', '60', '20'],
-        ['2026-10-08 14:26:53', '186.07', '1000.00', 'USD', 'start', '60', '412']
-    ];
-    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 3, rows });
-
-    assert.deepEqual(v.failed, [true, true, false]);
-    assert.equal(v.rows[0][1], 'failed');
-    assert.equal(v.rows[1][1], 'failed');
-    assert.equal(v.rows[2][1], '186.07');
-});
-
-test('rows of an older shape, with fewer fields, are neither marked nor failed', () => {
-    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 1, rows: [['2026-10-08 14:26:53', '1.00', '2.00', 'USD']] });
-
-    assert.deepEqual(v.marks, [false]);
-    assert.deepEqual(v.failed, [false]);
 });
 
 test('the lines of one log entry stay together and in order while the entries are newest first', () => {
@@ -194,43 +200,6 @@ test('lines before the first entry start of what was read are kept as an entry o
     assert.deepEqual(v.rows.map(r => r[0]), ['2026-10-08 13:20:03 INFO    [B] later', '  }', '}']);
 });
 
-test('the history table gets the two change columns, after the currency, only when the backend says they are on', () => {
-    const rows = [['2026-10-08 14:26:53', '186.12', '1000.00', 'USD', '', '60', '400'], ['2026-10-08 14:25:53', '', '', '', 'failed', '60', '20']];
-    const deltas = [
-        { delta_used: 0.05, delta_time: 60, delta_used_text: '+0.05', delta_time_text: '1 m', delta_seconds_text: '60 s' },
-        { delta_used: null, delta_time: 60, delta_used_text: null, delta_time_text: '1 m', delta_seconds_text: '60 s' },
-    ];
-    const base = { exists: true, columns: COLUMNS, total: 2, rows, deltas };
-
-    const none = view.describeHistory({ ...base, show: { deltaUsed: false, deltaTime: false } });
-    assert.deepEqual(none.header, COLUMNS);
-    assert.equal(none.rows[0].length, 4);
-
-    const both = view.describeHistory({ ...base, show: { deltaUsed: true, deltaTime: true } });
-    assert.deepEqual(both.header, [...COLUMNS, '\u0394 used', '\u0394 time']);
-    assert.deepEqual(both.rows[0], ['2026-10-08 14:26:53', '186.12', '1000.00', 'USD', '+0.05', '60 s'], 'the time in seconds, never in minutes');
-    assert.deepEqual(both.rows[1], ['2026-10-08 14:25:53', 'failed', '', '', '', '60 s'], 'an empty value is an empty cell');
-
-    const timeOnly = view.describeHistory({ ...base, show: { deltaUsed: false, deltaTime: true } });
-    assert.deepEqual(timeOnly.header, [...COLUMNS, '\u0394 time']);
-    assert.deepEqual(timeOnly.rows[0].slice(4), ['60 s']);
-});
-
-test('the history table is described as the backend sent it: its titles, the wide time, and a hover text for the first line of a run', () => {
-    const rows = [['20:46:11', '260.66', '1000.00', 'USD', '', '60', '400'], ['20:44:12', '260.36', '1000.00', 'USD', 'start', '60', '412']];
-    const v = view.describeHistory({ exists: true, columns: ['time', 'used', 'limit', 'currency'], total: 2, rows,
-        show: { deltaUsed: false, deltaTime: false, date: false }, startTooltip: 'The program started here' });
-
-    assert.deepEqual(v.header, ['time', 'used', 'limit', 'currency']);
-    assert.equal(v.wide, false);
-    assert.deepEqual(v.titles, ['', 'The program started here']);
-
-    const withDate = view.describeHistory({ exists: true, columns: ['date time', 'used', 'limit', 'currency'], total: 2, rows,
-        show: { date: true } });
-    assert.equal(withDate.wide, true);
-    assert.deepEqual(withDate.header[0], 'date time');
-});
-
 test('the error log is described as time and message, newest first as sent, or as empty', () => {
     const v = view.describeErrors({ entries: [{ time: '11:34:42', message: 'b' }, { time: '11:20:01', message: 'a' }] });
 
@@ -248,12 +217,3 @@ test('the message of an HTTP 429 is read from the display for the red countdown'
     assert.equal(view.describeStatus({ display: DISPLAY }).countdownAlert, null);
 });
 
-test('the history takes the time in seconds from the backend, however long, and leaves an unknown one empty', () => {
-    const deltas = [{ delta_seconds_text: '3600 s', delta_time_text: '1 h' }, { delta_seconds_text: '126 s', delta_time_text: '2 m' }, { delta_seconds_text: null, delta_time_text: null }];
-    const rows = [0, 1, 2].map(i => ['14:0' + i + ':00', '1.00', '2.00', 'USD', '', '60', '1']);
-
-    const v = view.describeHistory({ exists: true, columns: ['time', 'used', 'limit', 'Cur.'], total: 3, rows, deltas, show: { deltaUsed: false, deltaTime: true } });
-
-    assert.deepEqual(v.rows.map(r => r[4]), ['3600 s', '126 s', '']);
-    assert.deepEqual(v.header, ['time', 'used', 'limit', 'Cur.', '\u0394 time']);
-});

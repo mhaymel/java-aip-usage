@@ -44,6 +44,10 @@ public final class SettingsStore {
 
     static final String HISTORY_DATE_KEY = "historyDate";
 
+    static final String HISTORY_ZERO_LINES_KEY = "historyZeroLines";
+
+    static final String HISTORY_FAILED_LINES_KEY = "historyFailedLines";
+
     static final String HISTORY_HEIGHT_KEY = "historyHeight";
 
     static final String LOG_HEIGHT_KEY = "logHeight";
@@ -101,7 +105,9 @@ public final class SettingsStore {
                 timeFormat(root, defaults.timeFormat()),
                 flag(root, HISTORY_DELTA_USED_KEY, defaults.historyDeltaUsed()),
                 flag(root, HISTORY_DELTA_TIME_KEY, defaults.historyDeltaTime()),
-                flag(root, HISTORY_DATE_KEY, defaults.historyDate()));
+                flag(root, HISTORY_DATE_KEY, defaults.historyDate()),
+                flag(root, HISTORY_ZERO_LINES_KEY, defaults.historyZeroLines()),
+                flag(root, HISTORY_FAILED_LINES_KEY, defaults.historyFailedLines()));
     }
 
     /**
@@ -228,6 +234,8 @@ public final class SettingsStore {
         root.put(HISTORY_DELTA_USED_KEY, settings.historyDeltaUsed());
         root.put(HISTORY_DELTA_TIME_KEY, settings.historyDeltaTime());
         root.put(HISTORY_DATE_KEY, settings.historyDate());
+        root.put(HISTORY_ZERO_LINES_KEY, settings.historyZeroLines());
+        root.put(HISTORY_FAILED_LINES_KEY, settings.historyFailedLines());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
 

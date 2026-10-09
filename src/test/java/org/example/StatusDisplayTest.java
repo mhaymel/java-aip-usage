@@ -64,7 +64,7 @@ class StatusDisplayTest {
 
     @Test
     void theTimeFormatSettingCutsTheTime() {
-        Settings seconds = new Settings(60, false, false, false, false, false, TimeFormat.HOURS_MINUTES_SECONDS, false, false, false);
+        Settings seconds = new Settings(60, false, false, false, false, false, TimeFormat.HOURS_MINUTES_SECONDS, false, false, false, true, true);
 
         assertEquals("14:24:53", build(state(spend(SPEND), null, null), OptionalLong.empty(), null, seconds).time());
         assertEquals("Last update: 8 Oct 2026, 14:24:53", build(state(spend(SPEND), null, null)).timeTooltip(), "the tooltip always has the seconds");
@@ -236,7 +236,7 @@ class StatusDisplayTest {
 
     @Test
     void theSettingsSayWhichOptionalItemsAreSwitchedOn() {
-        Settings on = new Settings(60, false, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false, false);
+        Settings on = new Settings(60, false, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false, false, true, true);
 
         assertEquals(new StatusDisplay.Show(true, true, true, false), build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
         assertEquals(new StatusDisplay.Show(false, false, false, false), build(state(spend(SPEND), null, null)).show(), "all off by default");

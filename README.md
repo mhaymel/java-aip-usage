@@ -60,6 +60,9 @@ Hover over things to see what they are:
 - **Error log** (the triangle) lists the errors of this run, newest first, with the time and the message: every failed
   refresh, an HTTP 429 and a problem with the token (not logged in, `claude` not found) included. It is kept in memory only and is empty at
   every start. An HTTP 429 is shown only as a red countdown, which tells you why when you hover over it, and is not a message under the row.
+- The history can leave out its **zero usage lines** (readings with no change since the one before) and its **failed lines**, with two switches in the History view of the settings (both on, so
+  everything is shown, by default). The change columns are then worked out on the lines that are shown, and a line above the table says how many lines there are and how many are hidden
+  or not shown, whenever not all are. The backend does all of this and sends finished lines; the page only draws them.
 - The history shows the time of day (a setting adds the date) at the left and the amounts, the currency (`Cur.`) and, if switched on, the changes (`Δ used`, the time in seconds as `Δ time`) packed to the right, and hovering over the first line of a run says `The program started here`. The window
   remembers the height you leave the history and the log at.
 - **Settings** (⚙, at the right-hand end) shows the settings in the panel area below the row, like the log and the history: the time
