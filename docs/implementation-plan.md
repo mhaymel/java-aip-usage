@@ -841,6 +841,130 @@ history panel.
 the latest; the marker for a log line is its text, since the log is plain lines and the requirement keeps
 it so; the history API may grow a field though it reveals no path.
 
+### 18. All settings in `settings.json`, with a backend for them
+
+**Status: planned.** Requirements: Settings, Refresh behavior, Non-functional requirements (the settings file).
+
+- **Model.** A `Settings` record in `settings/` with the eight settings of the requirements table, their
+  defaults, and a `Settings.defaults()`. `SettingsStore` reads and writes the whole record as JSON in the file
+  beside the CSV (`AppFiles.settings`, already there). A missing key takes its default; an unknown key, such as the
+  old `pollIntervalSeconds`, is ignored and not written back; a file that cannot be read or parsed is logged and
+  the defaults are used, and the file is left alone until a value is applied. Writing stays temp file then move.
+- **Startup.** If there is no file, create one with the defaults and log that, then log its full path in a line of
+  its own, next to the CSV path line in `AppRuntime.start`.
+- **Interval.** `IntervalRange` keeps 5 to 3600 for the command line and the file; the five dropdown values
+  (60 to 300 in steps of 60) live in the settings API response as `intervalChoices`, so the frontend does not
+  hard-code them. The command-line value still wins until a value is applied, as now.
+- **API.** `GET /api/settings` returns every value, the choices and the defaults; `POST /api/settings` takes the full
+  set, validates all of it, applies the interval to the service as `setInterval` does today, saves, and returns
+  what it now holds; a bad value is a 400 and nothing is saved. `/api/config` goes (the settings view is its
+  only client). A settings change is logged as it is now.
+- **Tests.** `SettingsStoreTest`: defaults, a partial file, an unknown key, an unreadable file, creation and its log
+  line, round trip. `ApiTest`: get, apply, a rejected value changing nothing, the interval taking effect.
+
+### 19. The history file: `status`, `interval`, `duration_ms`, and rows for failed queries
+
+**Status: planned.** Requirements: Usage history, The usage history panel.
+
+- **Timing.** `UsageFetcher`/`UsageService` measure how long each request took, from sending to the answer or
+  failure, and the interval in force when it was made, and hand both to the history with the outcome. A reading
+  with no amounts still writes nothing.
+- **Writing.** `UsageHistory.append` takes an outcome (a reading, or a failure at a time) and writes
+  `datetime,used,limit,currency,status,interval,duration_ms`. `status` is `start`, `failed`, `start-failed` or
+  empty: the in-memory first-row flag from phase 17 now decides `start`. The recording wrapper in `AppRuntime`
+  also writes on a failed query, still without turning a history write failure into a refresh failure.
+- **Upgrade.** `upgradeOldFile` handles all three older headers: `datetime,used,limit` (adds four columns),
+  `datetime,used,limit,currency` (adds three), and `...,startup` (replaces `startup` by `status` with `1`
+  becoming `start`, and adds `interval` and `duration_ms`). Rows from older files get empty fields.
+- **Reading.** `HistoryReader` returns rows as `datetime, used, limit, currency, status, interval, duration_ms`,
+  padding the old shorter rows. `UsageHistory.latest()` returns the newest row that has amounts, not just the newest
+  row, so a failed row is passed over.
+- **Marking.** `describeHistory` marks rows whose status starts with `start` and shows `failed` in red in the
+  `used` cell for the two failed statuses; `status`, `interval` and `duration_ms` are not shown. The old
+  `startup` marking from phase 17 is replaced.
+- **Tests.** The `UsageHistoryTest` and `HistoryReaderTest` cases of phase 17 reworked for the new columns; the three
+  upgrades; failed and first-failed rows; `latest()` skipping a failed row; duration and interval in the row.
+
+### 20. Differences between readings, worked out by the backend
+
+**Status: planned.** Requirements: Changes between readings, The usage history panel.
+
+- **Calculation.** A small `HistoryDeltas` class in `usage/` takes the rows of the history in file order and returns,
+  for each, the change in the amount used and the time since the previous row. A row marked `start` or
+  `start-failed` begins a run and has neither; the time is to the directly preceding row, failed rows included;
+  the change in the amount is against the directly preceding row and is empty if that row, or this one, has no
+  amounts. Empty means null, never zero. Sorting for the panel happens after, so a file out of order is still worked out
+  in file order.
+- **API.** `/api/history` rows get `delta_used` and `delta_time` fields, computed regardless of the settings,
+  as the requirements say the backend sends them in any case. `/api/status` carries the latest reading's two values.
+  They are read from the file (the history is already read for the panel), so they are no new source of truth.
+- **Tests.** `HistoryDeltasTest`: first row of a run, a second run in the same file, a failed row in the middle
+  (time yes, amount no, and no amount for the row after it), a missing amount, rows out of order, a restored
+  startup row.
+
+### 21. Logging: the response JSON, the warnings, a multi-line log panel
+
+**Status: planned.** Requirements: Non-functional requirements (log), The log panel.
+
+- **Response JSON.** `UsageClient` hands the raw body to the log only when the setting is on, as one entry line
+  that says it is the response, then the body pretty printed over several lines (Jackson is already used for
+  parsing), through the redacting formatter. The setting is read per request, so applying it takes effect at once.
+  The existing "status, duration, size, request-id" line and its test of never logging a body are kept for the
+  setting-off case and extended for the setting-on one: masked, and still no header.
+- **Warnings.** Whenever the status gets a message line (a failed refresh, stale data, a missing login), the
+  backend logs it once at the warning level when it appears, not on each poll. A failure that is already logged
+  by the fetcher is not logged twice; the line is the message as the window shows it.
+- **Log panel.** `LogTail` takes whole lines as before, but `describeLog` keeps the continuation lines of an entry
+  (lines with no leading timestamp) together and in order within the newest-first display: it groups a line
+  with the lines after it up to the next timestamp, then reverses the groups. The 1,000-line limit still counts
+  lines.
+- **Tests.** Response logging off and on (pretty printed, masked, multi-line); one log line per message line;
+  a front-end test for grouping and order.
+
+### 22. The backend sends the finished figures; the window does no arithmetic
+
+**Status: planned.** Requirements: the frontend does no calculation (Display requirements), Compact window.
+
+- **Status payload.** `/api/status` already carries the countdown. Add what `view.js` works out today: the cut
+  time (`14:24` or `14:24:53`, by the time-format setting) for the last refresh and for an error, the remaining
+  time of a plan window (`in 2 h 5 min`), the percentage, and the change values of phase 20, formatted as in the
+  requirements (`+0.05`, `1 m`). A `Formatting` class in Java owns these, so the Go rewrite has one place to
+  copy from. The raw values stay in the payload for tooltips and tests.
+- **Frontend.** `describeStatus`, `formatTime`, `formatSpan`, `formatPercent` and `describeCountdown` shrink to
+  placing the received strings; the only decision left to the page is showing or hiding by the settings the
+  backend sent in the same payload (the toggles), so that a setting applied elsewhere shows at once.
+- **Tests.** `FormattingTest` for every form, including the sign and a negative countdown, and the existing
+  `view.test.cjs` cases rewritten against the new payload. A check in the frontend tests that no arithmetic on
+  readings remains (a search of `view.js` for the old helpers).
+
+### 23. The settings view in the window, and a stable row
+
+**Status: planned.** Requirements: Settings, Compact window (row, tooltips, window size).
+
+- **Panel.** A third panel in `PANELS` beside the history and the log: button, tooltips `Show the settings` and
+  `Hide the settings`, ten times the row's height, the width of the row, one panel at a time. The config button's
+  handler and the inline interval field (HTML, CSS, `app.js`) are removed, and so are the ids the layout test
+  checks.
+- **Content.** Sections for the usage requests, the main view, the history view and the log. The form is built
+  from `GET /api/settings` each time the panel opens, with the dropdown showing the current interval (and offering it
+  as an extra entry if it is not one of the five). The frontend keeps nothing between openings.
+- **Buttons.** Apply posts all values and shows a rejection in red without closing; Close asks before
+  discarding unapplied edits (compare the form with the values it was filled from); Restore defaults fills
+  the form from the `defaults` of the API response without applying; Maximum view and Minimum view fill in
+  the four main-view fields, leaving the rest.
+- **The row.** Optional items (countdown, change in the amount used, time since the previous reading) are
+  shown only when their settings, from the status payload, are on. Each has a fixed width for its longest value
+  so that a refresh does not resize the window; a setting that adds or removes an item does, through the
+  existing fit.
+- **Tests.** `app.test.cjs`: opening fetches the settings, Apply, Close with and without unapplied edits,
+  Restore, Maximum and Minimum view, the row following the toggles, no stored settings. `layout.test.cjs`: fixed
+  widths of the changing fields and that a refresh reports an unchanged size. A manual check of the window by a
+  person, as for the other panels.
+
+*Assumed:* the defaults for the new switches are off (only the countdown was stated); the delta time is written
+as a short span such as `1 m`; a failed row's time is that of the failure; the history delta columns are the last two,
+after the currency; the version constant is raised with each phase.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

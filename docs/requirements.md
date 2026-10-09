@@ -87,8 +87,8 @@ Example token output:
 ## Refresh behavior
 
 - Fetch usage immediately when the application starts, then repeat at the configured interval.
-- The default backend usage-fetch interval is 60 seconds. Configure it in seconds through both a command-line option (`--usage-interval <seconds>`) and a frontend control; accept values from 5 through 3600 seconds. The default is a minute because the usage endpoint appears to accept about one request a minute over the long run: a faster pace, such as 30 seconds, is allowed but draws HTTP 429 after roughly ten minutes.
-- Save a usage-fetch interval changed in the frontend to a settings file named `settings.json` in the project root, beside `gradlew`. A committed valid frontend value is sent to the backend and replaces any CLI override for the remainder of the run. The settings file holds this one value and nothing else.
+- The default backend usage-fetch interval is 60 seconds. Configure it in seconds through both a command-line option (`--usage-interval <seconds>`) and the settings view (see Settings); the command line and the settings file accept values from 5 through 3600 seconds, while the settings view offers only 60, 120, 180, 240 and 300 seconds. The default is a minute because the usage endpoint appears to accept about one request a minute over the long run: a faster pace, such as 30 seconds, is allowed but draws HTTP 429 after roughly ten minutes.
+- Save a usage-fetch interval changed in the frontend to the settings file (see Settings). A committed valid frontend value is sent to the backend and replaces any CLI override for the remainder of the run.
 - Changing the backend usage-fetch interval does not cancel a request already in progress. Apply the new interval to the next scheduled request, measuring the interval from when the current/most recent request was triggered. If the new interval has already elapsed, start the next request as soon as no request is running; otherwise wait until the interval elapses. Changing the interval does not otherwise trigger an extra immediate request.
 - If a refresh fails, keep the last successful data visible, mark it as stale, and show the error. Resume normal display after the next successful refresh.
 - If Anthropic answers HTTP 429 (rate limited), the application slows down instead of
@@ -105,12 +105,18 @@ Example token output:
   The frontend does not work it out.
 - The backend alone fetches usage from Anthropic on this interval. UI status polling must not trigger an Anthropic request.
 - The UI-to-backend status polling interval, how often the window asks the backend for the latest state, is not a setting. It is 1 second by default and can be overridden for one run with a command-line option (`--poll-interval <seconds>`), which accepts values from 1 through 60 seconds. It has no frontend control, is never changed while the application runs, and is never saved: it is forgotten when the application stops, and a value left in an older settings file is ignored.
-- When the UI starts, it must request the effective intervals from the backend, and it uses the polling interval to poll the backend for the latest available state. It shows the usage-fetch interval when the config field is opened, and it asks the backend for that value each time the field is opened, not only at startup. If the backend's value has changed in the meantime, for instance because another client changed it, the field shows the new value. If the backend cannot be reached at that moment, the last value known is shown.
+- When the UI starts, it must request the effective intervals from the backend, and it uses the polling interval to poll the backend for the latest available state. It shows the usage-fetch interval, and every other setting, when the settings view is opened, and it asks the backend for the values each time the view is opened, not only at startup. If the backend's values have changed in the meantime, for instance because another client changed them, the view shows the new values. If the backend cannot be reached at that moment, the view says so and shows no values, since the frontend keeps none of its own.
 - Provide a UI action to fetch usage immediately. It must call the backend, which starts an Anthropic usage request without waiting for the next scheduled refresh and returns immediately. Do not run overlapping usage requests; if a refresh is already in progress, return immediately without starting another one. Keep the manual-refresh action enabled; extra clicks while a request is in progress do not start additional requests.
 - Closing the application window must terminate the program and stop its backend server, scheduled tasks, and other background resources.
 - The program shuts down the same way, with the same lines in the log, when the process is asked to stop without the window being closed, for example by `SIGTERM` or `SIGINT`. A forced kill (`SIGKILL`) cannot be caught by any program, so it leaves nothing in the log.
 
 ## Display requirements
+
+**The frontend does no calculation.** Every figure the window shows that is worked out from
+others is worked out by the backend and sent ready: the differences between readings, the time
+until a reset or the next refresh, the percentage, the ordering of the history, and the cut of a time
+to hours and minutes or to seconds. The frontend only places what it is given, and chooses between
+what the backend sent and what to show where a setting says so. It stores no settings of its own.
 
 The layout of the window is governed by [Compact window](#compact-window); where
 that section and the descriptions below differ on presentation, it wins.
@@ -167,6 +173,10 @@ so it must take as little screen space as it can while staying easy to read.
   shown, when it is ten times as tall as the single row and can be resized in height, and, for the
   log, three times as wide and resizable in width too (see The log panel and The usage history panel). A row that would be wider than about 900
   pixels, for an account with many plan windows, wraps onto a second line.
+- **A refresh does not change the window's size.** New figures, the countdown ticking and a changed
+  time never make the window bigger or smaller: the fields that change have room for their longest
+  value. The window still changes size when something other than a refresh asks it to: a message line
+  appearing or going, a panel opening or closing, and a setting that adds or removes an item of the row.
 - **The window's width is set by the row alone.** A message line, such as an error, never makes the
   window wider: it is wrapped to the width the row has and takes as many extra lines as it needs,
   and the window grows in height only. The same holds for the log and the history.
@@ -175,9 +185,11 @@ so it must take as little screen space as it can while staying easy to read.
   spent and budget heavier still (800). No thin or light weights, no fine print. The one
   exception is the usage history shown below the row, which is deliberately small and
   condensed, like a log file (see The usage history panel); it is still never thin.
-- Every time the window shows is the local time of day only, with no date, for
-  example `14:24:53`. This applies to the time of the last refresh and to the time
-  of an error alike. The one exception is the tooltip on the time (see Tooltips),
+- Every time the row and its message lines show is the local time of day only, with no date, as
+  hours and minutes, for example `14:24`, or with seconds, for example `14:24:53`, as the time format
+  setting says; the default is hours and minutes. This applies to the time of the last refresh and to the
+  time of an error alike. The backend cuts the time; the window shows it as received. The history panel
+  and the log keep their own forms, with seconds. The one exception is the tooltip on the time (see Tooltips),
   which gives the full date and time.
 
 **The row**
@@ -193,11 +205,15 @@ snug against the button, so they read as one group:
    the tooltips, not by a sign;
 4. a small refresh button;
 5. a countdown to the next refresh, in seconds and with its unit, for example
-   `42 s`, and `-3 s` when the refresh is overdue;
-6. a very small config button, an icon rather than a word;
-7. at the right-hand end, after the config button and its field when that is open, a small
-   button that shows the log below the row, and hides it again, an icon rather than a word;
-8. next to it, a small button that shows the usage history below the row, and hides it again,
+   `42 s`, and `-3 s` when the refresh is overdue; shown only when the setting for it is on, and it is
+   off by default;
+6. the change since the previous reading, when its settings are on (both are off by default): first
+   the change in the amount used, with its sign, for example `+0.05`, then the time since the previous
+   reading, for example `1 m`; see Changes between readings;
+7. a very small settings button, an icon rather than a word;
+8. at the right-hand end, after the settings button, a small button that shows the log below the row,
+   and hides it again, an icon rather than a word;
+9. next to it, a small button that shows the usage history below the row, and hides it again,
    likewise an icon.
 
 The severity is shown by colour on the percentage and the amounts, rather than by
@@ -226,6 +242,8 @@ as unknown.
   The window shows it as it is, with the minus sign.
 - Until the first request has been triggered there is nothing to count to, and the
   countdown is left empty.
+- The countdown is shown only when its setting is on (it is off by default). The backend sends it
+  in any case, so that turning the setting on shows it at once.
 
 **Tooltips**
 
@@ -242,24 +260,67 @@ names, shown as its code, here `USD`.
   place the severity showed.
 - The countdown: that it is the seconds until the next refresh, and negative when
   overdue.
-- The refresh button says `Refresh now`, and the config button says it configures
-  the fetch interval, as before.
+- The refresh button says `Refresh now`, and the settings button says `Show the settings`, and
+  `Hide the settings` while the view is shown.
+- The change in the amount used says `Change in the amount used since the previous reading, in USD`,
+  and the time since the previous reading says what it is.
 - The log button says `Show the log`, and `Hide the log` while the log is shown. The history button says `Show the usage history`, and
   `Hide the usage history` while the history is shown.
 
-**Config**
+**Changes between readings**
 
-- Pressing the config button shows one input field in the same row, next to the
-  button: the usage fetch interval, in seconds. It has a short label saying what it
-  is, and shows the backend's current value, read afresh each time the field is
-  opened, as described under Refresh behavior. The window update interval is not
-  offered: it is set on the command line only.
-- The value is confirmed with Enter or a small confirm button. When a valid value is
-  confirmed it is saved and takes effect, as described under Refresh behavior, and the
-  input field disappears.
-- An invalid value keeps the field open and shows a brief message; it is not sent.
-  Pressing Escape, or the config button again, closes the field without changing
-  anything.
+- The change in the amount used is the amount used minus that of the row just before it in the
+  history; the time since the previous reading is the time between the two rows. The backend works
+  both out from the history file and sends them with the status. The row shows the values of the
+  newest reading, and the history panel those of each row (see Settings for the switches).
+- The two are worked out only between rows of the same run, which is from a row whose status marks
+  a start (see Usage history) to the row before the next such row. The first row of a run has neither.
+- The time since the previous reading is counted to the row directly before it, a failed one
+  included, so a failed row has a time and the row after it counts from the failed row. The change in
+  the amount used is likewise against the row directly before: if that row is a failed one, with no
+  amounts, there is no change, and a failed row itself has none.
+- A value that cannot be worked out is left empty, not shown as zero.
+
+**Settings**
+
+- Pressing the settings button shows the settings view in the same place as the log and the history,
+  below the row and its message lines, sharing the one panel area with them: showing one replaces the
+  other. It is the size of the history panel, ten times as tall as the row, and its tooltip and
+  behaviour are those of the other two buttons. It replaces the config button and the interval field in
+  the row, which are gone.
+- The view shows every setting with its current value, which the frontend has just asked the backend for,
+  each time the view is opened. The frontend keeps no setting of its own: what is shown is what the
+  backend has.
+- Changes made in the view take effect only when the **Apply** button is pressed, which sends all the
+  values to the backend, which keeps them and saves them in the settings file. A **Close** button
+  closes the view; if there are changes not applied it first asks whether to discard them. A
+  **Restore defaults** button sets the fields to the defaults below; it does not apply them, so Apply
+  is still pressed to make them take effect. An invalid value keeps the view open and shows a brief
+  message in red; nothing is sent.
+- The settings, with their defaults:
+
+  | Setting | Values | Default |
+  | --- | --- | --- |
+  | Time between usage requests | a dropdown with the choices 60 s, 120 s, 180 s, 240 s and 300 s, showing the backend's current value | 60 s |
+  | Log the response | on, off | off |
+  | Show the countdown to the next refresh in the row | on, off | off |
+  | Show the change in the amount used in the row | on, off | off |
+  | Show the time since the previous reading in the row | on, off | off |
+  | Time format in the row | hours and minutes, or hours, minutes and seconds | hours and minutes |
+  | Show the change in the amount used in the history | on, off | off |
+  | Show the time since the previous reading in the history | on, off | off |
+
+- If the backend's interval is not one of the five (set on the command line, or in an old settings
+  file), the dropdown still shows it as the current entry, and offers the five besides it.
+- The view is arranged in sections: the usage requests, the main view, the history view and the log.
+- Two buttons set the switches of the main view together: **Maximum view** turns on the countdown, the
+  change in the amount used, the time since the previous reading, and the time with seconds; **Minimum
+  view** turns them all off and sets the time to hours and minutes. The settings of the history, the
+  interval and the logging of the response are left as they are. They fill in the fields like Restore
+  defaults does, and Apply is still pressed.
+- Turning on logging of the response makes the application write, for each response, the JSON it was
+  sent, pretty printed over several lines, in the log (see Non-functional requirements).
+- The command line still overrides the interval for the run, as before, until a value is applied here.
 
 **The log panel**
 
@@ -278,7 +339,9 @@ The log is shown the way the usage history is: inside the main window, not in a 
   that is shown.
 - One line of the file is one line of the panel, as written, newest first like the history, in the
   same small, condensed, regular-weight, fixed-width text, and it is never wrapped (a long line
-  scrolls sideways).
+  scrolls sideways). The response JSON that the log setting writes (see Non-functional requirements) is
+  several lines, each of them a line of the panel, in the order the entry reads from the top
+  down even though the panel is newest first: the lines of one entry stay together and in order.
 - It shows the end of the log: the newest 1,000 lines, reading at most the last 512 kilobytes of the
   file, since the log is never rotated and can be large. If lines were left out, a line above them
   says how many are shown.
@@ -309,8 +372,8 @@ The history is shown inside the main window, not in a window of its own.
   starts again at ten times the row's height, not at the height the person last dragged it to.
 - The history panel keeps the width of the row. Only the height changes, and nothing else in the row
   moves.
-- The history is a table with a header row (`datetime`, `used`, `limit`, `currency`, which does not
-  scroll away) and one line for each reading, the columns **spread across the width of the panel**, with
+- The history is a table with a header row (`datetime`, `used`, `limit`, `currency`, and, when
+  their settings are on, `delta used` and `delta time`; it does not scroll away) and one line for each reading, the columns **spread across the width of the panel**, with
   a little space between them, no more than needed, so that nothing is cut off (in particular
   the currency and its title): the date and time at the left, and `used`, `limit` and
   `currency` each centred horizontally in their own column. For example, as wide as the row:
@@ -322,10 +385,18 @@ The history is shown inside the main window, not in a window of its own.
   ```
 
 - The column titles are centred over their columns.
-- The line of the first reading recorded after the program started (the row whose `startup` column
-  is set in the file, see Usage history) has a light gray background across the whole line, so
+- `delta used` and `delta time` are the change in the amount used and the time since the previous
+  reading, as described under Changes between readings, worked out by the backend for each row from the
+  file and sent with the rows. Each column is shown only when its setting is on, and both are off by
+  default; the columns are the last two, after `currency`. An empty value is an empty cell. `delta time`
+  is written as in the row, for example `1 m`.
+- A row of a failed query (status `failed` or `start-failed`, see Usage history) is shown with its
+  time, empty amounts and empty currency, and the word `failed` in red in the `used` column.
+- The line of the first row recorded after the program started (a row whose `status` is `start` or
+  `start-failed` in the file, see Usage history) has a light gray background across the whole line, so
   where each run begins can be seen at a glance. The file can hold several such rows, one for each
-  run; each is marked. The `startup` column itself is not shown in the panel.
+  run; each is marked. The `status`, `interval` and `duration_ms` columns themselves are not shown in
+  the panel.
 - **The lines are sorted by `datetime`, latest first.** They are sorted by that column, not merely
   taken in reverse file order, so a file that is out of order is still shown right.
 - The text is **small and condensed**, in the manner of a log file: a fixed-width font of about
@@ -352,19 +423,23 @@ The history is shown inside the main window, not in a window of its own.
   returns to its single-row size afterwards.
 - **Error text is red.** Every error message is shown in red: the failed refresh, whether
   or not older figures are still on show, the loss of contact with the application, and an
-  invalid value in the config field. No error is shown in another colour.
+  invalid value in the settings view. No error is shown in another colour.
 - The last good figures stay in the row after a failed refresh, dimmed to show that
   they may be out of date, and the dimming goes when a refresh succeeds again.
 - **On startup the newest reading in the history file is loaded and shown at once**, as the row's
   figures with the time of that reading, until the first refresh replaces it, so the row is not empty
   while the first request is on its way. If that refresh fails, the figures stay, dimmed, with the usual
-  failure message. It is not written to the history again. If there is no history, or its newest row has
-  no amounts, nothing is shown in advance.
+  failure message. It is not written to the history again. The reading shown is the newest row that has
+  amounts, so a failed row is passed over. If there is no history, or no row has amounts, nothing is shown in
+  advance.
 - Before the first reading the row says `Loading…`. If the first refresh failed it says
   `No data`, and if the account reports no usage at all it says `No usage reported`.
 - If the window cannot reach the application, it says so in red (`Lost contact with the
   application. Still trying.`), keeps trying, and shows what it last had.
-- The window also resizes to fit when the config field appears and disappears.
+- The window also resizes to fit when a setting adds or removes an item of the row, as the settings view
+  is applied.
+- A message line, the warnings among them, shown in the row is also written to the log (see Non-functional
+  requirements).
 
 The refresh button stays enabled at all times, and the behavior of everything
 behind these controls is unchanged.
@@ -373,24 +448,31 @@ behind these controls is unchanged.
 
 Every reading the application gets is kept, so the usage can be looked at afterwards.
 
-- Each successful refresh that has amounts adds one row to a CSV file named
+- Each refresh that has amounts, and each failed one, adds one row to a CSV file named
   `java-aip-usage.csv` in the project root, beside `gradlew` and the log. The file is not
   committed to version control. It is added to, never overwritten, so successive runs build
   one history, and nothing in it is ever rotated or deleted by the application.
-- The columns are `datetime`, `used`, `limit`, `currency` and `startup`, with a header row written when
-  the file is new or empty and never again, for example:
+- The columns are `datetime`, `used`, `limit`, `currency`, `status`, `interval` and `duration_ms`, with a
+  header row written when the file is new or empty and never again, for example:
 
   ```
-  datetime,used,limit,currency,startup
-  2026-10-08 16:24:53,186.02,1000.00,USD,1
-  2026-10-08 16:25:53,186.07,1000.00,USD,
+  datetime,used,limit,currency,status,interval,duration_ms
+  2026-10-08 16:24:53,186.02,1000.00,USD,start,60,412
+  2026-10-08 16:25:53,186.07,1000.00,USD,,60,388
+  2026-10-08 16:26:53,,,,failed,60,5003
   ```
 
-- `startup` marks the first row written after the program started: it is `1` on that row and empty on
-  every other. Each run marks at most one row, so a file built over several runs has one marked row
-  per run, each where that run's first reading was recorded. A run that records no reading marks
-  nothing. The mark is set by the first row actually written, not by the first refresh, so a first
-  refresh that fails or has no amounts leaves it for the next row that is written.
+- `status` says what the row is. It is `start` on the first row written after the program started,
+  `failed` on the row of a query that did not succeed, `start-failed` when the first row of a run is
+  a failed one, and empty on every other. Each run has one row marked `start` or `start-failed`, so a file
+  built over several runs has one per run, each where that run's first row was recorded. A run that
+  records no row marks nothing. The mark is the first row actually written, so a reading with no amounts,
+  which writes nothing, leaves it for the next row that is written.
+- `interval` is the time between usage requests that was set when the request was made, in whole seconds.
+  `duration_ms` is how long the request took, from sending it to the answer or the failure, in
+  whole milliseconds. Both are on every row, failed ones included, and plain numbers.
+- A failed query's row has `datetime` of the time of the failure, since there is no `fetched_at`, and
+  empty `used`, `limit` and `currency`. What went wrong is in the log, not in the file.
 
 - `datetime` is the time of the reading, which is `fetched_at`, as the local date and time
   to the second in the form `yyyy-MM-dd HH:mm:ss`, with a space between the date and the
@@ -405,12 +487,13 @@ Every reading the application gets is kept, so the usage can be looked at afterw
 - `used` and `limit` are plain numbers with two decimals and a dot, whatever the machine's
   language, with no currency sign, no digit grouping and no quoting. A missing amount is an
   empty field. `currency` is the code the response names, for example `USD`, or empty when it named none.
-- A file written before the currency was a column, with the header `datetime,used,limit`, or before
-  `startup` was one, with the header `datetime,used,limit,currency`, is upgraded in place the first time
-  a row is added: the header gets the new columns and the rows already in it get an empty currency, since
-  the file never said, and an empty `startup`, since it never said that either. Nothing else in it changes.
-- A failed refresh writes nothing, and neither does a reading with no amounts, such as the
-  plan windows of a Pro or Max account.
+- A file written before these columns is upgraded in place the first time a row is added: the header
+  gets the new columns and the rows already in it get empty fields where the file never said. The header
+  `datetime,used,limit` gets `currency`, `status`, `interval` and `duration_ms`. The header
+  `datetime,used,limit,currency,startup` is replaced by the new one, and a `1` in `startup` becomes
+  `start` in `status`. Nothing else in it changes.
+- A reading with no amounts, such as the plan windows of a Pro or Max account, writes nothing. A
+  failed query does write a row, as above.
 - A history that cannot be written is logged and nothing more. The reading is good, so the
   refresh still counts as a success, and the window shows it as usual.
 - The file holds spending figures, so it stays on this machine, and nothing in it is a
@@ -447,9 +530,17 @@ These repos are intended as a source of knowledge and reusable implementation id
 - The first thing logged on each run is a line saying the program was started, with its version, and
   the next says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
-  revealed to the window or any request (see The log panel). These are the lines the log panel marks as
-  the start of a run.
+  revealed to the window or any request (see The log panel). The line that says the program was started
+  is the one the log panel marks as the start of a run.
+- The settings file, `settings.json` in the same directory as the usage history file, holds all the
+  settings, stored as JSON, and nothing else. If there is none at startup a new one is created with the
+  defaults, and the event is logged. The full path of the settings file is logged at startup, in a line of its
+  own, like that of the history file. A settings file that cannot be read or is invalid is logged and
+  the defaults are used for the run, without overwriting it until a setting is applied. A key the file
+  lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
+  is ignored. The names of the keys are those of the settings table.
 - Each line of the log begins with its time in the same form as the usage history file: the local date and time to the second, `yyyy-MM-dd HH:mm:ss`, for example `2026-10-08 16:24:53`, so the log, the history and the window agree on the clock.
-- The log records startup and shutdown, each refresh and how it ended, token acquisition and rejection, settings changes, and for each request to Anthropic its status, duration, size and `request-id`. It never records a token, a header or any part of a response body, and anything shaped like a credential is masked before it is written, as a last line of defence.
+- The log records startup and shutdown, each refresh and how it ended, token acquisition and rejection, settings changes, and for each request to Anthropic its status, duration, size and `request-id`. It never records a token or a header. It records no part of a response body, except that, while the setting to log the response is on, it writes the JSON of each response, pretty printed over several lines, after one entry line that says whose it is. That text is masked like everything else, so anything shaped like a credential in it is hidden before it is written, as a last line of defence. The setting is off by default.
+- Every warning message the window shows in a message line, such as a failed refresh or stale data, is also written to the log, once when it appears, at the warning level.
 - The local web server listens on the loopback interface only, on a port chosen by the operating system. It refuses a request whose `Host` header is not its own address, which stops another web page from reaching it by DNS rebinding, and it accepts a `POST` only as `application/json`, which another origin cannot send without a preflight the server never grants. No endpoint accepts, returns or logs a credential.
 - The program starts from an IDE as a plain `main` method, with no module path or VM options, as well as with `./gradlew run`.
