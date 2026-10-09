@@ -16,7 +16,7 @@ const DISPLAY = {
     interval: { text: '60 s', tooltip: 'Time between usage requests' },
     deltaUsed: { text: '+0.05', tooltip: 'Change in the amount used since the previous reading, in USD' },
     deltaTime: { text: '1 m', tooltip: 'Time since the previous reading' },
-    show: { interval: false, deltaUsed: true, deltaTime: true },
+    show: { percentage: false, interval: false, deltaUsed: true, deltaTime: true },
     message: null,
 };
 
@@ -30,7 +30,7 @@ test('the status is read from what the backend finished, and nothing is worked o
     assert.deepEqual(v.deltaUsed, DISPLAY.deltaUsed);
     assert.deepEqual(v.deltaTime, DISPLAY.deltaTime);
     assert.deepEqual(v.interval, DISPLAY.interval);
-    assert.deepEqual(v.show, { interval: false, deltaUsed: true, deltaTime: true });
+    assert.deepEqual(v.show, { percentage: false, interval: false, deltaUsed: true, deltaTime: true });
     assert.equal(v.message, null);
 });
 
@@ -47,7 +47,7 @@ test('a status with no display shows nothing and every optional item off', () =>
     assert.equal(v.time, null);
     assert.equal(v.spend, null);
     assert.deepEqual(v.windows, []);
-    assert.deepEqual(v.show, { interval: false, deltaUsed: false, deltaTime: false });
+    assert.deepEqual(v.show, { percentage: false, interval: false, deltaUsed: false, deltaTime: false });
 });
 
 test('windows, placeholder and message are passed on as the backend wrote them', () => {

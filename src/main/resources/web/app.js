@@ -25,6 +25,9 @@
     // The rows on show, to tell how many came in above what the person was reading.
     var panelRows = [];
     var panelHasHeader = false;
+    // The height the window has while a log or history is shown, and the width the vertical scrollbar of their panel takes.
+    var panelHeight = 0;
+    var scrollbarWidth = 0;
 
     function $(id) {
         return document.getElementById(id);
@@ -122,6 +125,7 @@
         show('spend', Boolean(v.spend));
         if (v.spend) {
             $('spend').className = 'spend' + (v.spend.severityKind ? ' sev-' + v.spend.severityKind : '');
+            show('percent', Boolean(v.show.percentage && v.spend.percentText));
             $('percent').textContent = v.spend.percentText || '';
             $('percent').title = v.spend.percentTooltip;
             $('used').textContent = v.spend.used;
@@ -153,7 +157,10 @@
     }
 
     function applyAppClass() {
-        $('app').className = (lastStale ? 'stale' : '') + (panelIsOpen() ? ' open' : '');
+        // The log and the history fill the window; the settings do not, so that the page's own height is the content's.
+        $('app').className = (lastStale ? 'stale' : '')
+            + (openPanel === 'log' || openPanel === 'history' ? ' open' : '')
+            + (openPanel === 'settings' ? ' fit' : '');
     }
 
     function renderWindows(windows) {
@@ -191,7 +198,7 @@
     var settingsShown = null;
     var settingsDefaults = null;
 
-    var SETTING_FLAGS = ['showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
+    var SETTING_FLAGS = ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
 
     function fillInterval(choices, current) {
         var select = $('set-usageIntervalSeconds');
@@ -227,20 +234,9 @@
         return values;
     }
 
-    function formIsDirty() {
-        return settingsShown !== null && JSON.stringify(sorted(readForm())) !== JSON.stringify(sorted(settingsShown));
-    }
-
-    function sorted(values) {
-        var out = {};
-        Object.keys(values).sort().forEach(function (key) { out[key] = values[key]; });
-        return out;
-    }
-
     /** Reads the settings from the backend and fills the form; the form is hidden, with the reason, if they cannot be read. */
     async function loadSettings() {
         setNote('settings-error', '');
-        show('settings-confirm', false);
         try {
             var body = await request('/api/settings');
             settingsShown = body.settings;
@@ -276,10 +272,10 @@
             var body = await postJson('/api/settings', readForm());
             settingsShown = body.settings;
             settingsDefaults = body.defaults;
-            fillInterval(body.intervalChoices, body.settings.usageIntervalSeconds);
-            fillForm(body.settings);
-            setNote('settings-error', '');
-            show('settings-confirm', false);
+            // Applied: the view closes and the row shows the change at once.
+            if (openPanel === 'settings') {
+                togglePanel('settings');
+            }
             pollNow();
         } catch (e) {
             setNote('settings-error', e.message);
@@ -295,18 +291,14 @@
 
     /** The main-view switches all on, or all off; the form only, until Apply. */
     function setMainView(all) {
-        ['showInterval', 'showDeltaUsed', 'showDeltaTime'].forEach(function (key) {
+        ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime'].forEach(function (key) {
             $('set-' + key).checked = all;
         });
         $('set-timeFormat').value = all ? 'hh:mm:ss' : 'hh:mm';
     }
 
-    /** Closes the view, asking first if the form has changes that were not applied. */
-    function closeSettings(force) {
-        if (!force && formIsDirty()) {
-            show('settings-confirm', true);
-            return;
-        }
+    /** Cancel: closes the view and changes nothing; it asks nothing, since nothing was sent. */
+    function cancelSettings() {
         if (openPanel === 'settings') {
             togglePanel('settings');
         }
@@ -452,8 +444,10 @@
         } else {
             settingsShown = null;
             settingsDefaults = null;
-            show('settings-confirm', false);
         }
+        // The window's height while a log or history is shown is fixed at what it was when it opened (ten rows),
+        // so that a message line coming or going does not move it; the panel takes up the difference.
+        panelHeight = 10 * Math.ceil($('top').getBoundingClientRect().height);
         applyAppClass();
         loadPanel();
     }
@@ -472,14 +466,34 @@
         var box = $('top').getBoundingClientRect();
         var width = Math.ceil(box.width);
         var height = Math.ceil(box.height);
-        if (openPanel === 'log') {
-            return 3 * width + ',' + 10 * height + ',2';
+        if (openPanel === 'settings') {
+            // As tall as the row, its message lines and the settings need, whole; the flag says it is not resizable.
+            return width + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3';
         }
-        if (openPanel === 'history' || openPanel === 'settings') {
-            return width + ',' + 10 * height + ',1';
+        if (openPanel === 'log') {
+            return (3 * width + scrollbarWidth) + ',' + panelHeight + ',2';
+        }
+        if (openPanel === 'history') {
+            return (width + scrollbarWidth) + ',' + panelHeight + ',1';
         }
         return width + ',' + height + ',0';
     };
+
+    /**
+     * How wide the vertical scrollbar of the log and the history is, measured with a box that always has one. The
+     * panel reserves that room, so the window is that much wider than the row and no column is covered.
+     */
+    function measureScrollbar() {
+        if (!document.body) {
+            return 0;
+        }
+        var probe = document.createElement('div');
+        probe.className = 'scrollbar-probe';
+        document.body.append(probe);
+        var width = probe.offsetWidth - probe.clientWidth;
+        document.body.removeChild(probe);
+        return width > 0 && width < 100 ? width : 0;
+    }
 
     // ---- start
 
@@ -492,15 +506,14 @@
             return;
         }
         show('connection', false);
+        scrollbarWidth = measureScrollbar();
 
         $('log-button').addEventListener('click', function () { togglePanel('log'); });
         $('history-button').addEventListener('click', function () { togglePanel('history'); });
         $('settings-button').addEventListener('click', function () { togglePanel('settings'); });
         $('settings-apply').addEventListener('click', applySettings);
         $('settings-restore').addEventListener('click', restoreDefaults);
-        $('settings-close').addEventListener('click', function () { closeSettings(false); });
-        $('settings-discard').addEventListener('click', function () { closeSettings(true); });
-        $('settings-keep').addEventListener('click', function () { show('settings-confirm', false); });
+        $('settings-cancel').addEventListener('click', cancelSettings);
         $('settings-maximum').addEventListener('click', function () { setMainView(true); });
         $('settings-minimum').addEventListener('click', function () { setMainView(false); });
         $('refresh').addEventListener('click', async function () {

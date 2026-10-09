@@ -169,9 +169,11 @@ so it must take as little screen space as it can while staying easy to read.
 - The window is as small as its content allows, with no empty space around it.
   In its normal state it is a single row, roughly 330 by 35 pixels of content, which is
   about 62 pixels tall with the title bar. The window cannot be resized by hand: it always
-  fits its content and follows it as it changes. The one exception is while the usage history is
+  fits its content and follows it as it changes. The exceptions are while the usage history is
   shown, when it is ten times as tall as the single row and can be resized in height, and, for the
-  log, three times as wide and resizable in width too (see The log panel and The usage history panel). A row that would be wider than about 900
+  log, three times as wide and resizable in width too (see The log panel and The usage history panel),
+  and while the settings are shown, when the window is as tall as the row, its message lines and the settings
+  need, exactly (see Settings). A row that would be wider than about 900
   pixels, for an account with many plan windows, wraps onto a second line.
 - **A refresh does not change the window's size.** New figures, the countdown ticking and a changed
   time never make the window bigger or smaller: the fields that change have room for their longest
@@ -199,7 +201,7 @@ this order. The refresh button sits snug against the amounts before it, and the 
 snug against the button, so they read as one group:
 
 1. the time the usage was last refreshed (`fetched_at`), first of all;
-2. the percentage spent;
+2. the percentage spent, when its setting is on (it is off by default);
 3. what has been spent and the budget: `used` and `limit`, as two plain numbers
    with no currency symbol, for example `186.02 / 1,000.00`. The unit is given by
    the tooltips, not by a sign;
@@ -212,14 +214,15 @@ snug against the button, so they read as one group:
 7. the change since the previous reading, when its settings are on (both are off by default): first
    the change in the amount used, with its sign, for example `+0.05`, then the time since the previous
    reading, for example `1 m`; see Changes between readings;
-8. a very small settings button, an icon rather than a word;
-9. at the right-hand end, after the settings button, a small button that shows the log below the row,
-   and hides it again, an icon rather than a word;
-10. next to it, a small button that shows the usage history below the row, and hides it again,
-    likewise an icon.
+8. a small button that shows the log below the row, and hides it again, an icon rather than a word;
+9. next to it, a small button that shows the usage history below the row, and hides it again,
+   likewise an icon;
+10. at the right-hand end, after the log and history buttons, the settings button, a very small icon of
+    a gear, not a word and not sliders.
 
-The severity is shown by colour on the percentage and the amounts, rather than by
-extra words.
+The severity is shown by colour on the percentage, when it is shown, and on the amounts, rather than by
+extra words. With the percentage switched off the amounts still carry the colour, and the severity is
+still named in the tooltip of the amounts.
 
 For an account with Pro or Max plan windows instead of spend, the windows take the
 place of items 2 and 3 in the same row, each as its utilization first, then its
@@ -287,24 +290,31 @@ names, shown as its code, here `USD`.
 
 - Pressing the settings button shows the settings view in the same place as the log and the history,
   below the row and its message lines, sharing the one panel area with them: showing one replaces the
-  other. It is the size of the history panel, ten times as tall as the row, and its tooltip and
-  behaviour are those of the other two buttons. It replaces the config button and the interval field in
-  the row, which are gone.
+  other. Its tooltip and behaviour are those of the other two buttons. It replaces the config button
+  and the interval field in the row, which are gone.
+- **The window is exactly as tall as the row, its message lines and the settings need**, so the
+  settings are shown whole, with no vertical scrollbar, and with no empty space below them. The height of the
+  row counts: the settings are never clipped by it. The height follows the content: when the row changes,
+  in particular when a message line such as an error appears, grows or goes, the window follows at once, so the
+  settings stay whole and the window is no taller than needed. The window cannot be resized by hand while the
+  settings are shown. The width is the row's.
 - The view shows every setting with its current value, which the frontend has just asked the backend for,
   each time the view is opened. The frontend keeps no setting of its own: what is shown is what the
   backend has.
-- Changes made in the view take effect only when the **Apply** button is pressed, which sends all the
-  values to the backend, which keeps them and saves them in the settings file. A **Close** button
-  closes the view; if there are changes not applied it first asks whether to discard them. A
-  **Restore defaults** button sets the fields to the defaults below; it does not apply them, so Apply
-  is still pressed to make them take effect. An invalid value keeps the view open and shows a brief
-  message in red; nothing is sent.
+- Changes made in the view take effect only when the **Apply** button is pressed. Apply sends all the
+  values to the backend, which keeps them and saves them in the settings file, and then **closes the
+  view**; the main view shows the changes at once. A **Cancel** button closes the view, and no value
+  is changed; it asks nothing. A **Restore defaults** button sets the fields to the defaults below; it
+  does not apply them, so Apply is still pressed to make them take effect. If the backend refuses a
+  value, or the settings cannot be saved, the view stays open and shows a brief message in red; nothing
+  is changed.
 - The settings, with their defaults:
 
   | Setting | Values | Default |
   | --- | --- | --- |
   | Time between usage requests | a dropdown with the choices 60 s, 120 s, 180 s, 240 s and 300 s, showing the backend's current value | 60 s |
   | Log the response | on, off | off |
+  | Show the percentage spent in the row | on, off | off |
   | Show the time between usage requests in the row | on, off | off |
   | Show the change in the amount used in the row | on, off | off |
   | Show the time since the previous reading in the row | on, off | off |
@@ -315,9 +325,9 @@ names, shown as its code, here `USD`.
 - If the backend's interval is not one of the five (set on the command line, or in an old settings
   file), the dropdown still shows it as the current entry, and offers the five besides it.
 - The view is arranged in sections: the usage requests, the main view, the history view and the log.
-- Two buttons set the switches of the main view together: **Maximum view** turns on the time between
+- Two buttons set the switches of the main view together: **Maximum view** turns on the percentage, the time between
   usage requests, the change in the amount used, the time since the previous reading, and the time with seconds; **Minimum
-  view** turns them all off and sets the time to hours and minutes. The settings of the history, the
+  view** turns them all off, the percentage with them, and sets the time to hours and minutes. The settings of the history, the
   interval and the logging of the response are left as they are. They fill in the fields like Restore
   defaults does, and Apply is still pressed.
 - Turning on logging of the response makes the application write, for each response, the JSON it was
@@ -335,8 +345,13 @@ The log is shown the way the usage history is: inside the main window, not in a 
   window can be resized in height **and in width**, and the panel takes the room there is. Unlike the
   history, the log has long lines, which is why it gets the extra width. Opening it again starts again
   at three times the row's width and ten times its height.
+- The log panel has the width of three rows, plus the width of the vertical scrollbar, which is always reserved
+  and never covers text. As for the history, the window's height does not follow the main view while the
+  panel is shown: when a message line appears or goes, the window keeps the height it has and the panel takes
+  up the difference.
 - The log and the history share the one panel area: showing one while the other is shown replaces
-  it, and the window takes the size the shown one has (so it is wider for the log than for the history),
+  it, and the window takes the size the shown one has (so it is wider for the log than for the history, and
+  as tall as its content for the settings),
   and each button's tooltip says `Hide…` only for the one
   that is shown.
 - One line of the file is one line of the panel, as written, newest first like the history, in the
@@ -372,8 +387,12 @@ The history is shown inside the main window, not in a window of its own.
   panel takes all the height there is: a taller window shows more lines. Its width stays fixed. When the
   panel is hidden the window is back to fitting its row and cannot be resized. Opening the panel again
   starts again at ten times the row's height, not at the height the person last dragged it to.
-- The history panel keeps the width of the row. Only the height changes, and nothing else in the row
-  moves.
+- The history panel keeps the width of the row, plus the width of the vertical scrollbar, which is always
+  reserved so that nothing shifts when it appears or goes. The scrollbar never covers a column: the last
+  column, the currency, is whole next to it. Only the height changes, and nothing else in the row moves.
+- **While the panel is shown, the window's height does not follow the main view.** When a message line
+  appears or goes, or the row changes in any other way, the window keeps the height it has, as opened
+  or as the person dragged it, and the panel takes up the difference.
 - The history is a table with a header row (`datetime`, `used`, `limit`, `currency`, and, when
   their settings are on, `delta used` and `delta time`; it does not scroll away) and one line for each reading, the columns **spread across the width of the panel**, with
   a little space between them, no more than needed, so that nothing is cut off (in particular

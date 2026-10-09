@@ -9,6 +9,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class WindowFitTest {
 
@@ -22,6 +23,8 @@ class WindowFitTest {
     void readsWhetherTheHeightMayBeResized() {
         assertEquals(Optional.of(new Size(400, 340, WindowFit.Resize.HEIGHT)), WindowFit.parse("400,340,1"));
         assertEquals(Optional.of(new Size(1200, 340, WindowFit.Resize.BOTH)), WindowFit.parse("1200,340,2"));
+        assertEquals(Optional.of(new Size(400, 420, WindowFit.Resize.FIXED)), WindowFit.parse("400,420,3"), "content height, not resizable");
+        assertFalse(WindowFit.parse("400,420,3").orElseThrow().resizable());
         assertEquals(Optional.of(new Size(400, 34, WindowFit.Resize.NONE)), WindowFit.parse("400,34,0"));
         assertEquals(Optional.of(new Size(400, 34, WindowFit.Resize.NONE)), WindowFit.parse("400,34"));
     }
@@ -52,7 +55,7 @@ class WindowFitTest {
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {
-            "", "undefined", "null", "NaN,NaN", "400", "400,", ",42", "400;42", "400,42,3", "400,42,", "400,42,1,1", "400, 42",
+            "", "undefined", "null", "NaN,NaN", "400", "400,", ",42", "400;42", "400,42,4", "400,42,", "400,42,1,1", "400, 42",
             "-5,10", "10,-5", "4.5,10", "0,0", "0,50", "50,0", "abc", "400x42", "999999,5", "5,999999",
             "99999999999999999999,5"})
     void ignoresAnythingThatIsNotASize(String reported) {

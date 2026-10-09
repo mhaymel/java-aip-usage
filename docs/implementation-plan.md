@@ -998,6 +998,49 @@ the history table had no change columns: `/api/history` now tells which are on (
 (`delta_used_text`, `delta_time_text`), and `describeHistory` adds the two columns after the currency, with grids for five and six
 columns. The old `showCountdown` key in a settings file is ignored.
 
+### 25. A gear at the right, an optional percentage, Apply that closes, and window sizes that fit
+
+**Status: done (version 0.10); the three sizes, the gear and the scrollbar are for a person to judge in the window.** One change from the plan: the
+settings report a new flag `3` (`Resize.FIXED`), not `0`, because `0` is also what the host takes as "the window with nothing open"
+and records as the size the history may be shrunk back to; the settings are fitted and not resizable, but are not that. The page
+measures the scrollbar with a hidden `.scrollbar-probe` box at start, and the page tests give the fake DOM a width to measure. Requirements: Compact window (size, row), Settings, The log panel, The usage history panel.
+
+- **Row order and icon.** In `index.html` the settings button moves behind the history button, so the row ends log, history,
+  settings, and its icon becomes a gear (a toothed circle path, in the same 12 px, 1.6 stroke style as its neighbours). The
+  tooltips and aria labels stay. The layout tests that fix the order are rewritten: settings is last, and the log and history buttons
+  are no longer the right-hand end.
+- **Percentage setting.** `Settings` gets `showPercentage` (default `false`) in the position before `showInterval`; `SettingsStore`
+  reads and writes it, `/api/settings` carries it, and `StatusDisplay.Show` gets `percentage`. The page hides `#spend`'s
+  `#percent` unless `show.percentage` is on; the amounts keep their severity colour and the amounts' tooltips now also say
+  the severity when the percentage is hidden (`StatusDisplay` builds that text). The form gets the checkbox in the main-view
+  section; Maximum view turns it on and Minimum view off. Plan-window utilizations are not touched.
+- **Apply and Cancel.** The `Close` button becomes `Cancel` (`settings-cancel`); `settings-confirm`, `settings-discard`, `settings-keep`,
+  `formIsDirty` and the dirty comparison are removed, and Cancel closes at once, sending nothing. Apply closes the view
+  after a successful post and polls at once so the row shows the change; a refusal or a failed save keeps the view open
+  with the red message, as now.
+- **Settings height.** While the settings are shown the page reports the height of its own content: the row and its message
+  lines (`#top`) plus the natural height of the settings (`#panel`'s `scrollHeight`), with the view's own `overflow` and
+  flex-fill removed so that nothing scrolls, and the flag `0` (not resizable). The host's fit timer already re-asks every
+  200 ms, so the window follows when a message line appears, grows or goes. The row is part of the sum, which is what was
+  missing when the view was clipped.
+- **Height of the log and the history.** The page remembers `10 × (row and message height)` when the panel opens and reports
+  that constant while it is open, so a message line coming or going no longer moves the window; the panel, which fills
+  the window, absorbs the difference. A drag by the person is respected for the same reason (the report does not change, so
+  the host does not apply it again). Opening again starts from the then-current row height.
+- **Scrollbar.** The page measures the width of a vertical scrollbar once at start (a throw-away `overflow: scroll` box) and
+  sets it as `--scrollbar`; `.panel-lines` always has `overflow-y: scroll`, so the space is reserved whether or not it is
+  needed (not `scrollbar-gutter`, which the WebView's engine may lack). While the log or the history is shown, `#app` is
+  that much wider than the row, the reported width is the row's plus it (the log: three rows plus it), and the table's columns keep
+  their usual width, so the currency is no longer covered. The settings have no scrollbar, so they stay the row's width.
+- **Tests.** `layout.test.cjs`: order and gear, the panel scrolls with reserved space, the settings view has no overflow rule.
+  `app.test.cjs`: Apply posts and closes and polls; a refusal keeps it open; Cancel sends nothing and never asks; the percentage checkbox and
+  Maximum/Minimum; the settings report content height with flag `0` and follow a message line; the history and log report a
+  constant height across a message line and add the scrollbar width. Java: `SettingsStoreTest`, `ApiTest`, `StatusDisplayTest` for the
+  new setting, the tooltip and `show.percentage`. A manual check of the three sizes and the scrollbar by a person.
+
+*Assumed:* a refused or unsaved Apply keeps the view open, since closing would hide the error; the scrollbar's width is
+the platform's, measured, not a fixed 15 px; "the usage view" in the note means both the history and the log.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

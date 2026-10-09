@@ -64,7 +64,7 @@ class StatusDisplayTest {
 
     @Test
     void theTimeFormatSettingCutsTheTime() {
-        Settings seconds = new Settings(60, false, false, false, false, TimeFormat.HOURS_MINUTES_SECONDS, false, false);
+        Settings seconds = new Settings(60, false, false, false, false, false, TimeFormat.HOURS_MINUTES_SECONDS, false, false);
 
         assertEquals("14:24:53", build(state(spend(SPEND), null, null), OptionalLong.empty(), null, seconds).time());
         assertEquals("Last update: 8 Oct 2026, 14:24:53", build(state(spend(SPEND), null, null)).timeTooltip(), "the tooltip always has the seconds");
@@ -74,9 +74,22 @@ class StatusDisplayTest {
     void theTooltipsNameWhatTheNumbersAreAndTheUnitTheResponseGives() {
         StatusDisplay.View v = build(state(spend(SPEND), null, null));
 
-        assertEquals("Credits used, in USD", v.spend().usedTooltip());
-        assertEquals("Credit budget, in USD", v.spend().limitTooltip());
         assertEquals("19% of the budget spent. Severity: normal", v.spend().percentTooltip());
+
+        Settings shown = Settings.defaults().withShowPercentage(true);
+        StatusDisplay.View withPercentage = build(state(spend(SPEND), null, null), OptionalLong.empty(), null, shown);
+        assertEquals("Credits used, in USD", withPercentage.spend().usedTooltip());
+        assertEquals("Credit budget, in USD", withPercentage.spend().limitTooltip());
+    }
+
+    @Test
+    void withThePercentageHiddenTheAmountsNameTheSeverityTheColourStandsFor() {
+        StatusDisplay.View v = build(state(spend(SPEND), null, null));
+
+        assertEquals("Credits used, in USD. Severity: normal", v.spend().usedTooltip());
+        assertEquals("Credit budget, in USD. Severity: normal", v.spend().limitTooltip());
+        assertEquals("normal", v.spend().severityKind(), "and they still carry the colour");
+        assertEquals(false, v.show().percentage());
     }
 
     @Test
@@ -185,9 +198,9 @@ class StatusDisplayTest {
 
     @Test
     void theSettingsSayWhichOptionalItemsAreSwitchedOn() {
-        Settings on = new Settings(60, false, true, true, false, TimeFormat.HOURS_MINUTES, false, false);
+        Settings on = new Settings(60, false, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false);
 
-        assertEquals(new StatusDisplay.Show(true, true, false), build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
-        assertEquals(new StatusDisplay.Show(false, false, false), build(state(spend(SPEND), null, null)).show(), "all off by default");
+        assertEquals(new StatusDisplay.Show(true, true, true, false), build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
+        assertEquals(new StatusDisplay.Show(false, false, false, false), build(state(spend(SPEND), null, null)).show(), "all off by default");
     }
 }

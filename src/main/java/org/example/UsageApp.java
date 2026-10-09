@@ -131,7 +131,7 @@ public class UsageApp extends Application {
         appliedSize = Optional.of(size);
         double width = size.width() + decorationWidth;
         double height = size.height() + decorationHeight;
-        if (!size.resizable()) {
+        if (size.resize() == WindowFit.Resize.NONE) {
             // The window as it is with nothing open: what the person may shrink an open one back to.
             closedWidth = width;
             closedHeight = height;
@@ -146,7 +146,7 @@ public class UsageApp extends Application {
         // The window stays resizable and the limits say what of it the person may change; toggling
         // the window's resizable flag instead is not something every desktop follows.
         switch (size.resize()) {
-            case NONE -> {
+            case NONE, FIXED -> {
                 stage.setMinWidth(width);
                 stage.setMaxWidth(width);
                 stage.setMinHeight(height);

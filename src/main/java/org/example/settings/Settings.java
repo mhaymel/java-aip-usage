@@ -7,6 +7,7 @@ import java.util.List;
  *
  * @param usageIntervalSeconds the time between usage requests; the settings view offers {@link #INTERVAL_CHOICES}
  * @param logResponse whether each response's JSON is written to the log, pretty printed
+ * @param showPercentage whether the percentage spent is in the row
  * @param showInterval whether the time between usage requests is in the row
  * @param showDeltaUsed whether the change in the amount used is in the row
  * @param showDeltaTime whether the time since the previous reading is in the row
@@ -17,6 +18,7 @@ import java.util.List;
 public record Settings(
         int usageIntervalSeconds,
         boolean logResponse,
+        boolean showPercentage,
         boolean showInterval,
         boolean showDeltaUsed,
         boolean showDeltaTime,
@@ -29,16 +31,21 @@ public record Settings(
 
     public static Settings defaults() {
         return new Settings(
-                IntervalRange.USAGE.defaultValue(), false, false, false, false, TimeFormat.HOURS_MINUTES, false, false);
+                IntervalRange.USAGE.defaultValue(), false, false, false, false, false, TimeFormat.HOURS_MINUTES, false, false);
+    }
+
+    public Settings withShowPercentage(boolean on) {
+        return new Settings(usageIntervalSeconds, logResponse, on, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
+                historyDeltaUsed, historyDeltaTime);
     }
 
     public Settings withLogResponse(boolean on) {
-        return new Settings(usageIntervalSeconds, on, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
+        return new Settings(usageIntervalSeconds, on, showPercentage, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime);
     }
 
     public Settings withUsageIntervalSeconds(int seconds) {
-        return new Settings(seconds, logResponse, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
+        return new Settings(seconds, logResponse, showPercentage, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime);
     }
 }

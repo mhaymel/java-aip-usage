@@ -16,7 +16,7 @@ A status strip to keep beside your work: as small as its content, bold readable
 text, local time of day only.
 
 ```
-16:47:59  19%  186.02 / 1,000.00  ⟳ 42 s  ≡
+16:47  186.02 / 1,000.00  ⟳ 42 s  ⚙
 ```
 
 From the left: when the usage was last refreshed, the percentage spent, what has been
@@ -54,12 +54,12 @@ Hover over things to see what they are:
   is longer while the application is backing off after a rate limit, and goes negative
   (`-3 s`) if the refresh is overdue, for example because a request is slow. It is
   empty until the first request has been made.
-- **Settings** (≡) shows the settings in the panel area below the row, like the log and the history: the time
-  between usage requests (a dropdown: 60 to 300 s, default 60), whether the row shows the time between usage requests and the change
+- **Settings** (⚙, at the right-hand end) shows the settings in the panel area below the row, like the log and the history: the time
+  between usage requests (a dropdown: 60 to 300 s, default 60), whether the row shows the percentage spent (off by default), the time between usage requests and the change
   since the previous reading, the time format (`hh:mm` or `hh:mm:ss`), the two matching columns of the history, and
   whether each response's JSON is written to the log. The values are read from the application each time you
-  open it. Nothing takes effect until **Apply**; **Close** asks if there are changes you have not applied;
-  **Restore defaults** fills in the defaults, and **Maximum view** and **Minimum view** switch all the row's
+  open it. Nothing takes effect until **Apply**, which saves them and closes the view; **Cancel** closes it and changes
+  nothing. **Restore defaults** fills in the defaults, and **Maximum view** and **Minimum view** switch all the row's
   optional items on or off together.
 - The title bar reads `aip usage v0.01`. The version is one constant, `AppInfo.VERSION`,
   written by hand and increased by hand when the program changes; it has nothing to do

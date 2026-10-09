@@ -8,8 +8,9 @@ import java.util.regex.Pattern;
  * Decides how big the window should be, from what the page says it needs.
  *
  * <p>The page reports {@code "<width>,<height>"}, optionally followed by {@code ,1} when the window
- * may be resized in height, {@code ,2} when it may be resized in width too, and {@code ,0} when it
- * may not be resized, in CSS pixels, taken from its own
+ * may be resized in height, {@code ,2} when it may be resized in width too, {@code ,0} when it
+ * may not be resized (the window with nothing open), and {@code ,3} when it may not be resized and is
+ * not the window with nothing open either (the settings, which are as tall as their content), in CSS pixels, taken from its own
  * content and not from the window, so resizing the window to match never changes
  * the answer. Everything else is defence: a reading that is not that shape is
  * ignored, a size is kept within sane limits, and a size equal to the one already
@@ -29,20 +30,20 @@ final class WindowFit {
         }
 
         boolean resizable() {
-            return resize != Resize.NONE;
+            return resize == Resize.HEIGHT || resize == Resize.BOTH;
         }
     }
 
     /** What of the window the person may drag. */
     enum Resize {
-        NONE, HEIGHT, BOTH
+        NONE, HEIGHT, BOTH, FIXED
     }
 
     static final Size MIN = new Size(160, 32);
 
     static final Size MAX = new Size(2400, 1600);
 
-    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([012]))?");
+    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([0123]))?");
 
     private WindowFit() {
     }

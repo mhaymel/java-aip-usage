@@ -28,15 +28,6 @@
         <span id="interval" class="delta delta-interval" hidden></span>
         <span id="delta-used" class="delta delta-used" hidden></span>
         <span id="delta-time" class="delta delta-time" hidden></span>
-        <button id="settings-button" class="icon tiny" type="button" aria-label="Show the settings"
-                title="Show the settings" aria-expanded="false">
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7"
-                 stroke-linecap="round" aria-hidden="true">
-                <path d="M2 5h12M2 11h12"/>
-                <circle cx="5.5" cy="5" r="1.9" fill="currentColor"/>
-                <circle cx="10.5" cy="11" r="1.9" fill="currentColor"/>
-            </svg>
-        </button>
 
         <button id="log-button" class="icon tiny" type="button" aria-label="Show the log" title="Show the log"
                 aria-expanded="false">
@@ -52,6 +43,14 @@
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="2" y="2.5" width="12" height="11" rx="1"/>
                 <path d="M2 6.2h12M2 9.8h12M6.4 2.5v11"/>
+            </svg>
+        </button>
+        <button id="settings-button" class="icon tiny" type="button" aria-label="Show the settings"
+                title="Show the settings" aria-expanded="false">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
         </button>
     </div>
@@ -74,6 +73,7 @@
                 </fieldset>
                 <fieldset>
                     <legend>Main view</legend>
+                    <label><input id="set-showPercentage" type="checkbox"> Percentage spent</label>
                     <label><input id="set-showInterval" type="checkbox"> Time between usage requests</label>
                     <label><input id="set-showDeltaUsed" type="checkbox"> Change in the amount used</label>
                     <label><input id="set-showDeltaTime" type="checkbox"> Time since the previous reading</label>
@@ -97,15 +97,10 @@
                     <label><input id="set-logResponse" type="checkbox"> Log the response, pretty printed</label>
                 </fieldset>
             </div>
-            <p id="settings-confirm" class="settings-confirm" role="alert" hidden>
-                Some changes are not applied.
-                <button id="settings-discard" type="button">Discard them</button>
-                <button id="settings-keep" type="button">Keep editing</button>
-            </p>
             <p class="buttons">
                 <button id="settings-apply" type="button">Apply</button>
                 <button id="settings-restore" type="button" title="Fill in the defaults; Apply makes them take effect">Restore defaults</button>
-                <button id="settings-close" type="button">Close</button>
+                <button id="settings-cancel" type="button" title="Close without changing anything">Cancel</button>
             </p>
         </div>
     </div>

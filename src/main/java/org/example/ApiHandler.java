@@ -157,7 +157,7 @@ final class ApiHandler implements HttpHandler {
     }
 
     private static SettingValues toBody(Settings s) {
-        return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showInterval(), s.showDeltaUsed(),
+        return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showPercentage(), s.showInterval(), s.showDeltaUsed(),
                 s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime());
     }
 
@@ -173,6 +173,7 @@ final class ApiHandler implements HttpHandler {
             Settings given = new Settings(
                     usage.intValue(),
                     flag(body, "logResponse"),
+                    flag(body, "showPercentage"),
                     flag(body, "showInterval"),
                     flag(body, "showDeltaUsed"),
                     flag(body, "showDeltaTime"),
@@ -369,6 +370,7 @@ final class ApiHandler implements HttpHandler {
     record SettingValues(
             int usageIntervalSeconds,
             boolean logResponse,
+            boolean showPercentage,
             boolean showInterval,
             boolean showDeltaUsed,
             boolean showDeltaTime,

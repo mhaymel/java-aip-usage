@@ -30,6 +30,7 @@ Every setting as the backend has it, read afresh each time the settings view is 
   "settings": {
     "usageIntervalSeconds": 60,
     "logResponse": false,
+    "showPercentage": false,
     "showInterval": false,
     "showDeltaUsed": false,
     "showDeltaTime": false,
@@ -120,7 +121,7 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
   `limitTooltip`, `severityText`, `severityKind`) for a usage-based account; `windows` (`name`, `utilizationText`,
   `resetsText` such as `in 2 h 5 min`) for a plan account; `placeholder` (`Loading…`, `No data`, `No usage reported`);
   `countdown`, `interval` (the time between usage requests in force, `60 s`), `deltaUsed` and `deltaTime` as
-  `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and `show`, which of `interval`, `deltaUsed` and
+  `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `interval`, `deltaUsed` and
   `deltaTime` the settings switch on (the countdown is always shown). The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language.
 - `change`: what changed between the newest reading (the newest history row that has amounts) and the row
@@ -242,10 +243,14 @@ window.contentSize()   // "400,42,0"
 
 It returns `"<width>,<height>,<resizable>"`: the size in CSS pixels the page needs to show all
 of itself, as whole numbers, and what the person may drag: `0` nothing, `1` the height, `2` the height
-and the width (the last may be left out, meaning `0`). Only while the log or the usage history is
-shown does the page ask for more: the height it reports is then ten times the row's, and for the log
-the width is three times the row's too. Those are the starting point, not the size the window was dragged
-to. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
+and the width, and `3` nothing either, but not the window with nothing open (the last may be left out,
+meaning `0`). While the log or the usage history is shown the page asks for more: a height of ten times
+the row's *as it was when the panel opened*, which it keeps reporting whatever the row does after, so a
+message line coming or going does not move the window; and a width of the row's plus the width of the
+panel's vertical scrollbar, which the page measures and always reserves (three rows plus it for the log).
+Those are the starting point, not the size the window was dragged to. While the settings are shown it
+reports flag `3` and the height of the whole page, the row and its message lines and the settings, so the
+window is exactly as tall as they need, and follows them. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
 resize only what it is told may be. The page measures its own content, never the window, so resizing the
 window to match does not change the answer. The Java host (`WindowFit`) ignores anything that is not that
 shape, keeps the size between 160 x 32 and 2400 x 1600, and does not apply a size twice. A different host,

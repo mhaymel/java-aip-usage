@@ -58,8 +58,8 @@ test('the controls come in the required order, in one strip', () => {
     // Time first, then the percentage, the two amounts (or the plan windows), the refresh button,
     // the countdown, the two changes, the settings button, then the log and history buttons.
     const order = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"', 'id="windows"',
-        'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"', 'id="settings-button"',
-        'id="log-button"', 'id="history-button"'];
+        'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"',
+        'id="log-button"', 'id="history-button"', 'id="settings-button"'];
     const positions = order.map(marker => strip.indexOf(marker));
     positions.forEach((position, i) => assert.ok(position >= 0, 'missing ' + order[i] + ' in the strip'));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions,
@@ -143,11 +143,11 @@ test('the settings view is in the panel area, below the strip, and starts hidden
 });
 
 test('the settings view has the three buttons, the two view buttons and a dropdown for the interval', () => {
-    for (const id of ['settings-apply', 'settings-restore', 'settings-close', 'settings-maximum', 'settings-minimum']) {
+    for (const id of ['settings-apply', 'settings-restore', 'settings-cancel', 'settings-maximum', 'settings-minimum']) {
         assert.match(html, new RegExp('<button[^>]*id="' + id + '"'), id);
     }
     assert.match(html, /<select id="set-usageIntervalSeconds"/);
-    for (const key of ['showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']) {
+    for (const key of ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']) {
         assert.match(html, new RegExp('<input id="set-' + key + '" type="checkbox"'), key);
     }
     assert.match(html, /<select id="set-timeFormat"/);
@@ -169,15 +169,23 @@ test('the hidden attribute really hides, even on elements the stylesheet gives a
     assert.ok(overridden.length > 0, 'at least one hidden element has a display rule, which is why the [hidden] rule is needed: ' + hiddenIds);
 });
 
-test('the log and history buttons are at the right-hand end of the row, after everything else', () => {
+test('the settings button is at the right-hand end of the row, after the log and history buttons, which come after everything else', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     const log = strip.indexOf('id="log-button"');
     const history = strip.indexOf('id="history-button"');
-    assert.ok(log >= 0 && history >= 0, 'both are in the row');
-    for (const earlier of ['id="time"', 'id="percent"', 'id="used"', 'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"', 'id="settings-button"']) {
+    const settings = strip.indexOf('id="settings-button"');
+    assert.ok(log >= 0 && history >= 0 && settings >= 0, 'all three are in the row');
+    for (const earlier of ['id="time"', 'id="percent"', 'id="used"', 'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"']) {
         assert.ok(strip.indexOf(earlier) < log, earlier + ' comes before the log button');
     }
-    assert.ok(log < history, 'the log button, then the history button');
+    assert.ok(log < history && history < settings, 'the log button, the history button, then the settings button');
+});
+
+test('the settings button is a gear: a circle and the toothed outline round it', () => {
+    const button = html.match(/<button[^>]*id="settings-button"[\s\S]*?<\/button>/)[0];
+    assert.match(button, /<circle cx="12" cy="12" r="3"\/>/, 'the hub');
+    assert.match(button, /<path d="M19\.4 15a1\.65/, 'the teeth');
+    assert.doesNotMatch(button, /cx="5\.5"/, 'not the two sliders it used to be');
 });
 
 test('neither the log nor the history is a window: there are no pages for them, and nothing opens a window', () => {
@@ -222,7 +230,7 @@ test('the panel keeps the width of the row and takes the height the window leave
     assert.match(ruleOf('.panel'), /flex:\s*1\b/);
     const box = ruleOf('.panel-lines');
     assert.match(box, /flex:\s*1\b/);
-    assert.match(box, /overflow:\s*auto/);
+    assert.match(box, /overflow-y:\s*scroll/, 'the vertical scrollbar is always there, so its room is always reserved');
     assert.match(box, /min-height:\s*0/, 'a flex child may shrink below its content, or it would not scroll');
     assert.doesNotMatch(box, /(^|[^-])height:\s*\d/, 'no fixed height');
 });
@@ -317,5 +325,17 @@ test('the table header stays at the top of the panel as the rows scroll, and is 
 
 test('a log line is never wrapped: a long one scrolls sideways', () => {
     assert.match(ruleOf('.panel-lines'), /white-space:\s*pre/);
-    assert.match(ruleOf('.panel-lines'), /overflow:\s*auto/);
+    assert.match(ruleOf('.panel-lines'), /overflow-x:\s*auto/);
+});
+
+test('the page measures a scrollbar with a box that always has one, which is never seen', () => {
+    const probe = ruleOf('.scrollbar-probe');
+    assert.match(probe, /overflow:\s*scroll/);
+    assert.match(probe, /visibility:\s*hidden/);
+    assert.match(probe, /position:\s*absolute/);
+});
+
+test('the settings never scroll: the window is as tall as they need', () => {
+    assert.match(ruleOf('.settings'), /overflow:\s*visible/);
+    assert.doesNotMatch(ruleOf('.settings'), /flex:\s*1/);
 });

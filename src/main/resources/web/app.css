@@ -219,9 +219,8 @@ body {
 
 /* The settings: a form in the panel area, in the row's own readable type rather than the log's small one. */
 .settings {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
+    /* Never scrolls: the window is as tall as the settings need. */
+    overflow: visible;
     font: 700 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
     letter-spacing: normal;
 }
@@ -282,8 +281,14 @@ body {
     border-radius: 4px;
 }
 
-.settings-confirm {
-    margin: 2px 0 4px;
+/* Measured by the page to find out how wide a vertical scrollbar is; never seen. */
+.scrollbar-probe {
+    position: absolute;
+    top: -200px;
+    width: 100px;
+    height: 100px;
+    overflow: scroll;
+    visibility: hidden;
 }
 
 /*
@@ -326,7 +331,9 @@ body {
 .panel-lines {
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    /* The vertical scrollbar is always there, so that its room is always reserved and no column is under it. */
+    overflow-x: auto;
+    overflow-y: scroll;
     white-space: pre;
     font-variant-numeric: tabular-nums;
 }

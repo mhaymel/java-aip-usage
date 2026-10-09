@@ -40,6 +40,7 @@ class SettingsStoreTest {
 
         assertEquals(60, d.usageIntervalSeconds());
         assertFalse(d.logResponse());
+        assertFalse(d.showPercentage(), "the percentage is off until switched on");
         assertFalse(d.showInterval());
         assertFalse(d.showDeltaUsed());
         assertFalse(d.showDeltaTime());
@@ -68,7 +69,7 @@ class SettingsStoreTest {
     @Test
     void everySettingComesBackAsSaved() throws IOException {
         SettingsStore store = new SettingsStore(file());
-        Settings all = new Settings(120, true, true, true, true, TimeFormat.HOURS_MINUTES_SECONDS, true, true);
+        Settings all = new Settings(120, true, true, true, true, true, TimeFormat.HOURS_MINUTES_SECONDS, true, true);
 
         store.save(all);
 
@@ -86,13 +87,13 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFileHoldsTheEightSettingsAndNothingElse() throws IOException {
+    void theFileHoldsTheNineSettingsAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
         JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
 
         assertEquals(
-                List.of("usageIntervalSeconds", "logResponse", "showInterval", "showDeltaUsed", "showDeltaTime",
+                List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());

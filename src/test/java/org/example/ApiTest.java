@@ -293,7 +293,7 @@ class ApiTest {
 
     private static String allSettings(int interval, boolean logResponse, String timeFormat) {
         return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
-                + ", \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
+                + ", \"showPercentage\": true, \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
                 + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true}";
     }
 
@@ -306,7 +306,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(8, body.get("settings").size());
+        assertEquals(9, body.get("settings").size());
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertEquals("[60,120,180,240,300]", body.get("intervalChoices").toString());
     }
@@ -751,7 +751,7 @@ class ApiTest {
         };
         AppRuntime app = start(fetch);
         await(() -> history(app).size() >= 2);
-        post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showInterval\": false,"
+        post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showPercentage\": false, \"showInterval\": false,"
                 + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
                 + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false}");
         fail.set(false);

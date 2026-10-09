@@ -38,7 +38,7 @@ final class StatusDisplay {
     }
 
     /** Which optional items of the row are switched on. The countdown is not optional. */
-    record Show(boolean interval, boolean deltaUsed, boolean deltaTime) {
+    record Show(boolean percentage, boolean interval, boolean deltaUsed, boolean deltaTime) {
     }
 
     @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -72,7 +72,7 @@ final class StatusDisplay {
             time = Formatting.time(usage.fetchedAt(), settings.timeFormat(), zone);
             timeTooltip = "Last update: " + Formatting.dateTime(usage.fetchedAt(), zone);
             if (usage.spend() != null) {
-                spend = spend(usage.spend());
+                spend = spend(usage.spend(), settings.showPercentage());
             }
             windows = usage.windows().stream().map(w -> window(w, now)).toList();
             if (spend == null && windows.isEmpty()) {
@@ -100,7 +100,7 @@ final class StatusDisplay {
                 change == null || change.deltaTime() == null ? null
                         : new Tip(change.deltaTimeText(), "Time since the previous reading"),
                 message,
-                new Show(settings.showInterval(), settings.showDeltaUsed(), settings.showDeltaTime()));
+                new Show(settings.showPercentage(), settings.showInterval(), settings.showDeltaUsed(), settings.showDeltaTime()));
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {
@@ -118,7 +118,7 @@ final class StatusDisplay {
      * The numbers carry no currency sign, so the tooltips say what they are and in what unit. The unit
      * is the currency code the response names; without one they say what the numbers are and leave the unit out.
      */
-    private static SpendView spend(Spend spend) {
+    private static SpendView spend(Spend spend, boolean percentShown) {
         String unit = spend.currency() != null && !spend.currency().isEmpty() ? ", in " + spend.currency() : "";
         String percentText = spend.percent() != null ? spend.percent() + "%" : null;
         String severity = spend.severity() == null || spend.severity().isEmpty() ? null : spend.severity();
@@ -128,8 +128,9 @@ final class StatusDisplay {
                         + (severity != null ? ". Severity: " + severity : ""),
                 Formatting.amount(spend.used()),
                 Formatting.amount(spend.limit()),
-                "Credits used" + unit,
-                "Credit budget" + unit,
+                // With the percentage hidden the colour is the only sign of the severity, so the amounts name it.
+                "Credits used" + unit + (!percentShown && severity != null ? ". Severity: " + severity : ""),
+                "Credit budget" + unit + (!percentShown && severity != null ? ". Severity: " + severity : ""),
                 severity,
                 severity == null ? null : Formatting.severityKind(severity));
     }

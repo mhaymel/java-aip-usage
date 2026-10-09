@@ -42,6 +42,8 @@ const WINDOWS_STATUS = {
     },
 };
 
+const scrollbarOf = { width: 0 };
+
 function element(id) {
     const el = {
         id, hidden: HIDDEN_AT_START.has(id), textContent: '', className: '', value: '', title: '', children: [], attrs: {}, listeners: {},
@@ -57,11 +59,14 @@ function element(id) {
     };
     // The page must never hand backend text to the HTML parser.
     Object.defineProperty(el, 'innerHTML', { set() { throw new Error('innerHTML must not be used'); } });
+    Object.defineProperty(el, 'offsetWidth', { get() { return 100; } });
+    Object.defineProperty(el, 'clientWidth', { get() { return 100 - (this.className === 'scrollbar-probe' ? scrollbarOf.width : 0); } });
     return el;
 }
 
 /** Builds a fresh page and backend, loads app.js into them, and returns handles to both. */
-async function load(backend) {
+async function load(backend, options = {}) {
+    scrollbarOf.width = options.scrollbar || 0;
     const elements = new Map(INDEX_IDS.map(id => [id, element(id)]));
     const timers = [];
     const calls = [];
@@ -75,6 +80,8 @@ async function load(backend) {
             return elements.get(id);
         },
         createElement: tag => element('<' + tag + '>'),
+        // Only the scrollbar probe reads these: a box that always has a scrollbar of the width the test gives it.
+        body: { append() {}, removeChild() {} },
     };
     const opened = [];
     global.window = { UsageView: require(path.join(WEB, 'view.js')), open: (...args) => { opened.push(args); } };
@@ -139,7 +146,7 @@ function backendOf(state) {
 }
 
 const DEFAULT_SETTINGS = {
-    usageIntervalSeconds: 60, logResponse: false, showInterval: false, showDeltaUsed: false, showDeltaTime: false,
+    usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false,
 };
 const SETTINGS = {
@@ -799,23 +806,27 @@ test('the view asks the backend every time it is opened, and keeps nothing of it
     assert.equal(page.el('set-showDeltaTime').checked, true);
 });
 
-test('Apply sends every setting together, and nothing else is sent', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+test('Apply sends every setting together, closes the view, and the row follows at once', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
     await page.click('settings-button');
     page.el('set-usageIntervalSeconds').value = '180';
     page.el('set-logResponse').checked = true;
     page.el('set-timeFormat').value = 'hh:mm';
+    const statusCalls = page.calls.filter(c => c.url === '/api/status').length;
 
     await page.click('settings-apply');
 
     assert.equal(settingsPosts(page).length, 1);
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
-        usageIntervalSeconds: 180, logResponse: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
+        usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
-    assert.equal(page.el('settings-view').hidden, false, 'Apply does not close the view');
-    assert.equal(page.el('settings-error').hidden, true);
+    assert.equal(page.el('settings-view').hidden, true, 'Apply closes the view');
+    assert.equal(page.el('panel').hidden, true);
+    assert.equal(page.el('settings-button').title, 'Show the settings');
+    assert.ok(page.calls.filter(c => c.url === '/api/status').length > statusCalls, 'the status is asked for at once, so the row shows the change');
 });
 
 test('changes do nothing until Apply: editing the form sends nothing', async () => {
@@ -846,45 +857,34 @@ test('a setting the backend refuses stays in the form, with the reason in red', 
     assert.equal(page.el('set-usageIntervalSeconds').value, '180', 'what was typed stays');
 });
 
-test('Close with nothing changed closes at once', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('settings-button');
-
-    await page.click('settings-close');
-
-    assert.equal(page.el('panel').hidden, true);
-    assert.equal(page.el('settings-confirm').hidden, true);
-    assert.equal(settingsPosts(page).length, 0);
-});
-
-test('Close with unapplied changes asks first; Keep editing stays, Discard closes without sending', async () => {
+test('Cancel closes the view at once and sends nothing, whatever was edited', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
     page.el('set-logResponse').checked = true;
+    page.el('set-usageIntervalSeconds').value = '300';
 
-    await page.click('settings-close');
-    assert.equal(page.el('settings-confirm').hidden, false, 'it asks');
-    assert.equal(page.el('panel').hidden, false, 'and the view stays');
+    await page.click('settings-cancel');
 
-    await page.click('settings-keep');
-    assert.equal(page.el('settings-confirm').hidden, true);
-    assert.equal(page.el('set-logResponse').checked, true, 'the edit is still there');
-
-    await page.click('settings-close');
-    await page.click('settings-discard');
     assert.equal(page.el('panel').hidden, true);
-    assert.equal(settingsPosts(page).length, 0, 'nothing was sent');
+    assert.equal(page.el('settings-view').hidden, true);
+    assert.equal(settingsPosts(page).length, 0, 'no value is changed');
+    assert.equal(page.el('settings-button').title, 'Show the settings');
 });
 
-test('after Apply there is nothing unapplied, so Close does not ask', async () => {
+test('there is no Close and no question about unapplied edits any more', () => {
+    assert.doesNotMatch(INDEX_HTML, /settings-close|settings-confirm|settings-discard|settings-keep/);
+    assert.match(INDEX_HTML, /id="settings-cancel"[^>]*>Cancel</);
+});
+
+test('what was edited and cancelled is gone when the view is opened again', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
     page.el('set-logResponse').checked = true;
-    await page.click('settings-apply');
+    await page.click('settings-cancel');
 
-    await page.click('settings-close');
+    await page.click('settings-button');
 
-    assert.equal(page.el('panel').hidden, true);
+    assert.equal(page.el('set-logResponse').checked, false, 'what the backend has, not what was typed');
 });
 
 test('Restore defaults fills in the defaults and sends nothing until Apply', async () => {
@@ -909,12 +909,14 @@ test('Maximum view turns every main-view item on and Minimum view off, and nothi
     page.el('set-historyDeltaUsed').checked = true;
 
     await page.click('settings-maximum');
+    assert.equal(page.el('set-showPercentage').checked, true);
     assert.equal(page.el('set-showInterval').checked, true);
     assert.equal(page.el('set-showDeltaUsed').checked, true);
     assert.equal(page.el('set-showDeltaTime').checked, true);
     assert.equal(page.el('set-timeFormat').value, 'hh:mm:ss');
 
     await page.click('settings-minimum');
+    assert.equal(page.el('set-showPercentage').checked, false, 'the minimum view has no percentage');
     assert.equal(page.el('set-showInterval').checked, false);
     assert.equal(page.el('set-showDeltaUsed').checked, false);
     assert.equal(page.el('set-showDeltaTime').checked, false);
@@ -937,11 +939,11 @@ test('if the settings cannot be read the view says so and has no form to edit', 
     assert.equal(page.el('settings-restore').attrs.disabled, '');
 });
 
-test('the settings, the log and the history share the one panel area, and the settings are the size of the history', async () => {
+test('the settings, the log and the history share the one panel area', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
 
     await page.click('settings-button');
-    assert.equal(page.window.contentSize(), '400,420,1', 'ten times as tall as the row (400,42), the width of the row, height only');
+    assert.equal(page.el('settings-view').hidden, false);
 
     await page.click('log-button');
     assert.equal(page.el('settings-view').hidden, true, 'the log replaces the settings');
@@ -952,6 +954,96 @@ test('the settings, the log and the history share the one panel area, and the se
     assert.equal(page.el('settings-view').hidden, false);
     assert.equal(page.el('log-button').title, 'Show the log');
     assert.equal(page.el('panel-lines').hidden, true);
+});
+
+// ---- the window sizes the page asks for
+
+test('with the settings shown the window is exactly as tall as the page needs, the row and its messages included, and cannot be resized', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    page.el('app').rect = { width: 399.2, height: 612.2 };
+
+    await page.click('settings-button');
+
+    assert.equal(page.window.contentSize(), '400,613,3', 'the whole page, rounded up; flag 3: fitted and not resizable');
+    assert.match(page.el('app').className, /\bfit\b/);
+    assert.doesNotMatch(page.el('app').className, /\bopen\b/, 'it does not fill the window, or its height would be the window\'s');
+});
+
+test('the settings window follows the page when a message line appears, grows or goes', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    page.el('app').rect = { width: 399.2, height: 600 };
+    await page.click('settings-button');
+    assert.equal(page.window.contentSize(), '400,600,3');
+
+    // A failed refresh puts a message line in the row: the page is taller by it.
+    page.el('app').rect = { width: 399.2, height: 636 };
+    assert.equal(page.window.contentSize(), '400,636,3');
+
+    page.el('app').rect = { width: 399.2, height: 600 };
+    assert.equal(page.window.contentSize(), '400,600,3', 'and shorter again when it goes');
+});
+
+test('with the history shown the height is what it was when it opened, whatever the main view does after', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+
+    await page.click('history-button');
+    assert.equal(page.window.contentSize(), '400,420,1', 'ten times the row');
+
+    page.el('top').rect = { width: 399.2, height: 77 }; // a message line has come
+    assert.equal(page.window.contentSize(), '400,420,1', 'the window keeps its height; the panel takes the difference');
+
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    assert.equal(page.window.contentSize(), '400,420,1', 'and when it goes');
+});
+
+test('with the log shown the height is fixed the same way, and the width is three rows', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    await page.click('log-button');
+
+    page.el('top').rect = { width: 399.2, height: 90 };
+
+    assert.equal(page.window.contentSize(), '1200,420,2');
+});
+
+test('opening a panel again starts from the row as it is then, not as it was', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    await page.click('history-button');
+    await page.click('history-button');
+    page.el('top').rect = { width: 399.2, height: 60 }; // a message line is showing
+
+    await page.click('history-button');
+
+    assert.equal(page.window.contentSize(), '400,600,1');
+});
+
+test('the window is as wide as the row plus the scrollbar of the history and the log, which is measured, so no column is covered', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+
+    await page.click('history-button');
+    assert.equal(page.window.contentSize(), '415,420,1', '400 and the scrollbar');
+
+    await page.click('log-button');
+    assert.equal(page.window.contentSize(), '1215,420,2', 'three rows and the scrollbar');
+
+    await page.click('settings-button');
+    page.el('app').rect = { width: 399.2, height: 500 };
+    assert.equal(page.window.contentSize(), '400,500,3', 'the settings do not scroll, so they take no room for one');
+});
+
+test('no scrollbar width is added when the platform has none to measure', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 0 });
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+
+    await page.click('history-button');
+
+    assert.equal(page.window.contentSize(), '400,420,1');
 });
 
 // ---- the optional items of the row
@@ -1000,4 +1092,20 @@ test('an item the backend could not work out is left out even though its setting
 
     assert.equal(page.el('delta-used').hidden, true);
     assert.equal(page.el('delta-time').hidden, false);
+});
+
+test('the percentage is in the row only when its setting is on, and the amounts keep their colour either way', async () => {
+    const hidden = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { percentage: false, interval: false, deltaUsed: false, deltaTime: false } } };
+    const state = { config: CONFIG, status: hidden };
+    const page = await load(backendOf(state));
+
+    assert.equal(page.el('percent').hidden, true);
+    assert.equal(page.el('spend').hidden, false, 'the amounts are still there');
+    assert.match(page.el('spend').className, /sev-normal/, 'and still coloured');
+
+    state.status = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false } } };
+    await page.firePoll();
+
+    assert.equal(page.el('percent').hidden, false);
+    assert.equal(page.el('percent').textContent, '19%');
 });

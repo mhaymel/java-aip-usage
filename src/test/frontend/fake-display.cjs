@@ -215,7 +215,7 @@ process.env.TZ = 'UTC';
             display: {
                 time: d.time, timeTooltip: d.timeTooltip, spend: d.spend, windows: d.windows, placeholder: d.placeholder,
                 countdown: d.countdown, interval: { text: '60 s', tooltip: 'Time between usage requests' }, deltaUsed: null, deltaTime: null,
-                show: { interval: false, deltaUsed: false, deltaTime: false }, message: d.message
+                show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false }, message: d.message
             }
         });
     }
