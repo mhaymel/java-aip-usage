@@ -152,10 +152,25 @@
         $('countdown').className = 'countdown' + (v.countdownAlert ? ' alert' : '');
         setNote('alert-note', hoveringCountdown && v.countdownAlert ? v.countdownAlert : '');
         renderOptional('interval', v.show.interval && v.interval);
+        renderButtons(v.show);
         renderOptional('delta-used', v.show.deltaUsed && v.deltaUsed);
         renderOptional('delta-time', v.show.deltaTime && v.deltaTime);
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
+    }
+
+    /**
+     * The buttons of the history, the log and the error log are there when their settings say so; the gear never goes. A panel whose
+     * button has gone is closed, since it could not be opened again.
+     */
+    function renderButtons(show) {
+        var flags = { history: show.historyIcon, log: show.logIcon, errors: show.errorIcon };
+        Object.keys(flags).forEach(function (name) {
+            $(PANELS[name].button).hidden = flags[name] === false;
+            if (flags[name] === false && openPanel === name) {
+                showPanelNamed(null);
+            }
+        });
     }
 
     /** An optional item of the row: shown only when its setting is on and the backend has a value for it. */
@@ -207,7 +222,10 @@
     var settingsShown = null;
     var settingsDefaults = null;
 
-    var SETTING_FLAGS = ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
+    // The setting that switches the button of each panel on and off; the settings have none, as their button is always there.
+    var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon' };
+
+    var SETTING_FLAGS = ['showPercentage', 'showCurrency', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
 
     /**
      * The interval is typed in a box; a dropdown beside it offers the usual values, and picking one fills the box. The box
@@ -301,7 +319,10 @@
             var body = await postJson('/api/settings', readForm());
             settingsShown = body.settings;
             settingsDefaults = body.defaults;
-            // Applied: the view closes and the row shows the change at once.
+            // Applied: the view closes and the row shows the change at once. A panel whose button has just been switched off is not given back.
+            if (returnTo && body.settings[ICON_SETTINGS[returnTo]] === false) {
+                returnTo = null;
+            }
             if (openPanel === 'settings') {
                 togglePanel('settings');
             }
@@ -320,7 +341,7 @@
 
     /** The main-view switches all on, or all off; the form only, until Apply. */
     function setMainView(all) {
-        ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime'].forEach(function (key) {
+        ['showPercentage', 'showCurrency', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showInterval', 'showDeltaUsed', 'showDeltaTime'].forEach(function (key) {
             $('set-' + key).checked = all;
         });
         $('set-timeFormat').value = all ? 'hh:mm:ss' : 'hh:mm';

@@ -293,7 +293,7 @@ class ApiTest {
 
     private static String allSettings(int interval, boolean logResponse, String timeFormat) {
         return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
-                + ", \"showPercentage\": true, \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
+                + ", \"showPercentage\": true, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
                 + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true}";
     }
 
@@ -306,7 +306,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(12, body.get("settings").size());
+        assertEquals(16, body.get("settings").size());
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertEquals("[60,120,180,240,300]", body.get("intervalChoices").toString());
     }
@@ -751,7 +751,7 @@ class ApiTest {
         };
         AppRuntime app = start(fetch);
         await(() -> history(app).size() >= 2);
-        post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showPercentage\": false, \"showInterval\": false,"
+        post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showPercentage\": false, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": false,"
                 + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
                 + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true}");
         fail.set(false);
@@ -775,12 +775,13 @@ class ApiTest {
         JsonNode history = json(get(app, "/api/history"));
 
         assertEquals(6, history.get("columns").size(), "both change columns are on");
-        assertEquals("\u0394 used", history.at("/columns/4").asText());
-        assertEquals("\u0394 time", history.at("/columns/5").asText());
-        assertEquals("+0.05", history.at("/lines/0/cells/4").asText());
-        assertEquals("63 s", history.at("/lines/0/cells/5").asText());
-        assertEquals("", history.at("/lines/1/cells/4").asText(), "the first line of the run has none");
-        assertEquals("", history.at("/lines/1/cells/5").asText());
+        assertEquals("\u0394 used", history.at("/columns/3").asText());
+        assertEquals("\u0394 time", history.at("/columns/4").asText());
+        assertEquals("Cur.", history.at("/columns/5").asText(), "the currency is the right-most column");
+        assertEquals("+0.05", history.at("/lines/0/cells/3").asText());
+        assertEquals("63 s", history.at("/lines/0/cells/4").asText());
+        assertEquals("", history.at("/lines/1/cells/3").asText(), "the first line of the run has none");
+        assertEquals("", history.at("/lines/1/cells/4").asText());
 
         JsonNode change = json(get(app, "/api/status")).get("change");
         assertEquals(63, change.get("delta_time").asInt());
@@ -820,9 +821,9 @@ class ApiTest {
 
         assertEquals(6, on.get("columns").size());
         // FakeFetch answers the same amount twice: no change, so the cell is empty, never 0.00.
-        assertEquals("", on.at("/lines/0/cells/4").asText());
-        assertTrue(on.at("/lines/0/cells/5").asText().endsWith(" s"), "the time is in seconds");
-        assertEquals("", on.at("/lines/1/cells/4").asText(), "the first line of the run");
+        assertEquals("", on.at("/lines/0/cells/3").asText());
+        assertTrue(on.at("/lines/0/cells/4").asText().endsWith(" s"), "the time is in seconds");
+        assertEquals("", on.at("/lines/1/cells/3").asText(), "the first line of the run");
     }
 
     @Test
@@ -957,6 +958,75 @@ class ApiTest {
     }
 
     @Test
+    void theCurrencyIsTheRightMostColumnWithTheChangeColumnsBetweenTheBudgetAndIt() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,10.00,1000.00,EUR,start,60,400",
+                "2026-10-08 14:01:00,10.05,1000.00,EUR,,60,400");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+
+        JsonNode none = json(get(app, "/api/history"));
+        assertEquals(java.util.List.of("time", "used", "limit", "Cur."), titles(none));
+        assertEquals("EUR", none.at("/lines/0/cells/3").asText(), "other currencies keep their code");
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm")
+                .replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true")
+                .replace("\"historyDeltaTime\": true", "\"historyDeltaTime\": false"));
+        JsonNode one = json(get(app, "/api/history"));
+        assertEquals(java.util.List.of("time", "used", "limit", "\u0394 used", "Cur."), titles(one));
+        assertEquals("+0.05", one.at("/lines/0/cells/3").asText());
+        assertEquals("EUR", one.at("/lines/0/cells/4").asText());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
+        JsonNode both = json(get(app, "/api/history"));
+        assertEquals(java.util.List.of("time", "used", "limit", "\u0394 used", "\u0394 time", "Cur."), titles(both));
+        assertEquals("60 s", both.at("/lines/0/cells/4").asText());
+        assertEquals("EUR", both.at("/lines/0/cells/5").asText());
+    }
+
+    @Test
+    void usDollarsAreADollarSignInTheHistoryAndAFailedLineHasNoCurrency() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:00,,,,failed,60,5000");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+
+        JsonNode lines = json(get(app, "/api/history")).get("lines");
+
+        assertEquals("$", lines.get(1).at("/cells/3").asText());
+        assertEquals("", lines.get(0).at("/cells/3").asText());
+    }
+
+    private static java.util.List<String> titles(JsonNode history) {
+        java.util.List<String> titles = new java.util.ArrayList<>();
+        history.get("columns").forEach(c -> titles.add(c.asText()));
+        return titles;
+    }
+
+    @Test
+    void theRowsAmountsHaveTheSymbolWhenItIsSwitchedOnAndTheIconFlagsFollowTheSettings() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> app.service().state().snapshot() != null);
+        assertEquals("186.02", json(get(app, "/api/status")).at("/display/spend/used").asText());
+        assertTrue(json(get(app, "/api/status")).at("/display/show/historyIcon").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm")
+                .replace("\"showCurrency\": false", "\"showCurrency\": true")
+                .replace("\"showLogIcon\": true", "\"showLogIcon\": false"));
+        JsonNode display = json(get(app, "/api/status")).get("display");
+
+        assertEquals("$186.02", display.at("/spend/used").asText());
+        assertEquals("$1,000.00", display.at("/spend/limit").asText());
+        assertTrue(display.at("/show/currency").asBoolean());
+        assertFalse(display.at("/show/logIcon").asBoolean());
+        assertTrue(display.at("/show/historyIcon").asBoolean());
+        assertTrue(display.at("/show/errorIcon").asBoolean());
+    }
+
+    @Test
     void everythingIsShownByDefaultAndTheNoteSaysNothing() throws Exception {
         writeMixedHistory();
 
@@ -1006,10 +1076,10 @@ class ApiTest {
 
         // Shown, newest first: 14:06 (10.20), 14:04 (10.05), 14:02 (10.05), 14:00 (start, 10.00). The columns end with the change in the amount; the time is
         // not switched on here, so the change is the last cell.
-        assertEquals("+0.15", lines.get(0).at("/cells/4").asText(), "against 14:04, the previous line shown");
-        assertEquals("", lines.get(1).at("/cells/4").asText(), "14:04 is the same as 14:02 shown before it: no change to show");
-        assertEquals("+0.05", lines.get(2).at("/cells/4").asText(), "14:02 against 14:00, the line before it");
-        assertEquals("", lines.get(3).at("/cells/4").asText(), "the first line of the run");
+        assertEquals("+0.15", lines.get(0).at("/cells/3").asText(), "against 14:04, the previous line shown");
+        assertEquals("", lines.get(1).at("/cells/3").asText(), "14:04 is the same as 14:02 shown before it: no change to show");
+        assertEquals("+0.05", lines.get(2).at("/cells/3").asText(), "14:02 against 14:00, the line before it");
+        assertEquals("", lines.get(3).at("/cells/3").asText(), "the first line of the run");
     }
 
     @Test
@@ -1022,7 +1092,7 @@ class ApiTest {
 
         JsonNode history = json(get(app, "/api/history"));
 
-        int time = history.get("columns").size() - 1;
+        int time = history.get("columns").size() - 2;
         // 14:06 against 14:04: 120 s. 14:04 against 14:02, the failed 14:03 being hidden between them: 120 s, not 60 s.
         assertEquals("120 s", history.at("/lines/0/cells/" + time).asText());
         assertEquals("120 s", history.at("/lines/1/cells/" + time).asText());
@@ -1040,7 +1110,7 @@ class ApiTest {
 
         // The start-failed line is hidden. 15:01 would have been compared with 14:01 across the two runs; it is not.
         assertEquals("15:01:00", lines.get(0).at("/cells/0").asText());
-        assertEquals("", lines.get(0).at("/cells/4").asText(), "no change across a run that began, hidden or not");
+        assertEquals("", lines.get(0).at("/cells/3").asText(), "no change across a run that began, hidden or not");
         assertFalse(lines.get(0).get("start").asBoolean(), "and it is not itself a start line");
     }
 
@@ -1117,7 +1187,7 @@ class ApiTest {
         JsonNode lines = json(get(app, "/api/history")).get("lines");
 
         // Newest first; the columns are time, used, limit, Cur., then the time (allSettings turns it on, and the amount's change off).
-        int time = json(get(app, "/api/history")).get("columns").size() - 1;
+        int time = json(get(app, "/api/history")).get("columns").size() - 2;
         assertEquals("3600 s", lines.get(0).at("/cells/" + time).asText(), "an hour, in seconds");
         assertEquals("126 s", lines.get(1).at("/cells/" + time).asText(), "two minutes and six seconds");
         assertEquals("63 s", lines.get(2).at("/cells/" + time).asText());
@@ -1139,9 +1209,9 @@ class ApiTest {
         JsonNode lines = json(get(app, "/api/history")).get("lines");
 
         // Newest first: no change, then +0.05, then the first line of the run.
-        assertEquals("", lines.get(0).at("/cells/4").asText(), "a change of zero says nothing");
-        assertEquals("+0.05", lines.get(1).at("/cells/4").asText());
-        assertEquals("60 s", lines.get(0).at("/cells/5").asText(), "the time is shown whatever it is");
+        assertEquals("", lines.get(0).at("/cells/3").asText(), "a change of zero says nothing");
+        assertEquals("+0.05", lines.get(1).at("/cells/3").asText());
+        assertEquals("60 s", lines.get(0).at("/cells/4").asText(), "the time is shown whatever it is");
     }
 
     @Test
@@ -1261,7 +1331,7 @@ class ApiTest {
         assertEquals("14:25:53", history.at("/lines/1/cells/0").asText());
         assertEquals("186.12", history.at("/lines/0/cells/1").asText());
         assertEquals("1000.00", history.at("/lines/0/cells/2").asText());
-        assertEquals("USD", history.at("/lines/0/cells/3").asText());
+        assertEquals("$", history.at("/lines/0/cells/3").asText(), "US dollars as the symbol");
         assertFalse(history.get("wide").asBoolean());
         assertTrue(history.get("note").isNull(), "everything is shown, so there is nothing to say");
     }

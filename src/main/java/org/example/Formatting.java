@@ -93,6 +93,22 @@ final class Formatting {
         return amount == null ? DASH : decimal("#,##0.00").format(amount);
     }
 
+    /**
+     * The symbol that goes before an amount of this currency in the row: {@code $} for US dollars, and for any other currency its code
+     * and a space ({@code EUR }); nothing when the response named no currency.
+     */
+    static String currencySymbol(String code) {
+        if (code == null || code.isBlank()) {
+            return "";
+        }
+        return code.equals("USD") ? "$" : code + " ";
+    }
+
+    /** What the history's currency column shows: {@code $} for US dollars, the code for any other currency, nothing for none. */
+    static String historyCurrency(String code) {
+        return currencySymbol(code).strip();
+    }
+
     /** A change in an amount, with its sign: {@code +0.05}, {@code -0.05}, {@code 0.00}. */
     static String signedAmount(BigDecimal change) {
         BigDecimal rounded = change.setScale(2, java.math.RoundingMode.HALF_UP);

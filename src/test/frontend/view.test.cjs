@@ -47,7 +47,8 @@ test('a status with no display shows nothing and every optional item off', () =>
     assert.equal(v.time, null);
     assert.equal(v.spend, null);
     assert.deepEqual(v.windows, []);
-    assert.deepEqual(v.show, { percentage: false, interval: false, deltaUsed: false, deltaTime: false });
+    assert.deepEqual(v.show, { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true },
+        'the buttons are there until the backend says otherwise');
 });
 
 test('windows, placeholder and message are passed on as the backend wrote them', () => {

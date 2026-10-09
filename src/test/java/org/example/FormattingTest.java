@@ -114,4 +114,22 @@ class FormattingTest {
         assertEquals("other", Formatting.severityKind("constructor"));
         assertEquals("other", Formatting.severityKind(null));
     }
+
+    @Test
+    void theCurrencySymbolIsADollarSignForDollarsAndTheCodeAndASpaceForAnythingElse() {
+        assertEquals("$", Formatting.currencySymbol("USD"));
+        assertEquals("EUR ", Formatting.currencySymbol("EUR"));
+        assertEquals("CHF ", Formatting.currencySymbol("CHF"));
+        assertEquals("", Formatting.currencySymbol(null), "no currency named");
+        assertEquals("", Formatting.currencySymbol(""));
+        assertEquals("", Formatting.currencySymbol("  "));
+    }
+
+    @Test
+    void theHistorysCurrencyIsADollarSignForDollarsAndTheBareCodeForAnythingElse() {
+        assertEquals("$", Formatting.historyCurrency("USD"));
+        assertEquals("EUR", Formatting.historyCurrency("EUR"));
+        assertEquals("", Formatting.historyCurrency(null));
+        assertEquals("", Formatting.historyCurrency(""));
+    }
 }

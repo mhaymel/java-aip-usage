@@ -175,7 +175,8 @@ final class ApiHandler implements HttpHandler {
     }
 
     private static SettingValues toBody(Settings s) {
-        return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showPercentage(), s.showInterval(), s.showDeltaUsed(),
+        return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showPercentage(), s.showCurrency(), s.showHistoryIcon(), s.showLogIcon(),
+                s.showErrorIcon(), s.showInterval(), s.showDeltaUsed(),
                 s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate(),
                 s.historyZeroLines(), s.historyFailedLines());
     }
@@ -193,6 +194,10 @@ final class ApiHandler implements HttpHandler {
                     usage.intValue(),
                     flag(body, "logResponse"),
                     flag(body, "showPercentage"),
+                    flag(body, "showCurrency"),
+                    flag(body, "showHistoryIcon"),
+                    flag(body, "showLogIcon"),
+                    flag(body, "showErrorIcon"),
                     flag(body, "showInterval"),
                     flag(body, "showDeltaUsed"),
                     flag(body, "showDeltaTime"),
@@ -265,14 +270,16 @@ final class ApiHandler implements HttpHandler {
             Settings now = settings.current();
             HistoryReader.Table table = HistoryReader.read(
                     files.history(), HISTORY_ROWS, new HistoryReader.Filter(now.historyZeroLines(), now.historyFailedLines()));
+            // The currency is the right-most column; the change columns, when they are on, sit between the budget and it.
             List<String> columns = new java.util.ArrayList<>(List.of(
-                    now.historyDate() ? "date time" : "time", "used", "limit", "Cur."));
+                    now.historyDate() ? "date time" : "time", "used", "limit"));
             if (now.historyDeltaUsed()) {
                 columns.add("\u0394 used");
             }
             if (now.historyDeltaTime()) {
                 columns.add("\u0394 time");
             }
+            columns.add("Cur.");
             List<HistoryLine> lines = new java.util.ArrayList<>();
             for (int i = 0; i < table.rows().size(); i++) {
                 List<String> row = table.rows().get(i);
@@ -282,14 +289,15 @@ final class ApiHandler implements HttpHandler {
                 List<String> cells = new java.util.ArrayList<>(List.of(
                         historyTime(row.get(0), now.historyDate()),
                         failed ? "failed" : row.get(1),
-                        row.get(2),
-                        row.get(3)));
+                        row.get(2)));
                 if (now.historyDeltaUsed()) {
                     cells.add(delta.deltaUsedText() == null ? "" : delta.deltaUsedText());
                 }
                 if (now.historyDeltaTime()) {
                     cells.add(delta.deltaSecondsText() == null ? "" : delta.deltaSecondsText());
                 }
+                // US dollars as $, any other currency by its code.
+                cells.add(Formatting.historyCurrency(row.get(3)));
                 lines.add(new HistoryLine(cells, start, failed, start ? START_TOOLTIP : ""));
             }
             return new HistoryBody(
@@ -475,6 +483,10 @@ final class ApiHandler implements HttpHandler {
             int usageIntervalSeconds,
             boolean logResponse,
             boolean showPercentage,
+            boolean showCurrency,
+            boolean showHistoryIcon,
+            boolean showLogIcon,
+            boolean showErrorIcon,
             boolean showInterval,
             boolean showDeltaUsed,
             boolean showDeltaTime,

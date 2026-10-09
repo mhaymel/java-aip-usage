@@ -1268,6 +1268,39 @@ Tests: `layout.test.cjs` (the label rule, the texts, the two ids), `app.test.cjs
 *Assumed:* a hidden start row is the one case where the first shown line of a run is not itself a start line (it just has no changes); "zero usage" is decided on the whole file before hiding, so switching the failed lines off does not turn a line after a
 failed one into a zero usage line; the counts in the note are of lines, not rows of the file with the header; the note is plain text with the thousands separator of the amounts.
 
+### 32. Optional view icons, a currency symbol, and the currency last in the history
+
+**Status: done (version 0.18); the narrower row with icons off, the symbol in the row and the table order are for a person to judge.** Built as planned. `Settings` got four `with...` helpers for the tests; the page keeps the settings that
+switch each panel's button in `ICON_SETTINGS` and uses the settings of the Apply response to decide whether a panel is given back. Requirements: The row (items 3, 8 to 11), Settings (the four new switches, Maximum and Minimum view, the texts), The usage history panel (column order, `$`).
+
+**A. Four settings.** `Settings` gets `showCurrency` (default `false`) and `showHistoryIcon`, `showLogIcon`, `showErrorIcon` (default `true`) after `showPercentage`; `SettingsStore` reads, validates
+and writes them (`showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`); `/api/settings` carries them and `POST` requires them. The positional `new Settings(...)` calls in the tests get four more
+arguments, and `allSettings` in `ApiTest` the four keys (16 settings in all). Tests: `SettingsStoreTest` (defaults, round trip, file keys in order), `ApiTest` (the body has them).
+
+**B. The backend.**
+- `Formatting.currencySymbol(String code)`: `"USD"` gives `"$"`, no code or an empty one gives `""`, any other code gives itself followed by a space (`"EUR "`). One place for the rule, used by the row and by the history.
+- `StatusDisplay`: when `showCurrency` is on, `spend.used` and `spend.limit` are the symbol plus the amount (`$186.02`, `EUR 1,000.00`); an amount that is missing (the dash) gets no symbol; tooltips are unchanged. `Show` gets
+  `currency`, `historyIcon`, `logIcon`, `errorIcon` so that the page knows which buttons there are. Tests: `StatusDisplayTest` (USD, EUR, none, a missing amount, off by default, the flags), `FormattingTest`.
+- `ApiHandler.history`: the cells and the titles are built in the new order, `time`, `used`, `limit`, then `Δ used` and `Δ time` when on, and **the currency last** (`Cur.`); the currency cell is `$` for USD and the code
+  otherwise (`Formatting.currencySymbol(...).trim()` for the history, which wants `$` or the bare code), empty when none. Tests: `ApiTest` (the order with none, one and both change columns, `$` and `EUR` cells, the title `Cur.`).
+
+**C. The page.**
+- `index.html`: nothing new; `app.js` `render` shows or hides `history-button`, `log-button` and `errors-button` from `display.show` (`show(id, flag)`; the gear is never touched); `view.js` passes the flags on (default on, so the buttons are there before the first
+  status, as the settings default says). If the open panel's button goes (another client changed it), the panel is closed through `showPanelNamed(null)`.
+- Leaving the settings: `applySettings` has the new settings in the response, so before `togglePanel('settings')` it clears `returnTo` when the icon of that panel is off in them; Cancel changes no setting and returns as before. Tests: `app.test.cjs` (each button hidden by its flag,
+  the gear always there, the panel closes if its button goes, Apply does not give back a panel whose icon was switched off, Cancel does, `fake-display.cjs` gets the flags).
+- CSS grids for the history: `cols-5` becomes `minmax(8ch, 1fr) 10ch 10ch 9ch 5ch` and `cols-6` `minmax(8ch, 1fr) 10ch 10ch 9ch 8ch 5ch` (with the `date` variants), so the currency stays the right-most column and a change column sits between `limit` and it
+  (the one change column of `cols-5` is 9ch whichever it is); `cols-4` is as it was. `layout.test.cjs` has the track lists checked again.
+
+**D. The settings view.** `index.html`: under `Main view` the checkboxes `Currency symbol`, `History icon`, `Log icon`, `Error log icon` (`set-showCurrency`, `set-showHistoryIcon`, `set-showLogIcon`, `set-showErrorIcon`); `app.js`: the four ids in
+`SETTING_FLAGS`, and `setMainView(all)` sets them too (Maximum on, Minimum off); Restore defaults fills `false` and three `true` from the defaults the backend sends. Tests: `layout.test.cjs` (the ids and texts, in the Main view group), `app.test.cjs` (posted, Maximum and Minimum,
+Restore defaults).
+
+**Docs.** `api.md` (the settings, the `show` flags, the history's cell order and `$`), README (the icons, the symbol, the order), the manual checks (icons off and the window narrowing, the symbol in the row, the table order).
+
+*Assumed:* Maximum view also turns the currency symbol on and Minimum off (the requirements say so); the three buttons are visible before the first status arrives and are hidden by the first one that says otherwise, a flicker of one poll
+for people who switched them off; the history shows `$` only for USD and the bare code for other currencies, while the row shows the code with a space, as asked.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

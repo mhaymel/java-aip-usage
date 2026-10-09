@@ -147,7 +147,8 @@ function backendOf(state) {
 }
 
 const DEFAULT_SETTINGS = {
-    usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showInterval: false, showDeltaUsed: false, showDeltaTime: false,
+    usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true,
+    showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
 };
 const SETTINGS = {
@@ -880,7 +881,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
 
     assert.equal(settingsPosts(page).length, 1);
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
-        usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
+        usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
@@ -1651,4 +1652,142 @@ test('Maximum view and Minimum view leave the two history lines alone', async ()
 
     assert.equal(page.el('set-historyZeroLines').checked, false);
     assert.equal(page.el('set-historyFailedLines').checked, true);
+});
+
+// ---- the buttons of the history, log and error log can be switched off; the gear never goes
+
+const withShow = (status, show) => ({ ...status, display: { ...status.display, show: { percentage: false, interval: false, deltaUsed: false, deltaTime: false, ...show } } });
+const ALL_ICONS = { historyIcon: true, logIcon: true, errorIcon: true };
+
+test('every button is there when the backend says all three are on', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, ALL_ICONS) }));
+
+    for (const id of ['log-button', 'history-button', 'errors-button', 'settings-button']) {
+        assert.equal(page.el(id).hidden, false, id);
+    }
+});
+
+test('each button goes when its own flag is off, and the others stay', async () => {
+    for (const [flag, id] of [['historyIcon', 'history-button'], ['logIcon', 'log-button'], ['errorIcon', 'errors-button']]) {
+        const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { ...ALL_ICONS, [flag]: false }) }));
+
+        for (const other of ['log-button', 'history-button', 'errors-button']) {
+            assert.equal(page.el(other).hidden, other === id, flag + ' / ' + other);
+        }
+        assert.equal(page.el('settings-button').hidden, false, 'the gear is always there');
+    }
+});
+
+test('with all three off only the gear is left, and it still opens the settings', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { historyIcon: false, logIcon: false, errorIcon: false }) }));
+
+    for (const id of ['log-button', 'history-button', 'errors-button']) {
+        assert.equal(page.el(id).hidden, true, id);
+    }
+    await page.click('settings-button');
+    assert.equal(page.el('settings-view').hidden, false);
+});
+
+test('a button that was off comes back at the next poll when it is switched on', async () => {
+    const state = { config: CONFIG, status: withShow(WITH_CHANGE, { ...ALL_ICONS, logIcon: false }) };
+    const page = await load(backendOf(state));
+    assert.equal(page.el('log-button').hidden, true);
+
+    state.status = withShow(WITH_CHANGE, ALL_ICONS);
+    await page.firePoll();
+
+    assert.equal(page.el('log-button').hidden, false);
+});
+
+test('a panel whose button goes while it is shown is closed, since it could not be opened again', async () => {
+    const state = { config: CONFIG, status: withShow(WITH_CHANGE, ALL_ICONS) };
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+    assert.equal(page.el('panel').hidden, false);
+
+    state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, historyIcon: false });
+    await page.firePoll();
+
+    assert.equal(page.el('panel').hidden, true);
+    assert.equal(page.el('history-button').hidden, true);
+});
+
+test('Apply that switches off the button of the panel the settings would give back gives nothing back; Cancel still does', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('history-button');
+    await page.click('settings-button');
+    page.el('set-showHistoryIcon').checked = false;
+
+    await page.click('settings-apply');
+
+    assert.equal(page.el('panel').hidden, true, 'the history is not shown again');
+    assert.equal(page.el('settings-view').hidden, true);
+
+    await page.click('log-button');
+    await page.click('settings-button');
+    page.el('set-showHistoryIcon').checked = false;
+    await page.click('settings-cancel');
+    assert.equal(page.el('log-button').title, 'Hide the log', 'Cancel changes nothing, so the log comes back');
+});
+
+test('Apply that switches off a different panel\'s button still gives the earlier panel back', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('history-button');
+    await page.click('settings-button');
+    page.el('set-showLogIcon').checked = false;
+
+    await page.click('settings-apply');
+
+    assert.equal(page.el('history-button').title, 'Hide the usage history');
+});
+
+test('the four new switches are in the form, posted, and Restore defaults gives the defaults back', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.el('set-showCurrency').checked, false, 'the symbol is off by default');
+    for (const id of ['set-showHistoryIcon', 'set-showLogIcon', 'set-showErrorIcon']) {
+        assert.equal(page.el(id).checked, true, id);
+    }
+
+    page.el('set-showCurrency').checked = true;
+    page.el('set-showErrorIcon').checked = false;
+    await page.click('settings-apply');
+    const sent = JSON.parse(settingsPosts(page)[0].body);
+    assert.equal(sent.showCurrency, true);
+    assert.equal(sent.showErrorIcon, false);
+    assert.equal(sent.showHistoryIcon, true);
+
+    await page.click('settings-button');
+    page.el('set-showCurrency').checked = true;
+    page.el('set-showLogIcon').checked = false;
+    await page.click('settings-restore');
+    assert.equal(page.el('set-showCurrency').checked, false);
+    assert.equal(page.el('set-showLogIcon').checked, true);
+});
+
+test('Maximum view turns the symbol and the three icons on, Minimum view turns them off, and neither touches the history or the log', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-historyDate').checked = true;
+    page.el('set-logResponse').checked = true;
+
+    await page.click('settings-minimum');
+    for (const id of ['set-showCurrency', 'set-showHistoryIcon', 'set-showLogIcon', 'set-showErrorIcon', 'set-showPercentage', 'set-showInterval']) {
+        assert.equal(page.el(id).checked, false, 'minimum: ' + id);
+    }
+    await page.click('settings-maximum');
+    for (const id of ['set-showCurrency', 'set-showHistoryIcon', 'set-showLogIcon', 'set-showErrorIcon', 'set-showPercentage', 'set-showInterval']) {
+        assert.equal(page.el(id).checked, true, 'maximum: ' + id);
+    }
+    assert.equal(page.el('set-historyDate').checked, true, 'the history is left alone');
+    assert.equal(page.el('set-logResponse').checked, true, 'so is the log setting');
+});
+
+test('the amounts are shown as the backend gives them, with or without the symbol', async () => {
+    const status = withShow(WITH_CHANGE, ALL_ICONS);
+    status.display = { ...status.display, spend: { ...status.display.spend, used: '$186.02', limit: '$1,000.00' } };
+    const page = await load(backendOf({ config: CONFIG, status }));
+
+    assert.equal(page.el('used').textContent, '$186.02');
+    assert.equal(page.el('limit').textContent, '$1,000.00');
 });

@@ -32,6 +32,10 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "usageIntervalSeconds": 60,
     "logResponse": false,
     "showPercentage": false,
+    "showCurrency": false,
+    "showHistoryIcon": true,
+    "showLogIcon": true,
+    "showErrorIcon": true,
     "showInterval": false,
     "showDeltaUsed": false,
     "showDeltaTime": false,
@@ -129,8 +133,9 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
   `resetsText` such as `in 2 h 5 min`) for a plan account; `placeholder` (`Loading…`, `No data`, `No usage reported`);
   `countdown` (with `countdownAlert`, the message of an HTTP 429, which makes the countdown red and is shown when it is hovered; the 429
   has no `message`), `interval` (the time between usage requests in force, `60 s`), `deltaUsed` and `deltaTime` as
-  `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `interval`, `deltaUsed` and
-  `deltaTime` the settings switch on (the countdown is always shown). The raw values above stay for
+  `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
+  `deltaTime` the settings switch on (the countdown is always shown), and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
+  the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language.
 - `change`: what changed between the newest reading (the newest history row that has amounts) and the row
   directly before it in the history file, worked out by the backend; `null` when there is no usage or no
@@ -197,20 +202,20 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
 {
   "file": "java-aip-usage.csv",
   "exists": true,
-  "columns": ["time", "used", "limit", "Cur.", "\u0394 used", "\u0394 time"],
+  "columns": ["time", "used", "limit", "\u0394 used", "\u0394 time", "Cur."],
   "wide": false,
   "note": "Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.",
   "total": 1500,
   "lines": [
-    { "cells": ["16:46:11", "260.66", "1000.00", "USD", "+0.05", "63 s"], "start": false, "failed": false, "title": "" },
-    { "cells": ["16:44:08", "failed", "", "", "", "121 s"], "start": false, "failed": true, "title": "" },
-    { "cells": ["16:42:07", "260.61", "1000.00", "USD", "", ""], "start": true, "failed": false, "title": "The program started here" }
+    { "cells": ["16:46:11", "260.66", "1000.00", "+0.05", "63 s", "$"], "start": false, "failed": false, "title": "" },
+    { "cells": ["16:44:08", "failed", "", "", "121 s", ""], "start": false, "failed": true, "title": "" },
+    { "cells": ["16:42:07", "260.61", "1000.00", "", "", "$"], "start": true, "failed": false, "title": "The program started here" }
   ]
 }
 ```
 
-- `columns`: the titles, in the order of the `cells`: the time (`time`, or `date time` when the date setting is on), `used`, `limit`, the currency (`Cur.`; its cells keep the
-  code, `USD`), and, when their settings are on, `\u0394 used` and `\u0394 time`.
+- `columns`: the titles, in the order of the `cells`: the time (`time`, or `date time` when the date setting is on), `used`, `limit`, when their settings are on `\u0394 used` and `\u0394 time`, and
+  last, the right-most column, the currency (`Cur.`). The currency cells are `$` for US dollars and the bare code for any other currency (`EUR`), empty when there is none.
 - `lines`: the newest 1,000 of the lines that are shown, **sorted by the date and time, latest first** (not merely the file reversed, so a file that is out of order is still right; of two
   with the same time, the one written later is first). Each has `cells` (the strings of the table, an empty cell empty: the time as the setting says, `failed` in the place of the amount of a
   failed line, `\u0394 used` with its sign and empty for no change or for a change of zero, `\u0394 time` in whole seconds, `63 s`, never minutes), `start` (it is the first line of a run),

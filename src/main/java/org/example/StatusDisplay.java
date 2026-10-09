@@ -38,7 +38,9 @@ final class StatusDisplay {
     }
 
     /** Which optional items of the row are switched on. The countdown is not optional. */
-    record Show(boolean percentage, boolean interval, boolean deltaUsed, boolean deltaTime) {
+    record Show(
+            boolean percentage, boolean currency, boolean interval, boolean deltaUsed, boolean deltaTime,
+            boolean historyIcon, boolean logIcon, boolean errorIcon) {
     }
 
     @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -73,7 +75,7 @@ final class StatusDisplay {
             time = Formatting.time(usage.fetchedAt(), settings.timeFormat(), zone);
             timeTooltip = "Last update: " + Formatting.dateTime(usage.fetchedAt(), zone);
             if (usage.spend() != null) {
-                spend = spend(usage.spend());
+                spend = spend(usage.spend(), settings.showCurrency());
             }
             windows = usage.windows().stream().map(w -> window(w, now)).toList();
             if (spend == null && windows.isEmpty()) {
@@ -103,7 +105,9 @@ final class StatusDisplay {
                 change == null || change.deltaTime() == null ? null
                         : new Tip(change.deltaTimeText(), "Time since the previous reading"),
                 message,
-                new Show(settings.showPercentage(), settings.showInterval(), settings.showDeltaUsed(), settings.showDeltaTime()));
+                new Show(
+                        settings.showPercentage(), settings.showCurrency(), settings.showInterval(), settings.showDeltaUsed(),
+                        settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon()));
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {
@@ -117,11 +121,17 @@ final class StatusDisplay {
                 "Change in the amount used since the previous reading" + currency);
     }
 
+    /** An amount as the row shows it: the plain number, or with the currency symbol before it if that is switched on; a missing amount has none. */
+    private static String amountText(Double amount, String currency, boolean withSymbol) {
+        String text = Formatting.amount(amount);
+        return withSymbol && amount != null ? Formatting.currencySymbol(currency) + text : text;
+    }
+
     /**
-     * The numbers carry no currency sign, so the tooltips say what they are and in what unit. The unit
+     * The numbers carry no currency sign unless that is switched on, so the tooltips say what they are and in what unit. The unit
      * is the currency code the response names; without one they say what the numbers are and leave the unit out.
      */
-    private static SpendView spend(Spend spend) {
+    private static SpendView spend(Spend spend, boolean withSymbol) {
         String unit = spend.currency() != null && !spend.currency().isEmpty() ? ", in " + spend.currency() : "";
         String percentText = spend.percent() != null ? spend.percent() + "%" : null;
         String severity = spend.severity() == null || spend.severity().isEmpty() ? null : spend.severity();
@@ -129,8 +139,8 @@ final class StatusDisplay {
                 percentText,
                 (percentText != null ? percentText + " of the budget spent" : "Share of the budget spent")
                         + (severity != null ? ". Severity: " + severity : ""),
-                Formatting.amount(spend.used()),
-                Formatting.amount(spend.limit()),
+                amountText(spend.used(), spend.currency(), withSymbol),
+                amountText(spend.limit(), spend.currency(), withSymbol),
                 "Credits used" + unit,
                 "Credit budget" + unit,
                 severity,

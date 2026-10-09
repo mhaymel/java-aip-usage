@@ -44,6 +44,10 @@ class SettingsStoreTest {
         assertFalse(d.historyDate(), "the history shows the time of day only until the date is switched on");
         assertTrue(d.historyZeroLines(), "nothing is hidden until a switch is turned off");
         assertTrue(d.historyFailedLines());
+        assertFalse(d.showCurrency(), "the amounts are plain numbers until the symbol is switched on");
+        assertTrue(d.showHistoryIcon(), "the icons are all there until one is switched off");
+        assertTrue(d.showLogIcon());
+        assertTrue(d.showErrorIcon());
         assertFalse(d.showInterval());
         assertFalse(d.showDeltaUsed());
         assertFalse(d.showDeltaTime());
@@ -72,7 +76,7 @@ class SettingsStoreTest {
     @Test
     void everySettingComesBackAsSaved() throws IOException {
         SettingsStore store = new SettingsStore(file());
-        Settings all = new Settings(120, true, true, true, true, true, TimeFormat.HOURS_MINUTES_SECONDS, true, true, true, false, false);
+        Settings all = new Settings(120, true, true, true, false, false, false, true, true, true, TimeFormat.HOURS_MINUTES_SECONDS, true, true, true, false, false);
 
         store.save(all);
 
@@ -90,13 +94,13 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFileHoldsTheTwelveSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
+    void theFileHoldsTheSixteenSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
         JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
 
         assertEquals(
-                List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showInterval", "showDeltaUsed", "showDeltaTime",
+                List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());

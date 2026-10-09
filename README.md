@@ -54,6 +54,9 @@ Hover over things to see what they are:
   is longer while the application is backing off after a rate limit, and goes negative
   (`-3 s`) if the refresh is overdue, for example because a request is slow. It is
   empty until the first request has been made.
+- The settings can switch off the **history, log and error log icons** (each on by default; the gear always stays) and switch on a **currency symbol** before the amounts in the row (`$186.02 / $1,000.00`;
+  another currency shows its code, `EUR 186.02`). Maximum view turns them all on and Minimum view off. In the history the currency is the right-most column, shown as `$` for US dollars, and the
+  change columns sit between the budget and it.
 - The button of the panel that is shown (log, history, error log, settings) is a vivid green, a little bigger and bolder than the others; it goes back to gray when that panel is closed or another opens.
 - After HTTP 429s the application waits longer than the interval you set. That longer wait is what the interval item in the row and the interval box of the
   settings show (and Apply then saves what the box shows); it eases back by itself as requests succeed.

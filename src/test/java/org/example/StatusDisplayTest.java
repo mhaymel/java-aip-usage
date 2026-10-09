@@ -64,7 +64,7 @@ class StatusDisplayTest {
 
     @Test
     void theTimeFormatSettingCutsTheTime() {
-        Settings seconds = new Settings(60, false, false, false, false, false, TimeFormat.HOURS_MINUTES_SECONDS, false, false, false, true, true);
+        Settings seconds = new Settings(60, false, false, false, true, true, true, false, false, false, TimeFormat.HOURS_MINUTES_SECONDS, false, false, false, true, true);
 
         assertEquals("14:24:53", build(state(spend(SPEND), null, null), OptionalLong.empty(), null, seconds).time());
         assertEquals("Last update: 8 Oct 2026, 14:24:53", build(state(spend(SPEND), null, null)).timeTooltip(), "the tooltip always has the seconds");
@@ -77,6 +77,52 @@ class StatusDisplayTest {
         assertEquals("19% of the budget spent. Severity: normal", v.spend().percentTooltip(), "the percentage names the severity");
         assertEquals("Credits used, in USD", v.spend().usedTooltip());
         assertEquals("Credit budget, in USD", v.spend().limitTooltip());
+    }
+
+    @Test
+    void theAmountsAreWithTheCurrencySymbolOnlyWhenThatIsSwitchedOn() {
+        UsageState usd = state(spend(SPEND), null, null);
+        Settings symbol = Settings.defaults().withShowCurrency(true);
+
+        StatusDisplay.View plain = build(usd);
+        StatusDisplay.View with = build(usd, OptionalLong.empty(), null, symbol);
+
+        assertEquals("186.02", plain.spend().used(), "off by default");
+        assertEquals("$186.02", with.spend().used());
+        assertEquals("$1,000.00", with.spend().limit());
+        assertEquals("Credits used, in USD", with.spend().usedTooltip(), "the tooltips are the same");
+        assertEquals(true, with.show().currency());
+        assertEquals(false, plain.show().currency());
+    }
+
+    @Test
+    void anotherCurrencyIsItsCodeAndASpaceAndNoCurrencyIsNoSymbol() {
+        Settings symbol = Settings.defaults().withShowCurrency(true);
+
+        StatusDisplay.View eur = build(state(spend(new Spend(186.02, 1000.0, "EUR", 19, "normal")), null, null), OptionalLong.empty(), null, symbol);
+        StatusDisplay.View none = build(state(spend(new Spend(186.02, 1000.0, null, 19, "normal")), null, null), OptionalLong.empty(), null, symbol);
+        StatusDisplay.View missing = build(state(spend(new Spend(null, 1000.0, "USD", null, null)), null, null), OptionalLong.empty(), null, symbol);
+
+        assertEquals("EUR 186.02", eur.spend().used());
+        assertEquals("EUR 1,000.00", eur.spend().limit());
+        assertEquals("186.02", none.spend().used());
+        assertEquals("\u2014", missing.spend().used(), "a missing amount has no symbol");
+        assertEquals("$1,000.00", missing.spend().limit());
+    }
+
+    @Test
+    void theShowFlagsSayWhichButtonsThereAre() {
+        Settings noIcons = Settings.defaults().withShowHistoryIcon(false).withShowLogIcon(false).withShowErrorIcon(false);
+
+        StatusDisplay.View all = build(state(spend(SPEND), null, null));
+        StatusDisplay.View none = build(state(spend(SPEND), null, null), OptionalLong.empty(), null, noIcons);
+
+        assertEquals(true, all.show().historyIcon());
+        assertEquals(true, all.show().logIcon());
+        assertEquals(true, all.show().errorIcon());
+        assertEquals(false, none.show().historyIcon());
+        assertEquals(false, none.show().logIcon());
+        assertEquals(false, none.show().errorIcon());
     }
 
     @Test
@@ -236,9 +282,9 @@ class StatusDisplayTest {
 
     @Test
     void theSettingsSayWhichOptionalItemsAreSwitchedOn() {
-        Settings on = new Settings(60, false, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false, false, true, true);
+        Settings on = new Settings(60, false, true, false, true, true, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false, false, true, true);
 
-        assertEquals(new StatusDisplay.Show(true, true, true, false), build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
-        assertEquals(new StatusDisplay.Show(false, false, false, false), build(state(spend(SPEND), null, null)).show(), "all off by default");
+        assertEquals(new StatusDisplay.Show(true, false, true, true, false, true, true, true), build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
+        assertEquals(new StatusDisplay.Show(false, false, false, false, false, true, true, true), build(state(spend(SPEND), null, null)).show(), "all off by default");
     }
 }

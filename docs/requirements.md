@@ -135,8 +135,8 @@ the fields relevant to the shape received.
 
 For a usage-based account (`spend` populated, `windows` empty), present:
 
-- `used` and `limit`, as two plain numbers with no currency sign;
-- `currency`, in the tooltips of those two numbers, not as a sign;
+- `used` and `limit`, as two plain numbers, with no currency sign unless the setting for it is on (see Settings);
+- `currency`, in the tooltips of those two numbers;
 - `percent`, as a percentage;
 - `severity`, by the colour of the percentage and the numbers, and named in the
   percentage's tooltip.
@@ -213,8 +213,10 @@ snug against the button, so they read as one group:
 1. the time the usage was last refreshed (`fetched_at`), first of all;
 2. the percentage spent, when its setting is on (it is off by default);
 3. what has been spent and the budget: `used` and `limit`, as two plain numbers
-   with no currency symbol, for example `186.02 / 1,000.00`. The unit is given by
-   the tooltips, not by a sign;
+   with no currency symbol, for example `186.02 / 1,000.00`, unless the setting for the symbol is on, when each number
+   has it before it, for example `$186.02 / $1,000.00`: a `$` for US dollars and, for any other currency, its code
+   and a space, `EUR 186.02 / EUR 1,000.00`; no symbol when the response named no currency. The unit is also given by
+   the tooltips;
 4. a small refresh button;
 5. a countdown to the next refresh, in seconds and with its unit, for example
    `42 s`, and `-3 s` when the refresh is overdue; it is always shown;
@@ -225,13 +227,18 @@ snug against the button, so they read as one group:
 7. the change since the previous reading, when its settings are on (both are off by default): first
    the change in the amount used, with its sign, for example `+0.05`, then the time since the previous
    reading, for example `1 m`; see Changes between readings;
-8. a small button that shows the log below the row, and hides it again, an icon rather than a word;
+8. a small button that shows the log below the row, and hides it again, an icon rather than a word, when its
+   setting is on (it is on by default);
 9. next to it, a small button that shows the usage history below the row, and hides it again,
-   likewise an icon;
+   likewise an icon, when its setting is on (on by default);
 10. a small button that shows the error log below the row, and hides it again, an icon rather than a word
-    (see The error log panel);
+    (see The error log panel), when its setting is on (on by default);
 11. at the right-hand end, after the other buttons, the settings button, a very small icon of
-    a gear, not a word and not sliders.
+    a gear, not a word and not sliders. It is always there, so that the other buttons can be brought back.
+
+A button that is switched off is not shown and takes no room, so the row is narrower by it (the window follows when the
+settings are applied, as for any other item). Without its button a panel cannot be opened: if it was the panel that the settings would
+give back when they are left (see Settings), nothing is given back.
 
 The four icon buttons at the right-hand end sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
@@ -365,6 +372,10 @@ names, shown as its code, here `USD`.
   | Interval (the time between usage requests) | a box the person can type any whole number of seconds from 5 to 3600 into, or pick one of the choices 60 s, 120 s, 180 s, 240 s and 300 s from, showing the backend's current value | 60 s |
   | Log the response | on, off | off |
   | Show the percentage spent in the row | on, off | off |
+  | Show the currency symbol in the row, before the amounts | on, off | off |
+  | Show the history icon in the row | on, off | on |
+  | Show the log icon in the row | on, off | on |
+  | Show the error log icon in the row | on, off | on |
   | Show the time between usage requests in the row | on, off | off |
   | Show the change in the amount used in the row | on, off | off |
   | Show the time since the previous reading in the row | on, off | off |
@@ -383,7 +394,8 @@ names, shown as its code, here `USD`.
   the row item's tooltip keeps `Time between usage requests`. The checkbox for the log reads `Log the response`.
   Under the heading `History view` the checkboxes read `Show Date`, `Show zero usage lines`, `Show failed lines`, `Δ used` and `Δ time`
   (the last two like the titles of the columns they switch on): no `Column`, and no colon in them. Under `Main view` the two checkboxes for the row keep their longer
-  texts, `Change in the amount used` and `Time since the previous reading`.
+  texts, `Change in the amount used` and `Time since the previous reading`. The other new ones in `Main view` read `Currency symbol`, `History icon`, `Log icon` and
+  `Error log icon`.
 - **A checkbox and its text are centred on each other vertically**, and so is every other control and its label
   (the interval's box and dropdown, the time format), in every line of the view, so that nothing sits higher or lower than its
   label.
@@ -391,9 +403,10 @@ names, shown as its code, here `USD`.
   covered by the arrow, nor cut off.
 - **The text of the view can be selected and copied.**
 - The view is arranged in sections: the usage requests, the main view, the history view and the log.
-- Two buttons set the switches of the main view together: **Maximum view** turns on the percentage, the time between
-  usage requests, the change in the amount used, the time since the previous reading, and the time with seconds; **Minimum
-  view** turns them all off, the percentage with them, and sets the time to hours and minutes. The settings of the history, the
+- Two buttons set the switches of the main view together: **Maximum view** turns on the percentage, the currency symbol, the time between
+  usage requests, the change in the amount used, the time since the previous reading, the three icons (history, log, error log) and the time
+  with seconds; **Minimum view** turns them all off, the percentage with them, and sets the time to hours and minutes: a bare strip, with the gear
+  as its only button besides the refresh button. The settings of the history, the
   interval and the logging of the response are left as they are. They fill in the fields like Restore
   defaults does, and Apply is still pressed.
 - Turning on logging of the response makes the application write, for each response, the JSON it was
@@ -456,7 +469,7 @@ The history is shown inside the main window, not in a window of its own.
   starts at the height the person last left it at, never less than ten times the row's height (see
   Remembered heights).
 - **The window is as wide as the table needs, so that every column is whole**, never clipped: the time (with or
-  without the date), `used`, `limit`, `currency` and, when their settings are on, `Δ used` and `Δ time`, plus the
+  without the date), `used`, `limit`, when their settings are on `Δ used` and `Δ time`, and the currency, plus the
   width of the vertical scrollbar, which is always reserved so that nothing shifts when it appears or goes. It is
   never narrower than the row and the scrollbar. The page measures the table, so the width follows it when a
   setting adds or removes a column or the date, and nothing is computed from fixed numbers. The width cannot be
@@ -467,19 +480,19 @@ The history is shown inside the main window, not in a window of its own.
 - **While the panel is shown, the window's height does not follow the main view.** When a message line
   appears or goes, or the row changes in any other way, the window keeps the height it has, as opened
   or as the person dragged it, and the panel takes up the difference.
-- The history is a table with a header row (`time`, `used`, `limit`, `currency`, and, when
-  their settings are on, `Δ used` and `Δ time`; it does not scroll away) and one line for each reading, with space between the
+- The history is a table with a header row (`time`, `used`, `limit`, and, when
+  their settings are on, `Δ used` and `Δ time`, and last `Cur.`; it does not scroll away) and one line for each reading, with space between the
   columns so that nothing is cut off (in particular the last title). **The time is at the left, and every other column is at
-  the right side**: `used`, `limit`, the currency and, when switched on, `Δ used` and `Δ time` are packed against the right edge of the
+  the right side**: `used`, `limit`, when switched on `Δ used` and `Δ time`, and **the currency last, as the right-most column**, are packed against the right edge of the
   panel, each right-aligned in its own column, so that the numbers are lined up by their last digit, and the free space of the
-  panel is between the time and `used`. **The currency's title is abbreviated to `Cur.`**; its cells keep the code the
-  response named, for example `USD`. **There is a little more space between `used` and `limit`** than between the others, so
+  panel is between the time and `used`. **The currency's title is `Cur.`**, and its cells show `$` for US dollars; for any other currency they keep the code the
+  response named, for example `EUR`, and are empty when it named none. **There is a little more space between `used` and `limit`** than between the others, so
   the two numbers do not run together: about three characters of room between them, besides the usual gap, and no more. For example, as wide as the row:
 
   ```
-  time        used     limit  Cur.
-  21:01:22   263.89   1000.00  USD
-  20:46:11   260.66   1000.00  USD
+  time        used     limit  Δ used  Δ time  Cur.
+  21:01:22   263.89   1000.00   +0.26    72 s     $
+  20:46:11   260.66   1000.00           63 s     $
   ```
 
 - **The first column is the time of day only**, `21:01:22`, and its title is `time`. A setting (see
@@ -496,7 +509,7 @@ The history is shown inside the main window, not in a window of its own.
   reading, as described under Changes between readings, worked out by the backend for each row from the
   file and sent with the rows. The titles are a delta symbol, a space, and `used` or `time`: they sit
   beside the `used` column and are told apart from it by the symbol. Each column is shown only when its setting
-  is on, and both are off by default; the columns are the last two, after `currency`. An empty value is an
+  is on, and both are off by default; the columns are between `limit` and the currency, which stays the last. An empty value is an
   empty cell, and a change in the amount used of zero is an empty cell too, not `0.00`. **The time is in whole seconds, with the unit,
   never in minutes or hours**: `63 s`, `126 s`, `3600 s`. (The row's item keeps its short form, for example `1 m`.)
 - **Hiding lines.** Two settings (see Settings) say whether the history shows its zero usage lines and its failed lines; both are

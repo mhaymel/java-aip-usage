@@ -492,3 +492,26 @@ test('the history has two new switches, the date and the change columns after th
     positions.forEach((p, i) => assert.ok(p >= 0, order[i] + ' is in the History view group'));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions);
 });
+
+test('the currency is the right-most column of the history, with the change columns between the budget and it', () => {
+    for (const [cols, count] of [['cols-4', 4], ['cols-5', 5], ['cols-6', 6]]) {
+        for (const suffix of ['', '.date']) {
+            const columns = ruleOf('.panel-lines .' + cols + suffix).match(/grid-template-columns:\s*(.+);/)[1].trim().split(/\s+(?![^(]*\))/);
+            assert.equal(columns.length, count, cols + suffix);
+            assert.equal(columns[columns.length - 1], '5ch', 'the currency, 5 characters wide, is last in ' + cols + suffix);
+            if (count >= 5) {
+                assert.equal(columns[3], '9ch', 'the first change column, after the budget, in ' + cols + suffix);
+            }
+            if (count === 6) {
+                assert.equal(columns[4], '8ch', 'the time change column, then the currency, in ' + cols + suffix);
+            }
+        }
+    }
+});
+
+test('the four new settings are in the Main view group, with the texts of the requirements', () => {
+    const main = html.slice(html.indexOf('<legend>Main view</legend>'), html.indexOf('<legend>History view</legend>'));
+    for (const [id, text] of [['set-showCurrency', 'Currency symbol'], ['set-showHistoryIcon', 'History icon'], ['set-showLogIcon', 'Log icon'], ['set-showErrorIcon', 'Error log icon']]) {
+        assert.ok(main.includes('<input id="' + id + '" type="checkbox"> ' + text + '</label>'), id);
+    }
+});

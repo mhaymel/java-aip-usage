@@ -30,6 +30,14 @@ public final class SettingsStore {
 
     static final String SHOW_PERCENTAGE_KEY = "showPercentage";
 
+    static final String SHOW_CURRENCY_KEY = "showCurrency";
+
+    static final String SHOW_HISTORY_ICON_KEY = "showHistoryIcon";
+
+    static final String SHOW_LOG_ICON_KEY = "showLogIcon";
+
+    static final String SHOW_ERROR_ICON_KEY = "showErrorIcon";
+
     static final String SHOW_INTERVAL_KEY = "showInterval";
 
     static final String SHOW_DELTA_USED_KEY = "showDeltaUsed";
@@ -99,6 +107,10 @@ public final class SettingsStore {
                 interval(root, defaults.usageIntervalSeconds()),
                 flag(root, LOG_RESPONSE_KEY, defaults.logResponse()),
                 flag(root, SHOW_PERCENTAGE_KEY, defaults.showPercentage()),
+                flag(root, SHOW_CURRENCY_KEY, defaults.showCurrency()),
+                flag(root, SHOW_HISTORY_ICON_KEY, defaults.showHistoryIcon()),
+                flag(root, SHOW_LOG_ICON_KEY, defaults.showLogIcon()),
+                flag(root, SHOW_ERROR_ICON_KEY, defaults.showErrorIcon()),
                 flag(root, SHOW_INTERVAL_KEY, defaults.showInterval()),
                 flag(root, SHOW_DELTA_USED_KEY, defaults.showDeltaUsed()),
                 flag(root, SHOW_DELTA_TIME_KEY, defaults.showDeltaTime()),
@@ -227,6 +239,10 @@ public final class SettingsStore {
         root.put(USAGE_KEY, settings.usageIntervalSeconds());
         root.put(LOG_RESPONSE_KEY, settings.logResponse());
         root.put(SHOW_PERCENTAGE_KEY, settings.showPercentage());
+        root.put(SHOW_CURRENCY_KEY, settings.showCurrency());
+        root.put(SHOW_HISTORY_ICON_KEY, settings.showHistoryIcon());
+        root.put(SHOW_LOG_ICON_KEY, settings.showLogIcon());
+        root.put(SHOW_ERROR_ICON_KEY, settings.showErrorIcon());
         root.put(SHOW_INTERVAL_KEY, settings.showInterval());
         root.put(SHOW_DELTA_USED_KEY, settings.showDeltaUsed());
         root.put(SHOW_DELTA_TIME_KEY, settings.showDeltaTime());
