@@ -2,6 +2,8 @@ package org.example.token;
 
 import org.example.token.TokenException.Reason;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -112,6 +114,9 @@ class ClaudeTokenProviderTest {
     }
 
     @Test
+    // Windows has no execute permission to withhold. It refuses such a file for another reason
+    // ("%1 is not a valid Win32 application"), and says so in the language the system is set to.
+    @DisabledOnOs(value = OS.WINDOWS, disabledReason = "there is no execute permission to take away on Windows")
     void aCommandThatIsFoundButCannotBeRunReportsTheRealReason() throws IOException {
         // A file with no execute permission: present, but the system refuses to run it.
         Path notExecutable = Files.createFile(dir.resolve("claude"));

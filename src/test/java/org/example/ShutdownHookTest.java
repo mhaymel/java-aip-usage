@@ -2,6 +2,8 @@ package org.example;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.BufferedReader;
@@ -26,6 +28,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ShutdownHookTest {
 
     private static final List<String> LINES = List.of("Shutting down", "Usage refresh stopped", "Frontend server stopped");
+
+    /**
+     * Windows knows no SIGTERM: {@link Process#destroy()} there calls TerminateProcess, which ends
+     * the JVM on the spot. No shutdown hook runs, so there is nothing for these tests to read, and
+     * the exit code is 1 rather than the 128 + signal a POSIX system reports.
+     */
+    private static final String NEEDS_SIGTERM = "the process is terminated without running its shutdown hooks on Windows";
 
     @TempDir
     Path dir;
@@ -69,6 +78,7 @@ class ShutdownHookTest {
 
     @Test
     @Timeout(120)
+    @DisabledOnOs(value = OS.WINDOWS, disabledReason = NEEDS_SIGTERM)
     void aProcessToldToTerminateStillLogsItsShutdownInOrderAndClosesTheLog() throws Exception {
         // Repeated: the JDK's own hook races ours, and a lost line would show only some of the time.
         for (int attempt = 1; attempt <= 6; attempt++) {
@@ -87,6 +97,8 @@ class ShutdownHookTest {
 
     @Test
     @Timeout(60)
+    // Windows has neither SIGINT nor a kill command to send it with.
+    @DisabledOnOs(value = OS.WINDOWS, disabledReason = NEEDS_SIGTERM)
     void aProcessInterruptedFromTheKeyboardDoesTheSame() throws Exception {
         Path log = dir.resolve("interrupt.log");
         Process process = start(log, "wait");
@@ -115,6 +127,7 @@ class ShutdownHookTest {
 
     @Test
     @Timeout(60)
+    @DisabledOnOs(value = OS.WINDOWS, disabledReason = NEEDS_SIGTERM)
     void theHookLogsExactlyTheCleanupLinesAndNothingMoreOfItsOwn() throws Exception {
         Path log = dir.resolve("only-three.log");
         Process process = start(log, "wait");
