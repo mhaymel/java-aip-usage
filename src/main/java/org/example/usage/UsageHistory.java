@@ -21,7 +21,7 @@ import java.util.Optional;
  * The usage history: a CSV file with one row per reading, appended as they arrive.
  *
  * <p>Each row is the time of the reading, the amount used, the budget and the currency:
- * {@code 2026-10-08 16:24:53,186.02,1000.00,USD}. The time is the local date and time to the second,
+ * {@code 2026-10-08 16:24:53,186.02,1000.00,USD,1}, where the last field is {@code 1} on the first row this run wrote and empty on the others. The time is the local date and time to the second,
  * written {@code yyyy-MM-dd HH:mm:ss}: the form Excel recognises as a date and time when it
  * imports the file, and it still sorts correctly as text. It is the same clock as the window
  * shows. (Excel has no idea of a time zone, so there is none in the file, and an hour repeats
@@ -32,21 +32,27 @@ import java.util.Optional;
  *
  * <p>The header is written only when the file is new or empty, so successive runs add to the one
  * file. Nothing is ever rotated or removed. A reading with no amounts, such as a plan account's
- * windows, writes nothing. A file from before the currency was a column is upgraded in place by the
- * first row added to it: the header gets the column and the rows already there an empty currency.
+ * windows, writes nothing. A file from before the currency or the startup mark was a column is upgraded
+ * in place by the first row added to it: the header gets the column and the rows already there an empty field.
  */
 public final class UsageHistory {
 
-    static final String HEADER = "datetime,used,limit,currency";
+    static final String HEADER = "datetime,used,limit,currency,startup";
 
     /** The header of files written before the currency was a column. */
     private static final String OLD_HEADER = "datetime,used,limit";
+
+    /** The header of files written before the startup mark was a column. */
+    private static final String PREVIOUS_HEADER = "datetime,used,limit,currency";
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
 
     private final Path file;
 
     private final ZoneId zone;
+
+    /** Whether a row has been written since this object was made, which is since the program started. */
+    private boolean written;
 
     /** Writes times in the machine's own zone, which is the window's. */
     public UsageHistory(Path file) {
@@ -68,7 +74,7 @@ public final class UsageHistory {
      *
      * @throws IOException if the file cannot be written
      */
-    public void append(UsageSnapshot snapshot) throws IOException {
+    public synchronized void append(UsageSnapshot snapshot) throws IOException {
         Spend spend = snapshot.spend();
         if (spend == null) {
             return;
@@ -77,6 +83,7 @@ public final class UsageHistory {
                 + "," + amount(spend.used())
                 + "," + amount(spend.limit())
                 + "," + (spend.currency() == null ? "" : spend.currency().replace(',', ' ').strip())
+                + "," + (written ? "" : "1")
                 + "\n";
         upgradeOldFile();
         boolean needsHeader = !Files.exists(file) || Files.size(file) == 0;
@@ -86,6 +93,7 @@ public final class UsageHistory {
                 StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE,
                 StandardOpenOption.APPEND);
+        written = true;
     }
 
     /** Adds the currency column to a file that predates it. Written beside it first, so a failure loses nothing. */
@@ -94,13 +102,21 @@ public final class UsageHistory {
             return;
         }
         List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-        if (lines.isEmpty() || !lines.get(0).strip().equals(OLD_HEADER)) {
+        // What the rows of the old file lack: the currency and the startup mark, or the startup mark alone.
+        String missing;
+        if (lines.isEmpty()) {
+            return;
+        } else if (lines.get(0).strip().equals(OLD_HEADER)) {
+            missing = ",,";
+        } else if (lines.get(0).strip().equals(PREVIOUS_HEADER)) {
+            missing = ",";
+        } else {
             return;
         }
         List<String> upgraded = new ArrayList<>();
         upgraded.add(HEADER);
         for (String line : lines.subList(1, lines.size())) {
-            upgraded.add(line.isBlank() ? line : line + ",");
+            upgraded.add(line.isBlank() ? line : line + missing);
         }
         Path beside = file.resolveSibling(file.getFileName() + ".tmp");
         Files.write(beside, upgraded, StandardCharsets.UTF_8);

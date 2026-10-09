@@ -285,6 +285,9 @@ The log is shown the way the usage history is: inside the main window, not in a 
 - While the panel is shown it keeps up with the file: new lines appear at the top soon after they
   are written, without pressing anything, and what the person has scrolled to does not move. There
   is no reload button.
+- The line that records the start of a run (see Non-functional requirements) has a light gray
+  background, so where each run begins can be seen at a glance. The log is appended to across runs, so
+  there can be several such lines; each is marked. Only the background differs: the text is the same.
 - If there is no log yet, or it is empty, the panel says so in one line. If it cannot be read, the
   panel says so in red, and shows what it had.
 - The file itself is handled like the usage history file: in the project root, beside `gradlew`,
@@ -319,6 +322,10 @@ The history is shown inside the main window, not in a window of its own.
   ```
 
 - The column titles are centred over their columns.
+- The line of the first reading recorded after the program started (the row whose `startup` column
+  is set in the file, see Usage history) has a light gray background across the whole line, so
+  where each run begins can be seen at a glance. The file can hold several such rows, one for each
+  run; each is marked. The `startup` column itself is not shown in the panel.
 - **The lines are sorted by `datetime`, latest first.** They are sorted by that column, not merely
   taken in reverse file order, so a file that is out of order is still shown right.
 - The text is **small and condensed**, in the manner of a log file: a fixed-width font of about
@@ -330,7 +337,7 @@ The history is shown inside the main window, not in a window of its own.
   many are shown, when there are more than are shown.
 - While the panel is shown it keeps up with the history: a new reading appears at the top soon
   after it is recorded, without pressing anything. It does not move what the person has scrolled to.
-- A line of the file that does not have the columns is left out, so one damaged line cannot
+- A line of the file that does not have the columns `datetime`, `used`, `limit` and `currency` is left out, so one damaged line cannot
   hide the others. If there is no history yet, or it has no readings, the panel says so in one line.
   If it cannot be read, the panel says so in red, and the window shows what it had.
 - The panel's data comes from the application, through a read-only request that reveals nothing
@@ -370,14 +377,20 @@ Every reading the application gets is kept, so the usage can be looked at afterw
   `java-aip-usage.csv` in the project root, beside `gradlew` and the log. The file is not
   committed to version control. It is added to, never overwritten, so successive runs build
   one history, and nothing in it is ever rotated or deleted by the application.
-- The columns are `datetime`, `used`, `limit` and `currency`, with a header row written when the file
-  is new or empty and never again, for example:
+- The columns are `datetime`, `used`, `limit`, `currency` and `startup`, with a header row written when
+  the file is new or empty and never again, for example:
 
   ```
-  datetime,used,limit,currency
-  2026-10-08 16:24:53,186.02,1000.00,USD
-  2026-10-08 16:25:53,186.07,1000.00,USD
+  datetime,used,limit,currency,startup
+  2026-10-08 16:24:53,186.02,1000.00,USD,1
+  2026-10-08 16:25:53,186.07,1000.00,USD,
   ```
+
+- `startup` marks the first row written after the program started: it is `1` on that row and empty on
+  every other. Each run marks at most one row, so a file built over several runs has one marked row
+  per run, each where that run's first reading was recorded. A run that records no reading marks
+  nothing. The mark is set by the first row actually written, not by the first refresh, so a first
+  refresh that fails or has no amounts leaves it for the next row that is written.
 
 - `datetime` is the time of the reading, which is `fetched_at`, as the local date and time
   to the second in the form `yyyy-MM-dd HH:mm:ss`, with a space between the date and the
@@ -392,9 +405,10 @@ Every reading the application gets is kept, so the usage can be looked at afterw
 - `used` and `limit` are plain numbers with two decimals and a dot, whatever the machine's
   language, with no currency sign, no digit grouping and no quoting. A missing amount is an
   empty field. `currency` is the code the response names, for example `USD`, or empty when it named none.
-- A file written before the currency was a column, with the header `datetime,used,limit`, is upgraded
-  in place the first time a row is added: the header gets the new column and the rows already in it get
-  an empty currency, since the file never said. Nothing else in it changes.
+- A file written before the currency was a column, with the header `datetime,used,limit`, or before
+  `startup` was one, with the header `datetime,used,limit,currency`, is upgraded in place the first time
+  a row is added: the header gets the new columns and the rows already in it get an empty currency, since
+  the file never said, and an empty `startup`, since it never said that either. Nothing else in it changes.
 - A failed refresh writes nothing, and neither does a reading with no amounts, such as the
   plan windows of a Pro or Max account.
 - A history that cannot be written is logged and nothing more. The reading is good, so the
@@ -430,6 +444,11 @@ These repos are intended as a source of knowledge and reusable implementation id
 - Provide a `./gradlew run` task and keep the solution easy to run from the IDE. A distributable macOS app bundle is out of scope for the first version.
 - Prefer simple, testable interaction boundaries between token acquisition, usage fetching, and rendering.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
+- The first thing logged on each run is a line saying the program was started, with its version, and
+  the next says which file the usage history CSV is written to, as a full path, for example
+  `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
+  revealed to the window or any request (see The log panel). These are the lines the log panel marks as
+  the start of a run.
 - Each line of the log begins with its time in the same form as the usage history file: the local date and time to the second, `yyyy-MM-dd HH:mm:ss`, for example `2026-10-08 16:24:53`, so the log, the history and the window agree on the clock.
 - The log records startup and shutdown, each refresh and how it ended, token acquisition and rejection, settings changes, and for each request to Anthropic its status, duration, size and `request-id`. It never records a token, a header or any part of a response body, and anything shaped like a credential is masked before it is written, as a last line of defence.
 - The local web server listens on the loopback interface only, on a port chosen by the operating system. It refuses a request whose `Host` header is not its own address, which stops another web page from reaching it by DNS rebinding, and it accepts a `POST` only as `application/json`, which another origin cannot send without a preflight the server never grants. No endpoint accepts, returns or logs a credential.

@@ -40,7 +40,7 @@ class UsageHistoryTest {
     void theFirstReadingCreatesTheFileWithAHeaderAndARow() throws IOException {
         new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT, 186.02, 1000.0));
 
-        assertEquals(List.of("datetime,used,limit,currency", "2026-10-08 14:24:53,186.02,1000.00,USD"), lines());
+        assertEquals(List.of("datetime,used,limit,currency,startup", "2026-10-08 14:24:53,186.02,1000.00,USD,1"), lines());
     }
 
     @Test
@@ -52,10 +52,10 @@ class UsageHistoryTest {
         history.append(reading(AT.plusSeconds(120), 186.12, 1000.0));
 
         assertEquals(List.of(
-                "datetime,used,limit,currency",
-                "2026-10-08 14:24:53,186.02,1000.00,USD",
-                "2026-10-08 14:25:53,186.07,1000.00,USD",
-                "2026-10-08 14:26:53,186.12,1000.00,USD"), lines());
+                "datetime,used,limit,currency,startup",
+                "2026-10-08 14:24:53,186.02,1000.00,USD,1",
+                "2026-10-08 14:25:53,186.07,1000.00,USD,",
+                "2026-10-08 14:26:53,186.12,1000.00,USD,"), lines());
     }
 
     @Test
@@ -74,14 +74,14 @@ class UsageHistoryTest {
 
         new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT, 1.0, 2.0));
 
-        assertEquals("datetime,used,limit,currency", lines().get(0));
+        assertEquals("datetime,used,limit,currency,startup", lines().get(0));
     }
 
     @Test
     void theTimeIsALocalDateAndTimeToTheSecondWithNoFraction() throws IOException {
         new UsageHistory(file(), ZoneOffset.UTC).append(reading(Instant.parse("2026-10-08T14:24:53.987654Z"), 1.0, 2.0));
 
-        assertEquals("2026-10-08 14:24:53,1.00,2.00,USD", lines().get(1), "cut to the second, not rounded up");
+        assertEquals("2026-10-08 14:24:53,1.00,2.00,USD,1", lines().get(1), "cut to the second, not rounded up");
     }
 
     @Test
@@ -100,8 +100,8 @@ class UsageHistoryTest {
         new UsageHistory(file(), ZoneId.of("Asia/Tokyo")).append(reading(AT, 1.0, 2.0));
         new UsageHistory(file(), ZoneId.of("America/New_York")).append(reading(AT, 1.0, 2.0));
 
-        assertEquals("2026-10-08 23:24:53,1.00,2.00,USD", lines().get(1));
-        assertEquals("2026-10-08 10:24:53,1.00,2.00,USD", lines().get(2));
+        assertEquals("2026-10-08 23:24:53,1.00,2.00,USD,1", lines().get(1));
+        assertEquals("2026-10-08 10:24:53,1.00,2.00,USD,1", lines().get(2));
     }
 
     @Test
@@ -114,7 +114,7 @@ class UsageHistoryTest {
             java.util.TimeZone.setDefault(before);
         }
 
-        assertEquals("2026-10-08 16:24:53,1.00,2.00,USD", lines().get(1), "14:24:53 UTC is 16:24:53 in Vienna in October");
+        assertEquals("2026-10-08 16:24:53,1.00,2.00,USD,1", lines().get(1), "14:24:53 UTC is 16:24:53 in Vienna in October");
     }
 
     @Test
@@ -125,8 +125,8 @@ class UsageHistoryTest {
         history.append(reading(Instant.parse("2026-10-25T01:30:00Z"), 3.0, 4.0));
 
         // Excel has no zone to tell them apart by; that is the price of a local time.
-        assertEquals("2026-10-25 02:30:00,1.00,2.00,USD", lines().get(1));
-        assertEquals("2026-10-25 02:30:00,3.00,4.00,USD", lines().get(2));
+        assertEquals("2026-10-25 02:30:00,1.00,2.00,USD,1", lines().get(1));
+        assertEquals("2026-10-25 02:30:00,3.00,4.00,USD,", lines().get(2));
     }
 
     @Test
@@ -139,14 +139,14 @@ class UsageHistoryTest {
             Locale.setDefault(before);
         }
 
-        assertEquals("2026-10-08 14:24:53,186.50,1000.00,USD", lines().get(1));
+        assertEquals("2026-10-08 14:24:53,186.50,1000.00,USD,1", lines().get(1));
     }
 
     @Test
     void largeAmountsAreNotGroupedAndNothingIsInScientificNotation() throws IOException {
         new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT, 1234567.891, 10000000.0));
 
-        assertEquals("2026-10-08 14:24:53,1234567.89,10000000.00,USD", lines().get(1));
+        assertEquals("2026-10-08 14:24:53,1234567.89,10000000.00,USD,1", lines().get(1));
     }
 
     @Test
@@ -156,7 +156,7 @@ class UsageHistoryTest {
         String content = Files.readString(file());
         assertFalse(content.contains("$"));
         assertFalse(content.contains("\""));
-        assertTrue(content.contains(",USD\n"), "the currency is the last column, as its code");
+        assertTrue(content.contains(",USD,1\n"), "the currency is the fourth column, as its code");
     }
 
     @Test
@@ -164,15 +164,15 @@ class UsageHistoryTest {
         new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT, null, 1000.0));
         new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT.plusSeconds(60), 5.0, null));
 
-        assertEquals("2026-10-08 14:24:53,,1000.00,USD", lines().get(1));
-        assertEquals("2026-10-08 14:25:53,5.00,,USD", lines().get(2));
+        assertEquals("2026-10-08 14:24:53,,1000.00,USD,1", lines().get(1));
+        assertEquals("2026-10-08 14:25:53,5.00,,USD,1", lines().get(2));
     }
 
     @Test
     void aZeroIsWrittenAsAZeroNotLeftEmpty() throws IOException {
         new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT, 0.0, 1000.0));
 
-        assertEquals("2026-10-08 14:24:53,0.00,1000.00,USD", lines().get(1));
+        assertEquals("2026-10-08 14:24:53,0.00,1000.00,USD,1", lines().get(1));
     }
 
     @Test
@@ -205,7 +205,7 @@ class UsageHistoryTest {
         history.append(reading(AT.plusSeconds(60), 3.0, 4.0));
 
         String content = Files.readString(file());
-        assertEquals("datetime,used,limit,currency\n2026-10-08 14:24:53,1.00,2.00,USD\n2026-10-08 14:25:53,3.00,4.00,USD\n", content);
+        assertEquals("datetime,used,limit,currency,startup\n2026-10-08 14:24:53,1.00,2.00,USD,1\n2026-10-08 14:25:53,3.00,4.00,USD,\n", content);
     }
 
     @Test
@@ -213,7 +213,7 @@ class UsageHistoryTest {
         new UsageHistory(file(), ZoneOffset.UTC)
                 .append(new UsageSnapshot(AT, new Spend(1.0, 2.0, null, 50, null), List.of()));
 
-        assertEquals("2026-10-08 14:24:53,1.00,2.00,", lines().get(1));
+        assertEquals("2026-10-08 14:24:53,1.00,2.00,,1", lines().get(1));
     }
 
     @Test
@@ -223,20 +223,49 @@ class UsageHistoryTest {
         new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT.plusSeconds(120), 5.0, 6.0));
 
         assertEquals(List.of(
-                "datetime,used,limit,currency",
-                "2026-10-08 14:24:53,1.00,2.00,",
-                "2026-10-08 14:25:53,3.00,4.00,",
-                "2026-10-08 14:26:53,5.00,6.00,USD"), lines());
+                "datetime,used,limit,currency,startup",
+                "2026-10-08 14:24:53,1.00,2.00,,",
+                "2026-10-08 14:25:53,3.00,4.00,,",
+                "2026-10-08 14:26:53,5.00,6.00,USD,1"), lines());
         assertFalse(Files.exists(dir.resolve("history.csv.tmp")), "nothing left behind");
     }
 
     @Test
-    void aFileAlreadyWithTheCurrencyIsLeftAlone() throws IOException {
+    void aFileFromBeforeTheStartupMarkIsUpgradedInPlaceByTheNextRow() throws IOException {
         Files.write(file(), List.of("datetime,used,limit,currency", "2026-10-08 14:24:53,1.00,2.00,EUR"));
 
         new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT.plusSeconds(60), 3.0, 4.0));
 
-        assertEquals(List.of("datetime,used,limit,currency", "2026-10-08 14:24:53,1.00,2.00,EUR", "2026-10-08 14:25:53,3.00,4.00,USD"), lines());
+        assertEquals(List.of(
+                "datetime,used,limit,currency,startup",
+                "2026-10-08 14:24:53,1.00,2.00,EUR,",
+                "2026-10-08 14:25:53,3.00,4.00,USD,1"), lines());
+    }
+
+    @Test
+    void aFileAlreadyWithTheStartupMarkIsLeftAlone() throws IOException {
+        Files.write(file(), List.of("datetime,used,limit,currency,startup", "2026-10-08 14:24:53,1.00,2.00,EUR,1"));
+
+        new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT.plusSeconds(60), 3.0, 4.0));
+
+        assertEquals(List.of(
+                "datetime,used,limit,currency,startup",
+                "2026-10-08 14:24:53,1.00,2.00,EUR,1",
+                "2026-10-08 14:25:53,3.00,4.00,USD,1"), lines(), "a new run marks its own first row");
+    }
+
+    @Test
+    void onlyTheFirstRowOfARunIsMarkedAndAFailedOrEmptyReadingDoesNotUseTheMarkUp() throws IOException {
+        UsageHistory history = new UsageHistory(file(), ZoneOffset.UTC);
+
+        history.append(new UsageSnapshot(AT, null, List.of()));
+        history.append(reading(AT.plusSeconds(60), 1.0, 2.0));
+        history.append(reading(AT.plusSeconds(120), 3.0, 4.0));
+
+        assertEquals(List.of(
+                "datetime,used,limit,currency,startup",
+                "2026-10-08 14:25:53,1.00,2.00,USD,1",
+                "2026-10-08 14:26:53,3.00,4.00,USD,"), lines());
     }
 
     // ---- the newest reading, to show at startup

@@ -622,8 +622,8 @@ class ApiTest {
 
         List<String> lines = history(app);
 
-        assertEquals("datetime,used,limit,currency", lines.get(0));
-        assertTrue(lines.get(1).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},186\\.02,1000\\.00,USD"), lines.get(1));
+        assertEquals("datetime,used,limit,currency,startup", lines.get(0));
+        assertTrue(lines.get(1).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},186\\.02,1000\\.00,USD,1"), lines.get(1));
     }
 
     @Test
@@ -690,14 +690,14 @@ class ApiTest {
     }
 
     @Test
-    void theHistoryNeverHoldsAnythingButTheFourColumns() throws Exception {
+    void theHistoryNeverHoldsAnythingButTheFiveColumns() throws Exception {
         AppRuntime app = start(new FakeFetch());
         await(() -> history(app).size() >= 2);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);
 
         for (String line : history(app)) {
-            assertEquals(3, line.chars().filter(c -> c == ',').count(), line);
+            assertEquals(4, line.chars().filter(c -> c == ',').count(), line);
         }
     }
 

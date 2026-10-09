@@ -72,7 +72,7 @@ public class UsageApp extends Application {
 
     @Override
     public void start(Stage stage) throws Exception {
-        LOG.log(Level.INFO, "Starting java-aip-usage");
+        LOG.log(Level.INFO, "Starting java-aip-usage v" + AppInfo.VERSION);
         // Main has already checked these, so they are fine. They are read here, from the launch
         // arguments, so that Main hands this class nothing before logging is set up: merely
         // loading this class starts the logging system.

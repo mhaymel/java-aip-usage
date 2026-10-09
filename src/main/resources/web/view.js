@@ -202,10 +202,15 @@
         return view;
     }
 
+    /** Whether a log line is the one that records the start of a run. */
+    function isRunStart(line) {
+        return /\] Starting java-aip-usage( |$)/.test(line);
+    }
+
     /**
      * What the log panel shows, from GET /api/log, which sends the lines oldest first: the same
      * lines, newest first, each a row of one cell.
-     * @returns {note, header, rows}: a line of explanation or null, no header, and the rows
+     * @returns {note, header, rows, marks}: a line of explanation or null, no header, the rows, and which are marked
      */
     function describeLog(data) {
         if (!data.exists) {
@@ -217,14 +222,15 @@
         return {
             note: data.truncated ? 'Showing the newest ' + data.lines.length + ' lines of the log.' : null,
             header: null,
-            rows: data.lines.slice().reverse().map(function (line) { return [line]; })
+            rows: data.lines.slice().reverse().map(function (line) { return [line]; }),
+            marks: data.lines.slice().reverse().map(isRunStart)
         };
     }
 
     /**
      * What the history panel shows, from GET /api/history: a table with the file's columns as its
      * header and a row of cells for each reading, newest first as the backend sorted them.
-     * @returns {note, header, rows}
+     * @returns {note, header, rows, marks}
      */
     function describeHistory(data) {
         if (!data.exists) {
@@ -236,7 +242,9 @@
         return {
             note: data.rows.length < data.total ? 'Showing the newest ' + data.rows.length + ' of ' + data.total + ' rows.' : null,
             header: data.columns,
-            rows: data.rows
+            // The file's fifth field says the row is the first of a run; it is marked, not shown.
+            rows: data.rows.map(function (row) { return row.slice(0, data.columns.length); }),
+            marks: data.rows.map(function (row) { return row[data.columns.length] === '1'; })
         };
     }
 

@@ -809,6 +809,38 @@ itself is already handled that way); newest first for the log; one panel at a ti
 *Assumed:* "double the height" means twice what it was, so ten times the row; "the table" is the history
 table; "the news entry" is the newest entry; a startup reading is not dimmed unless the refresh then fails.
 
+### 17. Mark where each run starts: log lines, a `startup` CSV column, gray rows
+
+**Status: done (version 0.02); how the gray looks is for a person to judge. Not covered by a test: the two new log
+lines (the path line is logged from `AppRuntime.start`) and the `mark` class on the page.** Requirements: Non-functional requirements, Usage history, The log panel, The usage
+history panel.
+
+- **Log lines.** Make the first line of a run `Starting java-aip-usage <version>` (today `UsageApp` logs
+  `Starting java-aip-usage` without it), and log `Usage history is written to <absolute path>` straight after,
+  where `AppFiles` has resolved the CSV. Both go through the redacting formatter as usual. The path is logged
+  only; no API response carries it.
+- **CSV column.** `UsageHistory` writes `datetime,used,limit,currency,startup`. It keeps an
+  in-memory flag, unset at construction; the first `append` that actually writes a row writes `1` and sets the
+  flag, every other row writes an empty field. Failed refreshes and amount-less readings write nothing, so
+  they leave the flag alone. The in-place upgrade (temp file, then move) now handles two old headers,
+  `datetime,used,limit` and `datetime,used,limit,currency`, giving old rows an empty currency and/or `startup`.
+- **Reader and API.** `HistoryReader` accepts three, four or five columns and returns each row with a
+  `startup` boolean (true only for `1`). The history response carries it per row; rows with fewer columns than
+  `datetime,used,limit,currency` still count as damaged and are left out. `UsageHistory.latest()` ignores it.
+- **Log marking.** `LogTail` stays dumb about lines. `describeLog` in `view.js` flags a line as a run start
+  when its message (after the timestamp) begins `Starting java-aip-usage`, and `describeHistory` flags rows
+  from the `startup` field. `app.js` adds a `mark` class to those cells/rows and `app.css` gives it a light gray
+  background across the full line (grid row for the history, the line box for the log). The `startup` column
+  is not rendered.
+- **Tests.** `UsageHistoryTest`: first row marked, second not, a failed/empty reading does not use up the
+  mark, a new instance marks again, both old headers upgrade. `HistoryReaderTest`: five columns, `startup`
+  flag, old files. `LoggingEndToEndTest`: the two startup lines, in order, with a full path. `view.js` tests
+  for the two describe functions flagging the right lines. Bump the hand-written version constant.
+
+*Assumed:* "the first line after startup" in the log is the startup line itself; each run is marked, not just
+the latest; the marker for a log line is its text, since the log is plain lines and the requirement keeps
+it so; the history API may grow a field though it reveals no path.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

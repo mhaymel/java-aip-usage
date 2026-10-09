@@ -310,9 +310,9 @@
         }
     }
 
-    function cells(className, values) {
+    function cells(className, values, marked) {
         var row = document.createElement('div');
-        row.className = className + ' cols-' + values.length;
+        row.className = className + ' cols-' + values.length + (marked ? ' mark' : '');
         values.forEach(function (value) {
             var cell = document.createElement('span');
             cell.textContent = value;
@@ -337,8 +337,8 @@
             // The first child of the box, kept at its top as the rows scroll under it.
             box.append(cells('row head', shown.header));
         }
-        shown.rows.forEach(function (row) {
-            box.append(cells('row', row));
+        shown.rows.forEach(function (row, i) {
+            box.append(cells('row', row, shown.marks && shown.marks[i]));
         });
         // Rows that came in above what the person was reading push it down; follow it.
         var added = panelRows.length ? rowKeys.indexOf(panelRows[0]) : 0;

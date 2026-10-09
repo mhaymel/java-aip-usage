@@ -305,3 +305,8 @@ input[aria-invalid="true"] {
 .panel-lines .head.cols-4 > * {
     text-align: center;
 }
+
+/* The first line of a run, in the log and the history: a light gray background over the whole line. */
+.panel-lines .mark {
+    background: #e6e6e6;
+}

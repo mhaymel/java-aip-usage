@@ -393,3 +393,23 @@ test('a missing or empty history says so, with no header and no rows', () => {
     assert.deepEqual(empty.rows, []);
     assert.equal(empty.header, null);
 });
+
+test('the first line of each run in the log is marked, and only that', () => {
+    const v = view.describeLog({ exists: true, truncated: false, lines: [
+        '2026-10-08T13:20:56.142Z INFO    [Main] Starting java-aip-usage v0.02',
+        '2026-10-08T13:20:56.152Z INFO    [LocalWebServer] Frontend served at http://127.0.0.1:1/',
+        '2026-10-08T13:21:00.000Z INFO    [Main] Starting java-aip-usage',
+        '2026-10-08T13:21:01.000Z INFO    [Main] Starting java-aip-usage-extra'
+    ] });
+
+    // newest first
+    assert.deepEqual(v.marks, [false, true, false, true]);
+});
+
+test('a history row is marked when its fifth field is 1, and that field is not shown', () => {
+    const rows = [['2026-10-08 14:26:53', '186.12', '1000.00', 'USD', ''], ['2026-10-08 14:25:53', '186.07', '1000.00', 'USD', '1']];
+    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 2, rows });
+
+    assert.deepEqual(v.marks, [false, true]);
+    assert.deepEqual(v.rows, [rows[0].slice(0, 4), rows[1].slice(0, 4)]);
+});
