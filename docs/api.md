@@ -14,11 +14,53 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | --- | --- | --- |
 | `GET` | `/api/config` | The effective intervals, and the limits they must stay within |
 | `POST` | `/api/config` | Change one or both intervals |
+| `GET` | `/api/settings` | Every setting, the defaults, and the interval choices |
+| `POST` | `/api/settings` | Apply a full set of settings |
 | `GET` | `/api/status` | The latest usage reading and refresh outcome (read-only) |
 | `POST` | `/api/refresh` | Start a usage fetch now |
 
 Any other path under `/api/` is `404`; any other method on these paths is `405`
 with an `Allow` header.
+
+## `GET /api/settings`
+
+Every setting as the backend has it, read afresh each time the settings view is opened; the frontend keeps none of its own.
+
+```json
+{
+  "settings": {
+    "usageIntervalSeconds": 60,
+    "logResponse": false,
+    "showCountdown": false,
+    "showDeltaUsed": false,
+    "showDeltaTime": false,
+    "timeFormat": "hh:mm",
+    "historyDeltaUsed": false,
+    "historyDeltaTime": false
+  },
+  "defaults": { "...": "the same keys, with the defaults" },
+  "intervalChoices": [60, 120, 180, 240, 300],
+  "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } }
+}
+```
+
+`timeFormat` is `"hh:mm"` or `"hh:mm:ss"`. `intervalChoices` is what the settings view offers; the
+backend accepts anything within `limits`, so an interval set on the command line or in the file is
+shown as the current value even when it is not a choice. The same keys are in `settings.json`, which
+is created with the defaults if it is missing.
+
+## `POST /api/settings`
+
+The body is an object with all eight keys of `settings`. A missing key, a value of the wrong type, an
+unknown `timeFormat` or an interval outside `limits` is a `400` and nothing is changed or saved; keys that
+are not settings are ignored.
+
+- `200`: applied and saved, effective at once; the body is the same as `GET /api/settings`. The interval
+  replaces any command-line override for the rest of the run.
+- `400`, `413`, `415`: as for `/api/config`.
+- `500`: the values are valid but could not be saved. Nothing is changed.
+
+`/api/config` keeps working for the interval alone until the settings view replaces it.
 
 ## `GET /api/config`
 

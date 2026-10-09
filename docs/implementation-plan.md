@@ -843,7 +843,10 @@ it so; the history API may grow a field though it reveals no path.
 
 ### 18. All settings in `settings.json`, with a backend for them
 
-**Status: planned.** Requirements: Settings, Refresh behavior, Non-functional requirements (the settings file).
+**Status: done (version 0.03).** `/api/config` is kept, reading and writing the interval through the same code, because
+the window still uses it; it goes in phase 23 with the config field. The log line for the settings path is
+`Settings are stored in <path>`. The upgrade of an old history file used a move that deletes the old file first, so a reader arriving then saw no
+file; that made `theHistoryEndpointGivesTheRowsNewestFirst` fail now and then, and it is fixed here with an atomic move. Requirements: Settings, Refresh behavior, Non-functional requirements (the settings file).
 
 - **Model.** A `Settings` record in `settings/` with the eight settings of the requirements table, their
   defaults, and a `Settings.defaults()`. `SettingsStore` reads and writes the whole record as JSON in the file

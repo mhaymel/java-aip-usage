@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -120,7 +121,13 @@ public final class UsageHistory {
         }
         Path beside = file.resolveSibling(file.getFileName() + ".tmp");
         Files.write(beside, upgraded, StandardCharsets.UTF_8);
-        Files.move(beside, file, StandardCopyOption.REPLACE_EXISTING);
+        // Atomic where the file system can: a plain replacing move deletes the old file first, and a reader
+        // (the history panel) arriving in that moment would find no file.
+        try {
+            Files.move(beside, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(beside, file, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     /**

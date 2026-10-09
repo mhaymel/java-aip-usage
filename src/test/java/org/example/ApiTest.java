@@ -156,7 +156,7 @@ class ApiTest {
 
     @Test
     void startupConfigReflectsTheSavedUsageInterval() throws Exception {
-        new SettingsStore(dir.resolve("settings.json")).save(new SettingsStore.Saved(120));
+        new SettingsStore(dir.resolve("settings.json")).save(org.example.settings.Settings.defaults().withUsageIntervalSeconds(120));
 
         JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
 
@@ -231,7 +231,7 @@ class ApiTest {
         assertEquals(400, response.statusCode());
         assertTrue(json(response).get("error").asText().contains("--poll-interval"), response.body());
         assertEquals(1, json(get(app, "/api/config")).get("pollIntervalSeconds").asInt());
-        assertFalse(Files.exists(dir.resolve("settings.json")), "nothing was saved");
+        assertEquals(60, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds(), "nothing was saved");
     }
 
     @Test
@@ -242,7 +242,7 @@ class ApiTest {
 
         assertEquals(400, response.statusCode());
         assertEquals(60, json(get(app, "/api/config")).get("usageIntervalSeconds").asInt(), "the valid half was not applied either");
-        assertFalse(Files.exists(dir.resolve("settings.json")));
+        assertEquals(60, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds(), "nothing was saved");
     }
 
     @Test
@@ -276,7 +276,7 @@ class ApiTest {
         assertEquals(60, config.get("usageIntervalSeconds").asInt());
         assertEquals(1, config.get("pollIntervalSeconds").asInt());
         assertEquals(Duration.ofSeconds(60), app.service().interval());
-        assertFalse(Files.exists(dir.resolve("settings.json")));
+        assertEquals(60, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds(), "nothing was saved");
     }
 
     @Test
@@ -316,9 +316,99 @@ class ApiTest {
         HttpResponse<String> response = post(app, "/api/config", "{\"usageIntervalSeconds\": 90}");
 
         assertEquals(500, response.statusCode());
-        assertTrue(json(response).get("error").asText().startsWith("The setting could not be saved"));
+        assertTrue(json(response).get("error").asText().startsWith("The settings could not be saved"));
         assertEquals(60, json(get(app, "/api/config")).get("usageIntervalSeconds").asInt());
         assertEquals(Duration.ofSeconds(60), app.service().interval());
+    }
+
+    // ---- /api/settings: every setting, read and applied as a whole
+
+    private static String allSettings(int interval, boolean logResponse, String timeFormat) {
+        return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
+                + ", \"showCountdown\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
+                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true}";
+    }
+
+    @Test
+    void theSettingsEndpointGivesEverySettingTheDefaultsAndTheChoices() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        JsonNode body = json(get(app, "/api/settings"));
+
+        assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
+        assertFalse(body.at("/settings/logResponse").asBoolean());
+        assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
+        assertEquals(8, body.get("settings").size());
+        assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
+        assertEquals("[60,120,180,240,300]", body.get("intervalChoices").toString());
+    }
+
+    @Test
+    void settingsAreAppliedTogetherSavedAndGivenBack() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        HttpResponse<String> response = post(app, "/api/settings", allSettings(120, true, "hh:mm:ss"));
+
+        assertEquals(200, response.statusCode());
+        JsonNode body = json(get(app, "/api/settings"));
+        assertEquals(120, body.at("/settings/usageIntervalSeconds").asInt());
+        assertTrue(body.at("/settings/logResponse").asBoolean());
+        assertTrue(body.at("/settings/showCountdown").asBoolean());
+        assertFalse(body.at("/settings/showDeltaTime").asBoolean());
+        assertEquals("hh:mm:ss", body.at("/settings/timeFormat").asText());
+        assertTrue(body.at("/settings/historyDeltaTime").asBoolean());
+        assertEquals(60, body.at("/defaults/usageIntervalSeconds").asInt(), "the defaults do not move");
+        assertEquals(Duration.ofSeconds(120), app.service().interval(), "the interval reached the service");
+        assertEquals(120, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds());
+        assertEquals("hh:mm:ss", new SettingsStore(dir.resolve("settings.json")).load().timeFormat().json());
+    }
+
+    @Test
+    void anIntervalOutsideTheDropdownIsStillAcceptedAndShown() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        assertEquals(200, post(app, "/api/settings", allSettings(45, false, "hh:mm")).statusCode());
+
+        assertEquals(45, json(get(app, "/api/settings")).at("/settings/usageIntervalSeconds").asInt());
+    }
+
+    @Test
+    void settingsThatAreIncompleteOrInvalidAreRefusedWholeAndChangeNothing() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        String[] bodies = {
+                "{}", "{\"usageIntervalSeconds\": 90}",
+                allSettings(4, false, "hh:mm"), allSettings(3601, false, "hh:mm"),
+                allSettings(90, false, "12h"),
+                allSettings(90, false, "hh:mm").replace("\"logResponse\": false", "\"logResponse\": \"no\""),
+                allSettings(90, false, "hh:mm").replace("\"showCountdown\": true", "\"showCountdown\": null"),
+                "[1]", "not json"};
+
+        for (String body : bodies) {
+            HttpResponse<String> response = post(app, "/api/settings", body);
+
+            assertEquals(400, response.statusCode(), body);
+            assertFalse(json(response).get("error").asText().isBlank(), body);
+        }
+
+        assertEquals(json(get(app, "/api/settings")).get("defaults"), json(get(app, "/api/settings")).get("settings"));
+        assertEquals(Duration.ofSeconds(60), app.service().interval());
+    }
+
+    @Test
+    void theSettingsEndpointOnlyTakesGetAndPostAndPostsMustBeJson() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        assertEquals(405, send(app, "/api/settings", HttpRequest.newBuilder().DELETE()).statusCode());
+        assertEquals(415, send(app, "/api/settings", HttpRequest.newBuilder()
+                .POST(HttpRequest.BodyPublishers.ofString("{}")).header("Content-Type", "text/plain")).statusCode());
+    }
+
+    @Test
+    void aMissingSettingsFileIsCreatedAtStartupWithTheDefaults() throws Exception {
+        start(new FakeFetch());
+
+        assertTrue(Files.exists(dir.resolve("settings.json")));
+        assertEquals(org.example.settings.Settings.defaults(), new SettingsStore(dir.resolve("settings.json")).load());
     }
 
     // ---- /api/status: read-only, and the two response shapes

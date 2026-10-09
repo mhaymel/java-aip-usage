@@ -44,6 +44,7 @@ final class AppRuntime implements AutoCloseable {
     static AppRuntime start(AppFiles files, LaunchOptions options, Supplier<UsageSnapshot> fetcher)
             throws IOException {
         LOG.log(System.Logger.Level.INFO, "Usage history is written to " + files.history());
+        LOG.log(System.Logger.Level.INFO, "Settings are stored in " + files.settings());
         IntervalSettings settings =
                 IntervalSettings.load(new SettingsStore(files.settings()), options.usageInterval(), options.pollInterval());
         UsageHistory history = new UsageHistory(files.history());

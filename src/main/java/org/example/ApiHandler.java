@@ -9,7 +9,9 @@ import com.sun.net.httpserver.HttpHandler;
 import org.example.settings.IntervalRange;
 import org.example.settings.IntervalSettings;
 import org.example.settings.InvalidSettingException;
+import org.example.settings.Settings;
 import org.example.settings.SettingsException;
+import org.example.settings.TimeFormat;
 import org.example.usage.HistoryReader;
 import org.example.usage.Spend;
 import org.example.usage.UsageService;
@@ -96,6 +98,15 @@ final class ApiHandler implements HttpHandler {
                     throw new ApiException(405, "Use GET or POST.", "GET, POST");
                 }
             }
+            case "/api/settings" -> {
+                if (method.equals("GET")) {
+                    send(exchange, 200, settingsBody());
+                } else if (method.equals("POST")) {
+                    updateSettings(exchange);
+                } else {
+                    throw new ApiException(405, "Use GET or POST.", "GET, POST");
+                }
+            }
             case "/api/status" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
@@ -154,6 +165,68 @@ final class ApiHandler implements HttpHandler {
             throw new ApiException(500, e.getMessage(), null);
         }
         send(exchange, 200, config());
+    }
+
+    // ---- /api/settings
+
+    private SettingsBody settingsBody() {
+        return new SettingsBody(
+                toBody(settings.current()),
+                toBody(Settings.defaults()),
+                Settings.INTERVAL_CHOICES,
+                new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())));
+    }
+
+    private static SettingValues toBody(Settings s) {
+        return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showCountdown(), s.showDeltaUsed(),
+                s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime());
+    }
+
+    /** All the settings must be given, so that what is applied is exactly what the view showed. */
+    private void updateSettings(HttpExchange exchange) throws IOException {
+        requireJson(exchange);
+        JsonNode body = readJson(exchange);
+        try {
+            Long usage = seconds(body, USAGE_KEY, IntervalRange.USAGE);
+            if (usage == null) {
+                throw new InvalidSettingException("The setting " + USAGE_KEY + " is missing.");
+            }
+            Settings given = new Settings(
+                    usage.intValue(),
+                    flag(body, "logResponse"),
+                    flag(body, "showCountdown"),
+                    flag(body, "showDeltaUsed"),
+                    flag(body, "showDeltaTime"),
+                    timeFormat(body),
+                    flag(body, "historyDeltaUsed"),
+                    flag(body, "historyDeltaTime"));
+            settings.apply(given);
+        } catch (InvalidSettingException e) {
+            throw new ApiException(400, e.getMessage(), null);
+        } catch (SettingsException e) {
+            throw new ApiException(500, e.getMessage(), null);
+        }
+        send(exchange, 200, settingsBody());
+    }
+
+    private static boolean flag(JsonNode body, String key) {
+        JsonNode value = body.get(key);
+        if (value == null || value.isNull()) {
+            throw new InvalidSettingException("The setting " + key + " is missing.");
+        }
+        if (!value.isBoolean()) {
+            throw new InvalidSettingException("The setting " + key + " must be true or false.");
+        }
+        return value.booleanValue();
+    }
+
+    private static TimeFormat timeFormat(JsonNode body) {
+        JsonNode value = body.get("timeFormat");
+        if (value == null || value.isNull()) {
+            throw new InvalidSettingException("The setting timeFormat is missing.");
+        }
+        return (value.isTextual() ? TimeFormat.fromJson(value.textValue()) : java.util.Optional.<TimeFormat>empty())
+                .orElseThrow(() -> new InvalidSettingException("The setting timeFormat must be \"hh:mm\" or \"hh:mm:ss\"."));
     }
 
     /** The value of {@code key}, or {@code null} if absent. Only whole numbers qualify. */
@@ -294,6 +367,20 @@ final class ApiHandler implements HttpHandler {
     }
 
     record ConfigBody(int usageIntervalSeconds, int pollIntervalSeconds, Limits limits) {
+    }
+
+    record SettingValues(
+            int usageIntervalSeconds,
+            boolean logResponse,
+            boolean showCountdown,
+            boolean showDeltaUsed,
+            boolean showDeltaTime,
+            String timeFormat,
+            boolean historyDeltaUsed,
+            boolean historyDeltaTime) {
+    }
+
+    record SettingsBody(SettingValues settings, SettingValues defaults, List<Integer> intervalChoices, Limits limits) {
     }
 
     record RefreshBody(boolean started) {

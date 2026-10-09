@@ -6,7 +6,7 @@ import java.util.OptionalInt;
 import java.util.function.Consumer;
 
 /**
- * The two intervals in force, and how the usage interval changes.
+ * The settings in force, the two intervals among them, and how they change.
  *
  * <p>The usage interval, how often usage is fetched from Anthropic, comes at startup
  * from the command line if given, else from the settings file, else the default. A
@@ -25,7 +25,7 @@ public final class IntervalSettings {
     private final SettingsStore store;
 
     /** What the file holds; the effective usage interval may differ, through a command-line override. */
-    private SettingsStore.Saved saved;
+    private Settings saved;
 
     private int usageSeconds;
 
@@ -33,7 +33,7 @@ public final class IntervalSettings {
 
     private Consumer<Duration> usageListener = interval -> { };
 
-    private IntervalSettings(SettingsStore store, SettingsStore.Saved saved, int usageSeconds, int pollSeconds) {
+    private IntervalSettings(SettingsStore store, Settings saved, int usageSeconds, int pollSeconds) {
         this.store = store;
         this.saved = saved;
         this.usageSeconds = usageSeconds;
@@ -45,14 +45,17 @@ public final class IntervalSettings {
      * @param cliPoll the {@code --poll-interval} value, if given; already validated
      */
     public static IntervalSettings load(SettingsStore store, OptionalInt cliUsage, OptionalInt cliPoll) {
-        SettingsStore.Saved saved = store.load();
-        int usage = cliUsage.orElse(saved.usageIntervalSeconds() != null
-                ? saved.usageIntervalSeconds()
-                : IntervalRange.USAGE.defaultValue());
+        Settings saved = store.load();
+        int usage = cliUsage.orElse(saved.usageIntervalSeconds());
         int poll = cliPoll.orElse(IntervalRange.POLL.defaultValue());
         IntervalSettings settings = new IntervalSettings(store, saved, usage, poll);
         LOG.log(System.Logger.Level.INFO, "Usage interval " + usage + " s, poll interval " + poll + " s");
         return settings;
+    }
+
+    /** Every setting as in force: what the file holds, but with the usage interval the run is using. */
+    public synchronized Settings current() {
+        return saved.withUsageIntervalSeconds(usageSeconds);
     }
 
     public synchronized int usageSeconds() {
@@ -84,20 +87,34 @@ public final class IntervalSettings {
         if (!IntervalRange.USAGE.contains(seconds)) {
             throw new InvalidSettingException(IntervalRange.USAGE.describeLimit());
         }
+        apply(current().withUsageIntervalSeconds((int) seconds));
+    }
 
-        SettingsStore.Saved updated = new SettingsStore.Saved((int) seconds);
-        if (!updated.equals(saved)) {
+    /**
+     * Commits a full set of settings chosen in the UI: they take effect at once, and are saved. The
+     * usage interval replaces any command-line one for the rest of the run. Nothing changes if a
+     * value is invalid or the file cannot be written.
+     *
+     * @throws InvalidSettingException if the usage interval is outside its range
+     * @throws SettingsException if the settings could not be saved
+     */
+    public synchronized void apply(Settings settings) {
+        if (!IntervalRange.USAGE.contains(settings.usageIntervalSeconds())) {
+            throw new InvalidSettingException(IntervalRange.USAGE.describeLimit());
+        }
+        if (!settings.equals(saved)) {
             try {
-                store.save(updated);
+                store.save(settings);
             } catch (IOException e) {
                 LOG.log(System.Logger.Level.WARNING, "Could not save settings to " + store.file(), e);
-                throw new SettingsException("The setting could not be saved: " + e.getMessage(), e);
+                throw new SettingsException("The settings could not be saved: " + e.getMessage(), e);
             }
-            saved = updated;
+            LOG.log(System.Logger.Level.INFO, "Settings changed: " + settings);
+            saved = settings;
         }
 
-        if (seconds != usageSeconds) {
-            usageSeconds = (int) seconds;
+        if (settings.usageIntervalSeconds() != usageSeconds) {
+            usageSeconds = settings.usageIntervalSeconds();
             usageListener.accept(Duration.ofSeconds(usageSeconds));
         }
     }

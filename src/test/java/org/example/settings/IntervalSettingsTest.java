@@ -1,6 +1,5 @@
 package org.example.settings;
 
-import org.example.settings.SettingsStore.Saved;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -59,14 +58,14 @@ class IntervalSettingsTest {
 
     @Test
     void theFileOverridesTheDefaultUsageInterval() throws IOException {
-        store().save(new Saved(45));
+        store().save(Settings.defaults().withUsageIntervalSeconds(45));
 
         assertEquals(45, load().usageSeconds());
     }
 
     @Test
     void theCommandLineOverridesTheFile() throws IOException {
-        store().save(new Saved(45));
+        store().save(Settings.defaults().withUsageIntervalSeconds(45));
 
         assertEquals(10, load(OptionalInt.of(10), OptionalInt.empty()).usageSeconds());
     }
@@ -75,7 +74,7 @@ class IntervalSettingsTest {
     void aCommandLineUsageIntervalIsNotSavedOnItsOwn() {
         load(OptionalInt.of(10), OptionalInt.empty());
 
-        assertFalse(Files.exists(dir.resolve("settings.json")));
+        assertEquals(60, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds(), "nothing was saved");
     }
 
     @Test
@@ -85,7 +84,7 @@ class IntervalSettingsTest {
         settings.updateUsage(120);
 
         assertEquals(120, settings.usageSeconds());
-        assertEquals(new Saved(120), store().load());
+        assertEquals(Settings.defaults().withUsageIntervalSeconds(120), store().load());
     }
 
     @Test
@@ -134,7 +133,7 @@ class IntervalSettingsTest {
 
         assertEquals(60, settings.usageSeconds());
         assertEquals(List.of(), usageChanges);
-        assertFalse(Files.exists(dir.resolve("settings.json")));
+        assertEquals(60, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds(), "nothing was saved");
     }
 
     @Test
@@ -154,7 +153,7 @@ class IntervalSettingsTest {
 
         assertEquals(60, settings.usageSeconds());
         assertEquals(List.of(), usageChanges);
-        assertTrue(e.getMessage().startsWith("The setting could not be saved"));
+        assertTrue(e.getMessage().startsWith("The settings could not be saved"));
     }
 
     // ---- the update interval: command line or default, and nothing else
@@ -197,5 +196,52 @@ class IntervalSettingsTest {
         settings.updateUsage(90);
 
         assertEquals(7, settings.pollSeconds());
+    }
+
+    // ---- all the settings
+
+    @Test
+    void currentIsTheFileWithTheCommandLineInterval() {
+        Settings settings = load(OptionalInt.of(10), OptionalInt.empty()).current();
+
+        assertEquals(10, settings.usageIntervalSeconds());
+        assertEquals(Settings.defaults().withUsageIntervalSeconds(10), settings);
+    }
+
+    @Test
+    void appliedSettingsTakeEffectAndAreSavedAndTheListenerHearsOnlyAboutTheInterval() {
+        IntervalSettings settings = load();
+        Settings changed = new Settings(60, true, true, false, true, TimeFormat.HOURS_MINUTES_SECONDS, false, true);
+
+        settings.apply(changed);
+
+        assertEquals(changed, settings.current());
+        assertEquals(changed, store().load());
+        assertEquals(List.of(), usageChanges, "the interval did not change");
+
+        settings.apply(changed.withUsageIntervalSeconds(180));
+
+        assertEquals(List.of(Duration.ofSeconds(180)), usageChanges);
+    }
+
+    @Test
+    void settingsWithAnInvalidIntervalAreRefusedWhole() {
+        IntervalSettings settings = load();
+
+        assertThrows(InvalidSettingException.class,
+                () -> settings.apply(new Settings(4, true, true, true, true, TimeFormat.HOURS_MINUTES, true, true)));
+
+        assertEquals(Settings.defaults(), settings.current());
+        assertEquals(Settings.defaults(), store().load());
+    }
+
+    @Test
+    void applyingTheIntervalTheRunAlreadyHasStillSavesTheRestOfTheSettings() {
+        IntervalSettings settings = load(OptionalInt.of(10), OptionalInt.empty());
+
+        settings.apply(settings.current().withUsageIntervalSeconds(60));
+
+        assertEquals(60, settings.usageSeconds(), "the command-line value is replaced by what was applied");
+        assertEquals(Settings.defaults(), store().load());
     }
 }
