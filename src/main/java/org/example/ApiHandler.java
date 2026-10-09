@@ -23,6 +23,8 @@ import org.example.usage.UsageWindow;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
@@ -389,7 +391,21 @@ final class ApiHandler implements HttpHandler {
                 state.error() == null ? null : new ErrorBody(state.error(), state.errorAt().toString()),
                 snapshot == null ? null : usage(snapshot),
                 change,
-                StatusDisplay.build(state, countdown, change, shown(), Instant.now(), ZoneId.systemDefault()));
+                StatusDisplay.build(state, countdown, change, shown(), Instant.now(), ZoneId.systemDefault()),
+                historyStamp());
+    }
+
+    /**
+     * Changes whenever a row is added to the history file, a failed one included, so that a window that shows the history knows to read it
+     * again. It is the file's size and time, which is all that is needed to tell that the file is not the same; it is empty when there is no file.
+     */
+    private String historyStamp() {
+        Path history = files.history();
+        try {
+            return Files.isRegularFile(history) ? Files.size(history) + "-" + Files.getLastModifiedTime(history).toMillis() : "";
+        } catch (IOException e) {
+            return "";
+        }
     }
 
     private static UsageBody usage(UsageSnapshot snapshot) {
@@ -562,6 +578,6 @@ final class ApiHandler implements HttpHandler {
 
     record StatusBody(
             boolean refreshing, boolean stale, Long nextRefreshInSeconds, ErrorBody error, UsageBody usage, DeltaBody change,
-            StatusDisplay.View display) {
+            StatusDisplay.View display, String historyStamp) {
     }
 }

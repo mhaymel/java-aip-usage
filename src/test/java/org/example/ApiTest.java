@@ -33,6 +33,7 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -1263,6 +1264,39 @@ class ApiTest {
         assertEquals("", lines.get(0).at("/cells/3").asText(), "a change of zero says nothing");
         assertEquals("+0.05", lines.get(1).at("/cells/3").asText());
         assertEquals("60 s", lines.get(0).at("/cells/4").asText(), "the time is shown whatever it is");
+    }
+
+    @Test
+    void theStatusSaysWhenTheHistoryFileChangesAFailedRowIncluded() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        java.util.concurrent.atomic.AtomicBoolean fail = new java.util.concurrent.atomic.AtomicBoolean(false);
+        java.util.function.Supplier<UsageSnapshot> good = fetch.answer;
+        fetch.answer = () -> {
+            if (fail.get()) {
+                throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
+            }
+            return good.get();
+        };
+        AppRuntime app = start(fetch);
+        await(() -> history(app).size() >= 2);
+        String first = json(get(app, "/api/status")).get("historyStamp").asText();
+        assertFalse(first.isEmpty(), "there is a file");
+        assertEquals(first, json(get(app, "/api/status")).get("historyStamp").asText(), "the same while nothing is added");
+
+        fail.set(true);
+        post(app, "/api/refresh", "{}");
+        await(() -> history(app).size() >= 3);
+
+        assertNotEquals(first, json(get(app, "/api/status")).get("historyStamp").asText(), "a failed refresh added a row");
+    }
+
+    @Test
+    void theStampIsEmptyWhenThereIsNoHistoryFile() throws Exception {
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+
+        assertEquals("", json(get(app, "/api/status")).get("historyStamp").asText());
     }
 
     @Test

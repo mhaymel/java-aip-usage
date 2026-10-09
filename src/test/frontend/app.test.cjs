@@ -493,7 +493,7 @@ test('a new reading while the panel is open puts a new line on top and keeps the
     await page.click('history-button');
     page.el('panel-lines').scrollTop = 45;
 
-    state.status = { ...SPEND_STATUS, usage: { ...SPEND_STATUS.usage, fetched_at: '2026-10-08T14:25:53Z' } };
+    state.status = { ...SPEND_STATUS, historyStamp: 'b' };
     state.history = () => ({ status: 200, body: { ...HISTORY, total: 3, lines: [line(['20:47:11', '260.90', '1000.00', 'USD']), ...HISTORY.lines] } });
     await page.firePoll();
 
@@ -517,7 +517,7 @@ test('the panel is read again only when a new reading has arrived, not on every 
 test('a closed panel is not read when a new reading arrives; opening it reads it then', async () => {
     const state = { config: CONFIG, status: SPEND_STATUS };
     const page = await load(backendOf(state));
-    state.status = { ...SPEND_STATUS, usage: { ...SPEND_STATUS.usage, fetched_at: '2026-10-08T14:25:53Z' } };
+    state.status = { ...SPEND_STATUS, historyStamp: 'b' };
 
     await page.firePoll();
     assert.equal(page.calls.filter(c => c.url === '/api/history').length, 0);
@@ -552,7 +552,7 @@ test('an unreadable history shows a red error and keeps the lines it had; the er
     const page = await load(backendOf(state));
     await page.click('history-button');
 
-    state.status = { ...SPEND_STATUS, usage: { ...SPEND_STATUS.usage, fetched_at: '2026-10-08T14:25:53Z' } };
+    state.status = { ...SPEND_STATUS, historyStamp: 'b' };
     state.history = () => ({ status: 500, body: { error: 'The usage history could not be read.' } });
     await page.firePoll();
 
@@ -560,7 +560,7 @@ test('an unreadable history shows a red error and keeps the lines it had; the er
     assert.equal(page.el('panel-error').textContent, 'The usage history could not be read: The usage history could not be read.');
     assert.equal(lines(page).length, 2);
 
-    state.status = { ...SPEND_STATUS, usage: { ...SPEND_STATUS.usage, fetched_at: '2026-10-08T14:26:53Z' } };
+    state.status = { ...SPEND_STATUS, historyStamp: 'c' };
     state.history = undefined;
     await page.firePoll();
     assert.equal(page.el('panel-error').hidden, true);
@@ -1137,8 +1137,82 @@ test('an item the backend could not work out is left out even though its setting
     const status = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, deltaUsed: null, show: { interval: true, deltaUsed: true, deltaTime: true } } };
     const page = await load(backendOf({ config: CONFIG, status }));
 
-    assert.equal(page.el('delta-used').hidden, true);
+    assert.equal(page.el('delta-used').textContent, '', 'it has nothing to say');
+    assert.match(page.el('delta-used').className, /\bempty\b/, 'and is empty and invisible');
     assert.equal(page.el('delta-time').hidden, false);
+    assert.doesNotMatch(page.el('delta-time').className, /\bempty\b/);
+});
+
+test('an optional item whose setting is on keeps its room when it has no value, so the row does not change width; with the setting off it takes none', async () => {
+    const withValue = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { interval: true, deltaUsed: true, deltaTime: true } } };
+    const state = { config: CONFIG, status: withValue };
+    const page = await load(backendOf(state));
+    assert.equal(page.el('delta-used').hidden, false);
+
+    state.status = { ...withValue, display: { ...withValue.display, deltaUsed: null, deltaTime: null } };
+    await page.firePoll();
+    for (const id of ['delta-used', 'delta-time']) {
+        assert.equal(page.el(id).hidden, false, id + ' is still in the row');
+        assert.match(page.el(id).className, /\bempty\b/, id);
+        assert.equal(page.el(id).title, '');
+    }
+
+    state.status = { ...withValue, display: { ...withValue.display, deltaUsed: null, deltaTime: null, show: { interval: true, deltaUsed: false, deltaTime: false } } };
+    await page.firePoll();
+    assert.equal(page.el('delta-used').hidden, true, 'switched off: no room');
+    assert.equal(page.el('delta-time').hidden, true);
+});
+
+test('the item comes back with its text and loses the empty class when the value returns', async () => {
+    const withValue = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { interval: false, deltaUsed: true, deltaTime: false } } };
+    const state = { config: CONFIG, status: { ...withValue, display: { ...withValue.display, deltaUsed: null } } };
+    const page = await load(backendOf(state));
+    assert.match(page.el('delta-used').className, /empty/);
+
+    state.status = withValue;
+    await page.firePoll();
+
+    assert.equal(page.el('delta-used').textContent, '+0.05');
+    assert.doesNotMatch(page.el('delta-used').className, /empty/);
+    assert.match(page.el('delta-used').className, /\bdelta-used\b/, 'its own class is kept');
+});
+
+// ---- the history is read again when a row is added, a failed one too
+
+test('a row of a failed refresh makes the open history read again, though no new reading arrived', async () => {
+    const state = { config: CONFIG, status: { ...SPEND_STATUS, historyStamp: 'a' } };
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+    const reads = () => page.calls.filter(c => c.url === '/api/history').length;
+    assert.equal(reads(), 1);
+
+    // The same reading (the same fetched_at), a failed refresh has added a row to the file.
+    state.status = { ...SPEND_STATUS, historyStamp: 'b' };
+    await page.firePoll();
+
+    assert.equal(reads(), 2);
+});
+
+test('the history is not read again while the file is the same, however many polls', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: { ...SPEND_STATUS, historyStamp: 'a' } }));
+    await page.click('history-button');
+
+    await page.firePoll();
+    await page.firePoll();
+    await page.firePoll();
+
+    assert.equal(page.calls.filter(c => c.url === '/api/history').length, 1);
+});
+
+test('a new reading with the same file stamp does not read the history: the stamp is what says it changed', async () => {
+    const state = { config: CONFIG, status: { ...SPEND_STATUS, historyStamp: 'a' } };
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+
+    state.status = { ...SPEND_STATUS, historyStamp: 'a', usage: { ...SPEND_STATUS.usage, fetched_at: '2026-10-08T14:30:00Z' } };
+    await page.firePoll();
+
+    assert.equal(page.calls.filter(c => c.url === '/api/history').length, 1);
 });
 
 test('the percentage is in the row only when its setting is on, and the amounts keep their colour either way', async () => {

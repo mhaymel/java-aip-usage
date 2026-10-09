@@ -9,6 +9,8 @@
     --active: #00b341;
     /* A note that tells the person something about what they are looking at. */
     --info: #0969da;
+    /* The background of the log's start line of a run. */
+    --mark: #e6e6e6;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,6 +20,7 @@
         --bad: #f85149;
         --active: #3ddc6b;
         --info: #58a6ff;
+        --mark: #30363d;
     }
 }
 
@@ -468,7 +471,7 @@ body {
 
 /* The log's start line of a run: a light gray background over the whole line. */
 .panel-lines .mark {
-    background: #e6e6e6;
+    background: var(--mark);
 }
 
 /*
@@ -540,4 +543,9 @@ body {
 /* The gear is drawn on a grid of 24 units, the others of 16: the same look is 2.2 x 24 / 16. */
 #settings-button.active svg {
     stroke-width: 3.3;
+}
+
+/* An optional item of the row with its setting on and no value keeps its room, and is not seen. */
+.delta.empty {
+    visibility: hidden;
 }

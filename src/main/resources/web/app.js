@@ -151,10 +151,10 @@
         // While the server asks us to slow down (HTTP 429) the countdown is red and, hovered, says why in bold red.
         $('countdown').className = 'countdown' + (v.countdownAlert ? ' alert' : '');
         setNote('alert-note', hoveringCountdown && v.countdownAlert ? v.countdownAlert : '');
-        renderOptional('interval', v.show.interval && v.interval);
+        renderOptional('interval', v.show.interval, v.interval);
         renderButtons(v.show);
-        renderOptional('delta-used', v.show.deltaUsed && v.deltaUsed);
-        renderOptional('delta-time', v.show.deltaTime && v.deltaTime);
+        renderOptional('delta-used', v.show.deltaUsed, v.deltaUsed);
+        renderOptional('delta-time', v.show.deltaTime, v.deltaTime);
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
     }
@@ -172,9 +172,17 @@
         });
     }
 
-    /** An optional item of the row: shown only when its setting is on and the backend has a value for it. */
-    function renderOptional(id, item) {
-        show(id, Boolean(item));
+    // The classes of the optional items of the row, which keep their room when they have no value.
+    var OPTIONAL_CLASSES = { 'interval': 'delta delta-interval', 'delta-used': 'delta delta-used', 'delta-time': 'delta delta-time' };
+
+    /**
+     * An optional item of the row. Its setting off, it is not there and takes no room. Its setting on, it keeps its room even when the
+     * backend has no value for it (a change of zero, an unknown time): it is then empty and invisible, so that the row does not change width
+     * from one refresh to the next.
+     */
+    function renderOptional(id, wanted, item) {
+        show(id, Boolean(wanted));
+        $(id).className = OPTIONAL_CLASSES[id] + (item ? '' : ' empty');
         $(id).textContent = item ? item.text : '';
         $(id).title = item ? item.tooltip : '';
     }
@@ -362,8 +370,9 @@
         }
     };
 
-    function fetchedAt() {
-        return lastStatus && lastStatus.usage ? lastStatus.usage.fetched_at : null;
+    /** What the backend says the history file is now: it changes when a row is added, a failed one included. */
+    function historyStamp() {
+        return lastStatus && lastStatus.historyStamp ? lastStatus.historyStamp : '';
     }
 
     function panelIsOpen() {
@@ -381,7 +390,7 @@
         var name = openPanel;
         var spec = PANELS[name];
         panelLoading = true;
-        panelMark = fetchedAt();
+        panelMark = historyStamp();
         try {
             var shown = spec.describe(await request(spec.path));
             if (name === openPanel) {
@@ -480,7 +489,7 @@
 
     /** Reads the open panel again when there may be more to show: a new reading, or any time for the log. */
     function refreshPanel() {
-        if (openPanel === 'log' || openPanel === 'errors' || (openPanel === 'history' && fetchedAt() !== panelMark)) {
+        if (openPanel === 'log' || openPanel === 'errors' || (openPanel === 'history' && historyStamp() !== panelMark)) {
             loadPanel();
         }
     }

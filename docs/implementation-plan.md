@@ -1385,16 +1385,22 @@ Found by reading the code against the requirements (version 0.21); none of it is
 
 ## Open points found by the audit
 
-Differences between the code and the requirements that were not settled either way; each needs a decision, and none has been changed.
+Differences between the code and the requirements found by reading the one against the other (version 0.21). The first three were fixed in version 0.22; the rest need a decision, and none of them has been changed.
 
-1. The history panel is read again only when `fetched_at` changes, so a failed refresh (a new row, but no new reading) does not appear until the next success. The requirements say a new row appears soon after it is recorded.
-2. An optional item of the row (the changes, the interval, the percentage) is left out when the backend has no value for it, even if its switch is on, so a refresh can change the row's width. The requirements say a refresh does not change the window's size.
-3. The log's start line is `#e6e6e6` in the dark theme too, where the light text on it is hard to read; the requirements are silent about the dark theme there.
+1. **Fixed (0.22).** The history panel was read again only when `fetched_at` changed, so a failed refresh did not appear until the next success. The status now carries `historyStamp`, the history file's size and time, and the page reads the history again when it changes.
+2. **Fixed (0.22).** An optional item of the row left out when it had no value made the row change width. With its switch on it now stays in the row, empty and `visibility: hidden` (`.delta.empty`), with the min-width it already had; with the switch off it is not there.
+3. **Fixed (0.22).** The log's start line was `#e6e6e6` in the dark theme too. It is `--mark`: `#e6e6e6`, and `#30363d` in the dark block.
 4. `/api/config` reports the configured interval, while `/api/settings` and the row report the one in force; `docs/api.md` and the requirements now say so, but the page needs both for different things.
 5. The window's lost-contact line is not logged, which the requirements now say; a program that is reachable only by its window has nothing to log it with, so this may be right.
 6. `duration_ms` includes getting the token and the retry after a 401, so the first row of a run is long; the requirements now say so, but a measure of the request alone may be what is wanted.
 7. The window checks the interval field itself (a whole number) before it asks the backend, though the requirements first said the backend refuses a bad value; both messages exist.
 8. The first lines of the log are `Logging to ...`, the start line and the history path, in that order; the requirements now say so, replacing the earlier "the first thing logged is the start line".
+
+### 36. The three defects of the audit
+
+**Status: done (version 0.22).** `ApiHandler.historyStamp()` (file size and last-modified time, empty with no file) is in the status; `app.js` `historyStamp()` replaces `fetchedAt()` as the mark of what the open history shows. `renderOptional(id, wanted, item)` keeps the element
+(`hidden` only when its switch is off) and sets `empty` when there is no value; the page's `OPTIONAL_CLASSES` keep the classes of the three optional items. The log's start-line gray is a style variable. Tests in `ApiTest`, `app.test.cjs` and `layout.test.cjs`; the
+tests that triggered a history read by changing `fetched_at` now change the stamp, and the test that expected an item with no value to be hidden now expects it empty.
 
 ## Validation strategy
 

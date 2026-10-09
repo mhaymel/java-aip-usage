@@ -134,6 +134,8 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
   `deltaTime` the settings switch on (the countdown is always shown), and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
   the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language.
+- `historyStamp`: a text that changes whenever a row is added to the history file, a row of a failed refresh as well as a reading (the file's size and time); empty when there is no file. A client that
+  shows the history reads it again when the stamp is not the one it read.
 - `change`: what changed between the newest reading (the newest history row that has amounts) and the row
   directly before it in the history file, worked out by the backend; `null` when there is no usage or no
   history. `delta_used` is the change in the amount used, `delta_time` the whole seconds between the

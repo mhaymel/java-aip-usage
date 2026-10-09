@@ -540,10 +540,24 @@ test('the history\'s start line is green text with no background and no bold; th
     assert.match(start, /color:\s*var\(--active\)/, 'the vivid green of the open panel\'s button');
     assert.doesNotMatch(start, /background/, 'no special background');
     assert.doesNotMatch(start, /font-weight/, 'not bold');
-    assert.match(ruleOf('.panel-lines .mark'), /background:\s*#e6e6e6/, 'the log keeps its gray');
+    assert.match(ruleOf('.panel-lines .mark'), /background:\s*var\(--mark\)/, 'the log keeps its gray, from a variable');
     assert.doesNotMatch(ruleOf('.panel-lines .mark'), /color/);
 });
 
 test('the time since the previous reading in the row has room for six characters: 3600 s', () => {
     assert.match(ruleOf('.delta-time'), /min-width:\s*6ch/);
+});
+
+test('the log\'s start line has a gray for each theme, a light one and a dark one that the light text can be read on', () => {
+    const colours = [...css.matchAll(/--mark:\s*(#[0-9a-f]{6})/g)].map(m => m[1]);
+    assert.deepEqual(colours, ['#e6e6e6', '#30363d'], 'the light theme, then the dark one');
+    assert.ok(css.indexOf('--mark: #30363d') > css.indexOf('prefers-color-scheme: dark'), 'the second is in the dark block');
+});
+
+test('an optional item of the row that is empty keeps its room and is not seen', () => {
+    assert.match(ruleOf('.delta.empty'), /visibility:\s*hidden/);
+    assert.doesNotMatch(ruleOf('.delta.empty'), /display\s*:\s*none/, 'it must not leave the layout');
+    for (const rule of ['.delta-used', '.delta-time', '.delta-interval']) {
+        assert.match(ruleOf(rule), /min-width:\s*[0-9.]+ch/, rule + ' has a width of its own, which it keeps empty');
+    }
 });

@@ -238,6 +238,10 @@ snug against the button, so they read as one group:
 11. at the right-hand end, after the other buttons, the settings button, a very small icon of
     a gear, not a word and not sliders. It is always there, so that the other buttons can be brought back.
 
+**An item of the row whose switch is on keeps its room.** The interval and the two changes (the percentage is part of the figures) are in the row when their
+switches are on, and when the program has no value for one at that moment, for instance a change of zero or a time that cannot be worked out, the item is empty and not seen but keeps the width it would have, so the row does not change width from
+one refresh to the next. An item whose switch is off is not there and takes no room.
+
 A button that is switched off is not shown and takes no room, so the row is narrower by it (the window follows when the
 settings are applied, as for any other item). Without its button a panel cannot be opened: if it was the panel that the settings would
 give back when they are left (see Settings), nothing is given back.
@@ -455,8 +459,8 @@ The log is shown the way the usage history is: inside the main window, not in a 
 - While the panel is shown it keeps up with the file: new lines appear at the top soon after they
   are written, without pressing anything, and what the person has scrolled to does not move. There
   is no reload button.
-- The line that records the start of a run (see Non-functional requirements) has a light gray
-  background, so where each run begins can be seen at a glance. The log is appended to across runs, so
+- The line that records the start of a run (see Non-functional requirements) has a gray
+  background, `#e6e6e6` on the light theme and a dark gray, `#30363d`, on the dark one so that the light text on it can be read, so where each run begins can be seen at a glance. The log is appended to across runs, so
   there can be several such lines; each is marked. Only the background differs: the text is the same.
 - If there is no log yet, or it is empty, the panel says so in one line. If it cannot be read, the
   panel says so in red, and shows what it had.
@@ -785,7 +789,7 @@ These are things the program does that the sections above do not say, written do
   as possible in the main view`) are inside the Main view group. The time format's two choices read `hh:mm` and `hh:mm:ss`. The interval field is 5 characters wide, right-aligned, with `s` after it. When Apply is pressed the window checks that the field is a whole number
   (`The interval must be a whole number of seconds.`) and sends nothing otherwise; whether it is within 5 to 3600 is for the backend. Nothing else is bound to the keyboard: there is no Enter to apply and no Escape to cancel; the panels' lines can be reached with Tab, and the buttons say
   whether their panel is open to a screen reader.
-- **The panels:** while a panel is on show it is read again when its content changes. The log and the error log are read every second; the history when a new reading has arrived. If nothing has changed the lines are left alone; when new lines come in above, what the person
+- **The panels:** while a panel is on show it is read again when its content changes. The log and the error log are read every second; the history whenever a row has been added to its file, a row of a failed refresh as well as a reading (the status carries a stamp of the file, `historyStamp`, which changes when a row is added; it is empty when there is no file). If nothing has changed the lines are left alone; when new lines come in above, what the person
   is reading does not move, and a panel scrolled to the top stays at the top. If a read fails the old lines stay and a red line says `The usage history could not be read: <reason>` (`The log could not be read: ...`, `The error log could not be read: ...`). A panel with nothing to list shows only its note. The notes of the log are `There is no log file yet.`, `The log is empty.`
   and `Showing the newest N lines of the log.`; those of the history are written by the program, as above.
 - Text the program sends is put on the page as text, never as HTML.
