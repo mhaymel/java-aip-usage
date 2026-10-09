@@ -814,6 +814,26 @@ class ApiTest {
     }
 
     @Test
+    void theStatusCarriesTheFinishedDisplayAndItFollowsTheSettings() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> app.service().state().snapshot() != null);
+
+        JsonNode display = json(get(app, "/api/status")).get("display");
+        assertEquals(5, display.get("time").asText().length(), "hours and minutes by default");
+        assertEquals("186.02", display.at("/spend/used").asText());
+        assertEquals("1,000.00", display.at("/spend/limit").asText());
+        assertFalse(display.at("/show/countdown").asBoolean());
+        assertTrue(display.at("/countdown/text").asText().endsWith(" s"));
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm:ss"));
+        display = json(get(app, "/api/status")).get("display");
+        assertEquals(8, display.get("time").asText().length(), "hh:mm:ss now");
+        assertTrue(display.at("/show/countdown").asBoolean());
+        assertTrue(display.at("/show/deltaUsed").asBoolean());
+        assertFalse(display.at("/show/deltaTime").asBoolean());
+    }
+
+    @Test
     void theStatusHasNoChangeBeforeThereIsAReading() throws Exception {
         FakeFetch fetch = new FakeFetch();
         fetch.answer = () -> {

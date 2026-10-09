@@ -23,6 +23,8 @@ import org.example.usage.UsageWindow;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -287,13 +289,15 @@ final class ApiHandler implements HttpHandler {
     private StatusBody status(UsageState state) {
         UsageSnapshot snapshot = state.snapshot();
         OptionalLong countdown = service.secondsUntilNextRefresh();
+        DeltaBody change = snapshot == null ? null : latestChange();
         return new StatusBody(
                 state.refreshing(),
                 state.stale(),
                 countdown.isPresent() ? countdown.getAsLong() : null,
                 state.error() == null ? null : new ErrorBody(state.error(), state.errorAt().toString()),
                 snapshot == null ? null : usage(snapshot),
-                snapshot == null ? null : latestChange());
+                change,
+                StatusDisplay.build(state, countdown, change, settings.current(), Instant.now(), ZoneId.systemDefault()));
     }
 
     private static UsageBody usage(UsageSnapshot snapshot) {
@@ -433,6 +437,7 @@ final class ApiHandler implements HttpHandler {
     }
 
     record StatusBody(
-            boolean refreshing, boolean stale, Long nextRefreshInSeconds, ErrorBody error, UsageBody usage, DeltaBody change) {
+            boolean refreshing, boolean stale, Long nextRefreshInSeconds, ErrorBody error, UsageBody usage, DeltaBody change,
+            StatusDisplay.View display) {
     }
 }

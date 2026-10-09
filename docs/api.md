@@ -141,6 +141,14 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
 }
 ```
 
+- `display`: what the window shows, finished: the frontend does no calculation or formatting of readings.
+  `time` (the local time of the last reading, `14:24` or `14:24:53` by the `timeFormat` setting) and `timeTooltip`
+  (`Last update: 8 Oct 2026, 14:24:53`); `spend` (`percentText`, `percentTooltip`, `used`, `limit`, `usedTooltip`,
+  `limitTooltip`, `severityText`, `severityKind`) for a usage-based account; `windows` (`name`, `utilizationText`,
+  `resetsText` such as `in 2 h 5 min`) for a plan account; `placeholder` (`Loading…`, `No data`, `No usage reported`);
+  `countdown`, `deltaUsed` and `deltaTime` as `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and
+  `show`, which of `countdown`, `deltaUsed` and `deltaTime` the settings switch on. The raw values above stay for
+  other clients. Numbers use a dot and `,` for thousands whatever the machine's language.
 - `change`: what changed between the newest reading (the newest history row that has amounts) and the row
   directly before it in the history file, worked out by the backend; `null` when there is no usage or no
   history. `delta_used` is the change in the amount used, `delta_time` the whole seconds between the

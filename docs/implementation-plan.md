@@ -937,7 +937,13 @@ window, so it is not logged. An entry's first line is the one that starts with i
 
 ### 22. The backend sends the finished figures; the window does no arithmetic
 
-**Status: planned.** Requirements: the frontend does no calculation (Display requirements), Compact window.
+**Status: done (version 0.07).** `Formatting` and `StatusDisplay` (Java) build a `display` block in `/api/status`: time and
+tooltip, spend, windows, placeholder, countdown, the two changes, the message, and `show` flags for the optional items. The
+page's `describeStatus` only reads it, and the formatters are gone from `view.js`; a test checks the page scripts for date
+parsing, rounding and number formatting. The page still shows the countdown always and ignores the change texts and the `show`
+flags, as the row is phase 23's; so until then the time shows without seconds (the setting's default) and the window is
+otherwise unchanged. The page tests get their `display` from `fake-display.cjs`, a stand-in for the backend that derives it
+from the raw fields; the real logic is tested in `FormattingTest` and `StatusDisplayTest`. Requirements: the frontend does no calculation (Display requirements), Compact window.
 
 - **Status payload.** `/api/status` already carries the countdown. Add what `view.js` works out today: the cut
   time (`14:24` or `14:24:53`, by the time-format setting) for the last refresh and for an error, the remaining

@@ -113,7 +113,7 @@
         if (!lastStatus) {
             return;
         }
-        var v = view.describeStatus(lastStatus, Date.now());
+        var v = view.describeStatus(lastStatus);
 
         lastStale = v.stale;
         applyAppClass();

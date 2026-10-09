@@ -10,6 +10,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { withDisplay } = require('./fake-display.cjs');
+
 const WEB = path.join(__dirname, '../../main/resources/web');
 const INDEX_HTML = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8');
 const INDEX_IDS = [...INDEX_HTML.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
@@ -124,7 +126,7 @@ function backendOf(state) {
         }
         if (call.url === '/api/config' && call.method === 'GET') return { status: 200, body: state.config };
         if (call.url === '/api/config' && call.method === 'POST') return state.postConfig(JSON.parse(call.body));
-        if (call.url === '/api/status') return { status: 200, body: state.status };
+        if (call.url === '/api/status') return { status: 200, body: withDisplay(state.status) };
         if (call.url === '/api/refresh') return { status: 202, body: { started: true } };
         if (call.url === '/api/log') return state.log ? state.log() : { status: 200, body: LOG };
         if (call.url === '/api/history') return state.history ? state.history() : { status: 200, body: HISTORY };
