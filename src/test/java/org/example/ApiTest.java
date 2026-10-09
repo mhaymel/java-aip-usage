@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -120,7 +121,7 @@ class ApiTest {
         return new LaunchOptions(
                 usage == null ? OptionalInt.empty() : OptionalInt.of(usage),
                 poll == null ? OptionalInt.empty() : OptionalInt.of(poll),
-                false);
+                Optional.empty(), false, false, Optional.empty(), false);
     }
 
     // ---- /api/config: the effective intervals, requested by the UI at startup

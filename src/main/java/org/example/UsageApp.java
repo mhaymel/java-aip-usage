@@ -12,14 +12,19 @@ import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import org.example.fake.FakeBackend;
+import org.example.fake.Scenario;
 import org.example.settings.LaunchOptions;
 import org.example.token.ClaudeTokenProvider;
+import org.example.token.PlaceholderTokenProvider;
+import org.example.token.TokenProvider;
 import org.example.usage.ResponseLog;
 import org.example.usage.UsageClient;
 import org.example.usage.UsageFetcher;
 
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -52,6 +57,9 @@ public class UsageApp extends Application {
     private static volatile UsageApp running;
 
     private AppRuntime runtime;
+
+    /** Only ever set by {@code --fake-backend}; null on every other run. */
+    private FakeBackend fakeBackend;
 
     /** Releases the runtime once, whether the window was closed or the process was told to stop. */
     private final RunOnce cleanup = new RunOnce(this::release);
@@ -90,11 +98,22 @@ public class UsageApp extends Application {
         LaunchOptions options = LaunchOptions.parse(getParameters().getRaw());
         try {
             ResponseLog responseLog = new ResponseLog();
+            // Started before the fetcher, which needs the address it chose.
+            if (options.fakeBackend()) {
+                fakeBackend = FakeBackend.start(options.fakeScenario().orElse(Scenario.NORMAL));
+            }
+            URI base = fakeBackend != null
+                    ? fakeBackend.baseUrl()
+                    : options.baseUrl().orElse(UsageClient.DEFAULT_BASE_URL);
+            TokenProvider tokens = options.placeholderToken()
+                    ? new PlaceholderTokenProvider()
+                    : ClaudeTokenProvider.create();
             runtime = AppRuntime.start(
                     AppFiles.inWorkingDirectory(),
                     options,
-                    new UsageFetcher(ClaudeTokenProvider.create(), UsageClient.create(UsageClient.DEFAULT_URI, responseLog)),
-                    responseLog);
+                    new UsageFetcher(tokens, UsageClient.create(UsageClient.usageUri(base), responseLog)),
+                    responseLog,
+                    Optional.of(base));
         } catch (Exception e) {
             LOG.log(Level.ERROR, "Could not start", e);
             throw e;
@@ -256,13 +275,17 @@ public class UsageApp extends Application {
     }
 
     /**
-     * Stops the refresh service and the web server, logging that it does. Run once, by
-     * {@link #stop()} or by {@link #shutDown()}, whichever comes first.
+     * Stops the refresh service, the web server and the fake backend if one was started,
+     * logging that it does. Run once, by {@link #stop()} or by {@link #shutDown()},
+     * whichever comes first, so a run that ends either way leaves nothing listening.
      */
     private void release() {
         LOG.log(Level.INFO, "Shutting down");
         if (runtime != null) {
             runtime.close();
+        }
+        if (fakeBackend != null) {
+            fakeBackend.close();
         }
     }
 

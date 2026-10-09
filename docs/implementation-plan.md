@@ -1432,9 +1432,15 @@ tests that triggered a history read by changing `fetched_at` now change the stam
 
 ### 37. A configurable Anthropic URL, a run with no token, and a fake backend
 
-**Status: planned (version 0.23).** Requirements: Source data (the base URL), Authentication (`--fake-token`, `--fake-backend`), Command line (the four options and their messages), The usage request (the host in
-the messages), Fake backend, Non-functional requirements (the startup lines, no task of its own). The work divides cleanly: the application learns a base URL and a way to skip the token, and it gains a server of
-its own that answers on one. Nothing is added outside the application — no second program, no second command — so the whole change is reachable from the command line of the one that already exists.
+**Status: done (version 0.23).** Requirements: Source data (the base URL), Authentication (`--fake-token`, `--fake-backend`), Command line (the four options and their messages), The usage request (the host in
+the messages), Fake backend, Non-functional requirements (the startup lines, no task of its own). The work divided cleanly: the application learns a base URL and a way to skip the token, and it gains a server of
+its own that answers on one. Nothing was added outside the application — no second program, no second command — so the whole change is reachable from the command line of the one that already exists.
+
+Built as planned, with two departures. `AppRuntime.start` took an `Optional<URI>` of where the fetcher fetches rather than a record beside `options`: everything else the lines need is already in `options`, so a
+second type earned nothing. And the fake backend is closed by `UsageApp.release()`, the `RunOnce` the window close and the process stop already share, rather than by `AppRuntime.close()`: `UsageApp` is what starts
+it, because the fetcher it builds needs the address, so `UsageApp` is what owns it. Checked by running it: the four log lines appear in the order the requirements give, three readings climbed 187.39 → 188.76 →
+190.13 in the history, a `POST /scenario` to `http-429-retry-after` drew `HTTP 429 ... retry-after 42`, the back-off answered `Next try in 42 s.`, a `failed` row was written, and closing the window released the
+port. 62 tests were added; 622 pass.
 
 - **The four options (`LaunchOptions`).** The record grows `Optional<URI> baseUrl`, `boolean fakeToken`, `boolean fakeBackend` and `Optional<Scenario> fakeScenario`, and `none()` gains the empties and falses.
   `--fake-token` and `--fake-backend` are handled with `-h` and `--help`, before the value handling, so they need no value; given one they are `<option> takes no value.` `--anthropic-url` and `--fake-scenario`

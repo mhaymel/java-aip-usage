@@ -132,6 +132,44 @@ Options go after `--args`:
 ./gradlew run --args="--help"
 ```
 
+### Running without Anthropic
+
+One option runs the whole application against a fake Anthropic backend it starts
+itself, so it needs no account, nobody logged in and no network, and spends nothing
+on the real endpoint:
+
+```sh
+./gradlew run --args="--fake-backend"
+```
+
+The readings are invented and move a little each time, which is enough for the row,
+the history and the differences to have something to show. The log says so in as many
+words, so a reading taken this way cannot later be mistaken for a real one, and the
+rows land in the usage history of whatever directory you start it from — start it
+somewhere else if you would rather not mix them with your real ones.
+
+`--fake-scenario <name>` says what it should answer: `normal`, `http-401`, `http-403`,
+`http-429`, `http-429-retry-after`, `http-500`, `not-json`, `empty`,
+`no-spend-no-windows`, `trailing-text`, `slow` or `hang`. It is a real HTTP server on
+loopback, so the statuses, the timeouts, the back-off and the refusal to follow a
+redirect are all exercised for real:
+
+```sh
+./gradlew run --args="--fake-backend --fake-scenario http-429-retry-after"
+```
+
+The scenario can also be changed while the application runs. The log line
+`Fake backend listening on http://127.0.0.1:<port>` gives the port:
+
+```sh
+curl -X POST --data "http-500" http://127.0.0.1:<port>/scenario
+```
+
+To fetch from somewhere else altogether — a proxy in front of the real endpoint, say —
+`--anthropic-url <url>` replaces the base URL (`https://api.anthropic.com` by default);
+the path `/api/oauth/usage` is always appended to it. `--fake-token` sends a placeholder
+bearer instead of obtaining a real one, which `--fake-backend` does for you.
+
 Or start `org.example.Main` from IntelliJ (▶ in the gutter next to `main`). It needs no
 VM options or module path. Set the run configuration's working directory to the
 project root so the log and settings land there, and check that IntelliJ's
@@ -172,6 +210,18 @@ Two intervals, which are not alike:
 | --- | --- | --- | --- | --- | --- |
 | **Usage fetch**: how often the application asks Anthropic | 60 s | 5–3600 | `--usage-interval <seconds>` | yes, a dropdown in the settings (60–300 s) | yes, in `settings.json` |
 | **Update**: how often the window asks the application for the latest state | 1 s | 1–60 | `--poll-interval <seconds>` | no | no |
+
+Where usage comes from is a choice of the same kind, for one run only and never saved:
+
+| Option | What it does |
+| --- | --- |
+| `--anthropic-url <url>` | fetch from this base URL instead of `https://api.anthropic.com` |
+| `--fake-backend` | fetch from a fake backend inside this program; implies `--fake-token` |
+| `--fake-scenario <name>` | what that backend answers; needs `--fake-backend` |
+| `--fake-token` | send a placeholder bearer rather than obtaining a real token |
+
+`--fake-backend` and `--anthropic-url` cannot be combined: each says where usage comes
+from. See [Running without Anthropic](#running-without-anthropic).
 
 For the usage fetch, the command line wins over the saved setting, which wins over the
 default. A value confirmed in the window is saved, takes effect at once, and replaces

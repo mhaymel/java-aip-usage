@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.fake.Scenario;
 import org.example.settings.IntervalSettings;
 import org.example.settings.LaunchOptions;
 import org.example.settings.SettingsStore;
@@ -12,6 +13,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
@@ -52,8 +54,23 @@ final class AppRuntime implements AutoCloseable {
     /** @param responseLog switched by the setting to log the response; the client the fetcher uses asks it */
     static AppRuntime start(AppFiles files, LaunchOptions options, Supplier<UsageSnapshot> fetcher, ResponseLog responseLog)
             throws IOException {
+        return start(files, options, fetcher, responseLog, Optional.empty());
+    }
+
+    /**
+     * @param fetchedFrom the base URL the fetcher fetches from, for the log to name; empty when
+     *     the caller fitted a fetcher of its own and so has nowhere to name, as the tests do
+     */
+    static AppRuntime start(
+            AppFiles files,
+            LaunchOptions options,
+            Supplier<UsageSnapshot> fetcher,
+            ResponseLog responseLog,
+            Optional<URI> fetchedFrom)
+            throws IOException {
         LOG.log(System.Logger.Level.INFO, "Usage history is written to " + files.history());
         LOG.log(System.Logger.Level.INFO, "Settings are stored in " + files.settings());
+        logWhereReadingsComeFrom(options, fetchedFrom);
         IntervalSettings settings =
                 IntervalSettings.load(new SettingsStore(files.settings()), options.usageInterval(), options.pollInterval());
         UsageHistory history = new UsageHistory(files.history());
@@ -125,6 +142,26 @@ final class AppRuntime implements AutoCloseable {
     }
 
     /** Stops fetching first, interrupting a request in flight, then the server. */
+    /**
+     * Says where this run's readings come from, after the lines that name the files and
+     * after the one the log panel marks as the start of a run, so that marking is unaffected.
+     * A fake run says so in as many words: a reading it invented must not be taken for a real
+     * one by anybody reading the log afterwards.
+     */
+    private static void logWhereReadingsComeFrom(LaunchOptions options, Optional<URI> fetchedFrom) {
+        if (options.fakeBackend()) {
+            LOG.log(System.Logger.Level.INFO,
+                    "The fake backend is in use: these readings are invented (--fake-backend, scenario "
+                            + options.fakeScenario().orElse(Scenario.NORMAL).optionName() + ")");
+        }
+        fetchedFrom.ifPresent(uri -> LOG.log(System.Logger.Level.INFO, "Usage is fetched from " + uri));
+        if (options.placeholderToken()) {
+            LOG.log(System.Logger.Level.INFO,
+                    "No token is obtained: a placeholder is sent instead ("
+                            + (options.fakeBackend() ? "--fake-backend" : "--fake-token") + ")");
+        }
+    }
+
     @Override
     public void close() {
         service.close();

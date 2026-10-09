@@ -16,15 +16,27 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Calls {@code https://api.anthropic.com/api/oauth/usage} with a bearer token.
+ * Calls {@link #USAGE_PATH} on a base URL with a bearer token, Anthropic's own
+ * unless the run named another.
  *
- * <p>Redirects are not followed, so the token can never be forwarded to
- * another host: a 3xx is reported as a failure. Only the status and timing are
+ * <p>Redirects are not followed, so the token can never be forwarded to a host
+ * nobody named: a 3xx is reported as a failure. Where the request goes in the
+ * first place is the run's to choose. Only the status and timing are
  * logged, never a header, and the body only while the setting to log the response is on.
  */
 public final class UsageClient implements UsageSource {
 
-    public static final URI DEFAULT_URI = URI.create("https://api.anthropic.com/api/oauth/usage");
+    /**
+     * The path of the usage endpoint, appended to whatever base URL is in force. Not
+     * configurable: what this class and {@link UsageParser} understand is the document
+     * this path serves.
+     */
+    public static final String USAGE_PATH = "/api/oauth/usage";
+
+    /** Anthropic's own base URL, which is where usage comes from unless a run says otherwise. */
+    public static final URI DEFAULT_BASE_URL = URI.create("https://api.anthropic.com");
+
+    public static final URI DEFAULT_URI = usageUri(DEFAULT_BASE_URL);
 
     static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
 
@@ -61,6 +73,19 @@ public final class UsageClient implements UsageSource {
         this.requestTimeout = requestTimeout;
         this.clock = clock;
         this.logResponse = logResponse;
+    }
+
+    /**
+     * The endpoint to fetch on a base URL. Joined as text rather than with
+     * {@link URI#resolve}, which would throw away a path the base URL already has and
+     * so break a server reached under one, such as a proxy at {@code http://host/proxy}.
+     */
+    public static URI usageUri(URI baseUrl) {
+        String base = baseUrl.toString();
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        return URI.create(base + USAGE_PATH);
     }
 
     /** The client the application uses: the real endpoint, with connect and request timeouts. */

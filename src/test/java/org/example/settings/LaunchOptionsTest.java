@@ -1,11 +1,14 @@
 package org.example.settings;
 
+import org.example.fake.Scenario;
 import org.example.settings.LaunchOptions.InvalidOptionsException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -106,5 +109,166 @@ class LaunchOptionsTest {
     void theUsageTextSaysWhichIntervalIsSavedAndWhichIsNot() {
         assertTrue(LaunchOptions.USAGE.contains("saved to settings.json"), LaunchOptions.USAGE);
         assertTrue(LaunchOptions.USAGE.contains("never saved"), LaunchOptions.USAGE);
+    }
+
+    // ---- --anthropic-url
+
+    @Test
+    void readsTheBaseUrlInEitherForm() {
+        URI expected = URI.create("http://127.0.0.1:8080");
+
+        assertEquals(Optional.of(expected), parse("--anthropic-url", "http://127.0.0.1:8080").baseUrl());
+        assertEquals(Optional.of(expected), parse("--anthropic-url=http://127.0.0.1:8080").baseUrl());
+        assertEquals(Optional.empty(), parse().baseUrl());
+    }
+
+    @Test
+    void dropsOneTrailingSlashSoThePathCannotBeDoubled() {
+        assertEquals(
+                Optional.of(URI.create("http://127.0.0.1:8080")),
+                parse("--anthropic-url=http://127.0.0.1:8080/").baseUrl());
+    }
+
+    /** A proxy is often reached under a path, and that path is a prefix of the endpoint's. */
+    @Test
+    void keepsAPathAsAPrefix() {
+        assertEquals(
+                Optional.of(URI.create("https://proxy.example/anthropic")),
+                parse("--anthropic-url=https://proxy.example/anthropic").baseUrl());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"http://127.0.0.1:8080", "https://api.anthropic.com", "HTTP://127.0.0.1:8080",
+            "http://localhost", "https://somewhere.far.away:8443/under/a/path"})
+    void acceptsAnyHostAndEitherScheme(String url) {
+        assertEquals(Optional.of(url.endsWith("/") ? url.substring(0, url.length() - 1) : url),
+                parse("--anthropic-url=" + url).baseUrl().map(URI::toString));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"127.0.0.1:8080", "/api/oauth/usage", "ftp://host", "file:///tmp/x", "http://",
+            "http://host?query=1", "http://host#fragment", "not a url at all", "://host"})
+    void rejectsAUrlItCannotFetchFrom(String url) {
+        InvalidOptionsException e = assertThrows(
+                InvalidOptionsException.class, () -> parse("--anthropic-url=" + url));
+
+        assertTrue(e.getMessage().startsWith("--anthropic-url must be an absolute http or https URL"), e.getMessage());
+    }
+
+    @Test
+    void rejectsABaseUrlThatIsMissingOrEmptyOrRepeated() {
+        assertEquals("--anthropic-url needs a URL.",
+                assertThrows(InvalidOptionsException.class, () -> parse("--anthropic-url")).getMessage());
+        assertEquals("--anthropic-url needs a URL.",
+                assertThrows(InvalidOptionsException.class, () -> parse("--anthropic-url=")).getMessage());
+        assertThrows(InvalidOptionsException.class,
+                () -> parse("--anthropic-url=http://a", "--anthropic-url=http://b"));
+    }
+
+    // ---- --fake-token and --fake-backend
+
+    @Test
+    void readsTheTwoFlagsThatTakeNoValue() {
+        assertTrue(parse("--fake-token").fakeToken());
+        assertTrue(parse("--fake-backend").fakeBackend());
+        assertFalse(parse().fakeToken());
+        assertFalse(parse().fakeBackend());
+    }
+
+    @Test
+    void eitherFlagMeansNoRealTokenIsObtained() {
+        assertTrue(parse("--fake-token").placeholderToken());
+        assertTrue(parse("--fake-backend").placeholderToken(), "the fake backend ignores the token");
+        assertTrue(parse("--fake-backend", "--fake-token").placeholderToken(), "both say the same thing");
+        assertFalse(parse().placeholderToken());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"--fake-token", "--fake-backend"})
+    void rejectsAValueGivenToAFlag(String option) {
+        assertEquals(option + " takes no value.",
+                assertThrows(InvalidOptionsException.class, () -> parse(option + "=1")).getMessage());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"--fake-token", "--fake-backend"})
+    void rejectsARepeatedFlag(String option) {
+        assertThrows(InvalidOptionsException.class, () -> parse(option, option));
+    }
+
+    /** Each says where usage comes from, so accepting both would mean silently picking one. */
+    @Test
+    void refusesTheTwoOptionsThatBothSayWhereUsageComesFrom() {
+        String expected = "--fake-backend and --anthropic-url cannot both be given: each says where usage comes from.";
+
+        assertEquals(expected, assertThrows(InvalidOptionsException.class,
+                () -> parse("--fake-backend", "--anthropic-url=http://127.0.0.1:1")).getMessage());
+        assertEquals(expected, assertThrows(InvalidOptionsException.class,
+                () -> parse("--anthropic-url=http://127.0.0.1:1", "--fake-backend")).getMessage());
+    }
+
+    // ---- --fake-scenario
+
+    @Test
+    void readsAScenarioByName() {
+        assertEquals(
+                Optional.of(Scenario.HTTP_429),
+                parse("--fake-backend", "--fake-scenario", "http-429").fakeScenario());
+        assertEquals(
+                Optional.of(Scenario.NOT_JSON),
+                parse("--fake-backend", "--fake-scenario=NOT-JSON").fakeScenario());
+        assertEquals(Optional.empty(), parse("--fake-backend").fakeScenario());
+    }
+
+    /**
+     * Refused rather than ignored: a forgotten --fake-backend would otherwise leave the run
+     * quietly fetching real usage while the person believed it was fake.
+     */
+    @Test
+    void refusesAScenarioWithNoBackendToServeIt() {
+        assertEquals("--fake-scenario needs --fake-backend.",
+                assertThrows(InvalidOptionsException.class, () -> parse("--fake-scenario=normal")).getMessage());
+    }
+
+    @Test
+    void refusesAScenarioItDoesNotKnowAndNamesTheOnesItDoes() {
+        InvalidOptionsException e = assertThrows(InvalidOptionsException.class,
+                () -> parse("--fake-backend", "--fake-scenario=explode"));
+
+        assertTrue(e.getMessage().startsWith("--fake-scenario must be one of "), e.getMessage());
+        for (Scenario scenario : Scenario.values()) {
+            assertTrue(e.getMessage().contains(scenario.optionName()), scenario + " missing from: " + e.getMessage());
+        }
+        assertTrue(e.getMessage().endsWith("not \"explode\"."), e.getMessage());
+    }
+
+    @Test
+    void rejectsAScenarioThatIsMissingOrEmptyOrRepeated() {
+        assertEquals("--fake-scenario needs a name.",
+                assertThrows(InvalidOptionsException.class, () -> parse("--fake-backend", "--fake-scenario"))
+                        .getMessage());
+        assertEquals("--fake-scenario needs a name.",
+                assertThrows(InvalidOptionsException.class, () -> parse("--fake-backend", "--fake-scenario="))
+                        .getMessage());
+        assertThrows(InvalidOptionsException.class,
+                () -> parse("--fake-backend", "--fake-scenario=normal", "--fake-scenario=empty"));
+    }
+
+    // ---- the usage text
+
+    @Test
+    void theUsageTextNamesTheNewOptionsAndTheDefaultUrl() {
+        assertTrue(LaunchOptions.USAGE.contains("--anthropic-url"), LaunchOptions.USAGE);
+        assertTrue(LaunchOptions.USAGE.contains("--fake-token"), LaunchOptions.USAGE);
+        assertTrue(LaunchOptions.USAGE.contains("--fake-backend"), LaunchOptions.USAGE);
+        assertTrue(LaunchOptions.USAGE.contains("--fake-scenario"), LaunchOptions.USAGE);
+        assertTrue(LaunchOptions.USAGE.contains("https://api.anthropic.com"), LaunchOptions.USAGE);
+    }
+
+    @Test
+    void theUsageTextListsEveryScenario() {
+        for (Scenario scenario : Scenario.values()) {
+            assertTrue(LaunchOptions.USAGE.contains(scenario.optionName()), scenario + " missing from the usage text");
+        }
     }
 }

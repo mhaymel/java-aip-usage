@@ -117,6 +117,49 @@ class UsageClientTest {
         assertTrue(e.getMessage().startsWith("Cannot reach"), e.getMessage());
     }
 
+    // ---- the endpoint on a base URL
+
+    @Test
+    void theEndpointIsThePathOnWhateverBaseUrlIsInForce() {
+        assertEquals(
+                URI.create("https://api.anthropic.com/api/oauth/usage"),
+                UsageClient.usageUri(UsageClient.DEFAULT_BASE_URL));
+        assertEquals(UsageClient.DEFAULT_URI, UsageClient.usageUri(UsageClient.DEFAULT_BASE_URL));
+        assertEquals(
+                URI.create("http://127.0.0.1:8080/api/oauth/usage"),
+                UsageClient.usageUri(URI.create("http://127.0.0.1:8080")));
+    }
+
+    /** A base URL reached under a path, as a proxy often is, keeps that path as a prefix. */
+    @Test
+    void aPathOnTheBaseUrlIsKept() {
+        assertEquals(
+                URI.create("https://proxy.example/anthropic/api/oauth/usage"),
+                UsageClient.usageUri(URI.create("https://proxy.example/anthropic")));
+    }
+
+    @Test
+    void aTrailingSlashOnTheBaseUrlDoesNotDoubleTheSeparator() {
+        assertEquals(
+                URI.create("http://127.0.0.1:8080/api/oauth/usage"),
+                UsageClient.usageUri(URI.create("http://127.0.0.1:8080/")));
+    }
+
+    /**
+     * The failure message names the host that was actually fetched, not Anthropic's: a run
+     * pointed somewhere else must not report a problem reaching a host it never called.
+     */
+    @Test
+    void theUnreachableHostIsTheOneThatWasFetched() throws Exception {
+        URI uri = serve("/usage", exchange -> reply(exchange, 200, "{}"));
+        servers.getFirst().stop(0);
+
+        UsageFetchException e = assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN));
+
+        assertTrue(e.getMessage().startsWith("Cannot reach 127.0.0.1:"), e.getMessage());
+        assertFalse(e.getMessage().contains("api.anthropic.com"), e.getMessage());
+    }
+
     @Test
     void givesUpOnAServerThatDoesNotAnswerInTime() throws Exception {
         URI uri = serve("/usage", exchange -> {
