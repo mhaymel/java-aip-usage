@@ -238,3 +238,8 @@ test('the page decides nothing about the history note from its text', () => {
     assert.equal(source.includes("indexOf('Showing"), false);
     assert.equal(source.includes("startsWith('Showing"), false);
 });
+
+test('the history marks its first lines with the green class and the log with the gray one', () => {
+    assert.equal(view.describeHistory({ exists: true, columns: ['time'], total: 1, lines: [{ cells: ['14:00:00'], start: true, failed: false, title: '' }] }).markClass, 'start');
+    assert.equal(view.describeLog({ exists: true, truncated: false, lines: ['2026-10-08 13:20:56 INFO    [Main] Starting java-aip-usage'] }).markClass, 'mark');
+});

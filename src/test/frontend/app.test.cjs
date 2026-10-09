@@ -1301,8 +1301,9 @@ test('a line that begins a run says so when hovered, and the others say nothing:
     const shown = page.el('panel-lines').children.filter(c => !/\bhead\b/.test(c.className));
     assert.equal(shown[0].title, '');
     assert.equal(shown[1].title, 'The program started here');
-    assert.match(shown[1].className, /\bmark\b/, 'and it has the gray');
-    assert.doesNotMatch(shown[0].className, /\bmark\b/);
+    assert.match(shown[1].className, /\bstart\b/, 'and it is the green one');
+    assert.doesNotMatch(shown[1].className, /\bmark\b/, 'not the gray background of the log');
+    assert.doesNotMatch(shown[0].className, /\b(start|mark)\b/);
 });
 
 test('a failed line is marked as the backend says, and its cells are the backend\'s', async () => {
@@ -1818,4 +1819,32 @@ test('the blue goes when the note does: switching from a blue note to a panel wi
     await page.click('history-button');
 
     assert.doesNotMatch(page.el('panel-note').className, /highlight/);
+});
+
+// ---- the start line is green in the history and gray in the log
+
+test('the history\'s start line is green text and has no gray background class; the failed word is still red', async () => {
+    const history = { ...HISTORY, lines: [
+        line(['20:46:11', 'failed', '', ''], { failed: true }),
+        line(['20:44:12', 'failed', '', ''], { failed: true, start: true, title: 'The program started here' })] };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
+
+    await page.click('history-button');
+
+    const shown = page.el('panel-lines').children.filter(c => !/\bhead\b/.test(c.className));
+    assert.match(shown[1].className, /\bstart\b/);
+    assert.doesNotMatch(shown[1].className, /\bmark\b/);
+    assert.equal(shown[1].children[1].className, 'failed', 'the failed startup line keeps its red word');
+});
+
+test('the log\'s start line keeps the light gray background class and is not green', async () => {
+    const log = { ...LOG, lines: ['2026-10-08 19:00:00 INFO    [UsageApp] Starting java-aip-usage v0.20', '2026-10-08 19:00:01 INFO    [UsageService] Usage refresh succeeded'] };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, log: () => ({ status: 200, body: log }) }));
+
+    await page.click('log-button');
+
+    const shown = page.el('panel-lines').children;
+    const start = shown.find(c => /Starting java-aip-usage/.test(c.children.map(x => x.textContent).join(' ')));
+    assert.match(start.className, /\bmark\b/);
+    assert.doesNotMatch(start.className, /\bstart\b/);
 });

@@ -398,9 +398,9 @@
         }
     }
 
-    function cells(className, values, marked, failed, title, wide) {
+    function cells(className, values, marked, failed, title, wide, markClass) {
         var row = document.createElement('div');
-        row.className = className + ' cols-' + values.length + (marked ? ' mark' : '') + (wide ? ' date' : '');
+        row.className = className + ' cols-' + values.length + (marked ? ' ' + (markClass || 'mark') : '') + (wide ? ' date' : '');
         if (title) {
             row.title = title;
         }
@@ -432,7 +432,7 @@
             box.append(cells('row head', shown.header, false, false, '', shown.wide));
         }
         shown.rows.forEach(function (row, i) {
-            box.append(cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide));
+            box.append(cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide, shown.markClass));
         });
         // Rows that came in above what the person was reading push it down; follow it.
         var added = panelRows.length ? rowKeys.indexOf(panelRows[0]) : 0;

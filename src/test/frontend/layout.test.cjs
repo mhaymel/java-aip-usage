@@ -534,3 +534,12 @@ test('the interval is one entry field with its unit, in the Request section', ()
     assert.match(request, /> s<\/label>/, 'the unit s beside it');
     assert.equal((request.match(/<select/g) || []).length, 0, 'no dropdown');
 });
+
+test('the history\'s start line is green text with no background and no bold; the log\'s keeps the gray background', () => {
+    const start = ruleOf('.panel-lines .start');
+    assert.match(start, /color:\s*var\(--active\)/, 'the vivid green of the open panel\'s button');
+    assert.doesNotMatch(start, /background/, 'no special background');
+    assert.doesNotMatch(start, /font-weight/, 'not bold');
+    assert.match(ruleOf('.panel-lines .mark'), /background:\s*#e6e6e6/, 'the log keeps its gray');
+    assert.doesNotMatch(ruleOf('.panel-lines .mark'), /color/);
+});

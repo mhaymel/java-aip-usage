@@ -499,7 +499,7 @@ The history is shown inside the main window, not in a window of its own.
 - **The first column is the time of day only**, `21:01:22`, and its title is `time`. A setting (see
   Settings) shows the date as well, `2026-10-08 21:01:22`, and then the title is `date time`. The file keeps
   the full date and time either way. The backend cuts the time; the window shows it as received.
-- **Hovering over a line of the first row of a run**, the one with the light gray background below, shows the
+- **Hovering over a line of the first row of a run**, the green one below, shows the
   text `The program started here`.
 - **A horizontal scrollbar** appears at the bottom of the panel when the columns are wider than the panel, which
   happens only if the table is wider than the largest window there is (2,400 pixels), so that nothing is out of
@@ -516,7 +516,7 @@ The history is shown inside the main window, not in a window of its own.
 - **Hiding lines.** Two settings (see Settings) say whether the history shows its zero usage lines and its failed lines; both are
   shown unless switched off. A **zero usage line** is a line whose change in the amount used, as under Changes between readings (against the
   row directly before it, in the same run), is exactly zero: the reading is the same as the one before. **The startup lines count as zero usage
-  lines**: the first line of each run, the one with the gray background and the `The program started here` hover text, has no change and
+  lines**: the first line of each run, the green one with the `The program started here` hover text, has no change and
   is handled like the others that show no change, so it is hidden and shown with them. A startup line of a failed query (it has no amounts) is a failed line
   and goes with those. A **failed line** is a row of a failed query. When the startup lines are hidden, the first line shown of a run has no change
   either, since there is no line before it to compare with. What is hidden is
@@ -535,9 +535,11 @@ The history is shown inside the main window, not in a window of its own.
 - A row of a failed query (status `failed` or `start-failed`, see Usage history) is shown with its
   time, empty amounts and empty currency, and the word `failed` in red in the `used` column.
 - The line of the first row recorded after the program started (a row whose `status` is `start` or
-  `start-failed` in the file, see Usage history) has a light gray background across the whole line, so
-  where each run begins can be seen at a glance. The file can hold several such rows, one for each
-  run; each is marked. The `status`, `interval` and `duration_ms` columns themselves are not shown in
+  `start-failed` in the file, see Usage history) is shown **in green text**, the whole line, so
+  where each run begins can be seen at a glance: the vivid green of the button of the open panel (`#00b341` on the light theme,
+  `#3ddc6b` on the dark one). **It has no special background**: the background is that of every other line, not gray and not
+  coloured, and the line is not bold. (A failed startup line keeps its red `failed` in the place of the amount; the rest of its
+  text is green.) The file can hold several such rows, one for each run; each is marked. The `status`, `interval` and `duration_ms` columns themselves are not shown in
   the panel.
 - **The lines are sorted by the date and time, latest first.** They are sorted by that, not merely
   taken in reverse file order, so a file that is out of order is still shown right.

@@ -1323,6 +1323,20 @@ or it would have been hidden with the zero usage lines while the failed lines we
 
 *Assumed:* a hidden startup line takes its gray marker and hover text with it; the interval field's own validation (a whole number in the page, the range in the backend) is all that is left of the choices' job; `Request` is one word, as written.
 
+### 34. Green startup lines in the history
+
+**Status: done (version 0.20); the green on both themes is for a person to judge.** Built as planned. Requirements: The usage history panel (the startup line is green text, with no special background; the hover text stays).
+
+- **A class of its own.** Until now the history and the log shared the row class `mark` (the light gray background). The history's start lines get their own class, `start`: `describeHistory` returns `markClass: 'start'` and
+  `describeLog` `markClass: 'mark'` next to the existing `marks` flags, and `showPanel`/`cells()` add `' ' + markClass` to a marked row. Nothing decides from the panel's name, and the log keeps the gray.
+- **The style.** `app.css`: `.panel-lines .start { color: var(--active); }`, after the rules for the row text and with no `background`, no `font-weight` (the line is not bold). The colour is the vivid green of the open panel's button, which already has
+  a value for each theme; a failed startup line's `failed` keeps `color: var(--bad)` through its own, more specific rule. The `.mark` rule is not touched.
+- **Tests.** `layout.test.cjs`: the `.start` rule has `color: var(--active)` and no `background`/`font-weight`, comes after `.panel-lines`, and `.mark` still has the gray background (the log); `view.test.cjs`: `markClass` of both describes;
+  `app.test.cjs`: a history start line has the class `start` and not `mark`, a log start line `mark` and not `start`, a failed startup line's amount cell is still red. A manual check of the green on a light and a dark theme.
+- **Docs.** README (the green startup line).
+
+*Assumed:* the green is the same as the open panel's button (`--active`), as the requirements say, not the severity green; the hover text and the zero-usage handling of startup lines are unchanged.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

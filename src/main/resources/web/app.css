@@ -466,9 +466,17 @@ body {
     text-align: left;
 }
 
-/* The first line of a run, in the log and the history: a light gray background over the whole line. */
+/* The log's start line of a run: a light gray background over the whole line. */
 .panel-lines .mark {
     background: #e6e6e6;
+}
+
+/*
+ * The history's first line of a run: green text, the vivid green of the open panel's button, and no background of its own and no bold, so
+ * it is the line of every other except for its colour. A failed startup line's `failed` keeps its red through its own rule.
+ */
+.panel-lines .start {
+    color: var(--active);
 }
 
 /* A row of a query that did not succeed says so in red, in the place of its amount. */

@@ -82,7 +82,9 @@
             note: data.truncated ? 'Showing the newest ' + data.lines.length + ' lines of the log.' : null,
             header: null,
             rows: ordered.map(function (line) { return [line]; }),
-            marks: ordered.map(isRunStart)
+            marks: ordered.map(isRunStart),
+            // The log's start line has a light gray background; the history's is in green text (see describeHistory).
+            markClass: 'mark'
         };
     }
 
@@ -90,7 +92,7 @@
      * What the history panel shows, from GET /api/history. The backend has finished every line (its cells, whether it begins a run,
      * whether it failed, its hover text) and the one line of explanation, so this only reads them into the shape the page
      * draws: nothing is worked out, sorted or chosen here.
-     * @returns {note, noteHighlight, header, wide, rows, marks, failed, titles}
+     * @returns {note, noteHighlight, header, wide, rows, marks, markClass, failed, titles}
      */
     function describeHistory(data) {
         var lines = data.lines || [];
@@ -103,6 +105,8 @@
             wide: Boolean(data.wide),
             rows: lines.map(function (line) { return line.cells; }),
             marks: lines.map(function (line) { return Boolean(line.start); }),
+            // The first line of a run is drawn in green text, with no background of its own.
+            markClass: 'start',
             failed: lines.map(function (line) { return Boolean(line.failed); }),
             titles: lines.map(function (line) { return line.title || ''; })
         };
