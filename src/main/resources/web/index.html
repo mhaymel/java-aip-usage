@@ -25,6 +25,7 @@
             </svg>
         </button>
         <span id="countdown" class="countdown" hidden></span>
+        <span id="interval" class="delta delta-interval" hidden></span>
         <span id="delta-used" class="delta delta-used" hidden></span>
         <span id="delta-time" class="delta delta-time" hidden></span>
         <button id="settings-button" class="icon tiny" type="button" aria-label="Show the settings"
@@ -73,7 +74,7 @@
                 </fieldset>
                 <fieldset>
                     <legend>Main view</legend>
-                    <label><input id="set-showCountdown" type="checkbox"> Countdown to the next refresh</label>
+                    <label><input id="set-showInterval" type="checkbox"> Time between usage requests</label>
                     <label><input id="set-showDeltaUsed" type="checkbox"> Change in the amount used</label>
                     <label><input id="set-showDeltaTime" type="checkbox"> Time since the previous reading</label>
                     <label>Time format

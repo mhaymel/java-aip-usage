@@ -30,7 +30,7 @@ Every setting as the backend has it, read afresh each time the settings view is 
   "settings": {
     "usageIntervalSeconds": 60,
     "logResponse": false,
-    "showCountdown": false,
+    "showInterval": false,
     "showDeltaUsed": false,
     "showDeltaTime": false,
     "timeFormat": "hh:mm",
@@ -119,8 +119,9 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
   (`Last update: 8 Oct 2026, 14:24:53`); `spend` (`percentText`, `percentTooltip`, `used`, `limit`, `usedTooltip`,
   `limitTooltip`, `severityText`, `severityKind`) for a usage-based account; `windows` (`name`, `utilizationText`,
   `resetsText` such as `in 2 h 5 min`) for a plan account; `placeholder` (`Loading…`, `No data`, `No usage reported`);
-  `countdown`, `deltaUsed` and `deltaTime` as `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and
-  `show`, which of `countdown`, `deltaUsed` and `deltaTime` the settings switch on. The raw values above stay for
+  `countdown`, `interval` (the time between usage requests in force, `60 s`), `deltaUsed` and `deltaTime` as
+  `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and `show`, which of `interval`, `deltaUsed` and
+  `deltaTime` the settings switch on (the countdown is always shown). The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language.
 - `change`: what changed between the newest reading (the newest history row that has amounts) and the row
   directly before it in the history file, worked out by the backend; `null` when there is no usage or no
@@ -198,6 +199,9 @@ Read-only. The usage history, for the panel the history button opens in the main
 
 - `columns`: the four the panel shows. A row has three more fields after them: the `status` (`start`,
   `failed`, `start-failed` or empty), the `interval` in seconds and the `duration_ms`.
+- `show`: `{deltaUsed, deltaTime}`, whether the settings switch on the two change columns of the table. A client
+  that shows them puts them after the currency, with the titles `delta used` and `delta time`.
+- `deltas` also carry the finished texts, `delta_used_text` (`+0.05`) and `delta_time_text` (`1 m`), or `null`.
 - `deltas`: one for each of `rows`, in the same order: the change in the amount used and the seconds since the
   row before it **in the file**, as `GET /api/status`'s `change`. A row out of order is still compared with the
   one written before it.

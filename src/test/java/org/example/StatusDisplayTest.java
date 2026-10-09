@@ -156,19 +156,31 @@ class StatusDisplayTest {
     void theChangesAreFinishedTextsAndLeftOutWhenTheyCannotBeWorkedOut() {
         UsageState s = state(spend(SPEND), null, null);
 
-        StatusDisplay.View v = build(s, OptionalLong.empty(), new ApiHandler.DeltaBody(0.05, 61L), Settings.defaults());
+        StatusDisplay.View v = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.05, 61L), Settings.defaults());
         assertEquals("+0.05", v.deltaUsed().text());
         assertEquals("Change in the amount used since the previous reading, in USD", v.deltaUsed().tooltip());
         assertEquals("1 m", v.deltaTime().text());
         assertEquals("Time since the previous reading", v.deltaTime().tooltip());
 
-        StatusDisplay.View partly = build(s, OptionalLong.empty(), new ApiHandler.DeltaBody(null, 60L), Settings.defaults());
+        StatusDisplay.View partly = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(null, 60L), Settings.defaults());
         assertNull(partly.deltaUsed());
         assertNotNull(partly.deltaTime());
 
         StatusDisplay.View none = build(s, OptionalLong.empty(), null, Settings.defaults());
         assertNull(none.deltaUsed());
         assertNull(none.deltaTime());
+    }
+
+    @Test
+    void theIntervalIsTheOneInForceAsFinishedText() {
+        UsageState s = state(spend(SPEND), null, null);
+        Settings every120 = Settings.defaults().withUsageIntervalSeconds(120);
+
+        StatusDisplay.View v = build(s, OptionalLong.empty(), null, every120);
+
+        assertEquals("120 s", v.interval().text());
+        assertEquals("Time between usage requests", v.interval().tooltip());
+        assertEquals("60 s", build(s).interval().text());
     }
 
     @Test

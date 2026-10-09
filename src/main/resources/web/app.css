@@ -205,6 +205,10 @@ body {
     text-align: left;
 }
 
+.delta-interval {
+    min-width: 4.5ch; /* "120 s" */
+}
+
 .delta-used {
     min-width: 5.5ch; /* "+12.34" */
 }
@@ -349,6 +353,24 @@ body {
     text-align: center;
 }
 
+/* The change columns, when switched on, come after the currency: fixed widths again. */
+.panel-lines .cols-5 {
+    display: grid;
+    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch;
+    column-gap: 8px;
+}
+
+.panel-lines .cols-6 {
+    display: grid;
+    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch 9ch;
+    column-gap: 8px;
+}
+
+.panel-lines .cols-5 > :not(:first-child),
+.panel-lines .cols-6 > :not(:first-child) {
+    text-align: center;
+}
+
 /* The header stays at the top of the box while the rows scroll under it. */
 .panel-lines .head {
     position: sticky;
@@ -359,6 +381,11 @@ body {
 
 /* The column titles are centred over their columns, whatever the cells below them do. */
 .panel-lines .head.cols-4 > * {
+    text-align: center;
+}
+
+.panel-lines .head.cols-5 > *,
+.panel-lines .head.cols-6 > * {
     text-align: center;
 }
 

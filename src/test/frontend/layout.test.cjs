@@ -147,7 +147,7 @@ test('the settings view has the three buttons, the two view buttons and a dropdo
         assert.match(html, new RegExp('<button[^>]*id="' + id + '"'), id);
     }
     assert.match(html, /<select id="set-usageIntervalSeconds"/);
-    for (const key of ['showCountdown', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']) {
+    for (const key of ['showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']) {
         assert.match(html, new RegExp('<input id="set-' + key + '" type="checkbox"'), key);
     }
     assert.match(html, /<select id="set-timeFormat"/);

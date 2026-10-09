@@ -40,7 +40,7 @@ class SettingsStoreTest {
 
         assertEquals(60, d.usageIntervalSeconds());
         assertFalse(d.logResponse());
-        assertFalse(d.showCountdown());
+        assertFalse(d.showInterval());
         assertFalse(d.showDeltaUsed());
         assertFalse(d.showDeltaTime());
         assertEquals(TimeFormat.HOURS_MINUTES, d.timeFormat());
@@ -92,7 +92,7 @@ class SettingsStoreTest {
         JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
 
         assertEquals(
-                List.of("usageIntervalSeconds", "logResponse", "showCountdown", "showDeltaUsed", "showDeltaTime",
+                List.of("usageIntervalSeconds", "logResponse", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
@@ -169,9 +169,9 @@ class SettingsStoreTest {
         for (String bad : List.of("\"45\"", "45.5", "null", "true", "99999999999")) {
             assertEquals(Settings.defaults(), loadFrom("{\"usageIntervalSeconds\": " + bad + "}"), bad);
         }
-        Settings partly = loadFrom("{\"logResponse\": \"yes\", \"showCountdown\": true, \"timeFormat\": \"12h\"}");
+        Settings partly = loadFrom("{\"logResponse\": \"yes\", \"showInterval\": true, \"timeFormat\": \"12h\"}");
         assertFalse(partly.logResponse(), "not a boolean: the default");
-        assertTrue(partly.showCountdown(), "the rest is kept");
+        assertTrue(partly.showInterval(), "the rest is kept");
         assertEquals(TimeFormat.HOURS_MINUTES, partly.timeFormat(), "not a known format: the default");
     }
 

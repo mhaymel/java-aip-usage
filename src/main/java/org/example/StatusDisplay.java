@@ -37,8 +37,8 @@ final class StatusDisplay {
     record Message(String kind, String text) {
     }
 
-    /** Which optional items of the row are switched on. */
-    record Show(boolean countdown, boolean deltaUsed, boolean deltaTime) {
+    /** Which optional items of the row are switched on. The countdown is not optional. */
+    record Show(boolean interval, boolean deltaUsed, boolean deltaTime) {
     }
 
     @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -49,6 +49,7 @@ final class StatusDisplay {
             List<WindowView> windows,
             String placeholder,
             Tip countdown,
+            Tip interval,
             Tip deltaUsed,
             Tip deltaTime,
             Message message,
@@ -94,11 +95,12 @@ final class StatusDisplay {
                 countdown.isPresent()
                         ? new Tip(countdown.getAsLong() + " s", "Seconds until the next refresh (negative when overdue)")
                         : null,
+                new Tip(settings.usageIntervalSeconds() + " s", "Time between usage requests"),
                 deltaUsed(change, usage),
                 change == null || change.deltaTime() == null ? null
-                        : new Tip(Formatting.gap(change.deltaTime()), "Time since the previous reading"),
+                        : new Tip(change.deltaTimeText(), "Time since the previous reading"),
                 message,
-                new Show(settings.showCountdown(), settings.showDeltaUsed(), settings.showDeltaTime()));
+                new Show(settings.showInterval(), settings.showDeltaUsed(), settings.showDeltaTime()));
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {
@@ -108,7 +110,7 @@ final class StatusDisplay {
         String currency = usage != null && usage.spend() != null && usage.spend().currency() != null
                 ? ", in " + usage.spend().currency() : "";
         return new Tip(
-                Formatting.signedAmount(java.math.BigDecimal.valueOf(change.deltaUsed())),
+                change.deltaUsedText(),
                 "Change in the amount used since the previous reading" + currency);
     }
 

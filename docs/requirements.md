@@ -205,16 +205,18 @@ snug against the button, so they read as one group:
    the tooltips, not by a sign;
 4. a small refresh button;
 5. a countdown to the next refresh, in seconds and with its unit, for example
-   `42 s`, and `-3 s` when the refresh is overdue; shown only when the setting for it is on, and it is
-   off by default;
-6. the change since the previous reading, when its settings are on (both are off by default): first
+   `42 s`, and `-3 s` when the refresh is overdue; it is always shown;
+6. the time between usage requests that is in force, the delay, for example `60 s`, when its setting is on
+   (it is off by default); it is not the countdown, which counts down to the next request, but the interval
+   the countdown starts from, as set in the settings;
+7. the change since the previous reading, when its settings are on (both are off by default): first
    the change in the amount used, with its sign, for example `+0.05`, then the time since the previous
    reading, for example `1 m`; see Changes between readings;
-7. a very small settings button, an icon rather than a word;
-8. at the right-hand end, after the settings button, a small button that shows the log below the row,
+8. a very small settings button, an icon rather than a word;
+9. at the right-hand end, after the settings button, a small button that shows the log below the row,
    and hides it again, an icon rather than a word;
-9. next to it, a small button that shows the usage history below the row, and hides it again,
-   likewise an icon.
+10. next to it, a small button that shows the usage history below the row, and hides it again,
+    likewise an icon.
 
 The severity is shown by colour on the percentage and the amounts, rather than by
 extra words.
@@ -242,8 +244,8 @@ as unknown.
   The window shows it as it is, with the minus sign.
 - Until the first request has been triggered there is nothing to count to, and the
   countdown is left empty.
-- The countdown is shown only when its setting is on (it is off by default). The backend sends it
-  in any case, so that turning the setting on shows it at once.
+- The countdown is not optional: it is always shown, as before. The time between usage requests is a
+  separate item, with its own setting (see Settings).
 
 **Tooltips**
 
@@ -303,7 +305,7 @@ names, shown as its code, here `USD`.
   | --- | --- | --- |
   | Time between usage requests | a dropdown with the choices 60 s, 120 s, 180 s, 240 s and 300 s, showing the backend's current value | 60 s |
   | Log the response | on, off | off |
-  | Show the countdown to the next refresh in the row | on, off | off |
+  | Show the time between usage requests in the row | on, off | off |
   | Show the change in the amount used in the row | on, off | off |
   | Show the time since the previous reading in the row | on, off | off |
   | Time format in the row | hours and minutes, or hours, minutes and seconds | hours and minutes |
@@ -313,8 +315,8 @@ names, shown as its code, here `USD`.
 - If the backend's interval is not one of the five (set on the command line, or in an old settings
   file), the dropdown still shows it as the current entry, and offers the five besides it.
 - The view is arranged in sections: the usage requests, the main view, the history view and the log.
-- Two buttons set the switches of the main view together: **Maximum view** turns on the countdown, the
-  change in the amount used, the time since the previous reading, and the time with seconds; **Minimum
+- Two buttons set the switches of the main view together: **Maximum view** turns on the time between
+  usage requests, the change in the amount used, the time since the previous reading, and the time with seconds; **Minimum
   view** turns them all off and sets the time to hours and minutes. The settings of the history, the
   interval and the logging of the response are left as they are. They fill in the fields like Restore
   defaults does, and Apply is still pressed.

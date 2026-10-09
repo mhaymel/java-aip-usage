@@ -17,9 +17,10 @@
      *   windows      [{name, utilizationText, resetsText}]
      *   placeholder  text for a row with nothing else to show, or null
      *   countdown    {text, tooltip} for the seconds to the next refresh, or null
+     *   interval     {text, tooltip} for the time between usage requests
      *   deltaUsed    {text, tooltip} for the change in the amount used, or null
      *   deltaTime    {text, tooltip} for the time since the previous reading, or null
-     *   show         {countdown, deltaUsed, deltaTime}: which optional items are switched on
+     *   show         {interval, deltaUsed, deltaTime}: which optional items are switched on
      *   message      {kind: 'error'|'stale', text} for the line under the row, or null
      *   stale        the figures predate a failed refresh
      *   refreshing   a refresh is running
@@ -33,9 +34,10 @@
             windows: d.windows || [],
             placeholder: d.placeholder || null,
             countdown: d.countdown || null,
+            interval: d.interval || null,
             deltaUsed: d.deltaUsed || null,
             deltaTime: d.deltaTime || null,
-            show: d.show || { countdown: false, deltaUsed: false, deltaTime: false },
+            show: d.show || { interval: false, deltaUsed: false, deltaTime: false },
             message: d.message || null,
             stale: Boolean(status.stale),
             refreshing: Boolean(status.refreshing)
@@ -99,16 +101,32 @@
         if (data.total === 0) {
             return { note: 'The history has no rows yet.', header: null, rows: [] };
         }
+        // The two change columns come last, when the settings switch them on; their texts are the backend's.
+        var show = data.show || {};
+        var header = data.columns.slice();
+        if (show.deltaUsed) {
+            header.push('delta used');
+        }
+        if (show.deltaTime) {
+            header.push('delta time');
+        }
         return {
             note: data.rows.length < data.total ? 'Showing the newest ' + data.rows.length + ' of ' + data.total + ' rows.' : null,
-            header: data.columns,
+            header: header,
             // The fifth field is the row's status: `start` and `start-failed` begin a run and are marked,
             // `failed` and `start-failed` are queries that did not succeed. The status, the interval and the
             // duration are not shown; a failed row says so in the place of its amount.
-            rows: data.rows.map(function (row) {
+            rows: data.rows.map(function (row, i) {
                 var cells = row.slice(0, data.columns.length);
                 if (hasStatus(row, 'failed')) {
                     cells[1] = 'failed';
+                }
+                var delta = (data.deltas || [])[i] || {};
+                if (show.deltaUsed) {
+                    cells.push(delta.delta_used_text || '');
+                }
+                if (show.deltaTime) {
+                    cells.push(delta.delta_time_text || '');
                 }
                 return cells;
             }),

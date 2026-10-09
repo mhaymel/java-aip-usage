@@ -989,6 +989,15 @@ and the page needs it before it polls. The old POST tests in `ApiTest` now go th
 as a short span such as `1 m`; a failed row's time is that of the failure; the history delta columns are the last two,
 after the currency; the version constant is raised with each phase.
 
+### 24. Corrections: the delay is the interval, and the history gets its change columns
+
+**Status: done (version 0.09).** Two things of the requirements note were missed by phases 22 and 23. The setting "show the
+current delay time in the main view" had been built as a switch on the countdown; the delay is the configured interval, so the
+switch is now `showInterval` (a `60 s` item after the countdown, off by default), and the countdown is shown always, as before. And
+the history table had no change columns: `/api/history` now tells which are on (`show`) and carries the texts finished
+(`delta_used_text`, `delta_time_text`), and `describeHistory` adds the two columns after the currency, with grids for five and six
+columns. The old `showCountdown` key in a settings file is ignored.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

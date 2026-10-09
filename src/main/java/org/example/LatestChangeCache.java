@@ -44,7 +44,7 @@ final class LatestChangeCache {
                 .findFirst();
         HistoryDeltas.Delta delta = newest.map(table.deltas()::get).orElse(null);
         change = delta == null ? null
-                : new ApiHandler.DeltaBody(delta.used() == null ? null : delta.used().doubleValue(), delta.seconds());
+                : ApiHandler.DeltaBody.of(delta.used() == null ? null : delta.used().doubleValue(), delta.seconds());
         file = history;
         size = nowSize;
         modified = nowModified;

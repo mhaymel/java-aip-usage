@@ -293,7 +293,7 @@ class ApiTest {
 
     private static String allSettings(int interval, boolean logResponse, String timeFormat) {
         return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
-                + ", \"showCountdown\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
+                + ", \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
                 + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true}";
     }
 
@@ -321,7 +321,7 @@ class ApiTest {
         JsonNode body = json(get(app, "/api/settings"));
         assertEquals(120, body.at("/settings/usageIntervalSeconds").asInt());
         assertTrue(body.at("/settings/logResponse").asBoolean());
-        assertTrue(body.at("/settings/showCountdown").asBoolean());
+        assertTrue(body.at("/settings/showInterval").asBoolean());
         assertFalse(body.at("/settings/showDeltaTime").asBoolean());
         assertEquals("hh:mm:ss", body.at("/settings/timeFormat").asText());
         assertTrue(body.at("/settings/historyDeltaTime").asBoolean());
@@ -362,7 +362,7 @@ class ApiTest {
                 allSettings(4, false, "hh:mm"), allSettings(3601, false, "hh:mm"),
                 allSettings(90, false, "12h"),
                 allSettings(90, false, "hh:mm").replace("\"logResponse\": false", "\"logResponse\": \"no\""),
-                allSettings(90, false, "hh:mm").replace("\"showCountdown\": true", "\"showCountdown\": null"),
+                allSettings(90, false, "hh:mm").replace("\"showInterval\": true", "\"showInterval\": null"),
                 "[1]", "not json"};
 
         for (String body : bodies) {
@@ -751,7 +751,7 @@ class ApiTest {
         };
         AppRuntime app = start(fetch);
         await(() -> history(app).size() >= 2);
-        post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showCountdown\": false,"
+        post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showInterval\": false,"
                 + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
                 + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false}");
         fail.set(false);
@@ -790,15 +790,36 @@ class ApiTest {
         assertEquals(5, display.get("time").asText().length(), "hours and minutes by default");
         assertEquals("186.02", display.at("/spend/used").asText());
         assertEquals("1,000.00", display.at("/spend/limit").asText());
-        assertFalse(display.at("/show/countdown").asBoolean());
+        assertFalse(display.at("/show/interval").asBoolean());
+        assertEquals("60 s", display.at("/interval/text").asText());
         assertTrue(display.at("/countdown/text").asText().endsWith(" s"));
 
         post(app, "/api/settings", allSettings(60, false, "hh:mm:ss"));
         display = json(get(app, "/api/status")).get("display");
         assertEquals(8, display.get("time").asText().length(), "hh:mm:ss now");
-        assertTrue(display.at("/show/countdown").asBoolean());
+        assertTrue(display.at("/show/interval").asBoolean());
         assertTrue(display.at("/show/deltaUsed").asBoolean());
         assertFalse(display.at("/show/deltaTime").asBoolean());
+    }
+
+    @Test
+    void theHistoryTellsWhichChangeColumnsAreOnAndGivesTheirTextsFinished() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> history(app).size() >= 2);
+        post(app, "/api/refresh", "{}");
+        await(() -> history(app).size() >= 3);
+
+        JsonNode off = json(get(app, "/api/history"));
+        assertFalse(off.at("/show/deltaUsed").asBoolean());
+        assertFalse(off.at("/show/deltaTime").asBoolean());
+        assertEquals("0.00", off.at("/deltas/0/delta_used_text").asText(), "finished texts, whatever the settings");
+        assertTrue(off.at("/deltas/0/delta_time_text").asText().endsWith(" s"));
+        assertTrue(off.at("/deltas/1/delta_used_text").isNull(), "the first row of the run has none");
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
+        JsonNode on = json(get(app, "/api/history"));
+        assertTrue(on.at("/show/deltaUsed").asBoolean());
+        assertTrue(on.at("/show/deltaTime").asBoolean(), "allSettings turns the time column on");
     }
 
     @Test

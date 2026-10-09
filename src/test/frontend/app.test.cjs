@@ -139,11 +139,11 @@ function backendOf(state) {
 }
 
 const DEFAULT_SETTINGS = {
-    usageIntervalSeconds: 60, logResponse: false, showCountdown: false, showDeltaUsed: false, showDeltaTime: false,
+    usageIntervalSeconds: 60, logResponse: false, showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false,
 };
 const SETTINGS = {
-    settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showCountdown: true, timeFormat: 'hh:mm:ss' },
+    settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showInterval: true, timeFormat: 'hh:mm:ss' },
     defaults: DEFAULT_SETTINGS,
     intervalChoices: [60, 120, 180, 240, 300],
     limits: { usageIntervalSeconds: { min: 5, max: 3600 } },
@@ -765,7 +765,7 @@ test('the settings button shows the view in the panel area, filled with what the
     assert.equal(page.el('panel-lines').hidden, true, 'not the lines of the log or the history');
     assert.equal(page.el('settings-button').title, 'Hide the settings');
     assert.equal(page.el('set-usageIntervalSeconds').value, '120');
-    assert.equal(page.el('set-showCountdown').checked, true);
+    assert.equal(page.el('set-showInterval').checked, true);
     assert.equal(page.el('set-showDeltaUsed').checked, false);
     assert.equal(page.el('set-timeFormat').value, 'hh:mm:ss');
     assert.equal(page.el('set-logResponse').checked, false);
@@ -810,7 +810,7 @@ test('Apply sends every setting together, and nothing else is sent', async () =>
 
     assert.equal(settingsPosts(page).length, 1);
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
-        usageIntervalSeconds: 180, logResponse: true, showCountdown: true, showDeltaUsed: false, showDeltaTime: false,
+        usageIntervalSeconds: 180, logResponse: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
@@ -894,7 +894,7 @@ test('Restore defaults fills in the defaults and sends nothing until Apply', asy
     await page.click('settings-restore');
 
     assert.equal(page.el('set-usageIntervalSeconds').value, '60');
-    assert.equal(page.el('set-showCountdown').checked, false);
+    assert.equal(page.el('set-showInterval').checked, false);
     assert.equal(page.el('set-timeFormat').value, 'hh:mm');
     assert.equal(settingsPosts(page).length, 0);
 
@@ -909,13 +909,13 @@ test('Maximum view turns every main-view item on and Minimum view off, and nothi
     page.el('set-historyDeltaUsed').checked = true;
 
     await page.click('settings-maximum');
-    assert.equal(page.el('set-showCountdown').checked, true);
+    assert.equal(page.el('set-showInterval').checked, true);
     assert.equal(page.el('set-showDeltaUsed').checked, true);
     assert.equal(page.el('set-showDeltaTime').checked, true);
     assert.equal(page.el('set-timeFormat').value, 'hh:mm:ss');
 
     await page.click('settings-minimum');
-    assert.equal(page.el('set-showCountdown').checked, false);
+    assert.equal(page.el('set-showInterval').checked, false);
     assert.equal(page.el('set-showDeltaUsed').checked, false);
     assert.equal(page.el('set-showDeltaTime').checked, false);
     assert.equal(page.el('set-timeFormat').value, 'hh:mm');
@@ -962,16 +962,19 @@ const WITH_CHANGE = {
         time: '14:24', timeTooltip: 'Last update: x', placeholder: null, windows: [], message: null,
         spend: { percentText: '19%', percentTooltip: 'p', used: '186.02', limit: '1,000.00', usedTooltip: 'u', limitTooltip: 'l', severityText: 'normal', severityKind: 'normal' },
         countdown: { text: '42 s', tooltip: 'c' },
+        interval: { text: '60 s', tooltip: 'Time between usage requests' },
         deltaUsed: { text: '+0.05', tooltip: 'Change in the amount used since the previous reading, in USD' },
         deltaTime: { text: '1 m', tooltip: 'Time since the previous reading' },
-        show: { countdown: false, deltaUsed: true, deltaTime: false },
+        show: { interval: false, deltaUsed: true, deltaTime: false },
     },
 };
 
-test('the countdown and the two changes are in the row only when their settings are on', async () => {
+test('the countdown is always in the row; the interval and the two changes only when their settings are on', async () => {
     const page = await load(backendOf({ config: CONFIG, status: WITH_CHANGE }));
 
-    assert.equal(page.el('countdown').hidden, true, 'off');
+    assert.equal(page.el('countdown').hidden, false, 'not optional');
+    assert.equal(page.el('countdown').textContent, '42 s');
+    assert.equal(page.el('interval').hidden, true, 'off');
     assert.equal(page.el('delta-used').hidden, false, 'on');
     assert.equal(page.el('delta-used').textContent, '+0.05');
     assert.equal(page.el('delta-used').title, 'Change in the amount used since the previous reading, in USD');
@@ -981,17 +984,18 @@ test('the countdown and the two changes are in the row only when their settings 
 test('turning the settings on shows the items at the next poll, as the backend says', async () => {
     const state = { config: CONFIG, status: WITH_CHANGE };
     const page = await load(backendOf(state));
-    state.status = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { countdown: true, deltaUsed: true, deltaTime: true } } };
+    state.status = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { interval: true, deltaUsed: true, deltaTime: true } } };
 
     await page.firePoll();
 
-    assert.equal(page.el('countdown').textContent, '42 s');
+    assert.equal(page.el('interval').textContent, '60 s');
+    assert.equal(page.el('interval').title, 'Time between usage requests');
     assert.equal(page.el('delta-time').textContent, '1 m');
     assert.equal(page.el('delta-time').title, 'Time since the previous reading');
 });
 
 test('an item the backend could not work out is left out even though its setting is on', async () => {
-    const status = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, deltaUsed: null, show: { countdown: true, deltaUsed: true, deltaTime: true } } };
+    const status = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, deltaUsed: null, show: { interval: true, deltaUsed: true, deltaTime: true } } };
     const page = await load(backendOf({ config: CONFIG, status }));
 
     assert.equal(page.el('delta-used').hidden, true);

@@ -157,7 +157,7 @@ final class ApiHandler implements HttpHandler {
     }
 
     private static SettingValues toBody(Settings s) {
-        return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showCountdown(), s.showDeltaUsed(),
+        return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showInterval(), s.showDeltaUsed(),
                 s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime());
     }
 
@@ -173,7 +173,7 @@ final class ApiHandler implements HttpHandler {
             Settings given = new Settings(
                     usage.intValue(),
                     flag(body, "logResponse"),
-                    flag(body, "showCountdown"),
+                    flag(body, "showInterval"),
                     flag(body, "showDeltaUsed"),
                     flag(body, "showDeltaTime"),
                     timeFormat(body),
@@ -237,7 +237,8 @@ final class ApiHandler implements HttpHandler {
             HistoryReader.Table table = HistoryReader.read(files.history(), HISTORY_ROWS);
             return new HistoryBody(
                     files.history().getFileName().toString(), table.exists(), table.columns(), table.total(), table.rows(),
-                    table.deltas().stream().map(ApiHandler::deltaBody).toList());
+                    table.deltas().stream().map(ApiHandler::deltaBody).toList(),
+                    new HistoryShow(settings.current().historyDeltaUsed(), settings.current().historyDeltaTime()));
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
             throw new ApiException(500, "The usage history could not be read.", null);
@@ -247,7 +248,7 @@ final class ApiHandler implements HttpHandler {
     // ---- /api/status
 
     private static DeltaBody deltaBody(HistoryDeltas.Delta delta) {
-        return new DeltaBody(delta.used() == null ? null : delta.used().doubleValue(), delta.seconds());
+        return DeltaBody.of(delta.used() == null ? null : delta.used().doubleValue(), delta.seconds());
     }
 
     private DeltaBody latestChange() {
@@ -368,7 +369,7 @@ final class ApiHandler implements HttpHandler {
     record SettingValues(
             int usageIntervalSeconds,
             boolean logResponse,
-            boolean showCountdown,
+            boolean showInterval,
             boolean showDeltaUsed,
             boolean showDeltaTime,
             String timeFormat,
@@ -386,11 +387,27 @@ final class ApiHandler implements HttpHandler {
     }
 
     /** What changed since the row before: the amount used, and the seconds; either is null if it cannot be worked out. */
-    record DeltaBody(@JsonProperty("delta_used") Double deltaUsed, @JsonProperty("delta_time") Long deltaTime) {
+    record DeltaBody(
+            @JsonProperty("delta_used") Double deltaUsed,
+            @JsonProperty("delta_time") Long deltaTime,
+            @JsonProperty("delta_used_text") String deltaUsedText,
+            @JsonProperty("delta_time_text") String deltaTimeText) {
+
+        static DeltaBody of(Double used, Long seconds) {
+            return new DeltaBody(
+                    used, seconds,
+                    used == null ? null : Formatting.signedAmount(java.math.BigDecimal.valueOf(used)),
+                    seconds == null ? null : Formatting.gap(seconds));
+        }
+    }
+
+    /** Which optional columns of the history table are switched on. */
+    record HistoryShow(boolean deltaUsed, boolean deltaTime) {
     }
 
     record HistoryBody(
-            String file, boolean exists, List<String> columns, int total, List<List<String>> rows, List<DeltaBody> deltas) {
+            String file, boolean exists, List<String> columns, int total, List<List<String>> rows, List<DeltaBody> deltas,
+            HistoryShow show) {
     }
 
     record ErrorBody(String message, String at) {

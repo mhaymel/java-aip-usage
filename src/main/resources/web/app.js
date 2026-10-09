@@ -135,7 +135,10 @@
         show('placeholder', Boolean(v.placeholder));
         $('placeholder').textContent = v.placeholder || '';
 
-        renderOptional('countdown', v.show.countdown && v.countdown);
+        show('countdown', Boolean(v.countdown));
+        $('countdown').textContent = v.countdown ? v.countdown.text : '';
+        $('countdown').title = v.countdown ? v.countdown.tooltip : '';
+        renderOptional('interval', v.show.interval && v.interval);
         renderOptional('delta-used', v.show.deltaUsed && v.deltaUsed);
         renderOptional('delta-time', v.show.deltaTime && v.deltaTime);
 
@@ -188,7 +191,7 @@
     var settingsShown = null;
     var settingsDefaults = null;
 
-    var SETTING_FLAGS = ['showCountdown', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
+    var SETTING_FLAGS = ['showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
 
     function fillInterval(choices, current) {
         var select = $('set-usageIntervalSeconds');
@@ -292,7 +295,7 @@
 
     /** The main-view switches all on, or all off; the form only, until Apply. */
     function setMainView(all) {
-        ['showCountdown', 'showDeltaUsed', 'showDeltaTime'].forEach(function (key) {
+        ['showInterval', 'showDeltaUsed', 'showDeltaTime'].forEach(function (key) {
             $('set-' + key).checked = all;
         });
         $('set-timeFormat').value = all ? 'hh:mm:ss' : 'hh:mm';

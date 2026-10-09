@@ -21,7 +21,7 @@ text, local time of day only.
 
 From the left: when the usage was last refreshed, the percentage spent, what has been
 spent and the budget as plain numbers (severity is the colour of the percentage and
-the amounts), a refresh button, optionally a countdown and the change since the previous reading, and small settings, log and history buttons. A Pro or Max
+the amounts), a refresh button, the countdown, optionally the time between requests and the change since the previous reading, and small settings, log and history buttons. A Pro or Max
 account shows its plan windows in place of the percentage and amounts, each as its
 utilization, its name and the time until it resets.
 
@@ -55,7 +55,7 @@ Hover over things to see what they are:
   (`-3 s`) if the refresh is overdue, for example because a request is slow. It is
   empty until the first request has been made.
 - **Settings** (≡) shows the settings in the panel area below the row, like the log and the history: the time
-  between usage requests (a dropdown: 60 to 300 s, default 60), whether the row shows the countdown and the change
+  between usage requests (a dropdown: 60 to 300 s, default 60), whether the row shows the time between usage requests and the change
   since the previous reading, the time format (`hh:mm` or `hh:mm:ss`), the two matching columns of the history, and
   whether each response's JSON is written to the log. The values are read from the application each time you
   open it. Nothing takes effect until **Apply**; **Close** asks if there are changes you have not applied;

@@ -13,9 +13,10 @@ const DISPLAY = {
              usedTooltip: 'Credits used, in USD', limitTooltip: 'Credit budget, in USD', severityText: 'normal', severityKind: 'normal' },
     windows: [], placeholder: null,
     countdown: { text: '42 s', tooltip: 'Seconds until the next refresh (negative when overdue)' },
+    interval: { text: '60 s', tooltip: 'Time between usage requests' },
     deltaUsed: { text: '+0.05', tooltip: 'Change in the amount used since the previous reading, in USD' },
     deltaTime: { text: '1 m', tooltip: 'Time since the previous reading' },
-    show: { countdown: false, deltaUsed: true, deltaTime: true },
+    show: { interval: false, deltaUsed: true, deltaTime: true },
     message: null,
 };
 
@@ -28,7 +29,8 @@ test('the status is read from what the backend finished, and nothing is worked o
     assert.deepEqual(v.countdown, DISPLAY.countdown);
     assert.deepEqual(v.deltaUsed, DISPLAY.deltaUsed);
     assert.deepEqual(v.deltaTime, DISPLAY.deltaTime);
-    assert.deepEqual(v.show, { countdown: false, deltaUsed: true, deltaTime: true });
+    assert.deepEqual(v.interval, DISPLAY.interval);
+    assert.deepEqual(v.show, { interval: false, deltaUsed: true, deltaTime: true });
     assert.equal(v.message, null);
 });
 
@@ -45,7 +47,7 @@ test('a status with no display shows nothing and every optional item off', () =>
     assert.equal(v.time, null);
     assert.equal(v.spend, null);
     assert.deepEqual(v.windows, []);
-    assert.deepEqual(v.show, { countdown: false, deltaUsed: false, deltaTime: false });
+    assert.deepEqual(v.show, { interval: false, deltaUsed: false, deltaTime: false });
 });
 
 test('windows, placeholder and message are passed on as the backend wrote them', () => {
@@ -190,4 +192,26 @@ test('lines before the first entry start of what was read are kept as an entry o
     const v = view.describeLog({ exists: true, truncated: true, lines: ['  }', '}', '2026-10-08 13:20:03 INFO    [B] later'] });
 
     assert.deepEqual(v.rows.map(r => r[0]), ['2026-10-08 13:20:03 INFO    [B] later', '  }', '}']);
+});
+
+test('the history table gets the two change columns, after the currency, only when the backend says they are on', () => {
+    const rows = [['2026-10-08 14:26:53', '186.12', '1000.00', 'USD', '', '60', '400'], ['2026-10-08 14:25:53', '', '', '', 'failed', '60', '20']];
+    const deltas = [
+        { delta_used: 0.05, delta_time: 60, delta_used_text: '+0.05', delta_time_text: '1 m' },
+        { delta_used: null, delta_time: 60, delta_used_text: null, delta_time_text: '1 m' },
+    ];
+    const base = { exists: true, columns: COLUMNS, total: 2, rows, deltas };
+
+    const none = view.describeHistory({ ...base, show: { deltaUsed: false, deltaTime: false } });
+    assert.deepEqual(none.header, COLUMNS);
+    assert.equal(none.rows[0].length, 4);
+
+    const both = view.describeHistory({ ...base, show: { deltaUsed: true, deltaTime: true } });
+    assert.deepEqual(both.header, [...COLUMNS, 'delta used', 'delta time']);
+    assert.deepEqual(both.rows[0], ['2026-10-08 14:26:53', '186.12', '1000.00', 'USD', '+0.05', '1 m']);
+    assert.deepEqual(both.rows[1], ['2026-10-08 14:25:53', 'failed', '', '', '', '1 m'], 'an empty value is an empty cell');
+
+    const timeOnly = view.describeHistory({ ...base, show: { deltaUsed: false, deltaTime: true } });
+    assert.deepEqual(timeOnly.header, [...COLUMNS, 'delta time']);
+    assert.deepEqual(timeOnly.rows[0].slice(4), ['1 m']);
 });

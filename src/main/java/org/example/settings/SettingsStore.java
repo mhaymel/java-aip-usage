@@ -28,7 +28,7 @@ public final class SettingsStore {
 
     static final String LOG_RESPONSE_KEY = "logResponse";
 
-    static final String SHOW_COUNTDOWN_KEY = "showCountdown";
+    static final String SHOW_INTERVAL_KEY = "showInterval";
 
     static final String SHOW_DELTA_USED_KEY = "showDeltaUsed";
 
@@ -83,7 +83,7 @@ public final class SettingsStore {
         return new Settings(
                 interval(root, defaults.usageIntervalSeconds()),
                 flag(root, LOG_RESPONSE_KEY, defaults.logResponse()),
-                flag(root, SHOW_COUNTDOWN_KEY, defaults.showCountdown()),
+                flag(root, SHOW_INTERVAL_KEY, defaults.showInterval()),
                 flag(root, SHOW_DELTA_USED_KEY, defaults.showDeltaUsed()),
                 flag(root, SHOW_DELTA_TIME_KEY, defaults.showDeltaTime()),
                 timeFormat(root, defaults.timeFormat()),
@@ -137,7 +137,7 @@ public final class SettingsStore {
         ObjectNode root = mapper.createObjectNode();
         root.put(USAGE_KEY, settings.usageIntervalSeconds());
         root.put(LOG_RESPONSE_KEY, settings.logResponse());
-        root.put(SHOW_COUNTDOWN_KEY, settings.showCountdown());
+        root.put(SHOW_INTERVAL_KEY, settings.showInterval());
         root.put(SHOW_DELTA_USED_KEY, settings.showDeltaUsed());
         root.put(SHOW_DELTA_TIME_KEY, settings.showDeltaTime());
         root.put(TIME_FORMAT_KEY, settings.timeFormat().json());

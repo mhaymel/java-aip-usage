@@ -7,7 +7,7 @@ import java.util.List;
  *
  * @param usageIntervalSeconds the time between usage requests; the settings view offers {@link #INTERVAL_CHOICES}
  * @param logResponse whether each response's JSON is written to the log, pretty printed
- * @param showCountdown whether the countdown to the next refresh is in the row
+ * @param showInterval whether the time between usage requests is in the row
  * @param showDeltaUsed whether the change in the amount used is in the row
  * @param showDeltaTime whether the time since the previous reading is in the row
  * @param timeFormat how the time of day is cut in the row and its messages
@@ -17,7 +17,7 @@ import java.util.List;
 public record Settings(
         int usageIntervalSeconds,
         boolean logResponse,
-        boolean showCountdown,
+        boolean showInterval,
         boolean showDeltaUsed,
         boolean showDeltaTime,
         TimeFormat timeFormat,
@@ -33,12 +33,12 @@ public record Settings(
     }
 
     public Settings withLogResponse(boolean on) {
-        return new Settings(usageIntervalSeconds, on, showCountdown, showDeltaUsed, showDeltaTime, timeFormat,
+        return new Settings(usageIntervalSeconds, on, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime);
     }
 
     public Settings withUsageIntervalSeconds(int seconds) {
-        return new Settings(seconds, logResponse, showCountdown, showDeltaUsed, showDeltaTime, timeFormat,
+        return new Settings(seconds, logResponse, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime);
     }
 }
