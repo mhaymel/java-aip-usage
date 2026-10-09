@@ -82,6 +82,20 @@ class LoggingEndToEndTest {
     }
 
     @Test
+    void withTheSettingOnTheResponseIsInTheLogOverSeveralLinesAndNothingSensitiveIsStill() throws Exception {
+        URI endpoint = serve(exchange -> reply(exchange, 200, fixture()));
+
+        Output output = run(endpoint, tokens(FIRST_TOKEN), app -> app.service().state().snapshot() != null, true);
+
+        for (String text : List.of(output.file(), output.console())) {
+            assertContainsInOrder(text, "Response of GET 127.0.0.1/usage (HTTP 200):", "amount_minor", "Usage refresh succeeded");
+            assertTrue(text.contains(System.lineSeparator() + "  \""), "pretty printed: " + text);
+            assertFalse(text.contains(FIRST_TOKEN), text);
+            assertFalse(text.contains("Authorization"), text);
+        }
+    }
+
+    @Test
     void aFailedRefreshIsRecordedWithItsReasonButNotTheResponse() throws Exception {
         URI endpoint = serve(exchange -> reply(exchange, 500, "{\"error\":\"" + BODY_MARKER + " echo " + FIRST_TOKEN + "\"}"));
 
@@ -141,6 +155,16 @@ class LoggingEndToEndTest {
 
     /** Runs the application once against {@code endpoint} and returns what it logged. */
     private Output run(URI endpoint, org.example.token.TokenProvider tokens, Function<AppRuntime, Boolean> done) throws Exception {
+        return run(endpoint, tokens, done, false);
+    }
+
+    private Output run(URI endpoint, org.example.token.TokenProvider tokens, Function<AppRuntime, Boolean> done,
+                       boolean logResponse) throws Exception {
+        if (logResponse) {
+            new org.example.settings.SettingsStore(dir.resolve("settings.json"))
+                    .save(org.example.settings.Settings.defaults().withLogResponse(true));
+        }
+        org.example.usage.ResponseLog responseLog = new org.example.usage.ResponseLog();
         Path logFile = dir.resolve("java-aip-usage.log");
         long fileStart = Files.exists(logFile) ? Files.size(logFile) : 0;
         ByteArrayOutputStream console = new ByteArrayOutputStream();
@@ -149,7 +173,7 @@ class LoggingEndToEndTest {
         try (Logging logging = Logging.install(logFile)) {
             AppRuntime app = AppRuntime.start(
                     new AppFiles(dir.resolve("settings.json"), dir.resolve("history.csv"), logFile), LaunchOptions.none(),
-                    new UsageFetcher(tokens, UsageClient.create(endpoint)));
+                    new UsageFetcher(tokens, UsageClient.create(endpoint, responseLog)), responseLog);
             try {
                 await(() -> done.apply(app));
             } finally {

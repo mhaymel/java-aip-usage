@@ -193,6 +193,67 @@ class UsageClientTest {
     }
 
     @Test
+    void whileTheSettingIsOnTheResponseIsLoggedPrettyPrintedOverSeveralLines() throws Exception {
+        URI uri = serve("/usage", exchange -> reply(exchange, 200, fixture("usage-credits.json")));
+        ResponseLog on = new ResponseLog();
+        on.set(true);
+
+        new UsageClient(plainHttpClient(), uri, Duration.ofSeconds(5), Clock.fixed(NOW, ZoneOffset.UTC), on).fetch(TOKEN);
+
+        String logged = String.join("\n", logLines);
+        assertTrue(logged.contains("Response of GET 127.0.0.1/usage (HTTP 200):" + System.lineSeparator() + "{"), logged);
+        assertTrue(logged.contains(System.lineSeparator() + "  \""), "indented, one member to a line: " + logged);
+        assertTrue(logged.contains("amount_minor"), logged);
+        assertFalse(logged.contains(TOKEN), logged);
+        assertFalse(logged.contains("Authorization"), "no header: " + logged);
+    }
+
+    @Test
+    void theSettingIsAskedForEachResponseSoItTakesEffectAtOnce() throws Exception {
+        URI uri = serve("/usage", exchange -> reply(exchange, 200, fixture("usage-credits.json")));
+        ResponseLog log = new ResponseLog();
+        UsageClient client = new UsageClient(plainHttpClient(), uri, Duration.ofSeconds(5), Clock.fixed(NOW, ZoneOffset.UTC), log);
+
+        client.fetch(TOKEN);
+        assertFalse(String.join("\n", logLines).contains("Response of GET"), "off by default");
+
+        log.set(true);
+        client.fetch(TOKEN);
+        assertTrue(String.join("\n", logLines).contains("Response of GET"));
+    }
+
+    @Test
+    void aResponseThatIsNotJsonIsNotLoggedEvenWithTheSettingOn() throws Exception {
+        URI uri = serve("/usage", exchange -> reply(exchange, 503, "<html>LEAK secret page</html>"));
+        ResponseLog on = new ResponseLog();
+        on.set(true);
+
+        assertThrows(UsageFetchException.class,
+                () -> new UsageClient(plainHttpClient(), uri, Duration.ofSeconds(5), Clock.fixed(NOW, ZoneOffset.UTC), on).fetch(TOKEN));
+
+        String logged = String.join("\n", logLines);
+        assertTrue(logged.contains("(not JSON,"), logged);
+        assertFalse(logged.contains("LEAK"), logged);
+    }
+
+    @Test
+    void aCredentialInsideALoggedResponseIsMasked() throws Exception {
+        URI uri = serve("/usage", exchange -> reply(exchange, 200, "{\"access_token\": \"" + TOKEN + "\", \"windows\": []}"));
+        ResponseLog on = new ResponseLog();
+        on.set(true);
+
+        try {
+            new UsageClient(plainHttpClient(), uri, Duration.ofSeconds(5), Clock.fixed(NOW, ZoneOffset.UTC), on).fetch(TOKEN);
+        } catch (RuntimeException expectedMaybe) {
+            // the body is not a usage document; what is logged is what is being checked
+        }
+
+        // This test captures records before the formatter, so the masking is checked on the real formatter's input.
+        assertTrue(org.example.Redaction.redact(String.join("\n", logLines)).contains("[redacted]"));
+        assertFalse(org.example.Redaction.redact(String.join("\n", logLines)).contains(TOKEN));
+    }
+
+    @Test
     void logsAFailureStatusAndWhenToRetry() throws Exception {
         URI uri = serve("/usage", exchange -> {
             exchange.getResponseHeaders().add("retry-after", "30");

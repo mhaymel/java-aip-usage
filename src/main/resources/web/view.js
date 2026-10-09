@@ -212,9 +212,15 @@
         return /\] Starting java-aip-usage( |$)/.test(line);
     }
 
+    /** Whether a log line begins an entry: it starts with its time, `2026-10-08 16:24:53`. The others continue the one before. */
+    function beginsEntry(line) {
+        return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} /.test(line);
+    }
+
     /**
      * What the log panel shows, from GET /api/log, which sends the lines oldest first: the same
-     * lines, newest first, each a row of one cell.
+     * lines, newest entry first, each a row of one cell. An entry can take several lines (a response's JSON,
+     * a stack trace); they stay together and in the order they were written, so only the entries are reversed.
      * @returns {note, header, rows, marks}: a line of explanation or null, no header, the rows, and which are marked
      */
     function describeLog(data) {
@@ -224,11 +230,20 @@
         if (data.lines.length === 0) {
             return { note: 'The log is empty.', header: null, rows: [] };
         }
+        var entries = [];
+        data.lines.forEach(function (line) {
+            if (beginsEntry(line) || entries.length === 0) {
+                entries.push([line]);
+            } else {
+                entries[entries.length - 1].push(line);
+            }
+        });
+        var ordered = [].concat.apply([], entries.reverse());
         return {
             note: data.truncated ? 'Showing the newest ' + data.lines.length + ' lines of the log.' : null,
             header: null,
-            rows: data.lines.slice().reverse().map(function (line) { return [line]; }),
-            marks: data.lines.slice().reverse().map(isRunStart)
+            rows: ordered.map(function (line) { return [line]; }),
+            marks: ordered.map(isRunStart)
         };
     }
 

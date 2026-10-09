@@ -33,6 +33,8 @@ public final class IntervalSettings {
 
     private Consumer<Duration> usageListener = interval -> { };
 
+    private Consumer<Settings> settingsListener = settings -> { };
+
     private IntervalSettings(SettingsStore store, Settings saved, int usageSeconds, int pollSeconds) {
         this.store = store;
         this.saved = saved;
@@ -77,6 +79,14 @@ public final class IntervalSettings {
     }
 
     /**
+     * Registers who is told, with all the settings, when they change; replaces any earlier listener. It is
+     * not told the settings the run starts with, which are {@link #current()}.
+     */
+    public synchronized void onChange(Consumer<Settings> listener) {
+        this.settingsListener = listener;
+    }
+
+    /**
      * Commits a usage interval chosen in the UI. Nothing changes if it is out of
      * range, or if the file cannot be written.
      *
@@ -111,6 +121,7 @@ public final class IntervalSettings {
             }
             LOG.log(System.Logger.Level.INFO, "Settings changed: " + settings);
             saved = settings;
+            settingsListener.accept(current());
         }
 
         if (settings.usageIntervalSeconds() != usageSeconds) {

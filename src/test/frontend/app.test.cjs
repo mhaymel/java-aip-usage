@@ -139,7 +139,7 @@ const HISTORY = {
 
 const LOG = {
     file: 'java-aip-usage.log', exists: true, truncated: false,
-    lines: ['2026-10-08T19:00:00Z INFO    [UsageApp] Starting', '2026-10-08T19:00:01Z INFO    [UsageService] Usage refresh succeeded'],
+    lines: ['2026-10-08 19:00:00 INFO    [UsageApp] Starting', '2026-10-08 19:00:01 INFO    [UsageService] Usage refresh succeeded'],
 };
 
 const accepting = body => ({ status: 200, body: { ...CONFIG, ...body } });
@@ -807,8 +807,8 @@ test('the log button shows the log in the panel, newest line first, in the main 
     assert.equal(page.opened.length, 0, 'no new window');
     assert.equal(page.el('panel').hidden, false);
     assert.deepEqual(lines(page), [
-        '2026-10-08T19:00:01Z INFO    [UsageService] Usage refresh succeeded',
-        '2026-10-08T19:00:00Z INFO    [UsageApp] Starting']);
+        '2026-10-08 19:00:01 INFO    [UsageService] Usage refresh succeeded',
+        '2026-10-08 19:00:00 INFO    [UsageApp] Starting']);
     assert.equal(page.calls.filter(c => c.url === '/api/history').length, 0);
     assert.equal(page.el('log-button').title, 'Hide the log');
     assert.equal(page.el('log-button').attrs['aria-expanded'], 'true');
@@ -858,7 +858,7 @@ test('the open log is read again on every poll, and the lines change only when t
     assert.equal(reads(), 2);
     assert.equal(lines(page).length, 2);
 
-    state.log = () => ({ status: 200, body: { ...LOG, lines: [...LOG.lines, '2026-10-08T19:00:02Z INFO    [UsageApp] Later'] } });
+    state.log = () => ({ status: 200, body: { ...LOG, lines: [...LOG.lines, '2026-10-08 19:00:02 INFO    [UsageApp] Later'] } });
     await page.firePoll();
     assert.equal(lines(page).length, 3);
     assert.match(lines(page)[0], /Later/);
@@ -920,13 +920,13 @@ test('lines coming in above what the person is reading move the scroll with it, 
     box.scrollHeight = 30; // two lines of 15 px
 
     box.scrollTop = 15;
-    state.log = () => ({ status: 200, body: { ...LOG, lines: [...LOG.lines, 'new one', 'new two'] } });
+    state.log = () => ({ status: 200, body: { ...LOG, lines: [...LOG.lines, '2026-10-08 19:00:05 INFO    [X] new one', '2026-10-08 19:00:06 INFO    [X] new two'] } });
     await page.firePoll();
     assert.equal(box.scrollTop, 15 + 2 * 15, 'two lines were added above');
 
     box.scrollHeight = 60;
     box.scrollTop = 0;
-    state.log = () => ({ status: 200, body: { ...LOG, lines: [...LOG.lines, 'new one', 'new two', 'three'] } });
+    state.log = () => ({ status: 200, body: { ...LOG, lines: [...LOG.lines, '2026-10-08 19:00:05 INFO    [X] new one', '2026-10-08 19:00:06 INFO    [X] new two', '2026-10-08 19:00:07 INFO    [X] three'] } });
     await page.firePoll();
     assert.equal(box.scrollTop, 0);
 });

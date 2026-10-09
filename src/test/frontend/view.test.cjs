@@ -340,24 +340,24 @@ test('interval input is checked against the limits the backend reported', () => 
 // ---- the log panel and the history panel
 
 test('the log panel shows the lines newest first, the reverse of the order the log sends them, each a row of one cell', () => {
-    const v = view.describeLog({ exists: true, truncated: false, lines: ['a', 'b', 'c'] });
+    const v = view.describeLog({ exists: true, truncated: false, lines: ['2026-10-08 13:20:01 INFO    [X] a', '2026-10-08 13:20:02 INFO    [X] b', '2026-10-08 13:20:03 INFO    [X] c'] });
 
-    assert.deepEqual(v.rows, [['c'], ['b'], ['a']]);
+    assert.deepEqual(v.rows, [['2026-10-08 13:20:03 INFO    [X] c'], ['2026-10-08 13:20:02 INFO    [X] b'], ['2026-10-08 13:20:01 INFO    [X] a']]);
     assert.equal(v.header, null);
     assert.equal(v.note, null);
 });
 
 test('describing the log does not change what it was given', () => {
-    const lines = ['a', 'b'];
+    const lines = ['2026-10-08 13:20:01 INFO    [X] a', '2026-10-08 13:20:02 INFO    [X] b'];
     view.describeLog({ exists: true, truncated: false, lines });
-    assert.deepEqual(lines, ['a', 'b']);
+    assert.deepEqual(lines, ['2026-10-08 13:20:01 INFO    [X] a', '2026-10-08 13:20:02 INFO    [X] b']);
 });
 
 test('a log that was cut says how much is shown', () => {
-    const v = view.describeLog({ exists: true, truncated: true, lines: ['x', 'y', 'z'] });
+    const v = view.describeLog({ exists: true, truncated: true, lines: ['2026-10-08 13:20:01 INFO    [X] x', '2026-10-08 13:20:02 INFO    [X] y', '2026-10-08 13:20:03 INFO    [X] z'] });
 
     assert.equal(v.note, 'Showing the newest 3 lines of the log.');
-    assert.deepEqual(v.rows, [['z'], ['y'], ['x']]);
+    assert.deepEqual(v.rows, [['2026-10-08 13:20:03 INFO    [X] z'], ['2026-10-08 13:20:02 INFO    [X] y'], ['2026-10-08 13:20:01 INFO    [X] x']]);
 });
 
 test('a missing or empty log says so', () => {
@@ -396,10 +396,10 @@ test('a missing or empty history says so, with no header and no rows', () => {
 
 test('the first line of each run in the log is marked, and only that', () => {
     const v = view.describeLog({ exists: true, truncated: false, lines: [
-        '2026-10-08T13:20:56.142Z INFO    [Main] Starting java-aip-usage v0.02',
-        '2026-10-08T13:20:56.152Z INFO    [LocalWebServer] Frontend served at http://127.0.0.1:1/',
-        '2026-10-08T13:21:00.000Z INFO    [Main] Starting java-aip-usage',
-        '2026-10-08T13:21:01.000Z INFO    [Main] Starting java-aip-usage-extra'
+        '2026-10-08 13:20:56 INFO    [Main] Starting java-aip-usage v0.02',
+        '2026-10-08 13:20:57 INFO    [LocalWebServer] Frontend served at http://127.0.0.1:1/',
+        '2026-10-08 13:21:00 INFO    [Main] Starting java-aip-usage',
+        '2026-10-08 13:21:01 INFO    [Main] Starting java-aip-usage-extra'
     ] });
 
     // newest first
@@ -438,4 +438,26 @@ test('rows of an older shape, with fewer fields, are neither marked nor failed',
 
     assert.deepEqual(v.marks, [false]);
     assert.deepEqual(v.failed, [false]);
+});
+
+test('the lines of one log entry stay together and in order while the entries are newest first', () => {
+    const lines = [
+        '2026-10-08 13:20:01 INFO    [A] first',
+        '2026-10-08 13:20:02 INFO    [UsageClient] Response of GET host/usage (HTTP 200):',
+        '{',
+        '  "spend" : {',
+        '    "used" : 1.0',
+        '  }',
+        '}',
+        '2026-10-08 13:20:03 WARNING [B] last'
+    ];
+    const v = view.describeLog({ exists: true, truncated: false, lines });
+
+    assert.deepEqual(v.rows.map(r => r[0]), [lines[7], lines[1], lines[2], lines[3], lines[4], lines[5], lines[6], lines[0]]);
+});
+
+test('lines before the first entry start of what was read are kept as an entry of their own', () => {
+    const v = view.describeLog({ exists: true, truncated: true, lines: ['  }', '}', '2026-10-08 13:20:03 INFO    [B] later'] });
+
+    assert.deepEqual(v.rows.map(r => r[0]), ['2026-10-08 13:20:03 INFO    [B] later', '  }', '}']);
 });

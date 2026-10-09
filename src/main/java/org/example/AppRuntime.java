@@ -3,6 +3,7 @@ package org.example;
 import org.example.settings.IntervalSettings;
 import org.example.settings.LaunchOptions;
 import org.example.settings.SettingsStore;
+import org.example.usage.ResponseLog;
 import org.example.usage.UsageHistory;
 import org.example.usage.UsageService;
 import org.example.usage.UsageSnapshot;
@@ -45,6 +46,12 @@ final class AppRuntime implements AutoCloseable {
      */
     static AppRuntime start(AppFiles files, LaunchOptions options, Supplier<UsageSnapshot> fetcher)
             throws IOException {
+        return start(files, options, fetcher, new ResponseLog());
+    }
+
+    /** @param responseLog switched by the setting to log the response; the client the fetcher uses asks it */
+    static AppRuntime start(AppFiles files, LaunchOptions options, Supplier<UsageSnapshot> fetcher, ResponseLog responseLog)
+            throws IOException {
         LOG.log(System.Logger.Level.INFO, "Usage history is written to " + files.history());
         LOG.log(System.Logger.Level.INFO, "Settings are stored in " + files.settings());
         IntervalSettings settings =
@@ -56,6 +63,8 @@ final class AppRuntime implements AutoCloseable {
             LOG.log(System.Logger.Level.INFO, "Showing the newest reading in the usage history until the first refresh is done");
         });
         settings.onUsageIntervalChange(service::setInterval);
+        responseLog.set(settings.current().logResponse());
+        settings.onChange(changed -> responseLog.set(changed.logResponse()));
 
         LocalWebServer server = LocalWebServer.start(new ApiHandler(service, settings, files));
         service.start();

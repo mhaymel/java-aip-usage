@@ -13,6 +13,7 @@ import javafx.util.Duration;
 
 import org.example.settings.LaunchOptions;
 import org.example.token.ClaudeTokenProvider;
+import org.example.usage.ResponseLog;
 import org.example.usage.UsageClient;
 import org.example.usage.UsageFetcher;
 
@@ -78,10 +79,12 @@ public class UsageApp extends Application {
         // loading this class starts the logging system.
         LaunchOptions options = LaunchOptions.parse(getParameters().getRaw());
         try {
+            ResponseLog responseLog = new ResponseLog();
             runtime = AppRuntime.start(
                     AppFiles.inWorkingDirectory(),
                     options,
-                    new UsageFetcher(ClaudeTokenProvider.create(), UsageClient.create()));
+                    new UsageFetcher(ClaudeTokenProvider.create(), UsageClient.create(UsageClient.DEFAULT_URI, responseLog)),
+                    responseLog);
         } catch (Exception e) {
             LOG.log(Level.ERROR, "Could not start", e);
             throw e;

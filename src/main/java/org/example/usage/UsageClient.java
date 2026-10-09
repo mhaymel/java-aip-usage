@@ -9,14 +9,18 @@ import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.function.BooleanSupplier;
 import java.util.regex.Pattern;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Calls {@code https://api.anthropic.com/api/oauth/usage} with a bearer token.
  *
  * <p>Redirects are not followed, so the token can never be forwarded to
  * another host: a 3xx is reported as a failure. Only the status and timing are
- * logged, never a header or the body.
+ * logged, never a header, and the body only while the setting to log the response is on.
  */
 public final class UsageClient implements UsageSource {
 
@@ -43,11 +47,20 @@ public final class UsageClient implements UsageSource {
 
     private final UsageParser parser = new UsageParser();
 
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    private final BooleanSupplier logResponse;
+
     UsageClient(HttpClient http, URI uri, Duration requestTimeout, Clock clock) {
+        this(http, uri, requestTimeout, clock, () -> false);
+    }
+
+    UsageClient(HttpClient http, URI uri, Duration requestTimeout, Clock clock, BooleanSupplier logResponse) {
         this.http = http;
         this.uri = uri;
         this.requestTimeout = requestTimeout;
         this.clock = clock;
+        this.logResponse = logResponse;
     }
 
     /** The client the application uses: the real endpoint, with connect and request timeouts. */
@@ -57,11 +70,16 @@ public final class UsageClient implements UsageSource {
 
     /** The same client, pointed at another endpoint. */
     public static UsageClient create(URI uri) {
+        return create(uri, () -> false);
+    }
+
+    /** @param logResponse asked for each response: whether its JSON is written to the log, pretty printed */
+    public static UsageClient create(URI uri, BooleanSupplier logResponse) {
         HttpClient http = HttpClient.newBuilder()
                 .connectTimeout(CONNECT_TIMEOUT)
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
-        return new UsageClient(http, uri, REQUEST_TIMEOUT, Clock.systemUTC());
+        return new UsageClient(http, uri, REQUEST_TIMEOUT, Clock.systemUTC(), logResponse);
     }
 
     @Override
@@ -92,10 +110,29 @@ public final class UsageClient implements UsageSource {
 
         int status = response.statusCode();
         logOutcome("HTTP " + status, started, diagnostics(response));
+        if (logResponse.getAsBoolean()) {
+            logBody(status, response.body());
+        }
         if (status / 100 != 2) {
             throw new UsageFetchException(describe(status), status, retryAfter(response));
         }
         return parser.parse(response.body(), clock.instant());
+    }
+
+    /**
+     * The response as the endpoint sent it, pretty printed over several lines after one line that says
+     * whose it is. The log masks anything shaped like a credential on its way out, as for every line.
+     */
+    private void logBody(int status, String body) {
+        String text;
+        try {
+            JsonNode json = mapper.readTree(body);
+            text = json == null ? "(empty)" : mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
+        } catch (IOException e) {
+            text = "(not JSON, " + body.getBytes(StandardCharsets.UTF_8).length + " bytes, not logged)";
+        }
+        LOG.log(System.Logger.Level.INFO,
+                "Response of GET " + uri.getHost() + uri.getPath() + " (HTTP " + status + "):" + System.lineSeparator() + text);
     }
 
     private void logOutcome(String outcome, long startedNanos) {

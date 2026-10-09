@@ -185,6 +185,10 @@ public final class UsageService implements AutoCloseable {
                     schedule.finish();
                 }
                 outcome = settleBackoff(outcome);
+                if (outcome.error() != null && !closed) {
+                    // The message the window shows in its message line, once, when it appears.
+                    LOG.log(System.Logger.Level.WARNING, "Usage refresh failed: " + outcome.error());
+                }
                 if (!closed) {
                     state = outcome.applyTo(state);
                 }
@@ -202,11 +206,10 @@ public final class UsageService implements AutoCloseable {
             LOG.log(System.Logger.Level.INFO, "Usage refresh succeeded");
             return Outcome.success(snapshot);
         } catch (UsageFetchException e) {
-            LOG.log(System.Logger.Level.WARNING, "Usage refresh failed: " + e.getMessage());
+            // Logged by run, with the rest of the message the window shows.
             return e.status() == 429 ? Outcome.rateLimited(e.getMessage(), e.retryAfter()) : Outcome.failure(e.getMessage());
         } catch (TokenException | UsageParseException e) {
             // These messages are written for the user and carry no credentials.
-            LOG.log(System.Logger.Level.WARNING, "Usage refresh failed: " + e.getMessage());
             return Outcome.failure(e.getMessage());
         } catch (RuntimeException e) {
             LOG.log(System.Logger.Level.WARNING, "Usage refresh failed unexpectedly", e);

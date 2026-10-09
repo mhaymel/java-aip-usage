@@ -364,6 +364,20 @@ class ApiTest {
     }
 
     @Test
+    void theLogResponseSettingSwitchesTheResponseLogWhileTheProgramRuns() throws Exception {
+        org.example.usage.ResponseLog responseLog = new org.example.usage.ResponseLog();
+        AppRuntime app = AppRuntime.start(AppFiles.in(dir), LaunchOptions.none(), new FakeFetch(), responseLog);
+        runtimes.add(app);
+        assertFalse(responseLog.getAsBoolean(), "off by default");
+
+        post(app, "/api/settings", allSettings(60, true, "hh:mm"));
+        assertTrue(responseLog.getAsBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm"));
+        assertFalse(responseLog.getAsBoolean());
+    }
+
+    @Test
     void anIntervalOutsideTheDropdownIsStillAcceptedAndShown() throws Exception {
         AppRuntime app = start(new FakeFetch());
 

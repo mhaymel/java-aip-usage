@@ -32,6 +32,11 @@ public record Settings(
                 IntervalRange.USAGE.defaultValue(), false, false, false, false, TimeFormat.HOURS_MINUTES, false, false);
     }
 
+    public Settings withLogResponse(boolean on) {
+        return new Settings(usageIntervalSeconds, on, showCountdown, showDeltaUsed, showDeltaTime, timeFormat,
+                historyDeltaUsed, historyDeltaTime);
+    }
+
     public Settings withUsageIntervalSeconds(int seconds) {
         return new Settings(seconds, logResponse, showCountdown, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime);

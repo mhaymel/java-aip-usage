@@ -914,7 +914,11 @@ every second. Rows with the same time are now sorted later-written first. Requir
 
 ### 21. Logging: the response JSON, the warnings, a multi-line log panel
 
-**Status: planned.** Requirements: Non-functional requirements (log), The log panel.
+**Status: done (version 0.06).** A `ResponseLog` switch (set from the setting at startup and when settings change, through a new
+`IntervalSettings.onChange`) is what `UsageClient` asks for each response; a body that is not JSON is not logged at all, only
+that it was not. The warning is the existing `Usage refresh failed: <message>` line, now written once after the
+message is final (the rate-limit wait is in it) instead of before; the loss of contact with the application is only known to the
+window, so it is not logged. An entry's first line is the one that starts with its time; `describeLog` keeps the lines after it with it. Requirements: Non-functional requirements (log), The log panel.
 
 - **Response JSON.** `UsageClient` hands the raw body to the log only when the setting is on, as one entry line
   that says it is the response, then the body pretty printed over several lines (Jackson is already used for
