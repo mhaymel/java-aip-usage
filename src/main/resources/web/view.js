@@ -17,6 +17,7 @@
      *   windows      [{name, utilizationText, resetsText}]
      *   placeholder  text for a row with nothing else to show, or null
      *   countdown    {text, tooltip} for the seconds to the next refresh, or null
+     *   countdownAlert  the message of an HTTP 429, for the red countdown and its hover line, or null
      *   interval     {text, tooltip} for the time between usage requests
      *   deltaUsed    {text, tooltip} for the change in the amount used, or null
      *   deltaTime    {text, tooltip} for the time since the previous reading, or null
@@ -34,6 +35,7 @@
             windows: d.windows || [],
             placeholder: d.placeholder || null,
             countdown: d.countdown || null,
+            countdownAlert: d.countdownAlert || null,
             interval: d.interval || null,
             deltaUsed: d.deltaUsed || null,
             deltaTime: d.deltaTime || null,
@@ -113,6 +115,10 @@
         return {
             note: data.rows.length < data.total ? 'Showing the newest ' + data.rows.length + ' of ' + data.total + ' rows.' : null,
             header: header,
+            // A time with the date is wider than one without.
+            wide: Boolean(show.date),
+            // The first line of a run says so when hovered.
+            titles: data.rows.map(function (row) { return hasStatus(row, 'start') ? (data.startTooltip || '') : ''; }),
             // The fifth field is the row's status: `start` and `start-failed` begin a run and are marked,
             // `failed` and `start-failed` are queries that did not succeed. The status, the interval and the
             // duration are not shown; a failed row says so in the place of its amount.
@@ -135,9 +141,26 @@
         };
     }
 
+    /**
+     * What the error log panel shows, from GET /api/errors: the errors of this run, newest first as the backend
+     * sent them, in two columns.
+     * @returns {note, header, rows}
+     */
+    function describeErrors(data) {
+        if (!data.entries || data.entries.length === 0) {
+            return { note: 'There are no errors in this run.', header: null, rows: [] };
+        }
+        return {
+            note: null,
+            header: ['time', 'message'],
+            rows: data.entries.map(function (entry) { return [entry.time, entry.message]; })
+        };
+    }
+
     root.UsageView = {
         describeStatus: describeStatus,
         describeLog: describeLog,
+        describeErrors: describeErrors,
         describeHistory: describeHistory
     };
     if (typeof module !== 'undefined' && module.exports) {

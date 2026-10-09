@@ -140,6 +140,7 @@ function backendOf(state) {
         if (call.url === '/api/status') return { status: 200, body: withDisplay(state.status) };
         if (call.url === '/api/refresh') return { status: 202, body: { started: true } };
         if (call.url === '/api/log') return state.log ? state.log() : { status: 200, body: LOG };
+        if (call.url === '/api/errors') return state.errors ? state.errors() : { status: 200, body: ERRORS };
         if (call.url === '/api/history') return state.history ? state.history() : { status: 200, body: HISTORY };
         return { status: 404, body: { error: 'No such endpoint.' } };
     };
@@ -147,13 +148,20 @@ function backendOf(state) {
 
 const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showInterval: false, showDeltaUsed: false, showDeltaTime: false,
-    timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false,
+    timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false,
 };
 const SETTINGS = {
     settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showInterval: true, timeFormat: 'hh:mm:ss' },
     defaults: DEFAULT_SETTINGS,
     intervalChoices: [60, 120, 180, 240, 300],
     limits: { usageIntervalSeconds: { min: 5, max: 3600 } },
+};
+
+const ERRORS = {
+    entries: [
+        { time: '11:34:42', message: 'Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.' },
+        { time: '11:20:01', message: 'Claude Code is not logged in. Log in, then refresh.' },
+    ],
 };
 
 const HISTORY = {
@@ -602,7 +610,7 @@ test('showing the log while the history is shown replaces it, and the window tak
 
     await page.click('log-button');
 
-    assert.equal(page.window.contentSize(), '1200,340,2', 'the window takes the size the log has');
+    assert.equal(page.window.contentSize(), '1200,340,2,log', 'the window takes the size the log has');
     assert.equal(lines(page).length, 2);
     assert.match(lines(page)[0], /Usage refresh succeeded/);
     assert.equal(page.el('history-button').title, 'Show the usage history');
@@ -716,12 +724,12 @@ test('with the history shown the window is ten times as tall as the row, as wide
     page.el('app').rect = { width: 400, height: 34 };
 
     await page.click('history-button');
-    assert.equal(page.window.contentSize(), '400,340,1');
+    assert.equal(page.window.contentSize(), '400,340,1,history');
     assert.match(page.el('app').className, /\bopen\b/);
 
     // Dragging the window makes the page bigger; the report does not follow it.
     page.el('app').rect = { width: 900, height: 700 };
-    assert.equal(page.window.contentSize(), '400,340,1');
+    assert.equal(page.window.contentSize(), '400,340,1,history');
 
     await page.click('history-button');
     page.el('app').rect = { width: 400, height: 34 };
@@ -734,13 +742,13 @@ test('with the log shown the window is also three times as wide as the row, and 
     page.el('top').rect = { width: 400, height: 34 };
 
     await page.click('log-button');
-    assert.equal(page.window.contentSize(), '1200,340,2');
+    assert.equal(page.window.contentSize(), '1200,340,2,log');
 
     page.el('app').rect = { width: 1700, height: 900 };
-    assert.equal(page.window.contentSize(), '1200,340,2', 'not the size it was dragged to');
+    assert.equal(page.window.contentSize(), '1200,340,2,log', 'not the size it was dragged to');
 
     await page.click('history-button');
-    assert.equal(page.window.contentSize(), '400,340,1', 'back to the row\'s width for the history');
+    assert.equal(page.window.contentSize(), '400,340,1,history', 'back to the row\'s width for the history');
 
     await page.click('history-button');
     assert.equal(page.window.contentSize(), '400,34,0');
@@ -760,7 +768,7 @@ test('the stale look and the open panel keep each other\'s class on the page', a
 
 const settingsPosts = page => page.calls.filter(c => c.method === 'POST' && c.url === '/api/settings');
 const settingsGets = page => page.calls.filter(c => c.method === 'GET' && c.url === '/api/settings');
-const option = page => page.el('set-usageIntervalSeconds').children.map(o => o.value);
+const choices = page => page.el('set-intervalChoices').children.map(o => o.value);
 
 test('the settings button shows the view in the panel area, filled with what the backend has', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
@@ -776,7 +784,7 @@ test('the settings button shows the view in the panel area, filled with what the
     assert.equal(page.el('set-showDeltaUsed').checked, false);
     assert.equal(page.el('set-timeFormat').value, 'hh:mm:ss');
     assert.equal(page.el('set-logResponse').checked, false);
-    assert.deepEqual(option(page), ['60', '120', '180', '240', '300']);
+    assert.deepEqual(choices(page), ['', '60', '120', '180', '240', '300']);
     assert.equal(page.el('settings-error').hidden, true);
 });
 
@@ -786,8 +794,58 @@ test('the interval the backend has is offered even when it is not one of the fiv
 
     await page.click('settings-button');
 
-    assert.equal(page.el('set-usageIntervalSeconds').value, '45');
-    assert.deepEqual(option(page), ['45', '60', '120', '180', '240', '300']);
+    assert.equal(page.el('set-usageIntervalSeconds').value, '45', 'the box shows what is in force, a choice or not');
+    assert.deepEqual(choices(page), ['', '60', '120', '180', '240', '300'], 'the dropdown offers the usual five, after its prompt');
+});
+
+test('any whole number can be typed in the interval box, and is sent as a number', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-usageIntervalSeconds').value = ' 47 ';
+
+    await page.click('settings-apply');
+
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).usageIntervalSeconds, 47);
+});
+
+test('picking a choice puts it in the box and sends nothing; the dropdown goes back to its prompt', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+
+    page.el('set-intervalChoices').value = '240';
+    page.el('set-intervalChoices').listeners.change();
+
+    assert.equal(page.el('set-usageIntervalSeconds').value, '240');
+    assert.equal(page.el('set-intervalChoices').value, '');
+    assert.equal(settingsPosts(page).length, 0);
+});
+
+test('a box that is not a whole number of seconds is refused in the view, in red, and sends nothing', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+
+    for (const bad of ['', 'abc', '4.5', '-60', '1e3', '60 s']) {
+        page.el('set-usageIntervalSeconds').value = bad;
+        await page.click('settings-apply');
+        assert.equal(page.el('settings-error').hidden, false, JSON.stringify(bad));
+        assert.match(page.el('settings-error').textContent, /whole number of seconds/);
+    }
+    assert.equal(settingsPosts(page).length, 0);
+    assert.equal(page.el('settings-view').hidden, false, 'the view stays open');
+});
+
+test('a number the backend refuses, such as 4, stays in the box with the backend\'s reason', async () => {
+    const page = await load(backendOf({
+        config: CONFIG, status: SPEND_STATUS,
+        postSettings: () => ({ status: 400, body: { error: 'The usage interval must be a whole number of seconds from 5 to 3600.' } }),
+    }));
+    await page.click('settings-button');
+    page.el('set-usageIntervalSeconds').value = '4';
+
+    await page.click('settings-apply');
+
+    assert.match(page.el('settings-error').textContent, /from 5 to 3600/);
+    assert.equal(page.el('set-usageIntervalSeconds').value, '4');
 });
 
 test('the view asks the backend every time it is opened, and keeps nothing of its own in between', async () => {
@@ -820,7 +878,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.equal(settingsPosts(page).length, 1);
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
-        timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false,
+        timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
     assert.equal(page.el('settings-view').hidden, true, 'Apply closes the view');
@@ -991,13 +1049,13 @@ test('with the history shown the height is what it was when it opened, whatever 
     page.el('top').rect = { width: 399.2, height: 41.5 };
 
     await page.click('history-button');
-    assert.equal(page.window.contentSize(), '400,420,1', 'ten times the row');
+    assert.equal(page.window.contentSize(), '400,420,1,history', 'ten times the row');
 
     page.el('top').rect = { width: 399.2, height: 77 }; // a message line has come
-    assert.equal(page.window.contentSize(), '400,420,1', 'the window keeps its height; the panel takes the difference');
+    assert.equal(page.window.contentSize(), '400,420,1,history', 'the window keeps its height; the panel takes the difference');
 
     page.el('top').rect = { width: 399.2, height: 41.5 };
-    assert.equal(page.window.contentSize(), '400,420,1', 'and when it goes');
+    assert.equal(page.window.contentSize(), '400,420,1,history', 'and when it goes');
 });
 
 test('with the log shown the height is fixed the same way, and the width is three rows', async () => {
@@ -1007,7 +1065,7 @@ test('with the log shown the height is fixed the same way, and the width is thre
 
     page.el('top').rect = { width: 399.2, height: 90 };
 
-    assert.equal(page.window.contentSize(), '1200,420,2');
+    assert.equal(page.window.contentSize(), '1200,420,2,log');
 });
 
 test('opening a panel again starts from the row as it is then, not as it was', async () => {
@@ -1019,7 +1077,7 @@ test('opening a panel again starts from the row as it is then, not as it was', a
 
     await page.click('history-button');
 
-    assert.equal(page.window.contentSize(), '400,600,1');
+    assert.equal(page.window.contentSize(), '400,600,1,history');
 });
 
 test('the window is as wide as the row plus the scrollbar of the history and the log, which is measured, so no column is covered', async () => {
@@ -1027,10 +1085,10 @@ test('the window is as wide as the row plus the scrollbar of the history and the
     page.el('top').rect = { width: 399.2, height: 41.5 };
 
     await page.click('history-button');
-    assert.equal(page.window.contentSize(), '415,420,1', '400 and the scrollbar');
+    assert.equal(page.window.contentSize(), '415,420,1,history', '400 and the scrollbar');
 
     await page.click('log-button');
-    assert.equal(page.window.contentSize(), '1215,420,2', 'three rows and the scrollbar');
+    assert.equal(page.window.contentSize(), '1215,420,2,log', 'three rows and the scrollbar');
 
     await page.click('settings-button');
     page.el('app').rect = { width: 399.2, height: 500 };
@@ -1043,7 +1101,7 @@ test('no scrollbar width is added when the platform has none to measure', async 
 
     await page.click('history-button');
 
-    assert.equal(page.window.contentSize(), '400,420,1');
+    assert.equal(page.window.contentSize(), '400,420,1,history');
 });
 
 // ---- the optional items of the row
@@ -1108,4 +1166,171 @@ test('the percentage is in the row only when its setting is on, and the amounts 
 
     assert.equal(page.el('percent').hidden, false);
     assert.equal(page.el('percent').textContent, '19%');
+});
+
+// ---- the error log panel
+
+test('the error log button opens the panel with a line for each error, newest first, as time and message', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('errors-button');
+
+    assert.equal(page.el('panel').hidden, false);
+    assert.deepEqual(rows(page), [
+        ['11:34:42', 'Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.'],
+        ['11:20:01', 'Claude Code is not logged in. Log in, then refresh.'],
+    ]);
+    assert.deepEqual(head(page), [['time', 'message']]);
+    assert.match(page.el('panel-lines').children[1].className, /\bcols-2\b/);
+    assert.equal(page.el('errors-button').title, 'Hide the error log');
+    assert.equal(page.el('log-button').title, 'Show the log');
+    assert.equal(page.el('panel-lines').hidden, false);
+});
+
+test('the error log has the size of the history: ten rows, the row and the scrollbar wide, height resizable, panel named', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+
+    await page.click('errors-button');
+
+    assert.equal(page.window.contentSize(), '415,420,1,errors');
+    page.el('top').rect = { width: 399.2, height: 90 };
+    assert.equal(page.window.contentSize(), '415,420,1,errors', 'not moved by the main view');
+});
+
+test('the history and the log name themselves to the host, which remembers their heights', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+
+    await page.click('history-button');
+    assert.match(page.window.contentSize(), /,1,history$/);
+    await page.click('log-button');
+    assert.match(page.window.contentSize(), /,2,log$/);
+    await page.click('settings-button');
+    assert.match(page.window.contentSize(), /,3$/, 'the settings have no remembered height');
+});
+
+test('a new error appears at the top of the open error log at the next poll', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    await page.click('errors-button');
+    state.errors = () => ({ status: 200, body: { entries: [{ time: '11:40:00', message: 'Cannot reach api.anthropic.com' }, ...ERRORS.entries] } });
+
+    await page.firePoll();
+
+    assert.equal(rows(page).length, 3);
+    assert.deepEqual(rows(page)[0], ['11:40:00', 'Cannot reach api.anthropic.com']);
+});
+
+test('an error log with nothing in it says so in one line', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, errors: () => ({ status: 200, body: { entries: [] } }) }));
+
+    await page.click('errors-button');
+
+    assert.equal(rows(page).length, 0);
+    assert.equal(page.el('panel-note').textContent, 'There are no errors in this run.');
+});
+
+test('the error log shares the one panel area with the others', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('errors-button');
+    await page.click('history-button');
+
+    assert.equal(page.el('errors-button').title, 'Show the error log');
+    assert.equal(page.el('history-button').title, 'Hide the usage history');
+    assert.equal(rows(page)[0][1], '260.66');
+});
+
+// ---- an HTTP 429: a red countdown, and its message when hovered
+
+const LIMITED = {
+    ...SPEND_STATUS,
+    stale: false,
+    display: {
+        time: '14:24', timeTooltip: 'Last update: x', placeholder: null, windows: [], message: null,
+        spend: { percentText: '19%', percentTooltip: 'p', used: '186.02', limit: '1,000.00', usedTooltip: 'u', limitTooltip: 'l', severityText: 'normal', severityKind: 'normal' },
+        countdown: { text: '118 s', tooltip: 'c' },
+        countdownAlert: 'Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.',
+        show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false },
+    },
+};
+
+test('while the server asks us to slow down the countdown is red, with no message line and the figures not dimmed', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: LIMITED }));
+
+    assert.match(page.el('countdown').className, /\balert\b/);
+    assert.equal(page.el('note').hidden, true, 'no message line');
+    assert.doesNotMatch(page.el('app').className, /stale/);
+    assert.equal(page.el('alert-note').hidden, true, 'and the message is not shown until hovered');
+});
+
+test('hovering the red countdown shows the message in a line under the row, and leaving takes it away', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: LIMITED }));
+
+    page.el('countdown').listeners.mouseenter();
+    assert.equal(page.el('alert-note').hidden, false);
+    assert.equal(page.el('alert-note').textContent, 'Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.');
+    assert.match(INDEX_HTML, /id="alert-note" class="note note-alert"/, 'in the red, bold note style');
+
+    page.el('countdown').listeners.mouseleave();
+    assert.equal(page.el('alert-note').hidden, true);
+});
+
+test('the hover line stays while polls come in and goes when the 429 does', async () => {
+    const state = { config: CONFIG, status: LIMITED };
+    const page = await load(backendOf(state));
+    page.el('countdown').listeners.mouseenter();
+
+    await page.firePoll();
+    assert.equal(page.el('alert-note').hidden, false, 'still hovered');
+
+    state.status = SPEND_STATUS;
+    await page.firePoll();
+    assert.equal(page.el('alert-note').hidden, true, 'no message any more');
+    assert.doesNotMatch(page.el('countdown').className, /alert/);
+});
+
+test('hovering a countdown that is not red shows nothing', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    page.el('countdown').listeners.mouseenter();
+
+    assert.equal(page.el('alert-note').hidden, true);
+});
+
+// ---- the history table: time, date, hover and settings
+
+test('a line that begins a run says so when hovered, and the others say nothing', async () => {
+    const history = { ...HISTORY, startTooltip: 'The program started here',
+        rows: [['20:46:11', '260.66', '1000.00', 'USD', '', '60', '400'], ['20:44:12', '260.36', '1000.00', 'USD', 'start', '60', '412']] };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
+
+    await page.click('history-button');
+
+    const lines = page.el('panel-lines').children.filter(c => !/\bhead\b/.test(c.className));
+    assert.equal(lines[0].title, '');
+    assert.equal(lines[1].title, 'The program started here');
+});
+
+test('with the date on, the history rows take the wide time class', async () => {
+    const history = { ...HISTORY, columns: ['date time', 'used', 'limit', 'currency'], show: { date: true },
+        rows: [['2026-10-08 20:46:11', '260.66', '1000.00', 'USD', '', '60', '400']] };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
+
+    await page.click('history-button');
+
+    assert.match(page.el('panel-lines').children[1].className, /\bdate\b/);
+    assert.match(page.el('panel-lines').children[0].className, /\bdate\b/, 'and so does the header');
+    assert.deepEqual(head(page), [['date time', 'used', 'limit', 'currency']]);
+});
+
+test('the date setting is in the settings view and is sent with the rest', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+
+    page.el('set-historyDate').checked = true;
+    await page.click('settings-apply');
+
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).historyDate, true);
 });

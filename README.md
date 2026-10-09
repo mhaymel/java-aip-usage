@@ -21,7 +21,7 @@ text, local time of day only.
 
 From the left: when the usage was last refreshed, the percentage spent, what has been
 spent and the budget as plain numbers (severity is the colour of the percentage and
-the amounts), a refresh button, the countdown, optionally the time between requests and the change since the previous reading, and small settings, log and history buttons. A Pro or Max
+the amounts), a refresh button, the countdown, optionally the time between requests and the change since the previous reading, and small log, history, error log and settings buttons (the gear last). A Pro or Max
 account shows its plan windows in place of the percentage and amounts, each as its
 utilization, its name and the time until it resets.
 
@@ -54,8 +54,13 @@ Hover over things to see what they are:
   is longer while the application is backing off after a rate limit, and goes negative
   (`-3 s`) if the refresh is overdue, for example because a request is slow. It is
   empty until the first request has been made.
+- **Error log** (the triangle) lists the errors of this run, newest first, with the time and the message: every failed
+  refresh, an HTTP 429 and a problem with the token (not logged in, `claude` not found) included. It is kept in memory only and is empty at
+  every start. An HTTP 429 is shown only as a red countdown, which tells you why when you hover over it, and is not a message under the row.
+- The history shows the time of day (a setting adds the date), and hovering over the first line of a run says `The program started here`. The window
+  remembers the height you leave the history and the log at.
 - **Settings** (⚙, at the right-hand end) shows the settings in the panel area below the row, like the log and the history: the time
-  between usage requests (a dropdown: 60 to 300 s, default 60), whether the row shows the percentage spent (off by default), the time between usage requests and the change
+  between usage requests (a dropdown: 60 to 300 s, default 60), whether the row shows the percentage spent (off by default), the interval (a box you can type any number of seconds in, or pick from), whether the history shows the date, the time between usage requests and the change
   since the previous reading, the time format (`hh:mm` or `hh:mm:ss`), the two matching columns of the history, and
   whether each response's JSON is written to the log. The values are read from the application each time you
   open it. Nothing takes effect until **Apply**, which saves them and closes the view; **Cancel** closes it and changes

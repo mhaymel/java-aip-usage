@@ -35,6 +35,9 @@ public final class IntervalSettings {
 
     private Consumer<Settings> settingsListener = settings -> { };
 
+    /** The heights the window had with the history and the log open; see {@link SettingsStore.Heights}. */
+    private SettingsStore.Heights heights;
+
     private IntervalSettings(SettingsStore store, Settings saved, int usageSeconds, int pollSeconds) {
         this.store = store;
         this.saved = saved;
@@ -51,8 +54,33 @@ public final class IntervalSettings {
         int usage = cliUsage.orElse(saved.usageIntervalSeconds());
         int poll = cliPoll.orElse(IntervalRange.POLL.defaultValue());
         IntervalSettings settings = new IntervalSettings(store, saved, usage, poll);
+        settings.heights = store.loadHeights();
         LOG.log(System.Logger.Level.INFO, "Usage interval " + usage + " s, poll interval " + poll + " s");
         return settings;
+    }
+
+    /** The height the window had the last time {@code panel} ({@code history} or {@code log}) was open, or 0. */
+    public synchronized int storedHeight(String panel) {
+        return heights.of(panel);
+    }
+
+    /**
+     * Remembers the height of the window with {@code panel} open, in pixels of its content. A file that cannot
+     * be written is logged and nothing more: the height is only a convenience.
+     */
+    public synchronized void storeHeight(String panel, int pixels) {
+        SettingsStore.Heights updated = heights.withHeight(panel, pixels);
+        if (updated.equals(heights)) {
+            return;
+        }
+        try {
+            store.saveHeights(updated);
+        } catch (IOException e) {
+            LOG.log(System.Logger.Level.WARNING, "Could not save the height of the " + panel + " to " + store.file() + ": " + e.getMessage());
+            return;
+        }
+        heights = updated;
+        LOG.log(System.Logger.Level.INFO, "The " + panel + " window height is now " + pixels + " px");
     }
 
     /** Every setting as in force: what the file holds, but with the usage interval the run is using. */

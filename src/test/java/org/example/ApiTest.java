@@ -294,7 +294,7 @@ class ApiTest {
     private static String allSettings(int interval, boolean logResponse, String timeFormat) {
         return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
                 + ", \"showPercentage\": true, \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
-                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true}";
+                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false}";
     }
 
     @Test
@@ -306,7 +306,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(9, body.get("settings").size());
+        assertEquals(10, body.get("settings").size());
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertEquals("[60,120,180,240,300]", body.get("intervalChoices").toString());
     }
@@ -753,7 +753,7 @@ class ApiTest {
         await(() -> history(app).size() >= 2);
         post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showPercentage\": false, \"showInterval\": false,"
                 + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
-                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false}");
+                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false}");
         fail.set(false);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);
@@ -820,6 +820,67 @@ class ApiTest {
         JsonNode on = json(get(app, "/api/history"));
         assertTrue(on.at("/show/deltaUsed").asBoolean());
         assertTrue(on.at("/show/deltaTime").asBoolean(), "allSettings turns the time column on");
+    }
+
+    @Test
+    void theErrorLogListsEveryFailedRefreshNewestFirstWithTheTimeAndTheMessage() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        fetch.answer = () -> {
+            throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
+        };
+        AppRuntime app = start(fetch);
+        await(() -> app.service().state().error() != null);
+        post(app, "/api/refresh", "{}");
+        await(() -> app.service().errors().newestFirst().size() >= 2);
+
+        JsonNode errors = json(get(app, "/api/errors")).get("entries");
+
+        assertTrue(errors.size() >= 2);
+        assertTrue(errors.get(0).get("time").asText().matches("\\d{2}:\\d{2}:\\d{2}"), "hh:mm:ss, with seconds, whatever the time format setting");
+        assertEquals("Anthropic returned HTTP 503.", errors.get(0).get("message").asText());
+    }
+
+    @Test
+    void theErrorLogIsEmptyWhenNothingHasFailedAndPollingAddsNothing() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> app.service().state().snapshot() != null);
+
+        for (int i = 0; i < 3; i++) {
+            get(app, "/api/status");
+        }
+
+        assertEquals(0, json(get(app, "/api/errors")).get("entries").size());
+        assertEquals(405, post(app, "/api/errors", "{}").statusCode(), "read-only");
+    }
+
+    @Test
+    void aProblemWithTheTokenIsInTheErrorLog() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        fetch.answer = () -> {
+            throw new org.example.token.TokenException(
+                    org.example.token.TokenException.Reason.NOT_LOGGED_IN, "Claude Code is not logged in. Log in, then refresh.");
+        };
+        AppRuntime app = start(fetch);
+        await(() -> !app.service().errors().newestFirst().isEmpty());
+
+        assertTrue(json(get(app, "/api/errors")).at("/entries/0/message").asText().contains("not logged in"));
+    }
+
+    @Test
+    void anHttp429IsInTheErrorLogAndHasNoMessageInTheStatusDisplay() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        fetch.answer = () -> {
+            throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429);
+        };
+        AppRuntime app = start(fetch);
+        await(() -> app.service().state().error() != null);
+        await(() -> !app.service().errors().newestFirst().isEmpty());
+
+        JsonNode status = json(get(app, "/api/status"));
+        assertTrue(status.at("/display/message").isNull());
+        assertTrue(status.at("/display/countdownAlert").asText().contains("HTTP 429"));
+        assertFalse(status.get("stale").asBoolean());
+        assertTrue(json(get(app, "/api/errors")).at("/entries/0/message").asText().contains("HTTP 429"));
     }
 
     @Test
@@ -927,14 +988,56 @@ class ApiTest {
 
         assertTrue(history.get("exists").asBoolean());
         assertEquals("java-aip-usage.csv", history.get("file").asText());
-        assertEquals("datetime", history.at("/columns/0").asText());
+        assertEquals("time", history.at("/columns/0").asText(), "the time of day only, until the date is switched on");
         assertEquals("limit", history.at("/columns/2").asText());
         assertEquals("currency", history.at("/columns/3").asText());
         assertEquals("USD", history.at("/rows/0/3").asText());
         assertEquals(history.get("total").asInt(), history.get("rows").size());
-        assertEquals("2026-10-08 14:26:53", history.at("/rows/0/0").asText(), "sorted by datetime, newest first");
+        assertEquals("14:26:53", history.at("/rows/0/0").asText(), "sorted by date and time, newest first, shown as time of day");
+        assertEquals("14:25:53", history.at("/rows/1/0").asText());
+        assertEquals("The program started here", history.get("startTooltip").asText());
+        assertFalse(history.at("/show/date").asBoolean());
         assertEquals("186.12", history.at("/rows/0/1").asText());
         assertEquals("1000.00", history.at("/rows/0/2").asText());
+    }
+
+    @Test
+    void withTheDateSettingOnTheHistoryTimesHaveTheDateAndTheTitleSaysSo() throws Exception {
+        writeHistory("datetime,used,limit,currency", "2026-10-08 14:24:53,186.02,1000.00,USD", "yesterday,1.00,2.00,USD");
+        AppRuntime app = start(new FakeFetch());
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDate\": false", "\"historyDate\": true"));
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        assertEquals("date time", history.at("/columns/0").asText());
+        assertEquals("2026-10-08 14:24:53", history.at("/rows/1/0").asText());
+        assertTrue(history.at("/show/date").asBoolean());
+    }
+
+    @Test
+    void aTimeThatCannotBeReadIsShownAsItIsEvenWithoutTheDate() throws Exception {
+        writeHistory("datetime,used,limit,currency", "2026-10-08 14:24:53,186.02,1000.00,USD", "yesterday,1.00,2.00,USD");
+        AppRuntime app = start(new FakeFetch());
+
+        JsonNode rows = json(get(app, "/api/history")).get("rows");
+
+        java.util.Set<String> shown = new java.util.HashSet<>();
+        rows.forEach(r -> shown.add(r.get(0).asText()));
+        assertTrue(shown.contains("yesterday"), shown.toString());
+        assertTrue(shown.contains("14:24:53"), shown.toString());
+    }
+
+    @Test
+    void theRememberedHeightsAreNotInTheSettingsTheViewShowsOrTakes() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        app.settings().storeHeight("history", 640);
+
+        JsonNode settings = json(get(app, "/api/settings")).get("settings");
+        post(app, "/api/settings", allSettings(120, false, "hh:mm"));
+
+        assertFalse(settings.has("historyHeight"));
+        assertFalse(settings.has("logHeight"));
+        assertEquals(640, app.settings().storedHeight("history"), "applying the settings left the height alone");
     }
 
     @Test

@@ -211,7 +211,7 @@ class IntervalSettingsTest {
     @Test
     void appliedSettingsTakeEffectAndAreSavedAndTheListenerHearsOnlyAboutTheInterval() {
         IntervalSettings settings = load();
-        Settings changed = new Settings(60, true, true, true, false, true, TimeFormat.HOURS_MINUTES_SECONDS, false, true);
+        Settings changed = new Settings(60, true, true, true, false, true, TimeFormat.HOURS_MINUTES_SECONDS, false, true, false);
 
         settings.apply(changed);
 
@@ -229,7 +229,7 @@ class IntervalSettingsTest {
         IntervalSettings settings = load();
 
         assertThrows(InvalidSettingException.class,
-                () -> settings.apply(new Settings(4, true, true, true, true, true, TimeFormat.HOURS_MINUTES, true, true)));
+                () -> settings.apply(new Settings(4, true, true, true, true, true, TimeFormat.HOURS_MINUTES, true, true, false)));
 
         assertEquals(Settings.defaults(), settings.current());
         assertEquals(Settings.defaults(), store().load());
@@ -243,5 +243,31 @@ class IntervalSettingsTest {
 
         assertEquals(60, settings.usageSeconds(), "the command-line value is replaced by what was applied");
         assertEquals(Settings.defaults(), store().load());
+    }
+
+    // ---- the remembered heights
+
+    @Test
+    void aStoredHeightIsRememberedAcrossARestartAndAnApplyDoesNotLoseIt() {
+        IntervalSettings first = load();
+        assertEquals(0, first.storedHeight("history"));
+
+        first.storeHeight("history", 640);
+        first.apply(first.current().withLogResponse(true));
+
+        IntervalSettings second = load();
+        assertEquals(640, second.storedHeight("history"));
+        assertEquals(0, second.storedHeight("log"), "each panel has its own");
+        assertTrue(second.current().logResponse(), "and the setting was saved too");
+    }
+
+    @Test
+    void aHeightThatCannotBeSavedIsLoggedNotThrownAndNotRemembered() {
+        SettingsStore unwritable = new SettingsStore(dir.resolve("no-such-dir").resolve("settings.json"));
+        IntervalSettings settings = IntervalSettings.load(unwritable, OptionalInt.empty(), OptionalInt.empty());
+
+        settings.storeHeight("log", 500);
+
+        assertEquals(0, settings.storedHeight("log"));
     }
 }

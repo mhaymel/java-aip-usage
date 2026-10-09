@@ -49,6 +49,7 @@ final class StatusDisplay {
             List<WindowView> windows,
             String placeholder,
             Tip countdown,
+            String countdownAlert,
             Tip interval,
             Tip deltaUsed,
             Tip deltaTime,
@@ -82,7 +83,8 @@ final class StatusDisplay {
             placeholder = state.error() != null ? "No data" : "Loading…";
         }
 
-        Message message = state.error() == null ? null : new Message(
+        // An HTTP 429 has no message line: the countdown is red and carries the message for its hover line instead.
+        Message message = state.error() == null || state.rateLimited() ? null : new Message(
                 usage != null ? "stale" : "error",
                 "Refresh failed at " + Formatting.time(state.errorAt(), settings.timeFormat(), zone) + ": " + state.error());
 
@@ -95,6 +97,7 @@ final class StatusDisplay {
                 countdown.isPresent()
                         ? new Tip(countdown.getAsLong() + " s", "Seconds until the next refresh (negative when overdue)")
                         : null,
+                state.rateLimited() ? state.error() : null,
                 new Tip(settings.usageIntervalSeconds() + " s", "Time between usage requests"),
                 deltaUsed(change, usage),
                 change == null || change.deltaTime() == null ? null

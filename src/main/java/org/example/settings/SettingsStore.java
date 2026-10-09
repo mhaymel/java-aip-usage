@@ -42,6 +42,15 @@ public final class SettingsStore {
 
     static final String HISTORY_DELTA_TIME_KEY = "historyDeltaTime";
 
+    static final String HISTORY_DATE_KEY = "historyDate";
+
+    static final String HISTORY_HEIGHT_KEY = "historyHeight";
+
+    static final String LOG_HEIGHT_KEY = "logHeight";
+
+    /** The tallest height that is believed, in pixels: more than any screen. */
+    static final int MAX_HEIGHT = 10_000;
+
     private static final System.Logger LOG = System.getLogger(SettingsStore.class.getName());
 
     private final Path file;
@@ -91,7 +100,74 @@ public final class SettingsStore {
                 flag(root, SHOW_DELTA_TIME_KEY, defaults.showDeltaTime()),
                 timeFormat(root, defaults.timeFormat()),
                 flag(root, HISTORY_DELTA_USED_KEY, defaults.historyDeltaUsed()),
-                flag(root, HISTORY_DELTA_TIME_KEY, defaults.historyDeltaTime()));
+                flag(root, HISTORY_DELTA_TIME_KEY, defaults.historyDeltaTime()),
+                flag(root, HISTORY_DATE_KEY, defaults.historyDate()));
+    }
+
+    /**
+     * The heights the window had the last time the history and the log were open, in pixels of its content; {@code 0} for
+     * none. They are in the settings file but are not settings of the settings view.
+     */
+    public record Heights(int history, int log) {
+
+        public static final Heights NONE = new Heights(0, 0);
+
+        public Heights withHeight(String panel, int pixels) {
+            return switch (panel) {
+                case "history" -> new Heights(pixels, log);
+                case "log" -> new Heights(history, pixels);
+                default -> throw new IllegalArgumentException("No remembered height for " + panel);
+            };
+        }
+
+        public int of(String panel) {
+            return switch (panel) {
+                case "history" -> history;
+                case "log" -> log;
+                default -> 0;
+            };
+        }
+    }
+
+    /** The remembered heights; none if the file is missing or unusable. Never fails. */
+    public Heights loadHeights() {
+        try {
+            JsonNode root = mapper.readTree(Files.readString(file));
+            if (root == null || !root.isObject()) {
+                return Heights.NONE;
+            }
+            return new Heights(height(root, HISTORY_HEIGHT_KEY), height(root, LOG_HEIGHT_KEY));
+        } catch (IOException e) {
+            return Heights.NONE;
+        }
+    }
+
+    private int height(JsonNode root, String key) {
+        JsonNode node = root.get(key);
+        if (node == null || node.isNull()) {
+            return 0;
+        }
+        if (!node.isIntegralNumber() || !node.canConvertToInt() || node.intValue() < 0 || node.intValue() > MAX_HEIGHT) {
+            LOG.log(System.Logger.Level.WARNING, "Ignoring " + key + " in " + file + ": it must be a whole number of pixels from 0 to " + MAX_HEIGHT);
+            return 0;
+        }
+        return node.intValue();
+    }
+
+    /**
+     * Stores the heights, keeping the settings the file has.
+     *
+     * @throws IOException if the file cannot be written; it is then unchanged
+     */
+    public void saveHeights(Heights heights) throws IOException {
+        if (Files.exists(file)) {
+            JsonNode root = mapper.readTree(Files.readString(file));
+            if (root == null || !root.isObject()) {
+                // A damaged file is left as it is until a setting is applied; a height is not worth replacing it for.
+                throw new IOException("the settings file is not a JSON object");
+            }
+        }
+        write(load(), heights);
     }
 
     private int interval(JsonNode root, int fallback) {
@@ -137,6 +213,10 @@ public final class SettingsStore {
      * @throws IOException if the file cannot be written; it is then unchanged
      */
     public void save(Settings settings) throws IOException {
+        write(settings, Files.exists(file) ? loadHeights() : Heights.NONE);
+    }
+
+    private void write(Settings settings, Heights heights) throws IOException {
         ObjectNode root = mapper.createObjectNode();
         root.put(USAGE_KEY, settings.usageIntervalSeconds());
         root.put(LOG_RESPONSE_KEY, settings.logResponse());
@@ -147,6 +227,9 @@ public final class SettingsStore {
         root.put(TIME_FORMAT_KEY, settings.timeFormat().json());
         root.put(HISTORY_DELTA_USED_KEY, settings.historyDeltaUsed());
         root.put(HISTORY_DELTA_TIME_KEY, settings.historyDeltaTime());
+        root.put(HISTORY_DATE_KEY, settings.historyDate());
+        root.put(HISTORY_HEIGHT_KEY, heights.history());
+        root.put(LOG_HEIGHT_KEY, heights.log());
 
         Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
         try {

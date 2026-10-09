@@ -146,8 +146,9 @@ test('the settings view has the three buttons, the two view buttons and a dropdo
     for (const id of ['settings-apply', 'settings-restore', 'settings-cancel', 'settings-maximum', 'settings-minimum']) {
         assert.match(html, new RegExp('<button[^>]*id="' + id + '"'), id);
     }
-    assert.match(html, /<select id="set-usageIntervalSeconds"/);
-    for (const key of ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']) {
+    assert.match(html, /<input id="set-usageIntervalSeconds" type="text"/, 'a box to type any number in');
+    assert.match(html, /<select id="set-intervalChoices"/, 'and a dropdown of the usual values');
+    for (const key of ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']) {
         assert.match(html, new RegExp('<input id="set-' + key + '" type="checkbox"'), key);
     }
     assert.match(html, /<select id="set-timeFormat"/);
@@ -244,11 +245,11 @@ test('with the history open the page fills the window, in a column; the row and 
     assert.match(html, /<div id="top"[\s\S]*id="note"[\s\S]*id="connection"[^>]*>[^<]*<\/p>\s*<\/div>\s*<div id="panel"/);
 });
 
-test('the panel is the only text under 14 px', () => {
+test('the panels and the settings view are the only text under 14 px', () => {
     const small = [...css.matchAll(/([^{}]+){([^}]*)}/g)]
         .filter(rule => [...rule[2].matchAll(/font(?:-size)?:\s*(?:[a-z0-9 ]*\s)?([0-9.]+)px/g)].some(m => Number(m[1]) < 14))
         .map(rule => rule[1].trim().split('\n').pop().trim());
-    assert.deepEqual(small, ['.panel']);
+    assert.deepEqual([...small].sort(), ['.panel', '.settings']);
 });
 
 test('an error in the panel is red', () => {
@@ -299,10 +300,12 @@ test('the history is a table: four columns spread over the width, close together
     assert.match(table, /display:\s*grid/);
     const columns = table.match(/grid-template-columns:\s*(.+);/)[1].trim().split(/\s+(?![^(]*\))/);
     assert.equal(columns.length, 4);
-    assert.match(columns[0], /^\d+ch$/, 'the date has room for what it holds, so is not clipped');
+    assert.match(columns[0], /^\d+ch$/, 'the time has room for what it holds, so is not clipped');
     assert.match(columns[3], /^\d+ch$/, 'and so has the currency, with its title');
     assert.ok(Number(columns[3].replace('ch', '')) >= 'currency'.length, 'wide enough for its own title');
-    assert.ok(Number(columns[0].replace('ch', '')) >= '2026-10-08 21:01:22'.length);
+    assert.ok(Number(columns[0].replace('ch', '')) >= '21:01:22'.length, 'the time of day');
+    const withDate = ruleOf('.panel-lines .cols-4.date').match(/grid-template-columns:\s*(\d+)ch/);
+    assert.ok(Number(withDate[1]) >= '2026-10-08 21:01:22'.length, 'and with the date it is wider');
     assert.match(columns[1], /fr/, 'the amounts share what is left, which is how they spread over the width');
     assert.match(columns[2], /fr/);
     assert.ok(Number(table.match(/column-gap:\s*(\d+)px/)[1]) <= 10, 'little space between the columns');
@@ -338,4 +341,68 @@ test('the page measures a scrollbar with a box that always has one, which is nev
 test('the settings never scroll: the window is as tall as they need', () => {
     assert.match(ruleOf('.settings'), /overflow:\s*visible/);
     assert.doesNotMatch(ruleOf('.settings'), /flex:\s*1/);
+});
+
+test('the four icon buttons sit close together in one group, much nearer than the strip\'s gap', () => {
+    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
+    const group = strip.slice(strip.indexOf('class="tools"'));
+    for (const id of ['log-button', 'history-button', 'errors-button', 'settings-button']) {
+        assert.ok(group.includes('id="' + id + '"'), id + ' is in the group');
+    }
+    assert.ok(group.indexOf('id="log-button"') < group.indexOf('id="history-button"'));
+    assert.ok(group.indexOf('id="history-button"') < group.indexOf('id="errors-button"'));
+    assert.ok(group.indexOf('id="errors-button"') < group.indexOf('id="settings-button"'), 'the gear is last');
+    const gap = Number(ruleOf('.tools').match(/gap:\s*(\d+)px/)[1]);
+    const stripGap = Number(ruleOf('.strip').match(/gap:\s*[0-9]+px\s+(\d+)px/)[1]);
+    assert.ok(gap <= 2 && gap < stripGap, 'the group gap ' + gap + ' px is less than the strip\'s ' + stripGap + ' px');
+});
+
+test('the error log button is an icon with an accessible name', () => {
+    const button = html.match(/<button[^>]*id="errors-button"[\s\S]*?<\/button>/)[0];
+    assert.match(button, /aria-label="Show the error log"/);
+    assert.match(button, /title="Show the error log"/);
+    assert.match(button, /<svg/);
+});
+
+test('the countdown is red during a back-off, and its message is bold red under the row', () => {
+    assert.match(ruleOf('.countdown.alert'), /color:\s*var\(--bad\)/);
+    assert.match(ruleOf('.note-alert'), /color:\s*var\(--bad\)/);
+    assert.match(ruleOf('.note-alert'), /font-weight:\s*[89]00/);
+});
+
+test('between used and limit there is more room than between the other columns', () => {
+    assert.match(ruleOf('.panel-lines .cols-4 > :nth-child(2),\n.panel-lines .cols-5 > :nth-child(2),\n.panel-lines .cols-6 > :nth-child(2)'), /padding-right:\s*[1-9]/);
+    assert.match(ruleOf('.panel-lines .cols-4 > :nth-child(3),\n.panel-lines .cols-5 > :nth-child(3),\n.panel-lines .cols-6 > :nth-child(3)'), /padding-left:\s*[1-9]/);
+});
+
+test('a history table wider than the panel scrolls sideways: rows are never narrower than their content, and the box scrolls on x only when needed', () => {
+    for (const cols of ['cols-4', 'cols-5', 'cols-6']) {
+        assert.match(ruleOf('.panel-lines .' + cols), /min-width:\s*max-content/, cols);
+    }
+    assert.match(ruleOf('.panel-lines'), /overflow-x:\s*auto/, 'only when needed: no room is reserved for it');
+});
+
+test('the error log rows have the time and the message, which is not wrapped', () => {
+    const rule = ruleOf('.panel-lines .cols-2');
+    assert.match(rule, /display:\s*grid/);
+    assert.match(rule, /grid-template-columns:\s*\d+ch max-content/);
+});
+
+test('the settings can be selected and copied, and their dropdowns have room for the value and the arrow', () => {
+    assert.match(ruleOf('.settings'), /user-select:\s*text/);
+    const select = ruleOf('.settings select');
+    assert.match(select, /min-width:\s*\d+ch/);
+    assert.match(select, /padding:\s*\d+px\s+[2-9](\.\d+)?em\s+\d+px\s+\d+px/, 'room on the right, for the arrow');
+});
+
+test('the settings texts are the ones the requirements give', () => {
+    assert.match(html, /<label>Interval\s*<input id="set-usageIntervalSeconds"/);
+    assert.match(html, /<input id="set-showInterval" type="checkbox"> Interval<\/label>/);
+    assert.match(html, /<input id="set-logResponse" type="checkbox"> Log the response<\/label>/);
+    assert.match(html, /<legend>History view<\/legend>/);
+    assert.match(html, /<input id="set-historyDate" type="checkbox"> Date as well as the time<\/label>/);
+    assert.match(html, /<input id="set-historyDeltaUsed" type="checkbox"> Change in the amount used<\/label>/);
+    assert.match(html, /<input id="set-historyDeltaTime" type="checkbox"> Time since the previous reading<\/label>/);
+    assert.doesNotMatch(html, /Column/, 'no \'Column\' anywhere in the page');
+    assert.doesNotMatch(html, /Time between requests/);
 });

@@ -64,7 +64,7 @@ class StatusDisplayTest {
 
     @Test
     void theTimeFormatSettingCutsTheTime() {
-        Settings seconds = new Settings(60, false, false, false, false, false, TimeFormat.HOURS_MINUTES_SECONDS, false, false);
+        Settings seconds = new Settings(60, false, false, false, false, false, TimeFormat.HOURS_MINUTES_SECONDS, false, false, false);
 
         assertEquals("14:24:53", build(state(spend(SPEND), null, null), OptionalLong.empty(), null, seconds).time());
         assertEquals("Last update: 8 Oct 2026, 14:24:53", build(state(spend(SPEND), null, null)).timeTooltip(), "the tooltip always has the seconds");
@@ -155,6 +155,30 @@ class StatusDisplayTest {
     }
 
     @Test
+    void anHttp429HasNoMessageLineButTheCountdownCarriesTheMessage() {
+        String message = "Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.";
+        UsageState limited = new UsageState(spend(SPEND), message, Instant.parse("2026-10-08T14:25:01Z"), false, true);
+
+        StatusDisplay.View v = build(limited, OptionalLong.of(120), null, Settings.defaults());
+
+        assertNull(v.message(), "no message line");
+        assertEquals(message, v.countdownAlert(), "the hover line and the red come from this");
+        assertEquals("120 s", v.countdown().text());
+        assertEquals("186.02", v.spend().used(), "the reading stays on show");
+    }
+
+    @Test
+    void otherFailuresKeepTheirMessageLineAndTheCountdownIsNotAlerted() {
+        UsageState failed = new UsageState(spend(SPEND), "Anthropic returned HTTP 503.", Instant.parse("2026-10-08T14:25:01Z"), false, false);
+
+        StatusDisplay.View v = build(failed, OptionalLong.of(30), null, Settings.defaults());
+
+        assertEquals("Refresh failed at 14:25: Anthropic returned HTTP 503.", v.message().text());
+        assertNull(v.countdownAlert());
+        assertNull(build(state(spend(SPEND), null, null)).countdownAlert(), "no error, no alert");
+    }
+
+    @Test
     void theCountdownIsTheBackendsSecondsWithTheUnitAndMayBeNegative() {
         UsageState s = state(spend(SPEND), null, null);
 
@@ -198,7 +222,7 @@ class StatusDisplayTest {
 
     @Test
     void theSettingsSayWhichOptionalItemsAreSwitchedOn() {
-        Settings on = new Settings(60, false, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false);
+        Settings on = new Settings(60, false, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false, false);
 
         assertEquals(new StatusDisplay.Show(true, true, true, false), build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
         assertEquals(new StatusDisplay.Show(false, false, false, false), build(state(spend(SPEND), null, null)).show(), "all off by default");

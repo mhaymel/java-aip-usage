@@ -25,6 +25,8 @@
     // The rows on show, to tell how many came in above what the person was reading.
     var panelRows = [];
     var panelHasHeader = false;
+    // Whether the pointer is over the countdown, which then shows the message of an HTTP 429 under the row.
+    var hoveringCountdown = false;
     // The height the window has while a log or history is shown, and the width the vertical scrollbar of their panel takes.
     var panelHeight = 0;
     var scrollbarWidth = 0;
@@ -142,6 +144,9 @@
         show('countdown', Boolean(v.countdown));
         $('countdown').textContent = v.countdown ? v.countdown.text : '';
         $('countdown').title = v.countdown ? v.countdown.tooltip : '';
+        // While the server asks us to slow down (HTTP 429) the countdown is red and, hovered, says why in bold red.
+        $('countdown').className = 'countdown' + (v.countdownAlert ? ' alert' : '');
+        setNote('alert-note', hoveringCountdown && v.countdownAlert ? v.countdownAlert : '');
         renderOptional('interval', v.show.interval && v.interval);
         renderOptional('delta-used', v.show.deltaUsed && v.deltaUsed);
         renderOptional('delta-time', v.show.deltaTime && v.deltaTime);
@@ -159,7 +164,7 @@
     function applyAppClass() {
         // The log and the history fill the window; the settings do not, so that the page's own height is the content's.
         $('app').className = (lastStale ? 'stale' : '')
-            + (openPanel === 'log' || openPanel === 'history' ? ' open' : '')
+            + (openPanel === 'log' || openPanel === 'history' || openPanel === 'errors' ? ' open' : '')
             + (openPanel === 'settings' ? ' fit' : '');
     }
 
@@ -198,21 +203,36 @@
     var settingsShown = null;
     var settingsDefaults = null;
 
-    var SETTING_FLAGS = ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
+    var SETTING_FLAGS = ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
 
+    /**
+     * The interval is typed in a box; a dropdown beside it offers the usual values, and picking one fills the box. The box
+     * always shows the value in force, even one that is not a choice, which is what the backend has.
+     */
     function fillInterval(choices, current) {
-        var select = $('set-usageIntervalSeconds');
-        var values = choices.indexOf(current) === -1 ? choices.concat([current]) : choices.slice();
-        // The backend's own value is always offered, even one the dropdown would not: it is what is in force.
-        values.sort(function (a, b) { return a - b; });
+        var select = $('set-intervalChoices');
         select.replaceChildren();
-        values.forEach(function (seconds) {
+        var prompt = document.createElement('option');
+        prompt.value = '';
+        prompt.textContent = 'choose';
+        select.append(prompt);
+        choices.forEach(function (seconds) {
             var option = document.createElement('option');
             option.value = String(seconds);
             option.textContent = seconds + ' s';
             select.append(option);
         });
-        select.value = String(current);
+        select.value = '';
+        $('set-usageIntervalSeconds').value = String(current);
+    }
+
+    /** Picking a choice puts it in the box; the dropdown goes back to its prompt. */
+    function onIntervalChoice() {
+        var select = $('set-intervalChoices');
+        if (select.value !== '') {
+            $('set-usageIntervalSeconds').value = select.value;
+        }
+        select.value = '';
     }
 
     function fillForm(values) {
@@ -268,6 +288,11 @@
         if (settingsShown === null) {
             return;
         }
+        // Only that it is a number is checked here; whether it is in range is the backend's to say.
+        if (!/^\d+$/.test($('set-usageIntervalSeconds').value.trim())) {
+            setNote('settings-error', 'The interval must be a whole number of seconds.');
+            return;
+        }
         try {
             var body = await postJson('/api/settings', readForm());
             settingsShown = body.settings;
@@ -320,6 +345,14 @@
             show: 'Show the settings',
             hide: 'Hide the settings'
         },
+        errors: {
+            button: 'errors-button',
+            path: '/api/errors',
+            describe: view.describeErrors,
+            show: 'Show the error log',
+            hide: 'Hide the error log',
+            failure: 'The error log could not be read: '
+        },
         log: {
             button: 'log-button',
             path: '/api/log',
@@ -365,9 +398,12 @@
         }
     }
 
-    function cells(className, values, marked, failed) {
+    function cells(className, values, marked, failed, title, wide) {
         var row = document.createElement('div');
-        row.className = className + ' cols-' + values.length + (marked ? ' mark' : '');
+        row.className = className + ' cols-' + values.length + (marked ? ' mark' : '') + (wide ? ' date' : '');
+        if (title) {
+            row.title = title;
+        }
         values.forEach(function (value, i) {
             var cell = document.createElement('span');
             cell.textContent = value;
@@ -393,10 +429,10 @@
         box.replaceChildren();
         if (shown.header) {
             // The first child of the box, kept at its top as the rows scroll under it.
-            box.append(cells('row head', shown.header));
+            box.append(cells('row head', shown.header, false, false, '', shown.wide));
         }
         shown.rows.forEach(function (row, i) {
-            box.append(cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i]));
+            box.append(cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide));
         });
         // Rows that came in above what the person was reading push it down; follow it.
         var added = panelRows.length ? rowKeys.indexOf(panelRows[0]) : 0;
@@ -409,7 +445,7 @@
 
     /** Reads the open panel again when there may be more to show: a new reading, or any time for the log. */
     function refreshPanel() {
-        if (openPanel === 'log' || (openPanel === 'history' && fetchedAt() !== panelMark)) {
+        if (openPanel === 'log' || openPanel === 'errors' || (openPanel === 'history' && fetchedAt() !== panelMark)) {
             loadPanel();
         }
     }
@@ -470,11 +506,15 @@
             // As tall as the row, its message lines and the settings need, whole; the flag says it is not resizable.
             return width + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3';
         }
+        // The last field names the panel, so that the host remembers the height of the history and of the log.
         if (openPanel === 'log') {
-            return (3 * width + scrollbarWidth) + ',' + panelHeight + ',2';
+            return (3 * width + scrollbarWidth) + ',' + panelHeight + ',2,log';
         }
         if (openPanel === 'history') {
-            return (width + scrollbarWidth) + ',' + panelHeight + ',1';
+            return (width + scrollbarWidth) + ',' + panelHeight + ',1,history';
+        }
+        if (openPanel === 'errors') {
+            return (width + scrollbarWidth) + ',' + panelHeight + ',1,errors';
         }
         return width + ',' + height + ',0';
     };
@@ -512,6 +552,10 @@
         $('history-button').addEventListener('click', function () { togglePanel('history'); });
         $('settings-button').addEventListener('click', function () { togglePanel('settings'); });
         $('settings-apply').addEventListener('click', applySettings);
+        $('set-intervalChoices').addEventListener('change', onIntervalChoice);
+        $('errors-button').addEventListener('click', function () { togglePanel('errors'); });
+        $('countdown').addEventListener('mouseenter', function () { hoveringCountdown = true; render(); });
+        $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
         $('settings-restore').addEventListener('click', restoreDefaults);
         $('settings-cancel').addEventListener('click', cancelSettings);
         $('settings-maximum').addEventListener('click', function () { setMainView(true); });

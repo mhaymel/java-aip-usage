@@ -221,8 +221,12 @@ body {
 .settings {
     /* Never scrolls: the window is as tall as the settings need. */
     overflow: visible;
-    font: 700 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    /* Smaller than the row's text, so that the settings need less room; the one place besides the panels under 14 px. */
+    font: 700 12px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
     letter-spacing: normal;
+    /* The text of the settings can be selected and copied. */
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 .settings fieldset {
@@ -273,8 +277,22 @@ body {
     cursor: default;
 }
 
+/* A dropdown is as wide as its longest value, plus room for its arrow, so the arrow never covers the value. */
 .settings select {
+    min-width: 12ch;
+    padding: 1px 2.2em 1px 4px;
     font: inherit;
+    color: inherit;
+    background: transparent;
+    border: 1px solid var(--muted);
+    border-radius: 4px;
+}
+
+.settings input[type="text"] {
+    width: 5ch;
+    padding: 1px 4px;
+    font: inherit;
+    text-align: right;
     color: inherit;
     background: transparent;
     border: 1px solid var(--muted);
@@ -348,12 +366,21 @@ body {
     color: var(--bad);
 }
 
-/* A row of the history is a table row: the columns spread over the width, all but the date centred in theirs. */
+/*
+ * A row of the history is a table row: the columns spread over the width, all but the time centred in theirs. The time is
+ * the time of day, 8 characters; with the date (the `date` class) it is 19. There is more room between `used` and `limit`.
+ * A row is never narrower than its content, so a table wider than the panel scrolls sideways instead of being cut.
+ */
 .panel-lines .cols-4 {
     display: grid;
-    /* Fixed widths for the date and the currency, in characters, so that nothing is clipped; the amounts share the rest. */
-    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch;
+    /* Fixed widths for the time and the currency, in characters, so that nothing is clipped; the amounts share the rest. */
+    grid-template-columns: 8ch minmax(0, 1fr) minmax(0, 1fr) 8ch;
     column-gap: 8px;
+    min-width: max-content;
+}
+
+.panel-lines .cols-4.date {
+    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch;
 }
 
 .panel-lines .cols-4 > :not(:first-child) {
@@ -363,19 +390,49 @@ body {
 /* The change columns, when switched on, come after the currency: fixed widths again. */
 .panel-lines .cols-5 {
     display: grid;
-    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch;
+    grid-template-columns: 8ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch;
     column-gap: 8px;
+    min-width: max-content;
+}
+
+.panel-lines .cols-5.date {
+    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch;
 }
 
 .panel-lines .cols-6 {
     display: grid;
-    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch 9ch;
+    grid-template-columns: 8ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch 9ch;
     column-gap: 8px;
+    min-width: max-content;
+}
+
+.panel-lines .cols-6.date {
+    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch 9ch;
 }
 
 .panel-lines .cols-5 > :not(:first-child),
 .panel-lines .cols-6 > :not(:first-child) {
     text-align: center;
+}
+
+/* More room between the used amount and the budget than between the other columns. */
+.panel-lines .cols-4 > :nth-child(2),
+.panel-lines .cols-5 > :nth-child(2),
+.panel-lines .cols-6 > :nth-child(2) {
+    padding-right: 3ch;
+}
+
+.panel-lines .cols-4 > :nth-child(3),
+.panel-lines .cols-5 > :nth-child(3),
+.panel-lines .cols-6 > :nth-child(3) {
+    padding-left: 3ch;
+}
+
+/* The error log: the time, then the message, which is never wrapped. */
+.panel-lines .cols-2 {
+    display: grid;
+    grid-template-columns: 8ch max-content;
+    column-gap: 8px;
 }
 
 /* The header stays at the top of the box while the rows scroll under it. */
@@ -404,4 +461,22 @@ body {
 /* A row of a query that did not succeed says so in red, in the place of its amount. */
 .panel-lines .failed {
     color: var(--bad);
+}
+
+/* The four icon buttons at the right-hand end sit close together, not a strip gap apart. */
+.tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* While the server says to slow down (HTTP 429) the countdown is red. */
+.countdown.alert {
+    color: var(--bad);
+}
+
+/* The message of an HTTP 429, under the row while the pointer is over the countdown: bold red. */
+.note-alert {
+    color: var(--bad);
+    font-weight: 800;
 }

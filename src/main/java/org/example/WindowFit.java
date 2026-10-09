@@ -10,7 +10,8 @@ import java.util.regex.Pattern;
  * <p>The page reports {@code "<width>,<height>"}, optionally followed by {@code ,1} when the window
  * may be resized in height, {@code ,2} when it may be resized in width too, {@code ,0} when it
  * may not be resized (the window with nothing open), and {@code ,3} when it may not be resized and is
- * not the window with nothing open either (the settings, which are as tall as their content), in CSS pixels, taken from its own
+ * not the window with nothing open either (the settings, which are as tall as their content), and
+ * optionally {@code ,history}, {@code ,log} or {@code ,errors} after that, naming the panel that is open, in CSS pixels, taken from its own
  * content and not from the window, so resizing the window to match never changes
  * the answer. Everything else is defence: a reading that is not that shape is
  * ignored, a size is kept within sane limits, and a size equal to the one already
@@ -22,11 +23,17 @@ final class WindowFit {
      * A window size in pixels.
      *
      * @param resize what of the window the person may drag
+     * @param panel which panel the page has open, if it said ({@code history}, {@code log} or {@code errors}); the host
+     *     remembers the height of the history and the log
      */
-    record Size(int width, int height, Resize resize) {
+    record Size(int width, int height, Resize resize, String panel) {
 
         Size(int width, int height) {
-            this(width, height, Resize.NONE);
+            this(width, height, Resize.NONE, null);
+        }
+
+        Size(int width, int height, Resize resize) {
+            this(width, height, resize, null);
         }
 
         boolean resizable() {
@@ -43,7 +50,7 @@ final class WindowFit {
 
     static final Size MAX = new Size(2400, 1600);
 
-    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([0123]))?");
+    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([0123])(?:,(history|log|errors))?)?");
 
     private WindowFit() {
     }
@@ -74,6 +81,7 @@ final class WindowFit {
         return Optional.of(new Size(
                 Math.clamp(width, MIN.width(), MAX.width()),
                 Math.clamp(height, MIN.height(), MAX.height()),
-                match.group(3) == null ? Resize.NONE : Resize.values()[Integer.parseInt(match.group(3))]));
+                match.group(3) == null ? Resize.NONE : Resize.values()[Integer.parseInt(match.group(3))],
+                match.group(4)));
     }
 }

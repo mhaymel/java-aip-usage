@@ -46,6 +46,8 @@ public final class UsageService implements AutoCloseable {
 
     private final Backoff backoff;
 
+    private final ErrorLog errors = new ErrorLog();
+
     private Thread thread;
 
     private boolean closed;
@@ -90,6 +92,11 @@ public final class UsageService implements AutoCloseable {
         } finally {
             lock.unlock();
         }
+    }
+
+    /** The errors of this run; in memory only. */
+    public ErrorLog errors() {
+        return errors;
     }
 
     /** The latest state; cheap and safe to call as often as the UI polls. */
@@ -188,6 +195,7 @@ public final class UsageService implements AutoCloseable {
                 if (outcome.error() != null && !closed) {
                     // The message the window shows in its message line, once, when it appears.
                     LOG.log(System.Logger.Level.WARNING, "Usage refresh failed: " + outcome.error());
+                    errors.add(Instant.now(), outcome.error());
                 }
                 if (!closed) {
                     state = outcome.applyTo(state);
@@ -299,7 +307,7 @@ public final class UsageService implements AutoCloseable {
         }
 
         UsageState applyTo(UsageState state) {
-            return snapshot != null ? state.succeeded(snapshot) : state.failed(error, Instant.now());
+            return snapshot != null ? state.succeeded(snapshot) : state.failed(error, Instant.now(), rateLimited);
         }
     }
 }

@@ -1,6 +1,7 @@
 package org.example;
 
 import javafx.animation.Animation;
+import javafx.animation.PauseTransition;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
@@ -59,6 +60,15 @@ public class UsageApp extends Application {
 
     private Optional<WindowFit.Size> appliedSize = Optional.empty();
 
+    /** Which panel's height is remembered while it is open ({@code history} or {@code log}), or null. */
+    private String rememberedPanel;
+
+    /** True while this class sets the window's size, so that its own changes are not taken for the person's drag. */
+    private boolean applying;
+
+    /** Fires when the person has stopped changing the window's height for a moment. */
+    private final PauseTransition heightSettled = new PauseTransition(Duration.millis(500));
+
     /** How much bigger the stage is than its scene: the title bar and borders. NaN until measured. */
     private double decorationWidth = Double.NaN;
 
@@ -100,6 +110,12 @@ public class UsageApp extends Application {
         // The window is as big as the page needs and no bigger, so there is nothing to drag,
         // except while a panel is shown; see resize, which sets the limits that say what may be dragged.
         stage.setResizable(true);
+        heightSettled.setOnFinished(event -> rememberDraggedHeight(stage));
+        stage.heightProperty().addListener((observable, before, after) -> {
+            if (!applying && rememberedPanel != null) {
+                heightSettled.playFromStart();
+            }
+        });
         stage.show();
         keepFitting(webView, stage);
     }
@@ -129,13 +145,48 @@ public class UsageApp extends Application {
             decorationHeight = height;
         }
         appliedSize = Optional.of(size);
+        int contentHeight = size.height();
+        boolean remembered = "history".equals(size.panel()) || "log".equals(size.panel());
+        if (remembered) {
+            // The history and the log open at the height they were last left at, never less than the page's own.
+            RememberedHeights.Opening opening =
+                    RememberedHeights.open(size.height(), runtime.settings().storedHeight(size.panel()));
+            contentHeight = Math.min(opening.height(), WindowFit.MAX.height());
+            if (opening.store()) {
+                runtime.settings().storeHeight(size.panel(), size.height());
+            }
+        }
+        rememberedPanel = remembered ? size.panel() : null;
+        heightSettled.stop();
         double width = size.width() + decorationWidth;
-        double height = size.height() + decorationHeight;
+        double height = contentHeight + decorationHeight;
         if (size.resize() == WindowFit.Resize.NONE) {
             // The window as it is with nothing open: what the person may shrink an open one back to.
             closedWidth = width;
             closedHeight = height;
         }
+        applying = true;
+        try {
+            applySize(stage, size, width, height);
+        } finally {
+            applying = false;
+        }
+        LOG.log(Level.INFO, "Window fitted to " + size.width() + "x" + contentHeight + (size.resizable() ? " (resizable: " + size.resize().name().toLowerCase() + ")" : "")
+                + " (window " + Math.round(stage.getWidth()) + "x" + Math.round(stage.getHeight()) + ")");
+    }
+
+    /** The person has settled on a height for the history or the log: remember it. */
+    private void rememberDraggedHeight(Stage stage) {
+        if (rememberedPanel == null || Double.isNaN(decorationHeight)) {
+            return;
+        }
+        int pixels = (int) Math.round(stage.getHeight() - decorationHeight);
+        if (RememberedHeights.shouldStore(pixels, runtime.settings().storedHeight(rememberedPanel))) {
+            runtime.settings().storeHeight(rememberedPanel, pixels);
+        }
+    }
+
+    private void applySize(Stage stage, WindowFit.Size size, double width, double height) {
         // The limits are opened wide first, so that they never forbid the size set next.
         stage.setMinWidth(0);
         stage.setMaxWidth(Double.MAX_VALUE);
@@ -163,8 +214,6 @@ public class UsageApp extends Application {
                 stage.setMinHeight(Math.min(closedHeight, height));
             }
         }
-        LOG.log(Level.INFO, "Window fitted to " + size.width() + "x" + size.height() + (size.resizable() ? " (resizable: " + size.resize().name().toLowerCase() + ")" : "")
-                + " (window " + Math.round(stage.getWidth()) + "x" + Math.round(stage.getHeight()) + ")");
     }
 
     private void fit(WebView webView, Stage stage) {

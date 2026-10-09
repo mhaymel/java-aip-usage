@@ -1054,7 +1054,12 @@ the platform's, measured, not a fixed 15 px; "the usage view" in the note means 
 
 ### 26. A quieter 429, an error log, remembered heights, and a tidier history and settings view
 
-**Status: planned.** Requirements: Countdown, Tooltips, Settings, The usage history panel, Remembered heights, The error log panel,
+**Status: done (version 0.11); the hover line, the remembered heights, the scrollbar and the dropdown widths are for a person to judge in the window.** Built
+as planned in parts A to E. Notes: a rate-limited state is `UsageState.rateLimited` (the 5-argument record, with the old 4-argument constructor kept);
+the heights are `SettingsStore.Heights` and live beside the settings in the file, not in the `Settings` record, and `saveHeights` refuses to replace a
+damaged file; the page names its panel in the size report (`,history`, `,log`, `,errors`), and `UsageApp` wraps the stage height listener in a 500 ms
+`PauseTransition` (the pure rules are `RememberedHeights`, which is tested; the window wiring is not). The interval box is a text field plus a
+small dropdown of choices. Requirements: Countdown, Tooltips, Settings, The usage history panel, Remembered heights, The error log panel,
 Messages and states, Non-functional requirements (settings file). The work has five parts; each can be built and tested alone, in this order.
 
 **A. The 429 and the error log (backend).**

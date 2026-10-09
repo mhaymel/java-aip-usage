@@ -215,3 +215,35 @@ test('the history table gets the two change columns, after the currency, only wh
     assert.deepEqual(timeOnly.header, [...COLUMNS, 'delta time']);
     assert.deepEqual(timeOnly.rows[0].slice(4), ['1 m']);
 });
+
+test('the history table is described as the backend sent it: its titles, the wide time, and a hover text for the first line of a run', () => {
+    const rows = [['20:46:11', '260.66', '1000.00', 'USD', '', '60', '400'], ['20:44:12', '260.36', '1000.00', 'USD', 'start', '60', '412']];
+    const v = view.describeHistory({ exists: true, columns: ['time', 'used', 'limit', 'currency'], total: 2, rows,
+        show: { deltaUsed: false, deltaTime: false, date: false }, startTooltip: 'The program started here' });
+
+    assert.deepEqual(v.header, ['time', 'used', 'limit', 'currency']);
+    assert.equal(v.wide, false);
+    assert.deepEqual(v.titles, ['', 'The program started here']);
+
+    const withDate = view.describeHistory({ exists: true, columns: ['date time', 'used', 'limit', 'currency'], total: 2, rows,
+        show: { date: true } });
+    assert.equal(withDate.wide, true);
+    assert.deepEqual(withDate.header[0], 'date time');
+});
+
+test('the error log is described as time and message, newest first as sent, or as empty', () => {
+    const v = view.describeErrors({ entries: [{ time: '11:34:42', message: 'b' }, { time: '11:20:01', message: 'a' }] });
+
+    assert.deepEqual(v.header, ['time', 'message']);
+    assert.deepEqual(v.rows, [['11:34:42', 'b'], ['11:20:01', 'a']]);
+    assert.equal(v.note, null);
+    assert.equal(view.describeErrors({ entries: [] }).note, 'There are no errors in this run.');
+    assert.deepEqual(view.describeErrors({ entries: [] }).rows, []);
+});
+
+test('the message of an HTTP 429 is read from the display for the red countdown', () => {
+    const v = view.describeStatus({ stale: false, display: { ...DISPLAY, countdownAlert: 'Anthropic is rate limiting usage requests (HTTP 429).' } });
+
+    assert.equal(v.countdownAlert, 'Anthropic is rate limiting usage requests (HTTP 429).');
+    assert.equal(view.describeStatus({ display: DISPLAY }).countdownAlert, null);
+});

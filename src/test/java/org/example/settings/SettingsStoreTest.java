@@ -41,6 +41,7 @@ class SettingsStoreTest {
         assertEquals(60, d.usageIntervalSeconds());
         assertFalse(d.logResponse());
         assertFalse(d.showPercentage(), "the percentage is off until switched on");
+        assertFalse(d.historyDate(), "the history shows the time of day only until the date is switched on");
         assertFalse(d.showInterval());
         assertFalse(d.showDeltaUsed());
         assertFalse(d.showDeltaTime());
@@ -69,7 +70,7 @@ class SettingsStoreTest {
     @Test
     void everySettingComesBackAsSaved() throws IOException {
         SettingsStore store = new SettingsStore(file());
-        Settings all = new Settings(120, true, true, true, true, true, TimeFormat.HOURS_MINUTES_SECONDS, true, true);
+        Settings all = new Settings(120, true, true, true, true, true, TimeFormat.HOURS_MINUTES_SECONDS, true, true, true);
 
         store.save(all);
 
@@ -87,14 +88,14 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFileHoldsTheNineSettingsAndNothingElse() throws IOException {
+    void theFileHoldsTheTenSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
         JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime"),
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -188,5 +189,64 @@ class SettingsStoreTest {
     void theBoundariesAreAccepted() throws IOException {
         assertEquals(interval(5), loadFrom("{\"usageIntervalSeconds\": 5}"));
         assertEquals(interval(3600), loadFrom("{\"usageIntervalSeconds\": 3600}"));
+    }
+
+    // ---- the remembered heights, which live in the same file
+
+    @Test
+    void noHeightIsRememberedUntilOneIsStored() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        store.save(Settings.defaults());
+
+        assertEquals(SettingsStore.Heights.NONE, store.loadHeights());
+        assertEquals(SettingsStore.Heights.NONE, new SettingsStore(dir.resolve("missing.json")).loadHeights());
+    }
+
+    @Test
+    void theHeightsAreStoredOneForEachPanelAndKeepTheSettings() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        Settings changed = Settings.defaults().withUsageIntervalSeconds(180).withLogResponse(true);
+        store.save(changed);
+
+        store.saveHeights(SettingsStore.Heights.NONE.withHeight("history", 640));
+        store.saveHeights(store.loadHeights().withHeight("log", 500));
+
+        assertEquals(new SettingsStore.Heights(640, 500), store.loadHeights());
+        assertEquals(changed, store.load(), "the settings are as they were");
+    }
+
+    @Test
+    void savingSettingsKeepsTheHeights() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        store.save(Settings.defaults());
+        store.saveHeights(new SettingsStore.Heights(640, 500));
+
+        store.save(interval(90));
+
+        assertEquals(new SettingsStore.Heights(640, 500), store.loadHeights());
+        assertEquals(interval(90), store.load());
+    }
+
+    @Test
+    void aHeightThatIsNotAPlainNumberOfPixelsIsIgnored() throws IOException {
+        for (String bad : List.of("-5", "10001", "\"tall\"", "6.5", "null", "true")) {
+            Files.writeString(file(), "{\"historyHeight\": " + bad + ", \"logHeight\": 400}");
+            assertEquals(new SettingsStore.Heights(0, 400), new SettingsStore(file()).loadHeights(), bad);
+        }
+    }
+
+    @Test
+    void aHeightIsNotWorthReplacingADamagedFileFor() throws IOException {
+        Files.writeString(file(), "not json");
+
+        assertThrows(IOException.class, () -> new SettingsStore(file()).saveHeights(new SettingsStore.Heights(640, 0)));
+
+        assertEquals("not json", Files.readString(file()));
+    }
+
+    @Test
+    void aPanelThatIsNeitherTheHistoryNorTheLogHasNoHeight() {
+        assertEquals(0, new SettingsStore.Heights(640, 500).of("errors"));
+        assertThrows(IllegalArgumentException.class, () -> SettingsStore.Heights.NONE.withHeight("errors", 300));
     }
 }

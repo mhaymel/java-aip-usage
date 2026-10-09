@@ -15,6 +15,7 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `GET` | `/api/config` | The effective intervals (read-only: the settings view changes the usage interval, through `/api/settings`) |
 | `GET` | `/api/settings` | Every setting, the defaults, and the interval choices |
 | `POST` | `/api/settings` | Apply a full set of settings |
+| `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 | `GET` | `/api/status` | The latest usage reading and refresh outcome (read-only) |
 | `POST` | `/api/refresh` | Start a usage fetch now |
 
@@ -36,7 +37,8 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "showDeltaTime": false,
     "timeFormat": "hh:mm",
     "historyDeltaUsed": false,
-    "historyDeltaTime": false
+    "historyDeltaTime": false,
+    "historyDate": false
   },
   "defaults": { "...": "the same keys, with the defaults" },
   "intervalChoices": [60, 120, 180, 240, 300],
@@ -120,7 +122,8 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
   (`Last update: 8 Oct 2026, 14:24:53`); `spend` (`percentText`, `percentTooltip`, `used`, `limit`, `usedTooltip`,
   `limitTooltip`, `severityText`, `severityKind`) for a usage-based account; `windows` (`name`, `utilizationText`,
   `resetsText` such as `in 2 h 5 min`) for a plan account; `placeholder` (`Loading…`, `No data`, `No usage reported`);
-  `countdown`, `interval` (the time between usage requests in force, `60 s`), `deltaUsed` and `deltaTime` as
+  `countdown` (with `countdownAlert`, the message of an HTTP 429, which makes the countdown red and is shown when it is hovered; the 429
+  has no `message`), `interval` (the time between usage requests in force, `60 s`), `deltaUsed` and `deltaTime` as
   `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `interval`, `deltaUsed` and
   `deltaTime` the settings switch on (the countdown is always shown). The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language.
@@ -188,27 +191,34 @@ Read-only. The usage history, for the panel the history button opens in the main
 {
   "file": "java-aip-usage.csv",
   "exists": true,
-  "columns": ["datetime", "used", "limit", "currency"],
+  "columns": ["time", "used", "limit", "currency"],
   "total": 1440,
   "rows": [
-    ["2026-10-08 16:46:11", "260.66", "1000.00", "USD", "", "60", "412"],
-    ["2026-10-08 16:45:11", "260.66", "1000.00", "", "start", "60", "388"]
+    ["16:46:11", "260.66", "1000.00", "USD", "", "60", "412"],
+    ["16:45:11", "260.66", "1000.00", "", "start", "60", "388"]
   ],
-  "deltas": [{ "delta_used": 0.0, "delta_time": 60 }, { "delta_used": null, "delta_time": null }]
+  "deltas": [{ "delta_used": 0.0, "delta_time": 60 }, { "delta_used": null, "delta_time": null }],
+  "show": { "deltaUsed": false, "deltaTime": false, "date": false },
+  "startTooltip": "The program started here"
 }
 ```
 
-- `columns`: the four the panel shows. A row has three more fields after them: the `status` (`start`,
+- `columns`: the four the panel shows. The first is `time`, and `date time` when the date setting is on; the
+  first field of a row is then the time of day, `16:46:11`, or the date and time, `2026-10-08 16:46:11` (a value
+  that is not in that form is sent as it is). The file itself always holds the full date and time.
+  A row has three more fields after the four: the `status` (`start`,
   `failed`, `start-failed` or empty), the `interval` in seconds and the `duration_ms`.
-- `show`: `{deltaUsed, deltaTime}`, whether the settings switch on the two change columns of the table. A client
+- `startTooltip`: what hovering over the first line of a run (a row whose status begins with `start`) says.
+- `show`: `{deltaUsed, deltaTime, date}`, whether the settings switch on the two change columns of the table, and
+  whether the times have the date. A client
   that shows them puts them after the currency, with the titles `delta used` and `delta time`.
 - `deltas` also carry the finished texts, `delta_used_text` (`+0.05`) and `delta_time_text` (`1 m`), or `null`.
 - `deltas`: one for each of `rows`, in the same order: the change in the amount used and the seconds since the
   row before it **in the file**, as `GET /api/status`'s `change`. A row out of order is still compared with the
   one written before it.
 
-- `rows`: the newest 1,000 at most, **sorted by `datetime`, latest first**, each as strings exactly as
-  in the file (an empty field stays empty). It sorts by the column and does not merely reverse the
+- `rows`: the newest 1,000 at most, **sorted by the date and time, latest first**, each as strings as
+  in the file (an empty field stays empty), apart from the time. It sorts by the column and does not merely reverse the
   file, so a file that is out of order is still right. A line of the file without the columns (a row from before the currency was one, with three, is
   given an empty currency), and the header, are not rows.
 - `total`: how many rows the file has, which can be more than `rows` holds.
@@ -216,6 +226,24 @@ Read-only. The usage history, for the panel the history button opens in the main
 - `500` with `{"error": "The usage history could not be read."}` if the file cannot be read.
 
 Both are `GET` only: any other method is `405` with an `Allow` header.
+
+## `GET /api/errors`
+
+Read-only. The errors of this run, for the error log panel: one for each failed refresh, an HTTP 429 and a problem
+with the token included. They are kept in memory only and are gone when the program stops. Nothing here is a
+credential or a file name.
+
+```json
+{
+  "entries": [
+    { "time": "11:34:42", "message": "Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min." },
+    { "time": "11:20:01", "message": "Claude Code is not logged in. Log in, then refresh." }
+  ]
+}
+```
+
+Newest first, at most the newest 1,000. `time` is the local time of day with seconds, whatever the time format setting says.
+`405` for any method but `GET`.
 
 ## `POST /api/refresh`
 
@@ -250,7 +278,9 @@ message line coming or going does not move the window; and a width of the row's 
 panel's vertical scrollbar, which the page measures and always reserves (three rows plus it for the log).
 Those are the starting point, not the size the window was dragged to. While the settings are shown it
 reports flag `3` and the height of the whole page, the row and its message lines and the settings, so the
-window is exactly as tall as they need, and follows them. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
+window is exactly as tall as they need, and follows them. An optional last field names the panel: `415,420,1,history`,
+`1215,420,2,log` or `415,420,1,errors`. The host (`WindowFit`) remembers the height of the history and of the log, in the settings
+file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
 resize only what it is told may be. The page measures its own content, never the window, so resizing the
 window to match does not change the answer. The Java host (`WindowFit`) ignores anything that is not that
 shape, keeps the size between 160 x 32 and 2400 x 1600, and does not apply a size twice. A different host,

@@ -509,6 +509,69 @@ class UsageServiceTest {
     }
 
     @Test
+    void aRateLimitedRefreshIsMarkedAndDoesNotMakeTheReadingStale() {
+        Scripted fetch = new Scripted(false, true);
+
+        UsageService service = start(fetch, Duration.ofMillis(30));
+        await(() -> service.state().rateLimited());
+
+        UsageState state = service.state();
+        assertNotNull(state.snapshot(), "the last good reading stays");
+        assertNotNull(state.error());
+        assertFalse(state.stale(), "a request to slow down does not make the data old");
+    }
+
+    @Test
+    void anotherFailureIsStaleAndNotMarkedAsRateLimited() {
+        Gate fetch = new Gate();
+        UsageService service = start(() -> {
+            if (fetch.calls.incrementAndGet() > 1) {
+                throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
+            }
+            return snapshot(1);
+        }, Duration.ofMillis(30));
+        await(() -> service.state().error() != null);
+
+        assertTrue(service.state().stale());
+        assertFalse(service.state().rateLimited());
+    }
+
+    @Test
+    void theNextSuccessClearsTheRateLimit() {
+        Scripted fetch = new Scripted(true, false);
+
+        UsageService service = start(fetch, Duration.ofMillis(30));
+        await(() -> service.state().rateLimited());
+        await(() -> service.state().error() == null && service.state().snapshot() != null);
+
+        assertFalse(service.state().rateLimited());
+    }
+
+    @Test
+    void everyFailedRefreshIsAnEntryOfTheErrorLogAndASuccessIsNone() {
+        Scripted fetch = new Scripted(false, true, true);
+
+        UsageService service = start(fetch, Duration.ofMillis(30));
+        await(() -> service.errors().newestFirst().size() >= 2);
+
+        List<ErrorLog.Entry> entries = service.errors().newestFirst();
+        assertTrue(entries.get(0).message().contains("HTTP 429"), entries.get(0).message());
+        assertTrue(entries.get(0).message().contains("Next try in"), "the message the row would have shown, wait included");
+        assertTrue(entries.get(0).at().isAfter(Instant.parse("2020-01-01T00:00:00Z")));
+        assertEquals(2, entries.size(), "the first call succeeded and added none");
+    }
+
+    @Test
+    void aProblemWithTheTokenIsAnEntryToo() {
+        UsageService service = start(() -> {
+            throw new TokenException(Reason.NOT_LOGGED_IN, "Claude Code is not logged in. Log in, then refresh.");
+        }, HOUR);
+        await(() -> !service.errors().newestFirst().isEmpty());
+
+        assertTrue(service.errors().newestFirst().get(0).message().contains("not logged in"));
+    }
+
+    @Test
     void eachRateLimitedRefreshInARowDoublesTheWait() {
         Scripted fetch = new Scripted(true, true, true, true);
 

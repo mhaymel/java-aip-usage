@@ -47,6 +47,9 @@ final class ApiHandler implements HttpHandler {
 
     private static final String SOURCE = "anthropic-oauth-usage";
 
+    /** What hovering over the first line of a run says. */
+    private static final String START_TOOLTIP = "The program started here";
+
     /** How much of the log and of the history the windows show: the newest of each. */
     static final int LOG_LINES = 1000;
 
@@ -120,6 +123,12 @@ final class ApiHandler implements HttpHandler {
                 }
                 send(exchange, 200, log());
             }
+            case "/api/errors" -> {
+                if (!method.equals("GET")) {
+                    throw new ApiException(405, "Use GET.", "GET");
+                }
+                send(exchange, 200, errors());
+            }
             case "/api/history" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
@@ -158,7 +167,7 @@ final class ApiHandler implements HttpHandler {
 
     private static SettingValues toBody(Settings s) {
         return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showPercentage(), s.showInterval(), s.showDeltaUsed(),
-                s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime());
+                s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -179,7 +188,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showDeltaTime"),
                     timeFormat(body),
                     flag(body, "historyDeltaUsed"),
-                    flag(body, "historyDeltaTime"));
+                    flag(body, "historyDeltaTime"),
+                    flag(body, "historyDate"));
             settings.apply(given);
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
@@ -236,17 +246,42 @@ final class ApiHandler implements HttpHandler {
     private HistoryBody history() {
         try {
             HistoryReader.Table table = HistoryReader.read(files.history(), HISTORY_ROWS);
+            Settings now = settings.current();
+            List<String> columns = new java.util.ArrayList<>(table.columns());
+            // The first column is the time of day; with the setting on it has the date too, and says so in its title.
+            columns.set(0, now.historyDate() ? "date time" : "time");
+            List<List<String>> rows = table.rows().stream().map(row -> {
+                List<String> shown = new java.util.ArrayList<>(row);
+                shown.set(0, historyTime(row.get(0), now.historyDate()));
+                return (List<String>) shown;
+            }).toList();
             return new HistoryBody(
-                    files.history().getFileName().toString(), table.exists(), table.columns(), table.total(), table.rows(),
+                    files.history().getFileName().toString(), table.exists(), columns, table.total(), rows,
                     table.deltas().stream().map(ApiHandler::deltaBody).toList(),
-                    new HistoryShow(settings.current().historyDeltaUsed(), settings.current().historyDeltaTime()));
+                    new HistoryShow(now.historyDeltaUsed(), now.historyDeltaTime(), now.historyDate()),
+                    START_TOOLTIP);
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
             throw new ApiException(500, "The usage history could not be read.", null);
         }
     }
 
+    // ---- /api/errors: the errors of this run, newest first
+
+    private ErrorsBody errors() {
+        ZoneId zone = ZoneId.systemDefault();
+        return new ErrorsBody(service.errors().newestFirst().stream()
+                .map(e -> new ErrorEntryBody(Formatting.time(e.at(), TimeFormat.HOURS_MINUTES_SECONDS, zone), e.message()))
+                .toList());
+    }
+
     // ---- /api/status
+
+    /** {@code 2026-10-08 21:01:22} as {@code 21:01:22}, or whole when the date is wanted; anything else as it is. */
+    private static String historyTime(String raw, boolean withDate) {
+        boolean shaped = raw.length() >= 19 && raw.charAt(10) == ' ';
+        return withDate || !shaped ? raw : raw.substring(11);
+    }
 
     private static DeltaBody deltaBody(HistoryDeltas.Delta delta) {
         return DeltaBody.of(delta.used() == null ? null : delta.used().doubleValue(), delta.seconds());
@@ -376,7 +411,8 @@ final class ApiHandler implements HttpHandler {
             boolean showDeltaTime,
             String timeFormat,
             boolean historyDeltaUsed,
-            boolean historyDeltaTime) {
+            boolean historyDeltaTime,
+            boolean historyDate) {
     }
 
     record SettingsBody(SettingValues settings, SettingValues defaults, List<Integer> intervalChoices, Limits limits) {
@@ -403,13 +439,19 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
-    /** Which optional columns of the history table are switched on. */
-    record HistoryShow(boolean deltaUsed, boolean deltaTime) {
+    /** Which optional columns of the history table are switched on, and whether its times have the date. */
+    record HistoryShow(boolean deltaUsed, boolean deltaTime, boolean date) {
     }
 
     record HistoryBody(
             String file, boolean exists, List<String> columns, int total, List<List<String>> rows, List<DeltaBody> deltas,
-            HistoryShow show) {
+            HistoryShow show, String startTooltip) {
+    }
+
+    record ErrorEntryBody(String time, String message) {
+    }
+
+    record ErrorsBody(List<ErrorEntryBody> entries) {
     }
 
     record ErrorBody(String message, String at) {
