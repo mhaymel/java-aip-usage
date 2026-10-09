@@ -25,9 +25,10 @@ Other decisions confirmed during discussion:
 - Fetch usage immediately at startup, then use a 60-second default backend
   usage-fetch interval. (It was 30 s until phase 8: a live run showed the endpoint
   accepts about one request a minute over the long run and answers 429 to a faster
-  pace.) Configure it in seconds through both the CLI and a frontend control,
-  allowing 5 through 3600 seconds. Persist a frontend change in the project-root
-  settings file, which holds this one value. A committed valid frontend value is
+  pace.) Configure it in seconds through both the CLI and the settings view,
+  allowing 5 through 3600 seconds (the view offers five choices and also takes a typed
+  value). Persist a change in the project-root settings file, which holds all the
+  settings (and the two remembered window heights). An applied value is
   sent to the backend and replaces any CLI override for the rest of the run.
 - Changing the backend usage-fetch interval does not cancel an in-flight
   request. Apply the new interval to the next scheduled request, measured from
@@ -41,8 +42,8 @@ Other decisions confirmed during discussion:
   the application runs, and is never saved. (Before phase 8 it was a saved,
   UI-editable setting; a value left in an old settings file is ignored.)
 - On startup, the frontend requests the effective intervals from the backend:
-  it shows the usage-fetch interval when the config field is opened, and uses the
-  polling interval to poll for the latest available state.
+  it uses the polling interval to poll for the latest available state, and the settings view
+  asks the backend for every setting each time it is opened (the frontend keeps none of its own).
 - Keep scheduled Anthropic fetching on the backend only; UI status polling
   must not trigger usage requests. Provide a separate UI action that calls the
   backend to start an immediate Anthropic usage fetch. The backend action
@@ -51,7 +52,10 @@ Other decisions confirmed during discussion:
   immediately without starting another request. Keep the UI action enabled;
   extra clicks during a refresh do not start additional requests.
 - If refreshing usage fails, retain the last successful data, indicate that it
-  is stale, and show the error.
+  is stale, and show the error. An HTTP 429 is the exception: it is a request to
+  slow down, so it has no message line and no dimming; the countdown turns red and
+  hovering it shows the message. Every failed refresh, 429 included, is also kept in an
+  in-memory error log for the run, shown in its own panel.
 - If Claude Code is missing or not logged in, keep the GUI open, show setup
   guidance, and let the user retry token acquisition after resolving the issue.
 - Closing the application window terminates the program and stops its backend
@@ -64,10 +68,11 @@ Other decisions confirmed during discussion:
 - The window is a compact status strip: as small as its content allows, one row in
   its normal state, readable text of at least 14 px, local time of day only. The
   row holds the refresh time, the percentage, spent and budget (or the plan windows),
-  a small refresh button, a countdown to the next refresh and a very small config
-  button, which reveals the fetch-interval field until it is confirmed. (The order
-  and the countdown are from phase 9; phase 7 built percentage, amounts, time.) See [Compact window](requirements.md#compact-window);
-  planned as phase 7.
+  a small refresh button, a countdown to the next refresh, optional items (the interval,
+  the changes since the previous reading, the percentage), and small log, history, error log and
+  settings icons, the settings gear last. The settings, log, history and error log open in one panel
+  area below the row. (The order and the countdown are from phase 9, the settings view from
+  phases 18 to 25, the error log and the remembered heights from phase 26.) See [Compact window](requirements.md#compact-window).
 
 Charts and historical usage are not part of the first version.
 
@@ -79,9 +84,9 @@ server; the UI communicates with the application through a small JSON API.
 This provides the requested minimal window while keeping the HTML, CSS, and
 JavaScript frontend separate from Java-specific code.
 
-The frontend provides a control for the backend usage-fetch interval. It sends a
-committed valid value to the backend, which validates and persists it in the
-project-root settings file. A frontend edit replaces a CLI override for the
+The frontend provides a settings view, with a box for the backend usage-fetch interval among
+the other settings. It sends the applied values to the backend, which validates and persists them in the
+project-root settings file. An applied interval replaces a CLI override for the
 remainder of the run. The usage-fetch interval defaults to 60 seconds and
 accepts values from 5 through 3600 seconds. Changing it does not cancel an
 in-flight fetch or cause an extra immediate fetch. The next scheduled fetch is due one new
@@ -106,9 +111,10 @@ Keep the API small and document its response shapes so a future Go backend can
 provide the same contract.
 
 The compact window (phase 7) adds one thing outside that API. The window must fit
-its content, so it has to change size when a message or the config fields appear,
+its content, so it has to change size when a message appears or a panel opens,
 and only the host can resize a window. The page therefore reports its content size
-to the Java host, which resizes the stage. This is a window-management concern, not
+(and which panel is open) to the Java host, which resizes the stage and, for the history and the log,
+remembers the height the person leaves the window at (phase 26). This is a window-management concern, not
 part of the contract a Go backend provides: a Go host would need its own way to
 resize its window, as it needs its own window host anyway.
 
@@ -131,7 +137,12 @@ Suggested backend boundaries:
 | `UsageClient` | Call the Anthropic usage endpoint with the bearer token, decode the response, and distinguish HTTP 401 from other failures. |
 | `UsageService` | Own the current snapshot, refresh interval, last error/stale state, and non-overlapping scheduled refreshes. |
 | `Logging` | Configure console and append-mode output to `java-aip-usage.log` in the project root; record lifecycle, refresh, and sanitized HTTP diagnostic events without credentials. |
-| `LocalWebServer` | Serve the bundled frontend, read-only status/configuration endpoints, and a manual-refresh action on loopback. |
+| `LocalWebServer` | Serve the bundled frontend, read-only status/log/history/error endpoints, the settings endpoint, and a manual-refresh action on loopback. |
+| `Settings`, `SettingsStore`, `IntervalSettings` | All settings as JSON beside the CSV, created with defaults if missing; apply, validate and save them; hold the remembered panel heights. |
+| `HistoryReader`, `HistoryDeltas`, `UsageHistory` | The CSV with its status, timing and failed rows; the differences between readings, worked out in the backend. |
+| `Formatting`, `StatusDisplay` | Every finished text, tooltip and flag the window shows; the frontend does no arithmetic or formatting of readings. |
+| `ErrorLog` | The in-memory errors of the run (every failed refresh, token problems included), newest first, read through a read-only endpoint. |
+| `WindowFit`, `RememberedHeights` | Parse the size the page asks for (with its panel); decide the height the history and log open at, and when a dragged height is stored. |
 | `Main` / application lifecycle | Parse CLI options, load settings, start services and the window, and terminate the program and all background resources when the window closes. |
 
 The response model must support both documented shapes: `spend` may be
@@ -1041,6 +1052,69 @@ measures the scrollbar with a hidden `.scrollbar-probe` box at start, and the pa
 *Assumed:* a refused or unsaved Apply keeps the view open, since closing would hide the error; the scrollbar's width is
 the platform's, measured, not a fixed 15 px; "the usage view" in the note means both the history and the log.
 
+### 26. A quieter 429, an error log, remembered heights, and a tidier history and settings view
+
+**Status: planned.** Requirements: Countdown, Tooltips, Settings, The usage history panel, Remembered heights, The error log panel,
+Messages and states, Non-functional requirements (settings file). The work has five parts; each can be built and tested alone, in this order.
+
+**A. The 429 and the error log (backend).**
+- `UsageState` gets `rateLimited` (set by `Outcome.rateLimited` in `UsageService`); `stale()` becomes `snapshot != null && error != null && !rateLimited`,
+  so a 429 does not dim the figures. `StatusDisplay`: `message` is `null` for a rate-limited state, and the countdown tip carries
+  `alert` (the error text) so the page can colour it and show it on hover; `status.stale` follows `stale()`.
+- A new `ErrorLog` (in memory, `ArrayDeque` capped at 1,000, thread-safe) owned by `AppRuntime` and handed to `UsageService`, which adds one entry
+  for each failed refresh next to where it logs the warning (`run`, after `settleBackoff`), with the final text
+  (the 429's `Next try in …` included). Token problems already arrive as `TokenException` failures of the refresh, so they are in it
+  without more code; the unexpected-exception path adds its short message too. `GET /api/errors` returns
+  `{entries: [{time: "hh:mm:ss", message}]}` newest first, the time cut by `Formatting` (always with seconds), read-only, no credential in it.
+- Tests: `ErrorLogTest` (order, cap, concurrency), `UsageServiceTest` (a failed refresh adds an entry, a success none, a 429 sets `rateLimited` and does not dim),
+  `StatusDisplayTest` (no message and an alert on a 429, message on others), `ApiTest` (`/api/errors`, a token failure is listed, no poll adds entries).
+
+**B. Remembered heights (host and settings).**
+- `Settings` gets `historyDate` (default off) in the main-view-to-history group, and the settings file gets `historyHeight` and `logHeight` (whole pixels, `0` = none).
+  The heights are not part of the `/api/settings` form: `IntervalSettings.apply` keeps the current ones, `SettingsStore.save` writes them with the rest, and
+  `IntervalSettings.storedHeight(panel)` / `storeHeight(panel, px)` read and write them (saving as `apply` does, logging the change).
+- The page report gets a fourth, optional field naming the panel: `width,height,flag,panel` with `history`, `log` or `errors` (`WindowFit`
+  parses it; `Size` carries it; older three-field reports still parse). The host applies, for `history` and `log`, `max(reported height, stored height)`
+  and stores the reported one when it is larger (the "internal" height), then follows `stage.heightProperty()`: a change that the host
+  did not make itself is stored after 500 ms of quiet, as `stage height - decoration height`. The decision (which height to open at, and
+  whether to store) is a small pure class, `RememberedHeights`, so it is unit-tested without a window; `UsageApp` only wires it.
+- Tests: `WindowFitTest` (the fourth field, bad panel names), `RememberedHeightsTest` (stored larger wins, smaller replaced and stored,
+  none stored, the debounce rule), `SettingsStoreTest` and `IntervalSettingsTest` (heights survive an apply and a restart; the API does not change them), `ApiTest`
+  (`historyDate` round trip; heights absent from `/api/settings`).
+
+**C. The history table.**
+- `/api/history` formats the first column: the time of day `hh:mm:ss`, or `yyyy-MM-dd hh:mm:ss` when `historyDate` is on; it sends the titles
+  (`time` or `date time`, `used`, `limit`, `currency`) as `columns` and `startTooltip` (`The program started here`); sorting still uses the raw value.
+  `show` gains `date`. `describeHistory` uses these as given, and gives the rows of a start a `title`; `app.js` puts it on the row.
+- CSS: the time column is 8ch, 19ch with the date (a `date` class on the rows); a gap between `used` and `limit` (padding on the two cells);
+  the rows get `min-width: max-content` so that a table wider than the panel overflows and the existing `overflow-x: auto` shows a horizontal
+  scrollbar, only when needed.
+- Tests: `ApiTest` (columns, formatted times, both settings), `view.test.cjs` (titles, tooltip on start rows, the wide class), `layout.test.cjs` (gap,
+  `min-width: max-content`, `overflow-x: auto`).
+
+**D. The error log panel and the countdown (frontend).**
+- `index.html`: the four icon buttons go into one `<span class="tools">` with a 2 px gap; an `errors-button` (a warning-triangle icon) between history and settings;
+  `PANELS.errors` (`/api/errors`, read again on every poll, like the log), `describeErrors` (`time`, `message`, one row each, `cols-2` grid), the same size
+  rules as the history (report `…,1,errors`, height fixed at open, width plus scrollbar), a one-line note when empty, no stored height.
+- The countdown: when `display.countdown.alert` is set it gets the class `alert` (red) and, on `mouseenter`, the message in bold red is shown in the note line
+  under the row (`#alert-note`, `note-error` plus bold), removed on `mouseleave`; the window grows for it like for any message and shrinks back. The row's message line
+  is empty for a 429 because the backend sends none.
+- Tests: `app.test.cjs` (the panel, newest first, polls, the alert class and hover line, no message line for a 429, not dimmed), `layout.test.cjs` (the group, the button order, the red rule).
+
+**E. The settings view.**
+- The interval becomes a text box with `inputmode="numeric"` plus a small `<select>` of the five choices that fills it in (a `<datalist>` is not relied on: the WebView's engine may lack it),
+  labelled `Interval`; the page checks only that it is a whole number (`^\d+$`) before posting, the backend checks the range 5 to 3600 and its refusal shows in red.
+- Texts: the row checkbox `Interval`, `Log the response`, under `History view`: `Date as well as the time`, `Change in the amount used`, `Time since the previous reading`.
+- CSS: `.settings` set at 12 px (an exception in the 14 px layout test, like the panels), `user-select: text` (and the `-webkit-` form), `select` and `input`
+  given room for their value and the arrow (`min-width` in `ch` plus right padding), checked by the layout test as far as CSS can be, and by eye.
+- Tests: `app.test.cjs` (typed value posted, a non-number refused in the page, a choice fills the box, `historyDate` posted, the labels), `layout.test.cjs`.
+
+**Open points to confirm in the window, not in tests:** whether the WebView's text selection works in the settings; the width of the time-format dropdown; the
+hover line for the 429 (a native tooltip could not be red and bold, and a page tooltip would not fit in a one-row window).
+
+*Assumed:* the error log has no remembered height; remembered heights are in CSS pixels of the window's content; the history's date setting does not change the file;
+the 500 ms quiet period is a guess to tune; the error log keeps non-429 messages also in the row's message line.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,
@@ -1056,12 +1130,15 @@ the platform's, measured, not a fixed 15 px; "the usage view" in the note means 
 - Test HTTP and token behavior against local test doubles; do not depend on
   live Anthropic credentials in the automated test suite.
 - Include fixtures for both response variants and malformed input.
-- Perform a manual macOS UI smoke test for startup, initial load, both usage
-  views, the fetch-interval setting, manual refresh, refresh failure
-  display, and verify closing the window terminates the app cleanly. Once phase 7
-  is done, also check the compact layout: one row at the target size, the window
-  growing and shrinking around the config fields and messages, readable text, and
-  time of day only.
+- Test that the frontend does no arithmetic or formatting of readings (a check of the page scripts), that the
+  settings are read from the backend each time the view opens and that Apply, Cancel and Restore defaults do what
+  the requirements say, that an HTTP 429 gives no message line and no dimming but a red countdown, that every failed
+  refresh reaches the error log, and that the remembered heights are stored, never smaller than the worked-out one.
+- Perform a manual macOS UI smoke test for startup, initial load, the history, log, error log and settings panels,
+  the interval setting, manual refresh, refresh failure and 429 display, and verify closing the window terminates the app
+  cleanly. Also check the layout by eye, which tests cannot: one row at the target size, the window growing and shrinking
+  around messages, each panel's size and scrollbars (nothing covered), the gear and icon spacing, the settings
+  without a scrollbar, text selection in the settings, the width of the dropdowns, readable text, and time of day only.
 
 ## Related repositories
 

@@ -169,9 +169,10 @@ so it must take as little screen space as it can while staying easy to read.
 - The window is as small as its content allows, with no empty space around it.
   In its normal state it is a single row, roughly 330 by 35 pixels of content, which is
   about 62 pixels tall with the title bar. The window cannot be resized by hand: it always
-  fits its content and follows it as it changes. The exceptions are while the usage history is
-  shown, when it is ten times as tall as the single row and can be resized in height, and, for the
-  log, three times as wide and resizable in width too (see The log panel and The usage history panel),
+  fits its content and follows it as it changes. The exceptions are while the usage history or the
+  error log is shown, when it is ten times as tall as the single row (the history, and the log, may open
+  taller, as the person last left them) and can be resized in height, and, for the
+  log, three times as wide and resizable in width too (see The log panel, The usage history panel and The error log panel),
   and while the settings are shown, when the window is as tall as the row, its message lines and the settings
   need, exactly (see Settings). A row that would be wider than about 900
   pixels, for an account with many plan windows, wraps onto a second line.
@@ -184,9 +185,10 @@ so it must take as little screen space as it can while staying easy to read.
   and the window grows in height only. The same holds for the log and the history.
 - The text is easy to read: a sans-serif font of at least 14 pixels, with strong
   contrast. It is set bold throughout (weight 700), with the percentage and the
-  spent and budget heavier still (800). No thin or light weights, no fine print. The one
-  exception is the usage history shown below the row, which is deliberately small and
-  condensed, like a log file (see The usage history panel); it is still never thin.
+  spent and budget heavier still (800). No thin or light weights, no fine print. The exceptions
+  are the usage history, the log and the error log shown below the row, which are deliberately small and
+  condensed, like a log file (see The usage history panel), and the settings view, which is set in 12 pixel
+  text so that it needs less room; none of them is ever thin.
 - Every time the row and its message lines show is the local time of day only, with no date, as
   hours and minutes, for example `14:24`, or with seconds, for example `14:24:53`, as the time format
   setting says; the default is hours and minutes. This applies to the time of the last refresh and to the
@@ -217,8 +219,13 @@ snug against the button, so they read as one group:
 8. a small button that shows the log below the row, and hides it again, an icon rather than a word;
 9. next to it, a small button that shows the usage history below the row, and hides it again,
    likewise an icon;
-10. at the right-hand end, after the log and history buttons, the settings button, a very small icon of
+10. a small button that shows the error log below the row, and hides it again, an icon rather than a word
+    (see The error log panel);
+11. at the right-hand end, after the other buttons, the settings button, a very small icon of
     a gear, not a word and not sliders.
+
+The four icon buttons at the right-hand end sit close together: the space between them is small, no
+more than about 2 pixels, not the strip's usual gap.
 
 The severity is shown by colour on the percentage, when it is shown, and on the amounts, rather than by
 extra words. With the percentage switched off the amounts still carry the colour, and the severity is
@@ -249,6 +256,13 @@ as unknown.
   countdown is left empty.
 - The countdown is not optional: it is always shown, as before. The time between usage requests is a
   separate item, with its own setting (see Settings).
+- **While the application is backing off after an HTTP 429 the countdown is red**, and hovering over it
+  shows the error message, in bold red, in a line under the row that is there while the pointer is over the
+  countdown (a plain `title` tooltip cannot be coloured, and a tooltip of the page's own would not fit in a window
+  as small as the row, which grows for the line as for any message and goes back when the pointer leaves). This is
+  the only sign of a 429 in the row: it has no message line, and the figures are not dimmed, since the
+  data is not out of date because the server asked us to wait. The red goes with the back-off, at the
+  next success. The 429 is written to the log and to the error log like every failure.
 
 **Tooltips**
 
@@ -270,7 +284,9 @@ names, shown as its code, here `USD`.
 - The change in the amount used says `Change in the amount used since the previous reading, in USD`,
   and the time since the previous reading says what it is.
 - The log button says `Show the log`, and `Hide the log` while the log is shown. The history button says `Show the usage history`, and
-  `Hide the usage history` while the history is shown.
+  `Hide the usage history` while the history is shown. The error log button says `Show the error log`, and
+  `Hide the error log` while it is shown.
+- The countdown, during a back-off after an HTTP 429: the error message, in bold red, in a line under the row (see Countdown).
 
 **Changes between readings**
 
@@ -312,18 +328,28 @@ names, shown as its code, here `USD`.
 
   | Setting | Values | Default |
   | --- | --- | --- |
-  | Time between usage requests | a dropdown with the choices 60 s, 120 s, 180 s, 240 s and 300 s, showing the backend's current value | 60 s |
+  | Interval (the time between usage requests) | a box the person can type any whole number of seconds from 5 to 3600 into, or pick one of the choices 60 s, 120 s, 180 s, 240 s and 300 s from, showing the backend's current value | 60 s |
   | Log the response | on, off | off |
   | Show the percentage spent in the row | on, off | off |
   | Show the time between usage requests in the row | on, off | off |
   | Show the change in the amount used in the row | on, off | off |
   | Show the time since the previous reading in the row | on, off | off |
   | Time format in the row | hours and minutes, or hours, minutes and seconds | hours and minutes |
+  | Show the date in the history, as well as the time | on, off | off |
   | Show the change in the amount used in the history | on, off | off |
   | Show the time since the previous reading in the history | on, off | off |
 
-- If the backend's interval is not one of the five (set on the command line, or in an old settings
-  file), the dropdown still shows it as the current entry, and offers the five besides it.
+- A value typed in the interval box that is not a whole number from 5 to 3600 keeps the view open
+  and shows a brief message in red when Apply is pressed; the backend refuses it, as before. The current value,
+  whatever it is (set on the command line, or in an old settings file), is what the box shows, with the
+  five choices offered besides it.
+- **The texts of the view.** The interval's label reads `Interval`, and so does the checkbox for the row's item;
+  the row item's tooltip keeps `Time between usage requests`. The checkbox for the log reads `Log the response`.
+  Under the heading `History view` the checkboxes read `Date as well as the time`, `Change in the amount used` and
+  `Time since the previous reading`: no `Column`, and no colon in them.
+- **Every control is wide enough for its own value**, the arrow of a dropdown included: the value is never
+  covered by the arrow, nor cut off.
+- **The text of the view can be selected and copied.**
 - The view is arranged in sections: the usage requests, the main view, the history view and the log.
 - Two buttons set the switches of the main view together: **Maximum view** turns on the percentage, the time between
   usage requests, the change in the amount used, the time since the previous reading, and the time with seconds; **Minimum
@@ -344,12 +370,13 @@ The log is shown the way the usage history is: inside the main window, not in a 
   Pressing it again hides the panel and the window goes back to the size it had. While it is shown the
   window can be resized in height **and in width**, and the panel takes the room there is. Unlike the
   history, the log has long lines, which is why it gets the extra width. Opening it again starts again
-  at three times the row's width and ten times its height.
+  at three times the row's width, and at the height it was last left at (see Remembered heights), never
+  less than ten times the row's.
 - The log panel has the width of three rows, plus the width of the vertical scrollbar, which is always reserved
   and never covers text. As for the history, the window's height does not follow the main view while the
   panel is shown: when a message line appears or goes, the window keeps the height it has and the panel takes
   up the difference.
-- The log and the history share the one panel area: showing one while the other is shown replaces
+- The log, the history, the error log and the settings share the one panel area: showing one while another is shown replaces
   it, and the window takes the size the shown one has (so it is wider for the log than for the history, and
   as tall as its content for the settings),
   and each button's tooltip says `Hide…` only for the one
@@ -386,24 +413,35 @@ The history is shown inside the main window, not in a window of its own.
   to the size the window has with the panel hidden (it can be made as small as it originally was), and the
   panel takes all the height there is: a taller window shows more lines. Its width stays fixed. When the
   panel is hidden the window is back to fitting its row and cannot be resized. Opening the panel again
-  starts again at ten times the row's height, not at the height the person last dragged it to.
+  starts at the height the person last left it at, never less than ten times the row's height (see
+  Remembered heights).
 - The history panel keeps the width of the row, plus the width of the vertical scrollbar, which is always
   reserved so that nothing shifts when it appears or goes. The scrollbar never covers a column: the last
   column, the currency, is whole next to it. Only the height changes, and nothing else in the row moves.
 - **While the panel is shown, the window's height does not follow the main view.** When a message line
   appears or goes, or the row changes in any other way, the window keeps the height it has, as opened
   or as the person dragged it, and the panel takes up the difference.
-- The history is a table with a header row (`datetime`, `used`, `limit`, `currency`, and, when
+- The history is a table with a header row (`time`, `used`, `limit`, `currency`, and, when
   their settings are on, `delta used` and `delta time`; it does not scroll away) and one line for each reading, the columns **spread across the width of the panel**, with
-  a little space between them, no more than needed, so that nothing is cut off (in particular
-  the currency and its title): the date and time at the left, and `used`, `limit` and
-  `currency` each centred horizontally in their own column. For example, as wide as the row:
+  space between them so that nothing is cut off (in particular
+  the currency and its title): the time at the left, and `used`, `limit` and
+  `currency` each centred horizontally in their own column. **There is more space between `used` and `limit`**
+  than between the others, so the two numbers do not run together. For example, as wide as the row:
 
   ```
-  datetime               used      limit     currency
-  2026-10-08 21:01:22    263.89    1000.00     USD
-  2026-10-08 20:46:11    260.66    1000.00     USD
+  time        used         limit     currency
+  21:01:22    263.89       1000.00     USD
+  20:46:11    260.66       1000.00     USD
   ```
+
+- **The first column is the time of day only**, `21:01:22`, and its title is `time`. A setting (see
+  Settings) shows the date as well, `2026-10-08 21:01:22`, and then the title is `date time`. The file keeps
+  the full date and time either way. The backend cuts the time; the window shows it as received.
+- **Hovering over a line of the first row of a run**, the one with the light gray background below, shows the
+  text `The program started here`.
+- **A horizontal scrollbar** appears at the bottom of the panel when the columns are wider than the panel, for
+  instance with the date and both change columns on, so that nothing is out of reach. It takes no room
+  when it is not needed.
 
 - The column titles are centred over their columns.
 - `delta used` and `delta time` are the change in the amount used and the time since the previous
@@ -418,7 +456,7 @@ The history is shown inside the main window, not in a window of its own.
   where each run begins can be seen at a glance. The file can hold several such rows, one for each
   run; each is marked. The `status`, `interval` and `duration_ms` columns themselves are not shown in
   the panel.
-- **The lines are sorted by `datetime`, latest first.** They are sorted by that column, not merely
+- **The lines are sorted by the date and time, latest first.** They are sorted by that, not merely
   taken in reverse file order, so a file that is out of order is still shown right.
 - The text is **small and condensed**, in the manner of a log file: a fixed-width font of about
   12 pixels with tight line spacing and no padding between lines, so that many readings fit in
@@ -435,10 +473,52 @@ The history is shown inside the main window, not in a window of its own.
 - The panel's data comes from the application, through a read-only request that reveals nothing
   about where the file is and adds nothing to the log or the history.
 
+**Remembered heights**
+
+- The height of the window while the history is shown, and while the log is shown, is remembered for each
+  of the two, as `historyHeight` and `logHeight` in the settings file, in pixels of the window's content. The
+  width is not. They are not settings of the settings view: they are neither shown nor applied there, and
+  Restore defaults leaves them alone.
+- When the person changes the window's height while the history or the log is shown, the new height is stored,
+  once the change has settled, not at every pixel of a drag. The program, not the page, notices: the page never
+  reports a height the window was dragged to.
+- When the history or the log is opened, the window gets the stored height. If there is none, or it is smaller than
+  the height the program works out itself, ten times the row's height as it is at that moment, the worked-out
+  height is used instead, and it is stored as the new value.
+- The error log and the settings do not remember a height: the error log opens at ten times the row's height, and the
+  settings are as tall as their content.
+
+**The error log panel**
+
+The error log is a third panel in the same area as the log and the history, for the errors of the program as
+they happen, so that a person can see what went wrong and when without opening the log file.
+
+- A small icon button, between the history button and the settings button, shows the panel and hides it again, as
+  for the others. It shares the panel area with the log, the history and the settings: showing one replaces the other.
+- It lists the errors of **this run only**. It is kept in the application's memory and is not written
+  to a file: when the program stops, it is gone. The next run starts with an empty error log. (The same errors are in the log file, as
+  always.)
+- One line for each error, newest first, in two columns, `time` as `hh:mm:ss` (the local time of day, with
+  seconds) and `message`, in the small, condensed text of the log. A message is never wrapped (a long
+  one scrolls sideways).
+- **Every failed refresh is an error of the list**, with the message the row would show for it:
+  an HTTP 429 (with how long the application now waits), any other HTTP status, a network failure or timeout,
+  a response that cannot be read, and every problem with the token: Claude Code not logged in, `claude` not
+  found on the `PATH` or not able to run, and a credential in the environment that has to be unset. A failure that
+  has no message line, an HTTP 429, is in the list all the same. One line is added for each failed refresh, not for each
+  poll of the window.
+- It holds the newest 1,000 errors. If there are none yet, the panel says so in one line.
+- While the panel is shown it keeps up: a new error appears at the top soon after it happens, without pressing
+  anything, and what the person has scrolled to does not move.
+- Its size is that of the history: ten times the row's height, the width of the row plus the vertical scrollbar,
+  the height resizable and not following the main view, and a horizontal scrollbar when a line is wider than the panel.
+- The data comes from the application through a read-only request that reveals no credential and no file name.
+
 **Messages and states**
 
 - A failed refresh, stale data, or a missing or logged-out Claude Code must still be
-  visible, as required elsewhere. In the compact window this is a short message on
+  visible, as required elsewhere, except for an HTTP 429, which has its own, quieter sign (see Countdown).
+  In the compact window this is a short message on
   a second line, shown only while the condition lasts, in the form
   `Refresh failed at 14:25:01: <what went wrong>`. The window grows to hold it and
   returns to its single-row size afterwards.
@@ -446,7 +526,8 @@ The history is shown inside the main window, not in a window of its own.
   or not older figures are still on show, the loss of contact with the application, and an
   invalid value in the settings view. No error is shown in another colour.
 - The last good figures stay in the row after a failed refresh, dimmed to show that
-  they may be out of date, and the dimming goes when a refresh succeeds again.
+  they may be out of date, and the dimming goes when a refresh succeeds again. After an HTTP 429 they
+  are not dimmed.
 - **On startup the newest reading in the history file is loaded and shown at once**, as the row's
   figures with the time of that reading, until the first refresh replaces it, so the row is not empty
   while the first request is on its way. If that refresh fails, the figures stay, dimmed, with the usual
@@ -554,7 +635,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run.
 - The settings file, `settings.json` in the same directory as the usage history file, holds all the
-  settings, stored as JSON, and nothing else. If there is none at startup a new one is created with the
+  settings, and the two remembered heights (see Remembered heights), stored as JSON, and nothing else. If there is none at startup a new one is created with the
   defaults, and the event is logged. The full path of the settings file is logged at startup, in a line of its
   own, like that of the history file. A settings file that cannot be read or is invalid is logged and
   the defaults are used for the run, without overwriting it until a setting is applied. A key the file
