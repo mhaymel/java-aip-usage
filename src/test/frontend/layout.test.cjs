@@ -56,28 +56,29 @@ test('the base text is a sans-serif font', () => {
 test('the controls come in the required order, in one strip', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     // Time first, then the percentage, the two amounts (or the plan windows), the refresh button,
-    // the countdown, the config button and its field.
+    // the countdown, the two changes, the settings button, then the log and history buttons.
     const order = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"', 'id="windows"',
-        'id="refresh"', 'id="countdown"', 'id="config-toggle"', 'id="config"'];
+        'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"', 'id="settings-button"',
+        'id="log-button"', 'id="history-button"'];
     const positions = order.map(marker => strip.indexOf(marker));
     positions.forEach((position, i) => assert.ok(position >= 0, 'missing ' + order[i] + ' in the strip'));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions,
-        'the order is time, percentage, used, limit, windows, refresh, countdown, config, config field');
+        'the order is time, percentage, used, limit, windows, refresh, countdown, changes, settings, log, history');
 });
 
 test('the time is the very first thing in the strip', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
-    for (const later of ['id="percent"', 'id="used"', 'id="limit"', 'id="windows"', 'id="refresh"', 'id="countdown"', 'id="config-toggle"']) {
+    for (const later of ['id="percent"', 'id="used"', 'id="limit"', 'id="windows"', 'id="refresh"', 'id="countdown"', 'id="settings-button"']) {
         assert.ok(strip.indexOf('id="time"') < strip.indexOf(later), 'the time comes before ' + later);
     }
 });
 
-test('the countdown comes right after the refresh button, and the config button after it', () => {
+test('the countdown comes right after the refresh button, and the settings button after the changes', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     const refresh = strip.indexOf('id="refresh"');
     const countdown = strip.indexOf('id="countdown"');
-    const config = strip.indexOf('id="config-toggle"');
-    assert.ok(refresh < countdown && countdown < config);
+    const settings = strip.indexOf('id="settings-button"');
+    assert.ok(refresh < countdown && countdown < settings);
     assert.equal(strip.slice(refresh, countdown).includes('id="used"'), false, 'nothing else sits between them');
 });
 
@@ -120,19 +121,36 @@ test('the countdown starts hidden and keeps a width that does not move with ever
     assert.match(css, /\.countdown\s*{[^}]*tabular-nums/);
 });
 
-test('the config field sits next to the config button, in the same row', () => {
-    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
-    assert.ok(strip.includes('id="usage-interval"'), 'the fetch interval field is in the strip');
-    assert.ok(strip.indexOf('id="config-toggle"') < strip.indexOf('id="usage-interval"'));
+test('the optional items of the row start hidden and keep a width that does not move with every digit', () => {
+    for (const id of ['delta-used', 'delta-time']) {
+        assert.match(html, new RegExp('id="' + id + '"[^>]*\\shidden'));
+    }
+    assert.match(css, /\.delta-used\s*{[^}]*min-width:\s*[0-9.]+ch/);
+    assert.match(css, /\.delta-time\s*{[^}]*min-width:\s*[0-9.]+ch/);
+    assert.match(css, /\.delta\s*{[^}]*tabular-nums/);
 });
 
-test('the update interval is not offered in the window', () => {
+test('the update interval is not a setting of the window', () => {
     assert.doesNotMatch(html, /poll-interval/);
-    assert.equal([...html.matchAll(/<input\b/g)].length, 1, 'the one input is the fetch interval');
+    assert.doesNotMatch(html, /usage-interval/, 'the interval field is not in the strip any more; it is a dropdown in the settings');
 });
 
-test('the config fields start hidden', () => {
-    assert.match(html, /id="config"[^>]*\shidden/);
+test('the settings view is in the panel area, below the strip, and starts hidden', () => {
+    const panel = html.slice(html.indexOf('id="panel"'));
+    assert.ok(panel.includes('id="settings-view"'), 'the settings are in the panel area');
+    assert.match(html, /id="settings-view"[^>]*\shidden/);
+    assert.ok(html.indexOf('id="settings-button"') < html.indexOf('id="settings-view"'));
+});
+
+test('the settings view has the three buttons, the two view buttons and a dropdown for the interval', () => {
+    for (const id of ['settings-apply', 'settings-restore', 'settings-close', 'settings-maximum', 'settings-minimum']) {
+        assert.match(html, new RegExp('<button[^>]*id="' + id + '"'), id);
+    }
+    assert.match(html, /<select id="set-usageIntervalSeconds"/);
+    for (const key of ['showCountdown', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']) {
+        assert.match(html, new RegExp('<input id="set-' + key + '" type="checkbox"'), key);
+    }
+    assert.match(html, /<select id="set-timeFormat"/);
 });
 
 test('the hidden attribute really hides, even on elements the stylesheet gives a display', () => {
@@ -141,7 +159,7 @@ test('the hidden attribute really hides, even on elements the stylesheet gives a
     assert.match(css, /\[hidden\]\s*{[^}]*display:\s*none\s*!important/);
 
     const hiddenIds = [...html.matchAll(/<[^>]*\sid="([^"]+)"[^>]*\shidden[\s>]/g)].map(m => m[1]);
-    assert.ok(hiddenIds.includes('config'), 'the config fields use the hidden attribute');
+    assert.ok(hiddenIds.includes('settings-view'), 'the settings view uses the hidden attribute');
     const classesGivenADisplay = [...css.matchAll(/\.([a-z-]+)\s*{[^}]*\bdisplay:\s*(?!none)/g)].map(m => m[1]);
     const overridden = hiddenIds.filter(id => {
         const tag = html.match(new RegExp('<[^>]*\\sid="' + id + '"[^>]*>'))[0];
@@ -156,7 +174,7 @@ test('the log and history buttons are at the right-hand end of the row, after ev
     const log = strip.indexOf('id="log-button"');
     const history = strip.indexOf('id="history-button"');
     assert.ok(log >= 0 && history >= 0, 'both are in the row');
-    for (const earlier of ['id="time"', 'id="percent"', 'id="used"', 'id="refresh"', 'id="countdown"', 'id="config-toggle"', 'id="config"', 'id="usage-interval"', 'id="config-ok"']) {
+    for (const earlier of ['id="time"', 'id="percent"', 'id="used"', 'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"', 'id="settings-button"']) {
         assert.ok(strip.indexOf(earlier) < log, earlier + ' comes before the log button');
     }
     assert.ok(log < history, 'the log button, then the history button');
@@ -232,10 +250,11 @@ test('an error in the panel is red', () => {
 test('the log and history buttons say what they open', () => {
     assert.match(html, /id="log-button"[^>]*title="Show the log"/);
     assert.match(html, /id="history-button"[^>]*title="Show the usage history"/);
+    assert.match(html, /id="settings-button"[^>]*title="Show the settings"/);
 });
 
 test('the two buttons are icons with accessible names, not words', () => {
-    for (const id of ['refresh', 'config-toggle', 'config-ok', 'log-button', 'history-button']) {
+    for (const id of ['refresh', 'settings-button', 'log-button', 'history-button']) {
         const element = html.match(new RegExp('<button[^>]*id="' + id + '"[\\s\\S]*?</button>'));
         assert.ok(element, id + ' is a button');
         const button = element[0];

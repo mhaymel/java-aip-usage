@@ -56,8 +56,6 @@ final class ApiHandler implements HttpHandler {
 
     private static final String USAGE_KEY = "usageIntervalSeconds";
 
-    private static final String POLL_KEY = "pollIntervalSeconds";
-
     private final UsageService service;
 
     private final IntervalSettings settings;
@@ -96,13 +94,10 @@ final class ApiHandler implements HttpHandler {
         String method = exchange.getRequestMethod();
         switch (exchange.getRequestURI().getPath()) {
             case "/api/config" -> {
-                if (method.equals("GET")) {
-                    send(exchange, 200, config());
-                } else if (method.equals("POST")) {
-                    updateConfig(exchange);
-                } else {
-                    throw new ApiException(405, "Use GET or POST.", "GET, POST");
+                if (!method.equals("GET")) {
+                    throw new ApiException(405, "Use GET.", "GET");
                 }
+                send(exchange, 200, config());
             }
             case "/api/settings" -> {
                 if (method.equals("GET")) {
@@ -149,28 +144,6 @@ final class ApiHandler implements HttpHandler {
                 settings.usageSeconds(),
                 settings.pollSeconds(),
                 new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())));
-    }
-
-    private void updateConfig(HttpExchange exchange) throws IOException {
-        requireJson(exchange);
-        JsonNode body = readJson(exchange);
-        if (body.hasNonNull(POLL_KEY)) {
-            // Said outright, not ignored, since an older page would have sent it.
-            throw new ApiException(400,
-                    "The update interval cannot be changed while the application runs; start it with --poll-interval.", null);
-        }
-        try {
-            Long usage = seconds(body, USAGE_KEY, IntervalRange.USAGE);
-            if (usage == null) {
-                throw new InvalidSettingException("No setting was given.");
-            }
-            settings.updateUsage(usage);
-        } catch (InvalidSettingException e) {
-            throw new ApiException(400, e.getMessage(), null);
-        } catch (SettingsException e) {
-            throw new ApiException(500, e.getMessage(), null);
-        }
-        send(exchange, 200, config());
     }
 
     // ---- /api/settings

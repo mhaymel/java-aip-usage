@@ -21,7 +21,7 @@ text, local time of day only.
 
 From the left: when the usage was last refreshed, the percentage spent, what has been
 spent and the budget as plain numbers (severity is the colour of the percentage and
-the amounts), a refresh button, a countdown, and a small config button. A Pro or Max
+the amounts), a refresh button, optionally a countdown and the change since the previous reading, and small settings, log and history buttons. A Pro or Max
 account shows its plan windows in place of the percentage and amounts, each as its
 utilization, its name and the time until it resets.
 
@@ -54,11 +54,13 @@ Hover over things to see what they are:
   is longer while the application is backing off after a rate limit, and goes negative
   (`-3 s`) if the refresh is overdue, for example because a request is slow. It is
   empty until the first request has been made.
-- **Config** (≡) shows one field next to it, `fetch`: how often the application asks
-  Anthropic, in seconds (default 60). The value shown is read from the application each time
-  you open it, so it is right even if it changed after the window started. Change it and
-  press **Enter** or ✓ to save and apply it; the field then disappears. A bad value keeps it open with a short message.
-  **Escape**, or the config button again, closes it without changing anything.
+- **Settings** (≡) shows the settings in the panel area below the row, like the log and the history: the time
+  between usage requests (a dropdown: 60 to 300 s, default 60), whether the row shows the countdown and the change
+  since the previous reading, the time format (`hh:mm` or `hh:mm:ss`), the two matching columns of the history, and
+  whether each response's JSON is written to the log. The values are read from the application each time you
+  open it. Nothing takes effect until **Apply**; **Close** asks if there are changes you have not applied;
+  **Restore defaults** fills in the defaults, and **Maximum view** and **Minimum view** switch all the row's
+  optional items on or off together.
 - The title bar reads `aip usage v0.01`. The version is one constant, `AppInfo.VERSION`,
   written by hand and increased by hand when the program changes; it has nothing to do
   with the Gradle project version.
@@ -151,7 +153,7 @@ Two intervals, which are not alike:
 
 | Setting | Default | Range | Command line | In the window | Saved |
 | --- | --- | --- | --- | --- | --- |
-| **Usage fetch**: how often the application asks Anthropic | 60 s | 5–3600 | `--usage-interval <seconds>` | yes, the `fetch` field | yes, in `settings.json` |
+| **Usage fetch**: how often the application asks Anthropic | 60 s | 5–3600 | `--usage-interval <seconds>` | yes, a dropdown in the settings (60–300 s) | yes, in `settings.json` |
 | **Update**: how often the window asks the application for the latest state | 1 s | 1–60 | `--poll-interval <seconds>` | no | no |
 
 For the usage fetch, the command line wins over the saved setting, which wins over the
@@ -162,8 +164,8 @@ own, so the file keeps what you last chose in the window.
 The update interval is a setting for one run only: give `--poll-interval` or get 1 s.
 It cannot be changed from the window, and nothing remembers it. A `settings.json`
 written by an earlier version may still hold one; it is ignored and disappears the
-next time the file is saved. `settings.json` holds the usage interval and nothing
-else, certainly never a credential.
+next time the file is saved. `settings.json` holds all the settings of the settings view
+(and is created with the defaults if it is missing), certainly never a credential.
 
 Only the backend talks to Anthropic; the window's updates read local state and never
 trigger a request. A manual refresh button fetches immediately, and refreshes never

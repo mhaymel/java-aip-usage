@@ -67,19 +67,6 @@ test('the page script contains no arithmetic on readings: no date parsing, round
     }
 });
 
-test('interval input is checked against the limits the backend reported', () => {
-    const limits = { min: 5, max: 3600 };
-    assert.equal(view.checkInterval('30', limits, 'The usage interval'), null);
-    assert.equal(view.checkInterval(' 30 ', limits, 'The usage interval'), null);
-    assert.equal(view.checkInterval('5', limits, 'x'), null);
-    assert.equal(view.checkInterval('3600', limits, 'x'), null);
-    assert.equal(view.checkInterval('4', limits, 'The usage interval'), 'The usage interval must be from 5 to 3600 seconds.');
-    assert.equal(view.checkInterval('3601', limits, 'The usage interval'), 'The usage interval must be from 5 to 3600 seconds.');
-    for (const bad of ['', '  ', 'abc', '1.5', '-1', '1e3', '+5', '0x10', '30s']) {
-        assert.equal(view.checkInterval(bad, limits, 'The usage interval'), 'The usage interval must be a whole number of seconds.', JSON.stringify(bad));
-    }
-});
-
 // ---- the log panel and the history panel
 
 test('the log panel shows the lines newest first, the reverse of the order the log sends them, each a row of one cell', () => {

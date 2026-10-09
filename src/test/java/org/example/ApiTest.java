@@ -178,10 +178,10 @@ class ApiTest {
     void aValidUsageIntervalReachesTheRefreshServiceAndIsSaved() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
-        HttpResponse<String> response = post(app, "/api/config", "{\"usageIntervalSeconds\": 90}");
+        HttpResponse<String> response = post(app, "/api/settings", allSettings(90, false, "hh:mm"));
 
         assertEquals(200, response.statusCode());
-        assertEquals(90, json(response).get("usageIntervalSeconds").asInt());
+        assertEquals(90, json(response).at("/settings/usageIntervalSeconds").asInt());
         assertEquals(Duration.ofSeconds(90), app.service().interval());
         assertEquals(90, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds());
         assertEquals(90, json(get(app, "/api/config")).get("usageIntervalSeconds").asInt());
@@ -191,7 +191,7 @@ class ApiTest {
     void aFrontendValueReplacesTheCommandLineOverrideForTheRestOfTheRun() throws Exception {
         AppRuntime app = start(new FakeFetch(), cli(10, 4));
 
-        post(app, "/api/config", "{\"usageIntervalSeconds\": 75}");
+        post(app, "/api/settings", allSettings(75, false, "hh:mm"));
 
         JsonNode config = json(get(app, "/api/config"));
         assertEquals(75, config.get("usageIntervalSeconds").asInt());
@@ -202,7 +202,7 @@ class ApiTest {
     @Test
     void aChangeSurvivesARestartButACommandLineUpdateIntervalDoesNot() throws Exception {
         AppRuntime first = start(new FakeFetch(), cli(null, 9));
-        post(first, "/api/config", "{\"usageIntervalSeconds\": 200}");
+        post(first, "/api/settings", allSettings(200, false, "hh:mm"));
         first.close();
 
         JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
@@ -215,44 +215,12 @@ class ApiTest {
     void theSavedFileNeverHoldsTheUpdateInterval() throws Exception {
         AppRuntime app = start(new FakeFetch(), cli(null, 9));
 
-        post(app, "/api/config", "{\"usageIntervalSeconds\": 200}");
+        post(app, "/api/settings", allSettings(200, false, "hh:mm"));
 
         assertFalse(Files.readString(dir.resolve("settings.json")).contains("poll"), Files.readString(dir.resolve("settings.json")));
     }
 
     // ---- the update interval cannot be changed through the API
-
-    @Test
-    void anAttemptToChangeTheUpdateIntervalIsRefusedAndSaysWhatToDoInstead() throws Exception {
-        AppRuntime app = start(new FakeFetch());
-
-        HttpResponse<String> response = post(app, "/api/config", "{\"pollIntervalSeconds\": 7}");
-
-        assertEquals(400, response.statusCode());
-        assertTrue(json(response).get("error").asText().contains("--poll-interval"), response.body());
-        assertEquals(1, json(get(app, "/api/config")).get("pollIntervalSeconds").asInt());
-        assertEquals(60, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds(), "nothing was saved");
-    }
-
-    @Test
-    void aValidUsageIntervalSentTogetherWithAnUpdateIntervalIsRefusedWhole() throws Exception {
-        AppRuntime app = start(new FakeFetch());
-
-        HttpResponse<String> response = post(app, "/api/config", "{\"usageIntervalSeconds\": 90, \"pollIntervalSeconds\": 5}");
-
-        assertEquals(400, response.statusCode());
-        assertEquals(60, json(get(app, "/api/config")).get("usageIntervalSeconds").asInt(), "the valid half was not applied either");
-        assertEquals(60, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds(), "nothing was saved");
-    }
-
-    @Test
-    void anExplicitlyNullUpdateIntervalIsTreatedAsNotGiven() throws Exception {
-        AppRuntime app = start(new FakeFetch());
-
-        assertEquals(200, post(app, "/api/config", "{\"usageIntervalSeconds\": 90, \"pollIntervalSeconds\": null}").statusCode());
-    }
-
-    // ---- invalid usage intervals
 
     @Test
     void invalidUsageIntervalsAreRefusedWithAReasonAndChangeNothing() throws Exception {
@@ -266,7 +234,7 @@ class ApiTest {
                 "{}", "{\"usageIntervalSeconds\": null}", "{\"somethingElse\": 5}"};
 
         for (String body : bodies) {
-            HttpResponse<String> response = post(app, "/api/config", body);
+            HttpResponse<String> response = post(app, "/api/settings", body);
 
             assertEquals(400, response.statusCode(), body);
             assertFalse(json(response).get("error").asText().isBlank(), body);
@@ -281,7 +249,7 @@ class ApiTest {
 
     @Test
     void theRefusalSaysWhatIsAccepted() throws Exception {
-        HttpResponse<String> response = post(start(new FakeFetch()), "/api/config", "{\"usageIntervalSeconds\": 4}");
+        HttpResponse<String> response = post(start(new FakeFetch()), "/api/settings", allSettings(4, false, "hh:mm"));
 
         assertEquals("The usage interval must be a whole number of seconds from 5 to 3600.",
                 json(response).get("error").asText());
@@ -291,19 +259,19 @@ class ApiTest {
     void theBoundariesAreAccepted() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
-        assertEquals(200, post(app, "/api/config", "{\"usageIntervalSeconds\": 5}").statusCode());
-        assertEquals(200, post(app, "/api/config", "{\"usageIntervalSeconds\": 3600}").statusCode());
+        assertEquals(200, post(app, "/api/settings", allSettings(5, false, "hh:mm")).statusCode());
+        assertEquals(200, post(app, "/api/settings", allSettings(3600, false, "hh:mm")).statusCode());
     }
 
     @Test
     void malformedOrOversizedBodiesAreRefused() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
-        assertEquals(400, post(app, "/api/config", "not json").statusCode());
-        assertEquals(400, post(app, "/api/config", "").statusCode());
-        assertEquals(400, post(app, "/api/config", "[1, 2]").statusCode());
-        assertEquals(400, post(app, "/api/config", "\"text\"").statusCode());
-        assertEquals(413, post(app, "/api/config", "{\"x\": \"" + "a".repeat(5000) + "\"}").statusCode());
+        assertEquals(400, post(app, "/api/settings", "not json").statusCode());
+        assertEquals(400, post(app, "/api/settings", "").statusCode());
+        assertEquals(400, post(app, "/api/settings", "[1, 2]").statusCode());
+        assertEquals(400, post(app, "/api/settings", "\"text\"").statusCode());
+        assertEquals(413, post(app, "/api/settings", "{\"x\": \"" + "a".repeat(5000) + "\"}").statusCode());
     }
 
     @Test
@@ -313,7 +281,7 @@ class ApiTest {
                 LaunchOptions.none(), new FakeFetch());
         runtimes.add(app);
 
-        HttpResponse<String> response = post(app, "/api/config", "{\"usageIntervalSeconds\": 90}");
+        HttpResponse<String> response = post(app, "/api/settings", allSettings(90, false, "hh:mm"));
 
         assertEquals(500, response.statusCode());
         assertTrue(json(response).get("error").asText().startsWith("The settings could not be saved"));
@@ -1040,7 +1008,10 @@ class ApiTest {
         assertEquals("POST", refreshGet.headers().firstValue("Allow").orElse(""));
 
         assertEquals(405, send(app, "/api/config", HttpRequest.newBuilder().DELETE()).statusCode());
-        assertEquals(405, send(app, "/api/config", HttpRequest.newBuilder().PUT(HttpRequest.BodyPublishers.ofString("{}"))
+        HttpResponse<String> configPost = post(app, "/api/config", "{\"usageIntervalSeconds\": 90}");
+        assertEquals(405, configPost.statusCode(), "the interval is changed only through the settings");
+        assertEquals("GET", configPost.headers().firstValue("Allow").orElse(""));
+        assertEquals(405, send(app, "/api/settings", HttpRequest.newBuilder().PUT(HttpRequest.BodyPublishers.ofString("{}"))
                 .header("Content-Type", "application/json")).statusCode());
     }
 
@@ -1061,9 +1032,9 @@ class ApiTest {
         for (String type : new String[] {"text/plain", "application/x-www-form-urlencoded", "multipart/form-data"}) {
             HttpRequest.Builder refresh = HttpRequest.newBuilder().POST(HttpRequest.BodyPublishers.ofString("{}")).header("Content-Type", type);
             HttpRequest.Builder config = HttpRequest.newBuilder()
-                    .POST(HttpRequest.BodyPublishers.ofString("{\"usageIntervalSeconds\": 90}")).header("Content-Type", type);
+                    .POST(HttpRequest.BodyPublishers.ofString(allSettings(90, false, "hh:mm"))).header("Content-Type", type);
             assertEquals(415, send(app, "/api/refresh", refresh).statusCode(), type);
-            assertEquals(415, send(app, "/api/config", config).statusCode(), type);
+            assertEquals(415, send(app, "/api/settings", config).statusCode(), type);
         }
         HttpRequest.Builder noType = HttpRequest.newBuilder().POST(HttpRequest.BodyPublishers.ofString("{}"));
         assertEquals(415, send(app, "/api/refresh", noType).statusCode());
@@ -1076,10 +1047,10 @@ class ApiTest {
     @Test
     void jsonWithACharsetParameterIsAccepted() throws Exception {
         HttpRequest.Builder request = HttpRequest.newBuilder()
-                .POST(HttpRequest.BodyPublishers.ofString("{\"usageIntervalSeconds\": 90}"))
+                .POST(HttpRequest.BodyPublishers.ofString(allSettings(90, false, "hh:mm")))
                 .header("Content-Type", "application/json; charset=utf-8");
 
-        assertEquals(200, send(start(new FakeFetch()), "/api/config", request).statusCode());
+        assertEquals(200, send(start(new FakeFetch()), "/api/settings", request).statusCode());
     }
 
     @Test

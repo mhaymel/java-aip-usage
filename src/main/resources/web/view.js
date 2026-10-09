@@ -117,22 +117,8 @@
         };
     }
 
-    /** Checks a typed interval against the limits the backend reported. Returns an error text, or null. */
-    function checkInterval(text, limits, label) {
-        var trimmed = String(text).trim();
-        if (!/^[0-9]+$/.test(trimmed)) {
-            return label + ' must be a whole number of seconds.';
-        }
-        var value = Number(trimmed);
-        if (value < limits.min || value > limits.max) {
-            return label + ' must be from ' + limits.min + ' to ' + limits.max + ' seconds.';
-        }
-        return null;
-    }
-
     root.UsageView = {
         describeStatus: describeStatus,
-        checkInterval: checkInterval,
         describeLog: describeLog,
         describeHistory: describeHistory
     };

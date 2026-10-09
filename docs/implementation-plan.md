@@ -959,7 +959,11 @@ from the raw fields; the real logic is tested in `FormattingTest` and `StatusDis
 
 ### 23. The settings view in the window, and a stable row
 
-**Status: planned.** Requirements: Settings, Compact window (row, tooltips, window size).
+**Status: done (version 0.08); how it looks, and the window sizes, are for a person to judge.** The view is static HTML in the panel area,
+filled by `app.js` from `GET /api/settings` each time it opens. Close asks inline (Discard them / Keep editing), because
+a JavaFX WebView shows no `confirm()` dialog unless the host installs a handler. `POST /api/config` and the config field are gone and the
+`view.js` interval check with them; `GET /api/config` stays, since the polling interval is the one value that is not a setting
+and the page needs it before it polls. The old POST tests in `ApiTest` now go through `/api/settings`. Requirements: Settings, Compact window (row, tooltips, window size).
 
 - **Panel.** A third panel in `PANELS` beside the history and the log: button, tooltips `Show the settings` and
   `Hide the settings`, ten times the row's height, the width of the row, one panel at a time. The config button's

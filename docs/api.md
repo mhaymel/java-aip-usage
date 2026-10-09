@@ -12,8 +12,7 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/config` | The effective intervals, and the limits they must stay within |
-| `POST` | `/api/config` | Change one or both intervals |
+| `GET` | `/api/config` | The effective intervals (read-only: the settings view changes the usage interval, through `/api/settings`) |
 | `GET` | `/api/settings` | Every setting, the defaults, and the interval choices |
 | `POST` | `/api/settings` | Apply a full set of settings |
 | `GET` | `/api/status` | The latest usage reading and refresh outcome (read-only) |
@@ -57,10 +56,11 @@ are not settings are ignored.
 
 - `200`: applied and saved, effective at once; the body is the same as `GET /api/settings`. The interval
   replaces any command-line override for the rest of the run.
-- `400`, `413`, `415`: as for `/api/config`.
+- `400`: a key is missing or has the wrong type, `timeFormat` is unknown, the body is not a JSON object, or the interval is outside `limits`.
+- `413`: the body is larger than 4096 bytes.
+- `415`: the `Content-Type` is not `application/json`.
 - `500`: the values are valid but could not be saved. Nothing is changed.
 
-`/api/config` keeps working for the interval alone until the settings view replaces it.
 
 ## `GET /api/config`
 
@@ -87,33 +87,6 @@ The frontend asks for this once at startup, and then polls `/api/status` every
 The values are the ones in force. For the usage interval that is a command-line
 option, else the saved setting, else the default (see the README), until the
 frontend changes it.
-
-## `POST /api/config`
-
-```json
-{ "usageIntervalSeconds": 45 }
-```
-
-`usageIntervalSeconds` is required and must be a whole JSON number within
-`limits`. Other unknown keys are ignored. `pollIntervalSeconds` is not: giving it
-(other than `null`) is refused, so that a client written for an earlier version finds
-out and does not believe it worked.
-
-- `200`: applied and saved; the body is the same as `GET /api/config`. The
-  change is effective at once and replaces any command-line override for the
-  rest of the run.
-- `400`: the value is out of range or not a whole number, the body is not a JSON
-  object, no setting was given, or `pollIntervalSeconds` was given (the message
-  points to `--poll-interval`). Nothing is changed, even if the rest of the body was
-  valid.
-- `413`: the body is larger than 4096 bytes.
-- `415`: the `Content-Type` is not `application/json`.
-- `500`: the values are valid but could not be saved. Nothing is changed.
-
-Changing `usageIntervalSeconds` does not cancel a fetch in progress and does not
-by itself start one. The next fetch is due one new interval after the most recent
-fetch was *started*; if that time has already passed it starts as soon as no fetch
-is running.
 
 ## `GET /api/status`
 

@@ -26,10 +26,6 @@
     var panelRows = [];
     var panelHasHeader = false;
 
-    // The one setting the window offers. How often the window itself updates is not
-    // a setting: it comes from the command line and is only read here.
-    var INTERVAL = { input: 'usage-interval', key: 'usageIntervalSeconds', label: 'The usage interval' };
-
     function $(id) {
         return document.getElementById(id);
     }
@@ -139,11 +135,18 @@
         show('placeholder', Boolean(v.placeholder));
         $('placeholder').textContent = v.placeholder || '';
 
-        show('countdown', Boolean(v.countdown));
-        $('countdown').textContent = v.countdown ? v.countdown.text : '';
-        $('countdown').title = v.countdown ? v.countdown.tooltip : '';
+        renderOptional('countdown', v.show.countdown && v.countdown);
+        renderOptional('delta-used', v.show.deltaUsed && v.deltaUsed);
+        renderOptional('delta-time', v.show.deltaTime && v.deltaTime);
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
+    }
+
+    /** An optional item of the row: shown only when its setting is on and the backend has a value for it. */
+    function renderOptional(id, item) {
+        show(id, Boolean(item));
+        $(id).textContent = item ? item.text : '';
+        $(id).title = item ? item.tooltip : '';
     }
 
     function applyAppClass() {
@@ -179,78 +182,130 @@
         });
     }
 
-    // ---- config: a field that appears on demand
+    // ---- the settings view: a form the backend fills in each time it is opened
 
-    function configIsOpen() {
-        return !$('config').hidden;
+    /** The settings as the backend gave them when the view was opened, to tell whether the form has unapplied changes. */
+    var settingsShown = null;
+    var settingsDefaults = null;
+
+    var SETTING_FLAGS = ['showCountdown', 'showDeltaUsed', 'showDeltaTime', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
+
+    function fillInterval(choices, current) {
+        var select = $('set-usageIntervalSeconds');
+        var values = choices.indexOf(current) === -1 ? choices.concat([current]) : choices.slice();
+        // The backend's own value is always offered, even one the dropdown would not: it is what is in force.
+        values.sort(function (a, b) { return a - b; });
+        select.replaceChildren();
+        values.forEach(function (seconds) {
+            var option = document.createElement('option');
+            option.value = String(seconds);
+            option.textContent = seconds + ' s';
+            select.append(option);
+        });
+        select.value = String(current);
     }
 
-    /**
-     * Asks the backend for its interval every time, since it may have changed since the page
-     * started. If it cannot be asked, the last value known is shown.
-     */
-    async function openConfig() {
+    function fillForm(values) {
+        SETTING_FLAGS.forEach(function (key) {
+            $('set-' + key).checked = Boolean(values[key]);
+        });
+        $('set-timeFormat').value = values.timeFormat;
+        $('set-usageIntervalSeconds').value = String(values.usageIntervalSeconds);
+    }
+
+    function readForm() {
+        var values = {
+            usageIntervalSeconds: Number($('set-usageIntervalSeconds').value),
+            timeFormat: $('set-timeFormat').value
+        };
+        SETTING_FLAGS.forEach(function (key) {
+            values[key] = $('set-' + key).checked;
+        });
+        return values;
+    }
+
+    function formIsDirty() {
+        return settingsShown !== null && JSON.stringify(sorted(readForm())) !== JSON.stringify(sorted(settingsShown));
+    }
+
+    function sorted(values) {
+        var out = {};
+        Object.keys(values).sort().forEach(function (key) { out[key] = values[key]; });
+        return out;
+    }
+
+    /** Reads the settings from the backend and fills the form; the form is hidden, with the reason, if they cannot be read. */
+    async function loadSettings() {
+        setNote('settings-error', '');
+        show('settings-confirm', false);
         try {
-            config = await request('/api/config');
+            var body = await request('/api/settings');
+            settingsShown = body.settings;
+            settingsDefaults = body.defaults;
+            fillInterval(body.intervalChoices, body.settings.usageIntervalSeconds);
+            fillForm(body.settings);
+            show('settings-form', true);
         } catch (e) {
-            // Keep what we had; the lost-contact banner is the poll's to show.
+            // The frontend keeps no settings of its own, so with none to show there is no form.
+            settingsShown = null;
+            settingsDefaults = null;
+            show('settings-form', false);
+            setNote('settings-error', 'The settings could not be read: ' + e.message);
         }
-        $(INTERVAL.input).value = String(config[INTERVAL.key]);
-        $(INTERVAL.input).removeAttribute('aria-invalid');
-        setNote('config-note', '');
-        show('config', true);
-        $('config-toggle').setAttribute('aria-expanded', 'true');
-        $(INTERVAL.input).focus();
+        setApplyEnabled(settingsShown !== null);
     }
 
-    function closeConfig() {
-        show('config', false);
-        setNote('config-note', '');
-        $(INTERVAL.input).removeAttribute('aria-invalid');
-        $('config-toggle').setAttribute('aria-expanded', 'false');
+    function setApplyEnabled(enabled) {
+        ['settings-apply', 'settings-restore'].forEach(function (id) {
+            if (enabled) {
+                $(id).removeAttribute('disabled');
+            } else {
+                $(id).setAttribute('disabled', '');
+            }
+        });
     }
 
-    function toggleConfig() {
-        if (configIsOpen()) {
-            closeConfig();
-        } else {
-            openConfig();
-        }
-    }
-
-    /** Checks the value, then sends it if it changed. */
-    async function confirmConfig() {
-        var problem = view.checkInterval($(INTERVAL.input).value, config.limits[INTERVAL.key], INTERVAL.label);
-        if (problem) {
-            $(INTERVAL.input).setAttribute('aria-invalid', 'true');
-            setNote('config-note', problem);
+    async function applySettings() {
+        if (settingsShown === null) {
             return;
         }
-        $(INTERVAL.input).removeAttribute('aria-invalid');
-
-        var value = Number($(INTERVAL.input).value.trim());
-        if (value === config[INTERVAL.key]) {
-            closeConfig();
-            return;
-        }
-
         try {
-            var change = {};
-            change[INTERVAL.key] = value;
-            config = await postJson('/api/config', change);
-            closeConfig();
+            var body = await postJson('/api/settings', readForm());
+            settingsShown = body.settings;
+            settingsDefaults = body.defaults;
+            fillInterval(body.intervalChoices, body.settings.usageIntervalSeconds);
+            fillForm(body.settings);
+            setNote('settings-error', '');
+            show('settings-confirm', false);
+            pollNow();
         } catch (e) {
-            setNote('config-note', e.message);
+            setNote('settings-error', e.message);
         }
     }
 
-    function onConfigKey(event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            confirmConfig();
-        } else if (event.key === 'Escape') {
-            event.preventDefault();
-            closeConfig();
+    /** Fills the form with the defaults the backend gave; they take effect only when Apply is pressed. */
+    function restoreDefaults() {
+        if (settingsDefaults) {
+            fillForm(settingsDefaults);
+        }
+    }
+
+    /** The main-view switches all on, or all off; the form only, until Apply. */
+    function setMainView(all) {
+        ['showCountdown', 'showDeltaUsed', 'showDeltaTime'].forEach(function (key) {
+            $('set-' + key).checked = all;
+        });
+        $('set-timeFormat').value = all ? 'hh:mm:ss' : 'hh:mm';
+    }
+
+    /** Closes the view, asking first if the form has changes that were not applied. */
+    function closeSettings(force) {
+        if (!force && formIsDirty()) {
+            show('settings-confirm', true);
+            return;
+        }
+        if (openPanel === 'settings') {
+            togglePanel('settings');
         }
     }
 
@@ -264,6 +319,11 @@
             show: 'Show the usage history',
             hide: 'Hide the usage history',
             failure: 'The usage history could not be read: '
+        },
+        settings: {
+            button: 'settings-button',
+            show: 'Show the settings',
+            hide: 'Hide the settings'
         },
         log: {
             button: 'log-button',
@@ -288,7 +348,7 @@
      * changed, and what the person has scrolled to stays where it is, though lines come in above it.
      */
     async function loadPanel() {
-        if (panelLoading || !openPanel) {
+        if (panelLoading || !openPanel || openPanel === 'settings') {
             return;
         }
         var name = openPanel;
@@ -381,6 +441,16 @@
         setNote('panel-error', '');
         labelButtons();
         show('panel', panelIsOpen());
+        // The settings are a form in the same place, not lines; the others are lines.
+        show('settings-view', openPanel === 'settings');
+        if (openPanel === 'settings') {
+            show('panel-lines', false);
+            loadSettings();
+        } else {
+            settingsShown = null;
+            settingsDefaults = null;
+            show('settings-confirm', false);
+        }
         applyAppClass();
         loadPanel();
     }
@@ -402,7 +472,7 @@
         if (openPanel === 'log') {
             return 3 * width + ',' + 10 * height + ',2';
         }
-        if (openPanel === 'history') {
+        if (openPanel === 'history' || openPanel === 'settings') {
             return width + ',' + 10 * height + ',1';
         }
         return width + ',' + height + ',0';
@@ -422,9 +492,14 @@
 
         $('log-button').addEventListener('click', function () { togglePanel('log'); });
         $('history-button').addEventListener('click', function () { togglePanel('history'); });
-        $('config-toggle').addEventListener('click', toggleConfig);
-        $('config-ok').addEventListener('click', confirmConfig);
-        $(INTERVAL.input).addEventListener('keydown', onConfigKey);
+        $('settings-button').addEventListener('click', function () { togglePanel('settings'); });
+        $('settings-apply').addEventListener('click', applySettings);
+        $('settings-restore').addEventListener('click', restoreDefaults);
+        $('settings-close').addEventListener('click', function () { closeSettings(false); });
+        $('settings-discard').addEventListener('click', function () { closeSettings(true); });
+        $('settings-keep').addEventListener('click', function () { show('settings-confirm', false); });
+        $('settings-maximum').addEventListener('click', function () { setMainView(true); });
+        $('settings-minimum').addEventListener('click', function () { setMainView(false); });
         $('refresh').addEventListener('click', async function () {
             try {
                 await postJson('/api/refresh', {});

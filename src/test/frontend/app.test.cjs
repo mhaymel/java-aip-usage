@@ -126,6 +126,10 @@ function backendOf(state) {
         }
         if (call.url === '/api/config' && call.method === 'GET') return { status: 200, body: state.config };
         if (call.url === '/api/config' && call.method === 'POST') return state.postConfig(JSON.parse(call.body));
+        if (call.url === '/api/settings' && call.method === 'GET') return state.settings ? state.settings() : { status: 200, body: SETTINGS };
+        if (call.url === '/api/settings' && call.method === 'POST') {
+            return state.postSettings ? state.postSettings(JSON.parse(call.body)) : { status: 200, body: { ...SETTINGS, settings: JSON.parse(call.body) } };
+        }
         if (call.url === '/api/status') return { status: 200, body: withDisplay(state.status) };
         if (call.url === '/api/refresh') return { status: 202, body: { started: true } };
         if (call.url === '/api/log') return state.log ? state.log() : { status: 200, body: LOG };
@@ -133,6 +137,17 @@ function backendOf(state) {
         return { status: 404, body: { error: 'No such endpoint.' } };
     };
 }
+
+const DEFAULT_SETTINGS = {
+    usageIntervalSeconds: 60, logResponse: false, showCountdown: false, showDeltaUsed: false, showDeltaTime: false,
+    timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false,
+};
+const SETTINGS = {
+    settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showCountdown: true, timeFormat: 'hh:mm:ss' },
+    defaults: DEFAULT_SETTINGS,
+    intervalChoices: [60, 120, 180, 240, 300],
+    limits: { usageIntervalSeconds: { min: 5, max: 3600 } },
+};
 
 const HISTORY = {
     file: 'java-aip-usage.csv', exists: true, columns: ['datetime', 'used', 'limit', 'currency'], total: 2,
@@ -409,252 +424,6 @@ test('the refresh button asks the backend to fetch, then shows the result, and s
 
 // ---- config: two fields, on demand, confirmed together
 
-test('the config fields are hidden until the config button is pressed', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-
-    assert.equal(page.el('config').hidden, true);
-    assert.equal(page.el('config-toggle').attrs['aria-expanded'], undefined);
-});
-
-test('pressing the config button shows the fetch interval with its current value', async () => {
-    const page = await load(backendOf({ config: { ...CONFIG, usageIntervalSeconds: 90 }, status: SPEND_STATUS }));
-
-    await page.click('config-toggle');
-
-    assert.equal(page.el('config').hidden, false);
-    assert.equal(page.el('usage-interval').value, '90');
-    assert.equal(page.el('config-toggle').attrs['aria-expanded'], 'true');
-    assert.equal(page.el('usage-interval').focused, true, 'the field is ready to type in');
-});
-
-test('opening the config asks the backend for its interval again, since it may have changed', async () => {
-    const state = { config: CONFIG, status: SPEND_STATUS };
-    const page = await load(backendOf(state));
-    const before = page.calls.length;
-
-    // The backend's interval changed after the page started (here: a 90 s one).
-    state.config = { ...CONFIG, usageIntervalSeconds: 90 };
-    await page.click('config-toggle');
-
-    assert.equal(page.calls.slice(before)[0].url, '/api/config');
-    assert.equal(page.calls.slice(before)[0].method, 'GET');
-    assert.equal(page.el('usage-interval').value, '90', 'the new value, not the one from startup');
-});
-
-test('each time the config is opened it shows the backend\'s current value', async () => {
-    const state = { config: CONFIG, status: SPEND_STATUS };
-    const page = await load(backendOf(state));
-
-    await page.click('config-toggle');
-    assert.equal(page.el('usage-interval').value, '60');
-    await page.click('config-toggle');
-
-    state.config = { ...CONFIG, usageIntervalSeconds: 120 };
-    await page.click('config-toggle');
-    assert.equal(page.el('usage-interval').value, '120');
-    await page.click('config-toggle');
-
-    state.config = { ...CONFIG, usageIntervalSeconds: 15 };
-    await page.click('config-toggle');
-    assert.equal(page.el('usage-interval').value, '15');
-});
-
-test('if the backend cannot be asked the last value known is shown', async () => {
-    const state = { config: { ...CONFIG, usageIntervalSeconds: 75 }, status: SPEND_STATUS };
-    const page = await load(backendOf(state));
-
-    state.down = true;
-    await page.click('config-toggle');
-
-    assert.equal(page.el('config').hidden, false, 'the field still opens');
-    assert.equal(page.el('usage-interval').value, '75');
-});
-
-test('confirming the value the backend now has sends nothing, even if it differs from the startup value', async () => {
-    const state = { config: CONFIG, status: SPEND_STATUS, postConfig: accepting };
-    const page = await load(backendOf(state));
-    state.config = { ...CONFIG, usageIntervalSeconds: 90 };
-    await page.click('config-toggle');
-
-    await page.press('usage-interval', 'Enter');
-
-    assert.equal(page.posts().length, 0, 'it is already what the backend has');
-    assert.equal(page.el('config').hidden, true);
-});
-
-test('a value that differs from what the backend has now is sent', async () => {
-    const state = { config: CONFIG, status: SPEND_STATUS, postConfig: accepting };
-    const page = await load(backendOf(state));
-    state.config = { ...CONFIG, usageIntervalSeconds: 90 };
-    await page.click('config-toggle');
-
-    // 60 is the value from startup, which the backend no longer has.
-    page.type('usage-interval', '60');
-    await page.press('usage-interval', 'Enter');
-
-    assert.deepEqual(JSON.parse(page.posts()[0].body), { usageIntervalSeconds: 60 });
-});
-
-test('there is no field for the update interval: it is set on the command line only', async () => {
-    const page = await load(backendOf({ config: { ...CONFIG, pollIntervalSeconds: 5 }, status: SPEND_STATUS }));
-
-    await page.click('config-toggle');
-
-    assert.equal(page.el('poll-interval'), undefined);
-    assert.equal(INDEX_IDS.includes('poll-interval'), false);
-});
-
-test('confirming with Enter sends the value, then the field disappears', async () => {
-    const state = { config: CONFIG, status: SPEND_STATUS, postConfig: accepting };
-    const page = await load(backendOf(state));
-    await page.click('config-toggle');
-
-    page.type('usage-interval', '120');
-    const prevented = await page.press('usage-interval', 'Enter');
-
-    assert.equal(prevented, true);
-    assert.equal(page.posts().length, 1);
-    assert.equal(page.posts()[0].headers['Content-Type'], 'application/json');
-    assert.deepEqual(JSON.parse(page.posts()[0].body), { usageIntervalSeconds: 120 });
-    assert.equal(page.el('config').hidden, true);
-    assert.equal(page.el('config-toggle').attrs['aria-expanded'], 'false');
-});
-
-test('the confirm button does the same as Enter', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-    page.type('usage-interval', '45');
-
-    await page.click('config-ok');
-
-    assert.equal(page.posts().length, 1);
-    assert.equal(page.el('config').hidden, true);
-});
-
-test('the window only ever sends the fetch interval, never the update interval', async () => {
-    const page = await load(backendOf({ config: { ...CONFIG, pollIntervalSeconds: 5 }, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-    page.type('usage-interval', '90');
-
-    await page.click('config-ok');
-
-    assert.deepEqual(Object.keys(JSON.parse(page.posts()[0].body)), ['usageIntervalSeconds']);
-});
-
-test('changing the fetch interval does not disturb how often the window updates', async () => {
-    const page = await load(backendOf({ config: { ...CONFIG, pollIntervalSeconds: 3 }, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-    const before = page.calls.length;
-
-    page.type('usage-interval', '90');
-    await page.click('config-ok');
-
-    assert.deepEqual(page.calls.slice(before).map(c => c.url), ['/api/config'], 'nothing but the change itself is sent');
-    assert.equal(page.timers.filter(t => t.live).pop().ms, 3000);
-});
-
-test('confirming values that did not change sends nothing and closes the fields', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-
-    await page.press('usage-interval', 'Enter');
-
-    assert.equal(page.posts().length, 0);
-    assert.equal(page.el('config').hidden, true);
-});
-
-test('an invalid value keeps the field open, flags it, and sends nothing', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-
-    for (const bad of ['4', '3601', '', 'abc', '1.5', '-3']) {
-        page.type('usage-interval', bad);
-        await page.press('usage-interval', 'Enter');
-
-        assert.equal(page.el('config').hidden, false, bad);
-        assert.equal(page.el('usage-interval').attrs['aria-invalid'], 'true', bad);
-        assert.equal(page.el('config-note').hidden, false, bad);
-        assert.match(page.el('config-note').textContent, /^The usage interval must be/, bad);
-    }
-    assert.equal(page.posts().length, 0);
-});
-
-test('a valid pair sent after a mistake closes the fields and clears the message', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-    page.type('usage-interval', '4');
-    await page.press('usage-interval', 'Enter');
-    assert.equal(page.el('config-note').hidden, false);
-
-    page.type('usage-interval', '45');
-    await page.press('usage-interval', 'Enter');
-
-    assert.equal(page.el('config').hidden, true);
-    assert.equal(page.el('config-note').hidden, true);
-    assert.equal(page.el('usage-interval').attrs['aria-invalid'], undefined);
-});
-
-test('Escape closes the fields without changing anything', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-    page.type('usage-interval', '60');
-
-    await page.press('usage-interval', 'Escape');
-
-    assert.equal(page.el('config').hidden, true);
-    assert.equal(page.posts().length, 0);
-});
-
-test('pressing the config button again closes the fields without changing anything', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-    page.type('usage-interval', '60');
-
-    await page.click('config-toggle');
-
-    assert.equal(page.el('config').hidden, true);
-    assert.equal(page.posts().length, 0);
-});
-
-test('reopening after a cancel shows the current values, not what was typed', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-    page.type('usage-interval', '60');
-    await page.press('usage-interval', 'Escape');
-
-    await page.click('config-toggle');
-
-    assert.equal(page.el('usage-interval').value, '60');
-});
-
-test('a value the backend refuses keeps the fields open and shows the reason', async () => {
-    const state = {
-        config: CONFIG, status: SPEND_STATUS,
-        postConfig: () => ({ status: 500, body: { error: 'The setting could not be saved: read-only file system' } }),
-    };
-    const page = await load(backendOf(state));
-    await page.click('config-toggle');
-
-    page.type('usage-interval', '90');
-    await page.press('usage-interval', 'Enter');
-
-    assert.equal(page.el('config').hidden, false);
-    assert.equal(page.el('usage-interval').value, '90', 'what was typed is kept');
-    assert.equal(page.el('config-note').textContent, 'The setting could not be saved: read-only file system');
-});
-
-test('a status poll does not close the fields or disturb what is being typed', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, postConfig: accepting }));
-    await page.click('config-toggle');
-    page.type('usage-interval', '6');
-
-    await page.firePoll();
-    await page.firePoll();
-
-    assert.equal(page.el('config').hidden, false);
-    assert.equal(page.el('usage-interval').value, '6');
-});
-
 // ---- the window host
 
 // The rows of the panel, each as its cells; the header, which is the first child, not among them.
@@ -786,17 +555,6 @@ test('history text is never handed to the HTML parser', async () => {
     await page.click('history-button');
 
     assert.equal(rows(page)[0][0], hostile);
-});
-
-test('the log and history buttons work while the config field is open, and leave it open', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('config-toggle');
-
-    await page.click('log-button');
-    await page.click('history-button');
-
-    assert.equal(page.el('panel').hidden, false);
-    assert.equal(page.el('config').hidden, false);
 });
 
 // ---- the log panel, and the two panels together
@@ -989,4 +747,253 @@ test('the stale look and the open panel keep each other\'s class on the page', a
 
     assert.match(page.el('app').className, /\bstale\b/);
     assert.match(page.el('app').className, /\bopen\b/);
+});
+
+// ---- the settings view
+
+const settingsPosts = page => page.calls.filter(c => c.method === 'POST' && c.url === '/api/settings');
+const settingsGets = page => page.calls.filter(c => c.method === 'GET' && c.url === '/api/settings');
+const option = page => page.el('set-usageIntervalSeconds').children.map(o => o.value);
+
+test('the settings button shows the view in the panel area, filled with what the backend has', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('settings-button');
+
+    assert.equal(page.el('panel').hidden, false);
+    assert.equal(page.el('settings-view').hidden, false);
+    assert.equal(page.el('panel-lines').hidden, true, 'not the lines of the log or the history');
+    assert.equal(page.el('settings-button').title, 'Hide the settings');
+    assert.equal(page.el('set-usageIntervalSeconds').value, '120');
+    assert.equal(page.el('set-showCountdown').checked, true);
+    assert.equal(page.el('set-showDeltaUsed').checked, false);
+    assert.equal(page.el('set-timeFormat').value, 'hh:mm:ss');
+    assert.equal(page.el('set-logResponse').checked, false);
+    assert.deepEqual(option(page), ['60', '120', '180', '240', '300']);
+    assert.equal(page.el('settings-error').hidden, true);
+});
+
+test('the interval the backend has is offered even when it is not one of the five', async () => {
+    const odd = { ...SETTINGS, settings: { ...SETTINGS.settings, usageIntervalSeconds: 45 } };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: odd }) }));
+
+    await page.click('settings-button');
+
+    assert.equal(page.el('set-usageIntervalSeconds').value, '45');
+    assert.deepEqual(option(page), ['45', '60', '120', '180', '240', '300']);
+});
+
+test('the view asks the backend every time it is opened, and keeps nothing of its own in between', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    assert.equal(settingsGets(page).length, 1);
+    await page.click('settings-button');
+    assert.equal(page.el('settings-view').hidden, true, 'pressed again, it closes');
+
+    state.settings = () => ({ status: 200, body: { ...SETTINGS, settings: { ...SETTINGS.settings, usageIntervalSeconds: 300, showDeltaTime: true } } });
+    await page.click('settings-button');
+
+    assert.equal(settingsGets(page).length, 2);
+    assert.equal(page.el('set-usageIntervalSeconds').value, '300');
+    assert.equal(page.el('set-showDeltaTime').checked, true);
+});
+
+test('Apply sends every setting together, and nothing else is sent', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-usageIntervalSeconds').value = '180';
+    page.el('set-logResponse').checked = true;
+    page.el('set-timeFormat').value = 'hh:mm';
+
+    await page.click('settings-apply');
+
+    assert.equal(settingsPosts(page).length, 1);
+    assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
+        usageIntervalSeconds: 180, logResponse: true, showCountdown: true, showDeltaUsed: false, showDeltaTime: false,
+        timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false,
+    });
+    assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
+    assert.equal(page.el('settings-view').hidden, false, 'Apply does not close the view');
+    assert.equal(page.el('settings-error').hidden, true);
+});
+
+test('changes do nothing until Apply: editing the form sends nothing', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+
+    page.el('set-showDeltaUsed').checked = true;
+    page.el('set-usageIntervalSeconds').value = '300';
+    await page.firePoll();
+
+    assert.equal(settingsPosts(page).length, 0);
+    assert.equal(page.el('set-showDeltaUsed').checked, true, 'a poll does not disturb what is being edited');
+});
+
+test('a setting the backend refuses stays in the form, with the reason in red', async () => {
+    const page = await load(backendOf({
+        config: CONFIG, status: SPEND_STATUS,
+        postSettings: () => ({ status: 400, body: { error: 'The usage interval must be a whole number of seconds from 5 to 3600.' } }),
+    }));
+    await page.click('settings-button');
+    page.el('set-usageIntervalSeconds').value = '180';
+
+    await page.click('settings-apply');
+
+    assert.equal(page.el('settings-error').hidden, false);
+    assert.match(page.el('settings-error').textContent, /from 5 to 3600/);
+    assert.match(INDEX_HTML, /id="settings-error" class="panel-error"/, 'the same red as the panel\'s errors');
+    assert.equal(page.el('set-usageIntervalSeconds').value, '180', 'what was typed stays');
+});
+
+test('Close with nothing changed closes at once', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+
+    await page.click('settings-close');
+
+    assert.equal(page.el('panel').hidden, true);
+    assert.equal(page.el('settings-confirm').hidden, true);
+    assert.equal(settingsPosts(page).length, 0);
+});
+
+test('Close with unapplied changes asks first; Keep editing stays, Discard closes without sending', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-logResponse').checked = true;
+
+    await page.click('settings-close');
+    assert.equal(page.el('settings-confirm').hidden, false, 'it asks');
+    assert.equal(page.el('panel').hidden, false, 'and the view stays');
+
+    await page.click('settings-keep');
+    assert.equal(page.el('settings-confirm').hidden, true);
+    assert.equal(page.el('set-logResponse').checked, true, 'the edit is still there');
+
+    await page.click('settings-close');
+    await page.click('settings-discard');
+    assert.equal(page.el('panel').hidden, true);
+    assert.equal(settingsPosts(page).length, 0, 'nothing was sent');
+});
+
+test('after Apply there is nothing unapplied, so Close does not ask', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-logResponse').checked = true;
+    await page.click('settings-apply');
+
+    await page.click('settings-close');
+
+    assert.equal(page.el('panel').hidden, true);
+});
+
+test('Restore defaults fills in the defaults and sends nothing until Apply', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+
+    await page.click('settings-restore');
+
+    assert.equal(page.el('set-usageIntervalSeconds').value, '60');
+    assert.equal(page.el('set-showCountdown').checked, false);
+    assert.equal(page.el('set-timeFormat').value, 'hh:mm');
+    assert.equal(settingsPosts(page).length, 0);
+
+    await page.click('settings-apply');
+    assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), DEFAULT_SETTINGS);
+});
+
+test('Maximum view turns every main-view item on and Minimum view off, and nothing else changes', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-logResponse').checked = true;
+    page.el('set-historyDeltaUsed').checked = true;
+
+    await page.click('settings-maximum');
+    assert.equal(page.el('set-showCountdown').checked, true);
+    assert.equal(page.el('set-showDeltaUsed').checked, true);
+    assert.equal(page.el('set-showDeltaTime').checked, true);
+    assert.equal(page.el('set-timeFormat').value, 'hh:mm:ss');
+
+    await page.click('settings-minimum');
+    assert.equal(page.el('set-showCountdown').checked, false);
+    assert.equal(page.el('set-showDeltaUsed').checked, false);
+    assert.equal(page.el('set-showDeltaTime').checked, false);
+    assert.equal(page.el('set-timeFormat').value, 'hh:mm');
+
+    assert.equal(page.el('set-logResponse').checked, true, 'the log setting is left alone');
+    assert.equal(page.el('set-historyDeltaUsed').checked, true, 'so are the history columns');
+    assert.equal(page.el('set-usageIntervalSeconds').value, '120', 'and the interval');
+    assert.equal(settingsPosts(page).length, 0, 'neither applies by itself');
+});
+
+test('if the settings cannot be read the view says so and has no form to edit', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 500, body: { error: 'Internal error; see the log.' } }) }));
+
+    await page.click('settings-button');
+
+    assert.equal(page.el('settings-form').hidden, true);
+    assert.match(page.el('settings-error').textContent, /^The settings could not be read: /);
+    assert.equal(page.el('settings-apply').attrs.disabled, '');
+    assert.equal(page.el('settings-restore').attrs.disabled, '');
+});
+
+test('the settings, the log and the history share the one panel area, and the settings are the size of the history', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('settings-button');
+    assert.equal(page.window.contentSize(), '400,420,1', 'ten times as tall as the row (400,42), the width of the row, height only');
+
+    await page.click('log-button');
+    assert.equal(page.el('settings-view').hidden, true, 'the log replaces the settings');
+    assert.equal(page.el('settings-button').title, 'Show the settings');
+    assert.equal(page.el('log-button').title, 'Hide the log');
+
+    await page.click('settings-button');
+    assert.equal(page.el('settings-view').hidden, false);
+    assert.equal(page.el('log-button').title, 'Show the log');
+    assert.equal(page.el('panel-lines').hidden, true);
+});
+
+// ---- the optional items of the row
+
+const WITH_CHANGE = {
+    ...SPEND_STATUS,
+    display: {
+        time: '14:24', timeTooltip: 'Last update: x', placeholder: null, windows: [], message: null,
+        spend: { percentText: '19%', percentTooltip: 'p', used: '186.02', limit: '1,000.00', usedTooltip: 'u', limitTooltip: 'l', severityText: 'normal', severityKind: 'normal' },
+        countdown: { text: '42 s', tooltip: 'c' },
+        deltaUsed: { text: '+0.05', tooltip: 'Change in the amount used since the previous reading, in USD' },
+        deltaTime: { text: '1 m', tooltip: 'Time since the previous reading' },
+        show: { countdown: false, deltaUsed: true, deltaTime: false },
+    },
+};
+
+test('the countdown and the two changes are in the row only when their settings are on', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: WITH_CHANGE }));
+
+    assert.equal(page.el('countdown').hidden, true, 'off');
+    assert.equal(page.el('delta-used').hidden, false, 'on');
+    assert.equal(page.el('delta-used').textContent, '+0.05');
+    assert.equal(page.el('delta-used').title, 'Change in the amount used since the previous reading, in USD');
+    assert.equal(page.el('delta-time').hidden, true, 'off');
+});
+
+test('turning the settings on shows the items at the next poll, as the backend says', async () => {
+    const state = { config: CONFIG, status: WITH_CHANGE };
+    const page = await load(backendOf(state));
+    state.status = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { countdown: true, deltaUsed: true, deltaTime: true } } };
+
+    await page.firePoll();
+
+    assert.equal(page.el('countdown').textContent, '42 s');
+    assert.equal(page.el('delta-time').textContent, '1 m');
+    assert.equal(page.el('delta-time').title, 'Time since the previous reading');
+});
+
+test('an item the backend could not work out is left out even though its setting is on', async () => {
+    const status = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, deltaUsed: null, show: { countdown: true, deltaUsed: true, deltaTime: true } } };
+    const page = await load(backendOf({ config: CONFIG, status }));
+
+    assert.equal(page.el('delta-used').hidden, true);
+    assert.equal(page.el('delta-time').hidden, false);
 });
