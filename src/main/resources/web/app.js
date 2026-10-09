@@ -227,34 +227,9 @@
 
     var SETTING_FLAGS = ['showPercentage', 'showCurrency', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
 
-    /**
-     * The interval is typed in a box; a dropdown beside it offers the usual values, and picking one fills the box. The box
-     * always shows the value in force, even one that is not a choice, which is what the backend has.
-     */
-    function fillInterval(choices, current) {
-        var select = $('set-intervalChoices');
-        select.replaceChildren();
-        var prompt = document.createElement('option');
-        prompt.value = '';
-        prompt.textContent = 'choose';
-        select.append(prompt);
-        choices.forEach(function (seconds) {
-            var option = document.createElement('option');
-            option.value = String(seconds);
-            option.textContent = seconds + ' s';
-            select.append(option);
-        });
-        select.value = '';
+    /** The interval is one entry field for a whole number of seconds; it shows the value in force, which is what the backend has. */
+    function fillInterval(current) {
         $('set-usageIntervalSeconds').value = String(current);
-    }
-
-    /** Picking a choice puts it in the box; the dropdown goes back to its prompt. */
-    function onIntervalChoice() {
-        var select = $('set-intervalChoices');
-        if (select.value !== '') {
-            $('set-usageIntervalSeconds').value = select.value;
-        }
-        select.value = '';
     }
 
     function fillForm(values) {
@@ -283,7 +258,7 @@
             var body = await request('/api/settings');
             settingsShown = body.settings;
             settingsDefaults = body.defaults;
-            fillInterval(body.intervalChoices, body.settings.usageIntervalSeconds);
+            fillInterval(body.settings.usageIntervalSeconds);
             fillForm(body.settings);
             show('settings-form', true);
         } catch (e) {
@@ -468,7 +443,8 @@
             measureTable(shown);
         }
         show('panel-lines', shown.rows.length > 0);
-        setNote('panel-note', shown.note);
+        // A note that says something is left out, or that there is nothing to see, is in the info colour.
+        setNote('panel-note', shown.note, 'panel-note' + (shown.noteHighlight ? ' highlight' : ''));
     }
 
     /**
@@ -637,7 +613,6 @@
         $('history-button').addEventListener('click', function () { togglePanel('history'); });
         $('settings-button').addEventListener('click', function () { togglePanel('settings'); });
         $('settings-apply').addEventListener('click', applySettings);
-        $('set-intervalChoices').addEventListener('change', onIntervalChoice);
         $('errors-button').addEventListener('click', function () { togglePanel('errors'); });
         $('countdown').addEventListener('mouseenter', function () { hoveringCountdown = true; render(); });
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });

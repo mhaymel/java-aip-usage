@@ -87,7 +87,7 @@ Example token output:
 ## Refresh behavior
 
 - Fetch usage immediately when the application starts, then repeat at the configured interval.
-- The default backend usage-fetch interval is 60 seconds. Configure it in seconds through both a command-line option (`--usage-interval <seconds>`) and the settings view (see Settings); the command line and the settings file accept values from 5 through 3600 seconds, while the settings view offers only 60, 120, 180, 240 and 300 seconds. The default is a minute because the usage endpoint appears to accept about one request a minute over the long run: a faster pace, such as 30 seconds, is allowed but draws HTTP 429 after roughly ten minutes.
+- The default backend usage-fetch interval is 60 seconds. Configure it in seconds through both a command-line option (`--usage-interval <seconds>`) and the settings view (see Settings); the command line, the settings file and the settings view accept values from 5 through 3600 seconds, the settings view in a single entry field. The default is a minute because the usage endpoint appears to accept about one request a minute over the long run: a faster pace, such as 30 seconds, is allowed but draws HTTP 429 after roughly ten minutes.
 - Save a usage-fetch interval changed in the frontend to the settings file (see Settings). A committed valid frontend value is sent to the backend and replaces any CLI override for the remainder of the run.
 - Changing the backend usage-fetch interval does not cancel a request already in progress. Apply the new interval to the next scheduled request, measuring the interval from when the current/most recent request was triggered. If the new interval has already elapsed, start the next request as soon as no request is running; otherwise wait until the interval elapses. Changing the interval does not otherwise trigger an extra immediate request.
 - If a refresh fails, keep the last successful data visible, mark it as stale, and show the error. Resume normal display after the next successful refresh.
@@ -369,7 +369,7 @@ names, shown as its code, here `USD`.
 
   | Setting | Values | Default |
   | --- | --- | --- |
-  | Interval (the time between usage requests) | a box the person can type any whole number of seconds from 5 to 3600 into, or pick one of the choices 60 s, 120 s, 180 s, 240 s and 300 s from, showing the backend's current value | 60 s |
+  | Interval (the time between usage requests) | a single entry field for a whole number of seconds from 5 to 3600, showing the backend's current value; there is no dropdown list | 60 s |
   | Log the response | on, off | off |
   | Show the percentage spent in the row | on, off | off |
   | Show the currency symbol in the row, before the amounts | on, off | off |
@@ -388,21 +388,22 @@ names, shown as its code, here `USD`.
 
 - A value typed in the interval box that is not a whole number from 5 to 3600 keeps the view open
   and shows a brief message in red when Apply is pressed; the backend refuses it, as before. The current value,
-  whatever it is (set on the command line, or in an old settings file), is what the box shows, with the
-  five choices offered besides it.
-- **The texts of the view.** The interval's label reads `Interval`, and so does the checkbox for the row's item;
+  whatever it is (set on the command line, or in an old settings file), is what the field shows. The field has
+  its unit, `s`, beside it, and there is no list of values to pick from.
+- **The texts of the view.** The section that holds the interval is headed `Request` (not `Usage requests`), and the interval's
+  label reads `Interval`, and so does the checkbox for the row's item;
   the row item's tooltip keeps `Time between usage requests`. The checkbox for the log reads `Log the response`.
-  Under the heading `History view` the checkboxes read `Show Date`, `Show zero usage lines`, `Show failed lines`, `Δ used` and `Δ time`
-  (the last two like the titles of the columns they switch on): no `Column`, and no colon in them. Under `Main view` the two checkboxes for the row keep their longer
+  Under the heading `History view` the checkboxes read `Date`, `Zero usage lines`, `Failed lines`, `Δ used` and `Δ time`
+  (the last two like the titles of the columns they switch on): no `Show` in front, no `Column`, and no colon in them. Under `Main view` the two checkboxes for the row keep their longer
   texts, `Change in the amount used` and `Time since the previous reading`. The other new ones in `Main view` read `Currency symbol`, `History icon`, `Log icon` and
   `Error log icon`.
 - **A checkbox and its text are centred on each other vertically**, and so is every other control and its label
-  (the interval's box and dropdown, the time format), in every line of the view, so that nothing sits higher or lower than its
+  (the interval's field, the time format), in every line of the view, so that nothing sits higher or lower than its
   label.
 - **Every control is wide enough for its own value**, the arrow of a dropdown included: the value is never
   covered by the arrow, nor cut off.
 - **The text of the view can be selected and copied.**
-- The view is arranged in sections: the usage requests, the main view, the history view and the log.
+- The view is arranged in sections: `Request`, `Main view`, `History view` and `Log`.
 - Two buttons set the switches of the main view together: **Maximum view** turns on the percentage, the currency symbol, the time between
   usage requests, the change in the amount used, the time since the previous reading, the three icons (history, log, error log) and the time
   with seconds; **Minimum view** turns them all off, the percentage with them, and sets the time to hours and minutes: a bare strip, with the gear
@@ -514,14 +515,19 @@ The history is shown inside the main window, not in a window of its own.
   never in minutes or hours**: `63 s`, `126 s`, `3600 s`. (The row's item keeps its short form, for example `1 m`.)
 - **Hiding lines.** Two settings (see Settings) say whether the history shows its zero usage lines and its failed lines; both are
   shown unless switched off. A **zero usage line** is a line whose change in the amount used, as under Changes between readings (against the
-  row directly before it, in the same run), is exactly zero: the reading is the same as the one before. The first line of a run, which has no
-  change, and a failed line, which has no amounts, are not zero usage lines. A **failed line** is a row of a failed query. What is hidden is
+  row directly before it, in the same run), is exactly zero: the reading is the same as the one before. **The startup lines count as zero usage
+  lines**: the first line of each run, the one with the gray background and the `The program started here` hover text, has no change and
+  is handled like the others that show no change, so it is hidden and shown with them. A startup line of a failed query (it has no amounts) is a failed line
+  and goes with those. A **failed line** is a row of a failed query. When the startup lines are hidden, the first line shown of a run has no change
+  either, since there is no line before it to compare with. What is hidden is
   left out of the table, and so of its sorting, its count of 1,000 lines and the changes worked out on it (see Changes between readings).
   The file itself is not touched.
 - **When not all the data is shown, the panel says so.** One line above the table, written by the backend, says how many lines there are,
-  how many are shown, and why the others are not: hidden zero usage lines, hidden failed lines, and older lines beyond the newest 1,000. For example
+  how many are shown, and why the others are not: hidden zero usage lines (the startup lines among them), hidden failed lines, and older lines beyond the newest 1,000. For example
   `Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.` It is there whenever anything is left out, and not
-  otherwise; it replaces the line that said how many of the lines were shown. The window shows it as received.
+  otherwise; it replaces the line that said how many of the lines were shown. The window shows it as received. **It is blue** (about `#0969da` on the
+  light theme and `#58a6ff` on the dark one), in the same bold text, so that it stands out as the sign that not everything is shown. **The error log's `There are no errors in this run.` is blue as well**,
+  the same blue, since it too is a line that tells the person something about what they are looking at; the other notes (no history yet, no rows yet, and the log's) keep their gray.
 - **The page does no calculation and makes no decision about the lines.** The backend sends each line finished: its cells, as the table
   shows them (the time as the setting says, the amounts, `failed` in the place of the amount of a failed line, the changes), whether it is the first
   line of a run, whether it is a failed line, and its hover text. The page only puts them on the screen. The status, the interval and the duration of
@@ -583,7 +589,7 @@ they happen, so that a person can see what went wrong and when without opening t
   found on the `PATH` or not able to run, and a credential in the environment that has to be unset. A failure that
   has no message line, an HTTP 429, is in the list all the same. One line is added for each failed refresh, not for each
   poll of the window.
-- It holds the newest 1,000 errors. If there are none yet, the panel says so in one line.
+- It holds the newest 1,000 errors. If there are none yet, the panel says so in one line, `There are no errors in this run.`, in blue.
 - While the panel is shown it keeps up: a new error appears at the top soon after it happens, without pressing
   anything, and what the person has scrolled to does not move.
 - **Its size is half that of the log in width**: ten times the row's height, and one and a half times the row's width plus the

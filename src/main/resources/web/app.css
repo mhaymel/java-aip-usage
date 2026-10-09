@@ -7,6 +7,8 @@
     --bad: #cf222e;
     /* The button of the open panel: a vivid green, easier to see than the severity green. */
     --active: #00b341;
+    /* A note that tells the person something about what they are looking at. */
+    --info: #0969da;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -15,6 +17,7 @@
         --warn: #d29922;
         --bad: #f85149;
         --active: #3ddc6b;
+        --info: #58a6ff;
     }
 }
 
@@ -378,6 +381,11 @@ body {
 .panel-note {
     margin: 0 0 2px;
     color: var(--muted);
+}
+
+/* The note that says not everything is shown, and the one that says there are no errors: blue. */
+.panel-note.highlight {
+    color: var(--info);
 }
 
 .panel-error {

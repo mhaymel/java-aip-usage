@@ -1301,6 +1301,28 @@ Restore defaults).
 *Assumed:* Maximum view also turns the currency symbol on and Minimum off (the requirements say so); the three buttons are visible before the first status arrives and are hidden by the first one that says otherwise, a flicker of one poll
 for people who switched them off; the history shows `$` only for USD and the bare code for other currencies, while the row shows the code with a space, as asked.
 
+### 33. One interval field, plainer labels, startup lines as zero usage, and a blue note
+
+**Status: done (version 0.19); the blue and the single field are for a person to judge.** Built as planned, with one fix found by a test: a failed startup line (`start-failed`) must be excluded from the zero usage rule explicitly (`!failed && (startup || ...)`),
+or it would have been hidden with the zero usage lines while the failed lines were shown. `noteHighlight` is computed from the same table counts as the note. Requirements: Settings (the `Request` section, the interval field, the labels), The usage history panel (Hiding lines, the note), Refresh behavior (the interval's range).
+
+- **A single interval field.** `index.html`: the section heading `Usage requests` becomes `Request`, and the dropdown `set-intervalChoices` is removed (the text field `set-usageIntervalSeconds` and its `s` stay). `app.js` loses `fillInterval`'s
+  choices, `onIntervalChoice` and its listener; `fillInterval(current)` only writes the value. The backend stops offering a list: `Settings.INTERVAL_CHOICES` and the `intervalChoices` member of `SettingsBody` go (the `limits` stay, 5 to 3600, which the page does not
+  use for a list any more). Tests: remove the dropdown tests in `app.test.cjs` (`choices`, the pick test, the "offered even when it is not one of the five" test, which becomes "the field shows the value in force"), the select checks in `layout.test.cjs`, `SettingsStoreTest`
+  and `ApiTest` (no `intervalChoices`); keep the typed-number, refused-in-red and backend-refusal tests, which are the field's.
+- **Labels.** The three History view checkboxes read `Date`, `Zero usage lines` and `Failed lines` (`Δ used` and `Δ time` as before): `index.html` and the settings-texts test in `layout.test.cjs`.
+- **Startup lines are zero usage lines (backend).** In `HistoryReader.read` the classification becomes: a row that is a failed query is a failed line (checked first, so a `start-failed` row is a failed line); otherwise a row is a zero usage line when its change is zero **or its
+  status begins a run** (`start`). `computeVisible` is unchanged: a hidden start row still begins its run, so the first line shown after a hidden startup line has no change. The note's `N zero usage` counts the startup lines in. Tests to change: the `ApiTest` hiding
+  tests whose counts and lists included the startup line (`writeMixedHistory`: 14:00 is now hidden with the zero lines, so 3 zero usage hidden and the lists lose `14:00:00`; the visible-change test loses its `start` line and its first change), the 1,102-row
+  note test (1,101 zero usage hidden, one line shown), `HistoryReaderTest` (a start row is a zero usage line, a start-failed row a failed line, the counts); new tests: the startup lines come back when the switch is on, with their gray flag and hover text.
+- **A blue note.** `ApiHandler.history` adds `noteHighlight` to the body: `true` only for the `Showing N of M lines: ...` note (something is left out), `false` for the "no history" and "no rows" notes. `describeHistory` passes it on; `app.js` `showPanel` sets
+  the note's class to `panel-note highlight` when it is true (and plain `panel-note` for every other panel and note); the style sheet gets `--info` (`#0969da`, `#58a6ff` in the dark block) and `.panel-note.highlight { color: var(--info); }` after the `.panel-note` rule, bold as the rest. The log's note is
+  untouched, but the error log's empty note, `There are no errors in this run.`, is blue as well: `describeErrors` gets the same `noteHighlight: true` for it (a page-side constant of the page's own
+  note, since the text and the case are the page's: `describeErrors` has no backend line to be told). Tests: `ApiTest` (the flag in each case), `view.test.cjs` (the error log's empty note is highlighted), `app.test.cjs` (the class on the history's hidden-lines note and on the error log's empty note, none on the log's or the empty-history note), `layout.test.cjs` (the variable in both themes, the rule, its place after `.panel-note`).
+- **Docs.** `api.md` (no `intervalChoices`, the new labels, startup lines in the zero usage definition, `noteHighlight`), README (the single field, the labels), the manual checks (the note is blue, startup lines hide with the zero usage lines, no dropdown).
+
+*Assumed:* a hidden startup line takes its gray marker and hover text with it; the interval field's own validation (a whole number in the page, the range in the backend) is all that is left of the choices' job; `Request` is one word, as written.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

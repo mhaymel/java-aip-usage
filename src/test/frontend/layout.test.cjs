@@ -147,7 +147,7 @@ test('the settings view has the three buttons, the two view buttons and a dropdo
         assert.match(html, new RegExp('<button[^>]*id="' + id + '"'), id);
     }
     assert.match(html, /<input id="set-usageIntervalSeconds" type="text"/, 'a box to type any number in');
-    assert.match(html, /<select id="set-intervalChoices"/, 'and a dropdown of the usual values');
+    assert.doesNotMatch(html, /set-intervalChoices/, 'and no dropdown of values');
     for (const key of ['showPercentage', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']) {
         assert.match(html, new RegExp('<input id="set-' + key + '" type="checkbox"'), key);
     }
@@ -409,9 +409,12 @@ test('the settings texts are the ones the requirements give', () => {
     assert.match(html, /<input id="set-showInterval" type="checkbox"> Interval<\/label>/);
     assert.match(html, /<input id="set-logResponse" type="checkbox"> Log the response<\/label>/);
     assert.match(html, /<legend>History view<\/legend>/);
-    assert.match(html, /<input id="set-historyDate" type="checkbox"> Show Date<\/label>/);
-    assert.match(html, /<input id="set-historyZeroLines" type="checkbox"> Show zero usage lines<\/label>/);
-    assert.match(html, /<input id="set-historyFailedLines" type="checkbox"> Show failed lines<\/label>/);
+    assert.match(html, /<input id="set-historyDate" type="checkbox"> Date<\/label>/);
+    assert.match(html, /<input id="set-historyZeroLines" type="checkbox"> Zero usage lines<\/label>/);
+    assert.match(html, /<input id="set-historyFailedLines" type="checkbox"> Failed lines<\/label>/);
+    assert.match(html, /<legend>Request<\/legend>/);
+    assert.doesNotMatch(html, /Usage requests/, 'the section is `Request`');
+    assert.doesNotMatch(html, /> Show /, 'no checkbox starts with Show');
     assert.match(html, /<input id="set-historyDeltaUsed" type="checkbox"> \u0394 used<\/label>/, 'the History view: like the title of the column');
     assert.match(html, /<input id="set-historyDeltaTime" type="checkbox"> \u0394 time<\/label>/);
     assert.match(html, /<input id="set-showDeltaUsed" type="checkbox"> Change in the amount used<\/label>/, 'the Main view keeps the long texts');
@@ -514,4 +517,20 @@ test('the four new settings are in the Main view group, with the texts of the re
     for (const [id, text] of [['set-showCurrency', 'Currency symbol'], ['set-showHistoryIcon', 'History icon'], ['set-showLogIcon', 'Log icon'], ['set-showErrorIcon', 'Error log icon']]) {
         assert.ok(main.includes('<input id="' + id + '" type="checkbox"> ' + text + '</label>'), id);
     }
+});
+
+test('the highlighted note is blue, in a colour of its own for each theme, and comes after the plain note rule', () => {
+    const colours = [...css.matchAll(/--info:\s*(#[0-9a-f]{6})/g)].map(m => m[1]);
+    assert.deepEqual(colours, ['#0969da', '#58a6ff'], 'the light theme, then the dark one');
+    assert.ok(css.indexOf('--info: #58a6ff') > css.indexOf('prefers-color-scheme: dark'), 'the second is in the dark block');
+    assert.match(ruleOf('.panel-note.highlight'), /color:\s*var\(--info\)/);
+    assert.ok(css.indexOf('.panel-note.highlight {') > css.indexOf('.panel-note {'), 'it wins over the gray');
+    assert.match(ruleOf('.panel-note'), /color:\s*var\(--muted\)/, 'the others stay gray');
+});
+
+test('the interval is one entry field with its unit, in the Request section', () => {
+    const request = html.slice(html.indexOf('<legend>Request</legend>'), html.indexOf('<legend>Main view</legend>'));
+    assert.match(request, /<input id="set-usageIntervalSeconds" type="text"/);
+    assert.match(request, /> s<\/label>/, 'the unit s beside it');
+    assert.equal((request.match(/<select/g) || []).length, 0, 'no dropdown');
 });

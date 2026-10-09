@@ -154,7 +154,6 @@ const DEFAULT_SETTINGS = {
 const SETTINGS = {
     settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showInterval: true, timeFormat: 'hh:mm:ss' },
     defaults: DEFAULT_SETTINGS,
-    intervalChoices: [60, 120, 180, 240, 300],
     limits: { usageIntervalSeconds: { min: 5, max: 3600 } },
 };
 
@@ -772,7 +771,6 @@ test('the stale look and the open panel keep each other\'s class on the page', a
 
 const settingsPosts = page => page.calls.filter(c => c.method === 'POST' && c.url === '/api/settings');
 const settingsGets = page => page.calls.filter(c => c.method === 'GET' && c.url === '/api/settings');
-const choices = page => page.el('set-intervalChoices').children.map(o => o.value);
 
 test('the settings button shows the view in the panel area, filled with what the backend has', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
@@ -788,18 +786,17 @@ test('the settings button shows the view in the panel area, filled with what the
     assert.equal(page.el('set-showDeltaUsed').checked, false);
     assert.equal(page.el('set-timeFormat').value, 'hh:mm:ss');
     assert.equal(page.el('set-logResponse').checked, false);
-    assert.deepEqual(choices(page), ['', '60', '120', '180', '240', '300']);
     assert.equal(page.el('settings-error').hidden, true);
 });
 
-test('the interval the backend has is offered even when it is not one of the five', async () => {
+test('the interval field shows the value in force, whatever it is: there is no list to pick from', async () => {
     const odd = { ...SETTINGS, settings: { ...SETTINGS.settings, usageIntervalSeconds: 45 } };
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: odd }) }));
 
     await page.click('settings-button');
 
-    assert.equal(page.el('set-usageIntervalSeconds').value, '45', 'the box shows what is in force, a choice or not');
-    assert.deepEqual(choices(page), ['', '60', '120', '180', '240', '300'], 'the dropdown offers the usual five, after its prompt');
+    assert.equal(page.el('set-usageIntervalSeconds').value, '45', 'the field shows what is in force');
+    assert.equal(INDEX_IDS.includes('set-intervalChoices'), false, 'and the page has no dropdown of values');
 });
 
 test('any whole number can be typed in the interval box, and is sent as a number', async () => {
@@ -810,18 +807,6 @@ test('any whole number can be typed in the interval box, and is sent as a number
     await page.click('settings-apply');
 
     assert.equal(JSON.parse(settingsPosts(page)[0].body).usageIntervalSeconds, 47);
-});
-
-test('picking a choice puts it in the box and sends nothing; the dropdown goes back to its prompt', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('settings-button');
-
-    page.el('set-intervalChoices').value = '240';
-    page.el('set-intervalChoices').listeners.change();
-
-    assert.equal(page.el('set-usageIntervalSeconds').value, '240');
-    assert.equal(page.el('set-intervalChoices').value, '');
-    assert.equal(settingsPosts(page).length, 0);
 });
 
 test('a box that is not a whole number of seconds is refused in the view, in red, and sends nothing', async () => {
@@ -1790,4 +1775,47 @@ test('the amounts are shown as the backend gives them, with or without the symbo
 
     assert.equal(page.el('used').textContent, '$186.02');
     assert.equal(page.el('limit').textContent, '$1,000.00');
+});
+
+// ---- the blue notes
+
+test('the history note that says lines are left out is blue: it gets the highlight class from the backend\'s flag', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, total: 236,
+        note: 'Showing 136 of 236 lines: 82 zero usage and 18 failed hidden.', noteHighlight: true } }) }));
+
+    await page.click('history-button');
+
+    assert.equal(page.el('panel-note').textContent, 'Showing 136 of 236 lines: 82 zero usage and 18 failed hidden.');
+    assert.match(page.el('panel-note').className, /\bhighlight\b/);
+});
+
+test('the history\'s notes about there being nothing, and the log\'s note, are not blue', async () => {
+    const none = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, exists: false, total: 0, lines: [],
+        note: 'There is no usage history yet.', noteHighlight: false } }) }));
+    await none.click('history-button');
+    assert.doesNotMatch(none.el('panel-note').className, /highlight/);
+
+    const cut = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, log: () => ({ status: 200, body: { ...LOG, truncated: true } }) }));
+    await cut.click('log-button');
+    assert.equal(cut.el('panel-note').hidden, false);
+    assert.doesNotMatch(cut.el('panel-note').className, /highlight/);
+});
+
+test('the error log\'s empty note is blue', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, errors: () => ({ status: 200, body: { entries: [] } }) }));
+
+    await page.click('errors-button');
+
+    assert.equal(page.el('panel-note').textContent, 'There are no errors in this run.');
+    assert.match(page.el('panel-note').className, /\bhighlight\b/);
+});
+
+test('the blue goes when the note does: switching from a blue note to a panel with another note or none', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, errors: () => ({ status: 200, body: { entries: [] } }) }));
+    await page.click('errors-button');
+    assert.match(page.el('panel-note').className, /highlight/);
+
+    await page.click('history-button');
+
+    assert.doesNotMatch(page.el('panel-note').className, /highlight/);
 });

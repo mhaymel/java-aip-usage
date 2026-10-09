@@ -298,7 +298,7 @@ class ApiTest {
     }
 
     @Test
-    void theSettingsEndpointGivesEverySettingTheDefaultsAndTheChoices() throws Exception {
+    void theSettingsEndpointGivesEverySettingTheDefaultsAndTheLimits() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
         JsonNode body = json(get(app, "/api/settings"));
@@ -308,7 +308,9 @@ class ApiTest {
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
         assertEquals(16, body.get("settings").size());
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
-        assertEquals("[60,120,180,240,300]", body.get("intervalChoices").toString());
+        assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
+        assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
+        assertEquals(3600, body.at("/limits/usageIntervalSeconds/max").asInt());
     }
 
     @Test
@@ -1042,9 +1044,10 @@ class ApiTest {
 
         JsonNode history = historyWith(false, true);
 
-        // 14:01 repeats 14:00 and 14:05 repeats 14:04: zero usage. 14:04 follows a failed row, so it has no change to be zero; 14:00 begins a run.
-        assertEquals(java.util.List.of("14:06:00", "14:04:00", "14:03:00", "14:02:00", "14:00:00"), times(history));
-        assertEquals("Showing 5 of 7 lines: 2 zero usage hidden.", history.get("note").asText());
+        // 14:01 repeats 14:00 and 14:05 repeats 14:04: zero usage. 14:04 follows a failed row, so it has no change to be zero. 14:00 is the startup line,
+        // which counts as a zero usage line too.
+        assertEquals(java.util.List.of("14:06:00", "14:04:00", "14:03:00", "14:02:00"), times(history));
+        assertEquals("Showing 4 of 7 lines: 3 zero usage hidden.", history.get("note").asText());
     }
 
     @Test
@@ -1064,8 +1067,8 @@ class ApiTest {
 
         JsonNode history = historyWith(false, false);
 
-        assertEquals(java.util.List.of("14:06:00", "14:04:00", "14:02:00", "14:00:00"), times(history));
-        assertEquals("Showing 4 of 7 lines: 2 zero usage and 1 failed hidden.", history.get("note").asText());
+        assertEquals(java.util.List.of("14:06:00", "14:04:00", "14:02:00"), times(history));
+        assertEquals("Showing 3 of 7 lines: 3 zero usage and 1 failed hidden.", history.get("note").asText());
     }
 
     @Test
@@ -1074,12 +1077,11 @@ class ApiTest {
 
         JsonNode lines = historyWith(false, false).get("lines");
 
-        // Shown, newest first: 14:06 (10.20), 14:04 (10.05), 14:02 (10.05), 14:00 (start, 10.00). The columns end with the change in the amount; the time is
-        // not switched on here, so the change is the last cell.
+        // Shown, newest first: 14:06 (10.20), 14:04 (10.05), 14:02 (10.05). The startup line 14:00 is hidden with the zero usage lines.
+        assertEquals(3, lines.size());
         assertEquals("+0.15", lines.get(0).at("/cells/3").asText(), "against 14:04, the previous line shown");
         assertEquals("", lines.get(1).at("/cells/3").asText(), "14:04 is the same as 14:02 shown before it: no change to show");
-        assertEquals("+0.05", lines.get(2).at("/cells/3").asText(), "14:02 against 14:00, the line before it");
-        assertEquals("", lines.get(3).at("/cells/3").asText(), "the first line of the run");
+        assertEquals("", lines.get(2).at("/cells/3").asText(), "14:02 has no line shown before it in its run: the startup line is hidden, so it has no change either");
     }
 
     @Test
@@ -1131,6 +1133,54 @@ class ApiTest {
     }
 
     @Test
+    void theStartupLinesCountAsZeroUsageLinesAndComeBackWithTheirMarkerWhenTheyAreShown() throws Exception {
+        writeMixedHistory();
+
+        JsonNode hidden = historyWith(false, true);
+        JsonNode shown = historyWith(true, true);
+
+        assertFalse(times(hidden).contains("14:00:00"), "hidden with the zero usage lines");
+        JsonNode first = shown.get("lines").get(6);
+        assertEquals("14:00:00", first.at("/cells/0").asText());
+        assertTrue(first.get("start").asBoolean(), "back with its gray flag");
+        assertEquals("The program started here", first.get("title").asText());
+    }
+
+    @Test
+    void aFailedStartupLineIsAFailedLineAndGoesWithThoseNotWithTheZeroUsageLines() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,,,,start-failed,60,5000",
+                "2026-10-08 14:01:00,10.00,1000.00,USD,,60,400");
+
+        JsonNode zeroOff = historyWith(false, true);
+        JsonNode failedOff = historyWith(true, false);
+
+        assertTrue(times(zeroOff).contains("14:00:00"), "not a zero usage line");
+        assertEquals(2, zeroOff.get("lines").size(), "the failed startup line and the reading after it");
+        assertFalse(times(failedOff).contains("14:00:00"), "hidden with the failed lines");
+        assertEquals("Showing 1 of 2 lines: 1 failed hidden.", failedOff.get("note").asText());
+    }
+
+    @Test
+    void theNoteIsHighlightedOnlyWhenSomethingIsLeftOut() throws Exception {
+        writeMixedHistory();
+        assertFalse(historyWith(true, true).get("noteHighlight").asBoolean(), "nothing is left out");
+        assertTrue(historyWith(false, true).get("noteHighlight").asBoolean(), "lines are hidden");
+    }
+
+    @Test
+    void theNotesAboutThereBeingNoHistoryAreNotHighlighted() throws Exception {
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime none = start(plan);
+        assertFalse(json(get(none, "/api/history")).get("noteHighlight").asBoolean());
+
+        writeHistory("datetime,used,limit,currency");
+        AppRuntime empty = start(plan);
+        assertFalse(json(get(empty, "/api/history")).get("noteHighlight").asBoolean());
+    }
+
+    @Test
     void theNoteCountsHiddenAndOlderLinesTogether() throws Exception {
         java.util.List<String> rows = new java.util.ArrayList<>(java.util.List.of(CSV_HEADER, "2026-01-01 00:00:00,1.00,2.00,USD,start,60,1"));
         for (int i = 1; i <= 1100; i++) {
@@ -1143,8 +1193,8 @@ class ApiTest {
         JsonNode history = historyWith(false, true);
 
         assertEquals(1102, history.get("total").asInt());
-        assertEquals(2, history.get("lines").size(), "the one change and the first line of the run");
-        assertEquals("Showing 2 of 1,102 lines: 1,100 zero usage hidden.", history.get("note").asText());
+        assertEquals(1, history.get("lines").size(), "the one change: the startup line is a zero usage line too");
+        assertEquals("Showing 1 of 1,102 lines: 1,101 zero usage hidden.", history.get("note").asText());
     }
 
     @Test

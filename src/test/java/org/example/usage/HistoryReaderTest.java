@@ -205,4 +205,43 @@ class HistoryReaderTest {
 
         assertEquals(null, table.deltas().get(1).seconds(), "the second was written after, but is earlier");
     }
+
+    // ---- the startup lines are zero usage lines
+
+    private static final String HEADER = "datetime,used,limit,currency,status,interval,duration_ms\n";
+
+    @Test
+    void aStartupLineIsAZeroUsageLineAndAFailedStartupLineIsAFailedLine() throws IOException {
+        Path file = write(HEADER
+                + "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400\n"
+                + "2026-10-08 14:01:00,10.10,1000.00,USD,,60,400\n"
+                + "2026-10-08 15:00:00,,,,start-failed,60,5000\n"
+                + "2026-10-08 15:01:00,10.20,1000.00,USD,,60,400\n");
+
+        HistoryReader.Table all = HistoryReader.read(file, 100);
+        HistoryReader.Table noZero = HistoryReader.read(file, 100, new HistoryReader.Filter(false, true));
+        HistoryReader.Table noFailed = HistoryReader.read(file, 100, new HistoryReader.Filter(true, false));
+
+        assertEquals(4, all.rows().size());
+        assertEquals(0, all.hiddenZero());
+        assertEquals(1, noZero.hiddenZero(), "the startup line that read the usage");
+        assertEquals(0, noZero.hiddenFailed());
+        assertEquals(List.of("2026-10-08 15:01:00", "2026-10-08 15:00:00", "2026-10-08 14:01:00"), times(noZero));
+        assertEquals(1, noFailed.hiddenFailed(), "the failed startup line");
+        assertEquals(0, noFailed.hiddenZero());
+        assertEquals(List.of("2026-10-08 15:01:00", "2026-10-08 14:01:00", "2026-10-08 14:00:00"), times(noFailed));
+    }
+
+    @Test
+    void whenTheStartupLineIsHiddenTheNextLineShownOfItsRunHasNoChange() throws IOException {
+        Path file = write(HEADER
+                + "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400\n"
+                + "2026-10-08 14:01:00,10.10,1000.00,USD,,60,400\n");
+
+        HistoryReader.Table noZero = HistoryReader.read(file, 100, new HistoryReader.Filter(false, true));
+
+        assertEquals(List.of("2026-10-08 14:01:00"), times(noZero));
+        assertEquals(HistoryDeltas.Delta.NONE, noZero.deltas().get(0));
+        assertEquals(1, noZero.visible());
+    }
 }

@@ -170,7 +170,6 @@ final class ApiHandler implements HttpHandler {
         return new SettingsBody(
                 toBody(shown()),
                 toBody(Settings.defaults()),
-                Settings.INTERVAL_CHOICES,
                 new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())));
     }
 
@@ -302,7 +301,7 @@ final class ApiHandler implements HttpHandler {
             }
             return new HistoryBody(
                     files.history().getFileName().toString(), table.exists(), columns, now.historyDate(),
-                    historyNote(table), table.total(), lines);
+                    historyNote(table), historyNoteHighlighted(table), table.total(), lines);
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
             throw new ApiException(500, "The usage history could not be read.", null);
@@ -336,6 +335,12 @@ final class ApiHandler implements HttpHandler {
             parts.add(count(older) + " older not shown");
         }
         return "Showing " + count(table.rows().size()) + " of " + count(table.total()) + " lines: " + String.join(", ", parts) + ".";
+    }
+
+    /** Whether the note says that not everything is shown, which the window shows in blue; the notes about there being no history are not. */
+    private static boolean historyNoteHighlighted(HistoryReader.Table table) {
+        return table.exists() && table.total() > 0
+                && table.hiddenZero() + table.hiddenFailed() + (table.visible() - table.rows().size()) > 0;
     }
 
     /** A count with a comma for thousands, whatever the machine's language, like the amounts. */
@@ -498,7 +503,7 @@ final class ApiHandler implements HttpHandler {
             boolean historyFailedLines) {
     }
 
-    record SettingsBody(SettingValues settings, SettingValues defaults, List<Integer> intervalChoices, Limits limits) {
+    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits) {
     }
 
     record RefreshBody(boolean started) {
@@ -531,7 +536,8 @@ final class ApiHandler implements HttpHandler {
     }
 
     record HistoryBody(
-            String file, boolean exists, List<String> columns, boolean wide, String note, int total, List<HistoryLine> lines) {
+            String file, boolean exists, List<String> columns, boolean wide, String note, boolean noteHighlight, int total,
+            List<HistoryLine> lines) {
     }
 
     record ErrorEntryBody(String time, String message) {

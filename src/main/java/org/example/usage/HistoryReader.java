@@ -53,8 +53,8 @@ public final class HistoryReader {
 
     /**
      * Which lines are left out. A <em>zero usage line</em> is a row whose change in the amount used, against the row directly
-     * before it, is exactly zero; the first row of a run, which has no change, is not one, and a failed row, which has
-     * no amounts, is not one. A <em>failed line</em> is a row of a failed query.
+     * before it, is exactly zero, or a startup line (the first row of a run, which has no change); a failed row, which has
+     * no amounts, is not one, and a failed startup line is a failed line. A <em>failed line</em> is a row of a failed query.
      */
     public record Filter(boolean showZero, boolean showFailed) {
 
@@ -96,7 +96,10 @@ public final class HistoryReader {
         List<Integer> order = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
             boolean failed = rows.get(i).get(4).contains("failed");
-            boolean zero = against.get(i).used() != null && against.get(i).used().signum() == 0;
+            // A failed startup line (start-failed) is a failed line, checked first. A startup line that read the usage has no change, and is handled like the
+            // lines that show none: a zero usage line.
+            boolean startup = rows.get(i).get(4).startsWith("start");
+            boolean zero = !failed && (startup || (against.get(i).used() != null && against.get(i).used().signum() == 0));
             if (failed && !filter.showFailed()) {
                 hiddenFailed++;
             } else if (zero && !filter.showZero()) {

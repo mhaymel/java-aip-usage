@@ -218,3 +218,23 @@ test('the message of an HTTP 429 is read from the display for the red countdown'
     assert.equal(view.describeStatus({ display: DISPLAY }).countdownAlert, null);
 });
 
+
+test('the history note is highlighted when the backend says so, and only then', () => {
+    const base = { exists: true, columns: ['time', 'used', 'limit', 'Cur.'], total: 2, lines: [] };
+
+    assert.equal(view.describeHistory({ ...base, note: 'Showing 0 of 2 lines: 2 failed hidden.', noteHighlight: true }).noteHighlight, true);
+    assert.equal(view.describeHistory({ ...base, note: 'There is no usage history yet.', noteHighlight: false }).noteHighlight, false);
+    assert.equal(view.describeHistory({ ...base, note: null }).noteHighlight, false, 'a missing flag is no highlight');
+});
+
+test('the error log\'s empty note is highlighted; with errors there is no note', () => {
+    assert.equal(view.describeErrors({ entries: [] }).noteHighlight, true);
+    assert.equal(view.describeErrors({ entries: [{ time: '11:34:42', message: 'x' }] }).note, null);
+});
+
+test('the page decides nothing about the history note from its text', () => {
+    const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../main/resources/web/view.js'), 'utf8');
+
+    assert.equal(source.includes("indexOf('Showing"), false);
+    assert.equal(source.includes("startsWith('Showing"), false);
+});

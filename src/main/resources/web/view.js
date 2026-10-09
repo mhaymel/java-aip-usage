@@ -90,12 +90,14 @@
      * What the history panel shows, from GET /api/history. The backend has finished every line (its cells, whether it begins a run,
      * whether it failed, its hover text) and the one line of explanation, so this only reads them into the shape the page
      * draws: nothing is worked out, sorted or chosen here.
-     * @returns {note, header, wide, rows, marks, failed, titles}
+     * @returns {note, noteHighlight, header, wide, rows, marks, failed, titles}
      */
     function describeHistory(data) {
         var lines = data.lines || [];
         return {
             note: data.note || null,
+            // The backend says whether the note is the one that tells something is left out.
+            noteHighlight: Boolean(data.noteHighlight),
             header: lines.length > 0 ? data.columns : null,
             // A time with the date is wider than one without.
             wide: Boolean(data.wide),
@@ -113,7 +115,7 @@
      */
     function describeErrors(data) {
         if (!data.entries || data.entries.length === 0) {
-            return { note: 'There are no errors in this run.', header: null, rows: [] };
+            return { note: 'There are no errors in this run.', noteHighlight: true, header: null, rows: [] };
         }
         return {
             note: null,

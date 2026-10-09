@@ -54,7 +54,6 @@ class SettingsStoreTest {
         assertEquals(TimeFormat.HOURS_MINUTES, d.timeFormat());
         assertFalse(d.historyDeltaUsed());
         assertFalse(d.historyDeltaTime());
-        assertEquals(List.of(60, 120, 180, 240, 300), Settings.INTERVAL_CHOICES);
     }
 
     @Test

@@ -63,6 +63,7 @@ Hover over things to see what they are:
 - **Error log** (the triangle) lists the errors of this run, newest first, with the time and the message: every failed
   refresh, an HTTP 429 and a problem with the token (not logged in, `claude` not found) included. It is kept in memory only and is empty at
   every start. An HTTP 429 is shown only as a red countdown, which tells you why when you hover over it, and is not a message under the row.
+- In the settings the interval is one entry field for a number of seconds (5 to 3600); there is no dropdown. The History view checkboxes read `Date`, `Zero usage lines` and `Failed lines`. The startup lines, the first line of each run, count as zero usage lines. The note that says lines are left out is blue, and so is the error log's `There are no errors in this run.`.
 - The history can leave out its **zero usage lines** (readings with no change since the one before) and its **failed lines**, with two switches in the History view of the settings (both on, so
   everything is shown, by default). The change columns are then worked out on the lines that are shown, and a line above the table says how many lines there are and how many are hidden
   or not shown, whenever not all are. The backend does all of this and sends finished lines; the page only draws them.

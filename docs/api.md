@@ -47,14 +47,12 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "historyFailedLines": true
   },
   "defaults": { "...": "the same keys, with the defaults" },
-  "intervalChoices": [60, 120, 180, 240, 300],
   "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } }
 }
 ```
 
-`timeFormat` is `"hh:mm"` or `"hh:mm:ss"`. `intervalChoices` is what the settings view offers; the
-backend accepts anything within `limits`, so an interval set on the command line or in the file is
-shown as the current value even when it is not a choice. `settings.usageIntervalSeconds` (and the status' `display.interval`) is the interval in force: the configured one, or, while the application
+`timeFormat` is `"hh:mm"` or `"hh:mm:ss"`. The interval is one number, whole seconds within `limits` (5 to 3600), which the settings view takes in a single entry field; there is no
+list of values, so an interval set on the command line or in the file is shown as it is. `settings.usageIntervalSeconds` (and the status' `display.interval`) is the interval in force: the configured one, or, while the application
 waits longer after HTTP 429s, that longer wait in whole seconds rounded up. Applying values saves what is sent, so applying while backing off saves the longer
 wait as the configured interval. `defaults` and `GET /api/config` are not changed by a back-off.
 The same keys are in `settings.json`, which
@@ -222,10 +220,11 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
   `failed` (it is the line of a failed query) and `title` (the hover text, `The program started here` for a start, else empty). A line of the file without the columns (a row from before the
   currency was one, with three, is given an empty currency), and the header, are not lines.
 - **Hidden lines.** The settings `historyZeroLines` and `historyFailedLines` (both on unless switched off) say whether the **zero usage lines** (a line whose change in the amount used, against the row
-  directly before it in the same run, is exactly zero; never the first line of a run or a failed line) and the **failed lines** are shown. The changes of the lines that are shown (`\u0394 used`,
+  directly before it in the same run, is exactly zero, or a startup line, the first line of a run, which has no change; never a failed line, and a failed startup line is a failed line) and the **failed lines** are shown. The changes of the lines that are shown (`\u0394 used`,
   `\u0394 time`) are worked out against the previous line that is shown in the same run, so with lines hidden they span them; a row that begins a run begins it even if it is hidden.
 - `note`: one line for the page to show above the table, or `null` when everything is shown: `There is no usage history yet.`, `The history has no rows yet.`, or `Showing N of M lines:` with the zero usage and failed
   lines hidden and the older lines beyond the newest 1,000 that are not shown (counts with a comma for thousands).
+- `noteHighlight`: `true` when the note says that lines are left out (the one that starts `Showing`), which the window shows in blue; `false` for the notes about there being no history, and `false` when there is no note.
 - `wide`: whether the times have the date, so the first column is wider.
 - `total`: how many rows the file has; `exists`: `false`, with no lines, when there is no history yet.
 - `500` with `{"error": "The usage history could not be read."}` if the file cannot be read.

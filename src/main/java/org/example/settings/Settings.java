@@ -1,11 +1,9 @@
 package org.example.settings;
 
-import java.util.List;
-
 /**
  * Every setting the user can change, as the settings file and the settings API hold them.
  *
- * @param usageIntervalSeconds the time between usage requests; the settings view offers {@link #INTERVAL_CHOICES}
+ * @param usageIntervalSeconds the time between usage requests, from 5 to 3600 seconds ({@link IntervalRange#USAGE})
  * @param logResponse whether each response's JSON is written to the log, pretty printed
  * @param showPercentage whether the percentage spent is in the row
  * @param showCurrency whether the amounts of the row have the currency symbol before them
@@ -39,9 +37,6 @@ public record Settings(
         boolean historyDate,
         boolean historyZeroLines,
         boolean historyFailedLines) {
-
-    /** What the settings view offers for the time between usage requests; the backend accepts the wider range of {@link IntervalRange#USAGE}. */
-    public static final List<Integer> INTERVAL_CHOICES = List.of(60, 120, 180, 240, 300);
 
     public static Settings defaults() {
         return new Settings(
