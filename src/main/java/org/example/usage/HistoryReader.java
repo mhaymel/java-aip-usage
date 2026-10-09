@@ -15,18 +15,23 @@ import java.util.List;
  * reversed: the file is appended to in the order readings arrive, which is usually but not always
  * time order, for instance after the clock was set back. The time is written
  * {@code yyyy-MM-dd HH:mm:ss}, which sorts correctly as text. A line that does not have the
- * columns (or the first three or four, as in a file from before the currency or the startup mark was a column)
- * is skipped, so a damaged line cannot hide the rest.
+ * columns (or the first three, four or five, as in a file from before the currency, the startup mark or the
+ * timing was a column) is skipped, so a damaged line cannot hide the rest.
  */
 public final class HistoryReader {
 
+    /** The columns the history panel shows, in the order they are in the file. */
     static final List<String> COLUMNS = List.of("datetime", "used", "limit", "currency");
+
+    /** The fields of a row as the file has them: the shown columns, then the status, the interval and the duration. */
+    static final int FIELDS = 7;
 
     /**
      * @param exists whether there is a history file at all
      * @param total how many rows the file has
      * @param rows the newest rows, latest first, as many as were asked for; each has the four columns and
-     *     a fifth, {@code 1} for the first row written after a program start and empty otherwise
+     *     three more: the status ({@code start}, {@code failed},
+     *     {@code start-failed} or empty), the interval in seconds and the duration in milliseconds
      */
     public record Table(boolean exists, int total, List<List<String>> rows) {
 
@@ -47,11 +52,11 @@ public final class HistoryReader {
         for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
             List<String> fields = List.of(line.split(",", -1));
             boolean header = fields.get(0).equals(COLUMNS.get(0));
-            // Three columns are a row from before the currency was one, four from before the startup mark: no value.
-            boolean complete = fields.size() >= COLUMNS.size() - 1 && fields.size() <= COLUMNS.size() + 1;
+            // Fewer columns are a row from an older file, which had no value for the others.
+            boolean complete = fields.size() >= COLUMNS.size() - 1 && fields.size() <= FIELDS;
             if (complete && !header && !fields.get(0).isBlank()) {
                 List<String> row = new ArrayList<>(fields);
-                while (row.size() < COLUMNS.size() + 1) {
+                while (row.size() < FIELDS) {
                     row.add("");
                 }
                 rows.add(List.copyOf(row));

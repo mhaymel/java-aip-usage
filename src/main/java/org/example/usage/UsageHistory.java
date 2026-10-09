@@ -19,10 +19,11 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * The usage history: a CSV file with one row per reading, appended as they arrive.
+ * The usage history: a CSV file with one row per query, appended as they are made.
  *
- * <p>Each row is the time of the reading, the amount used, the budget and the currency:
- * {@code 2026-10-08 16:24:53,186.02,1000.00,USD,1}, where the last field is {@code 1} on the first row this run wrote and empty on the others. The time is the local date and time to the second,
+ * <p>Each row is the time, the amount used, the budget, the currency, a status, the interval in
+ * force and how long the request took: {@code 2026-10-08 16:24:53,186.02,1000.00,USD,start,60,412}.
+ * The time is the local date and time to the second,
  * written {@code yyyy-MM-dd HH:mm:ss}: the form Excel recognises as a date and time when it
  * imports the file, and it still sorts correctly as text. It is the same clock as the window
  * shows. (Excel has no idea of a time zone, so there is none in the file, and an hour repeats
@@ -31,20 +32,28 @@ import java.util.Optional;
  * currency sign and no digit grouping, so every tool reads them the same way. The currency is
  * the code the response named. A missing amount, or currency, is an empty field.
  *
+ * <p>The status is {@code start} on the first row this run wrote, {@code failed} on the row of a query
+ * that did not succeed (which has no amounts), {@code start-failed} when that is the first row, and
+ * empty otherwise. The interval is in whole seconds and the duration in whole milliseconds.
+ *
  * <p>The header is written only when the file is new or empty, so successive runs add to the one
  * file. Nothing is ever rotated or removed. A reading with no amounts, such as a plan account's
- * windows, writes nothing. A file from before the currency or the startup mark was a column is upgraded
- * in place by the first row added to it: the header gets the column and the rows already there an empty field.
+ * windows, writes nothing. A file with an older header is upgraded in place by the first row added to
+ * it: the header gets the new columns and the rows already there empty fields, a {@code 1} in the old
+ * {@code startup} column becoming {@code start}.
  */
 public final class UsageHistory {
 
-    static final String HEADER = "datetime,used,limit,currency,startup";
+    static final String HEADER = "datetime,used,limit,currency,status,interval,duration_ms";
 
     /** The header of files written before the currency was a column. */
     private static final String OLD_HEADER = "datetime,used,limit";
 
     /** The header of files written before the startup mark was a column. */
     private static final String PREVIOUS_HEADER = "datetime,used,limit,currency";
+
+    /** The header of files written before the startup mark became the status and the timing was added. */
+    private static final String STARTUP_HEADER = "datetime,used,limit,currency,startup";
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
 
@@ -71,20 +80,41 @@ public final class UsageHistory {
     }
 
     /**
-     * Adds the reading as a row.
+     * Adds the reading as a row. A reading with no amounts writes nothing.
      *
+     * @param intervalSeconds the time between usage requests in force when the request was made
+     * @param durationMillis how long the request took
      * @throws IOException if the file cannot be written
      */
-    public synchronized void append(UsageSnapshot snapshot) throws IOException {
+    public synchronized void append(UsageSnapshot snapshot, int intervalSeconds, long durationMillis) throws IOException {
         Spend spend = snapshot.spend();
         if (spend == null) {
             return;
         }
-        String row = TIME.format(snapshot.fetchedAt().atZone(zone))
-                + "," + amount(spend.used())
-                + "," + amount(spend.limit())
-                + "," + (spend.currency() == null ? "" : spend.currency().replace(',', ' ').strip())
-                + "," + (written ? "" : "1")
+        write(snapshot.fetchedAt(), amount(spend.used()), amount(spend.limit()),
+                spend.currency() == null ? "" : spend.currency().replace(',', ' ').strip(),
+                false, intervalSeconds, durationMillis);
+    }
+
+    /**
+     * Adds the row of a query that did not succeed: the time it failed, no amounts.
+     *
+     * @throws IOException if the file cannot be written
+     */
+    public synchronized void appendFailure(Instant at, int intervalSeconds, long durationMillis) throws IOException {
+        write(at, "", "", "", true, intervalSeconds, durationMillis);
+    }
+
+    private void write(Instant at, String used, String limit, String currency, boolean failed,
+                       int intervalSeconds, long durationMillis) throws IOException {
+        String status = (written ? "" : "start") + (failed ? (written ? "failed" : "-failed") : "");
+        String row = TIME.format(at.atZone(zone))
+                + "," + used
+                + "," + limit
+                + "," + currency
+                + "," + status
+                + "," + intervalSeconds
+                + "," + durationMillis
                 + "\n";
         upgradeOldFile();
         boolean needsHeader = !Files.exists(file) || Files.size(file) == 0;
@@ -97,27 +127,39 @@ public final class UsageHistory {
         written = true;
     }
 
-    /** Adds the currency column to a file that predates it. Written beside it first, so a failure loses nothing. */
+    /** Brings a file with an older header up to date. Written beside it first, so a failure loses nothing. */
     private void upgradeOldFile() throws IOException {
         if (!Files.isRegularFile(file)) {
             return;
         }
         List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-        // What the rows of the old file lack: the currency and the startup mark, or the startup mark alone.
-        String missing;
         if (lines.isEmpty()) {
             return;
-        } else if (lines.get(0).strip().equals(OLD_HEADER)) {
+        }
+        String header = lines.get(0).strip();
+        // What the rows of the old file lack, and whether its fifth field is the old startup mark.
+        String missing;
+        boolean startupMark = false;
+        if (header.equals(OLD_HEADER)) {
+            missing = ",,,,";
+        } else if (header.equals(PREVIOUS_HEADER)) {
+            missing = ",,,";
+        } else if (header.equals(STARTUP_HEADER)) {
             missing = ",,";
-        } else if (lines.get(0).strip().equals(PREVIOUS_HEADER)) {
-            missing = ",";
+            startupMark = true;
         } else {
             return;
         }
         List<String> upgraded = new ArrayList<>();
         upgraded.add(HEADER);
         for (String line : lines.subList(1, lines.size())) {
-            upgraded.add(line.isBlank() ? line : line + missing);
+            if (line.isBlank()) {
+                upgraded.add(line);
+            } else if (startupMark) {
+                upgraded.add(line.endsWith(",1") ? line.substring(0, line.length() - 1) + "start" + missing : line + missing);
+            } else {
+                upgraded.add(line + missing);
+            }
         }
         Path beside = file.resolveSibling(file.getFileName() + ".tmp");
         Files.write(beside, upgraded, StandardCharsets.UTF_8);
@@ -131,21 +173,22 @@ public final class UsageHistory {
     }
 
     /**
-     * The newest reading in the file, for showing before the first refresh has finished. Empty if
-     * there is no file, no rows, or the newest row has no amounts, or cannot be read.
+     * The newest reading in the file, for showing before the first refresh has finished: the newest row
+     * that has amounts, so a failed row is passed over. Empty if there is no file, no such row, or it
+     * cannot be read.
      */
     public Optional<UsageSnapshot> latest() {
         try {
-            HistoryReader.Table table = HistoryReader.read(file, 1);
-            if (table.rows().isEmpty()) {
+            HistoryReader.Table table = HistoryReader.read(file, Integer.MAX_VALUE);
+            List<String> row = table.rows().stream()
+                    .filter(r -> !r.get(1).isBlank() || !r.get(2).isBlank())
+                    .findFirst()
+                    .orElse(null);
+            if (row == null) {
                 return Optional.empty();
             }
-            List<String> row = table.rows().get(0);
             Double used = number(row.get(1));
             Double limit = number(row.get(2));
-            if (used == null && limit == null) {
-                return Optional.empty();
-            }
             Instant at = LocalDateTime.parse(row.get(0), TIME).atZone(zone).toInstant();
             String currency = row.get(3).isBlank() ? null : row.get(3);
             Integer percent = used != null && limit != null && limit > 0 ? (int) Math.round(used / limit * 100) : null;

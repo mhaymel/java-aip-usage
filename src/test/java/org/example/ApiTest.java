@@ -712,8 +712,8 @@ class ApiTest {
 
         List<String> lines = history(app);
 
-        assertEquals("datetime,used,limit,currency,startup", lines.get(0));
-        assertTrue(lines.get(1).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},186\\.02,1000\\.00,USD,1"), lines.get(1));
+        assertEquals("datetime,used,limit,currency,status,interval,duration_ms", lines.get(0));
+        assertTrue(lines.get(1).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},186\\.02,1000\\.00,USD,start,60,\\d+"), lines.get(1));
     }
 
     @Test
@@ -743,15 +743,41 @@ class ApiTest {
     }
 
     @Test
-    void aFailedRefreshWritesNothing() throws Exception {
+    void aFailedRefreshWritesARowWithNoAmounts() throws Exception {
         FakeFetch fetch = new FakeFetch();
         fetch.answer = () -> {
             throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
         };
         AppRuntime app = start(fetch);
         await(() -> app.service().state().error() != null);
+        await(() -> history(app).size() >= 2);
 
-        assertEquals(List.of(), history(app));
+        assertEquals(2, history(app).size(), "the header and the failed query");
+        assertTrue(history(app).get(1).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},,,,start-failed,60,\\d+"), history(app).get(1));
+    }
+
+    @Test
+    void aFailureThenASuccessAreRowsMarkedFailedFirstAndCarryTheIntervalInForce() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        java.util.concurrent.atomic.AtomicBoolean fail = new java.util.concurrent.atomic.AtomicBoolean(true);
+        java.util.function.Supplier<UsageSnapshot> good = fetch.answer;
+        fetch.answer = () -> {
+            if (fail.get()) {
+                throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
+            }
+            return good.get();
+        };
+        AppRuntime app = start(fetch);
+        await(() -> history(app).size() >= 2);
+        post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showCountdown\": false,"
+                + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
+                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false}");
+        fail.set(false);
+        post(app, "/api/refresh", "{}");
+        await(() -> history(app).size() >= 3);
+
+        assertTrue(history(app).get(1).contains(",,,,start-failed,60,"), history(app).get(1));
+        assertTrue(history(app).get(2).matches(".*,186\\.02,1000\\.00,USD,,120,\\d+"), history(app).get(2));
     }
 
     @Test
@@ -780,14 +806,14 @@ class ApiTest {
     }
 
     @Test
-    void theHistoryNeverHoldsAnythingButTheFiveColumns() throws Exception {
+    void theHistoryNeverHoldsAnythingButTheSevenColumns() throws Exception {
         AppRuntime app = start(new FakeFetch());
         await(() -> history(app).size() >= 2);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);
 
         for (String line : history(app)) {
-            assertEquals(4, line.chars().filter(c -> c == ',').count(), line);
+            assertEquals(6, line.chars().filter(c -> c == ',').count(), line);
         }
     }
 

@@ -94,8 +94,8 @@ class HistoryReaderTest {
                 2026-10-08 14:25:53,5.00,
                 """), 100);
 
-        assertEquals(List.of("2026-10-08 14:25:53", "5.00", "", "", ""), table.rows().get(0), "an old row has no currency and no startup mark");
-        assertEquals(List.of("2026-10-08 14:24:53", "", "1000.00", "", ""), table.rows().get(1));
+        assertEquals(List.of("2026-10-08 14:25:53", "5.00", "", "", "", "", ""), table.rows().get(0), "an old row has no currency, status or timing");
+        assertEquals(List.of("2026-10-08 14:24:53", "", "1000.00", "", "", "", ""), table.rows().get(1));
     }
 
     @Test
@@ -118,7 +118,7 @@ class HistoryReaderTest {
                 2026-10-08 14:24:53,186.02,1000.00
                 this is not a row
                 2026-10-08 14:25:53,186.07
-                2026-10-08 14:26:53,1,2,3,4,5
+                2026-10-08 14:26:53,1,2,3,4,5,6,7
 
                 ,1.00,2.00,USD
                 2026-10-08 14:27:53,186.12,1000.00
@@ -140,7 +140,7 @@ class HistoryReaderTest {
     void windowsLineEndingsAreTolerated() throws IOException {
         HistoryReader.Table table = HistoryReader.read(write("datetime,used,limit\r\n2026-10-08 14:24:53,1.00,2.00\r\n"), 100);
 
-        assertEquals(List.of("2026-10-08 14:24:53", "1.00", "2.00", "", ""), table.rows().get(0));
+        assertEquals(List.of("2026-10-08 14:24:53", "1.00", "2.00", "", "", "", ""), table.rows().get(0));
     }
 
     @Test
@@ -156,23 +156,24 @@ class HistoryReaderTest {
                 2026-10-08 14:25:53,3.00,4.00,
                 """), 100);
 
-        assertEquals(List.of("2026-10-08 14:25:53", "3.00", "4.00", "", ""), table.rows().get(0));
-        assertEquals(List.of("2026-10-08 14:24:53", "1.00", "2.00", "USD", ""), table.rows().get(1));
+        assertEquals(List.of("2026-10-08 14:25:53", "3.00", "4.00", "", "", "", ""), table.rows().get(0));
+        assertEquals(List.of("2026-10-08 14:24:53", "1.00", "2.00", "USD", "", "", ""), table.rows().get(1));
     }
 
     @Test
-    void theStartupMarkIsTheFifthFieldAndAnEmptyOneIsAddedWhereTheFileHasNone() throws IOException {
+    void theStatusIntervalAndDurationAreTheLastThreeFieldsAndEmptyOnesAreAddedWhereTheFileHasNone() throws IOException {
         HistoryReader.Table table = HistoryReader.read(write("""
-                datetime,used,limit,currency,startup
-                2026-10-08 14:24:53,1.00,2.00,USD,1
-                2026-10-08 14:25:53,3.00,4.00,USD,
+                datetime,used,limit,currency,status,interval,duration_ms
+                2026-10-08 14:24:53,1.00,2.00,USD,start,60,412
+                2026-10-08 14:25:53,,,,failed,120,5003
                 2026-10-08 14:26:53,5.00,6.00,USD
-                2026-10-08 14:27:53,5.00,6.00,USD,1,extra
+                2026-10-08 14:27:53,5.00,6.00,USD,1,2,3,extra
                 """), 100);
 
-        assertEquals(List.of("2026-10-08 14:26:53", "2026-10-08 14:25:53", "2026-10-08 14:24:53"), times(table), "a sixth field is damage");
-        assertEquals(List.of("2026-10-08 14:26:53", "5.00", "6.00", "USD", ""), table.rows().get(0));
-        assertEquals("", table.rows().get(1).get(4));
-        assertEquals("1", table.rows().get(2).get(4));
+        assertEquals(List.of("2026-10-08 14:26:53", "2026-10-08 14:25:53", "2026-10-08 14:24:53"), times(table), "an eighth field is damage");
+        assertEquals(List.of("2026-10-08 14:26:53", "5.00", "6.00", "USD", "", "", ""), table.rows().get(0));
+        assertEquals(List.of("2026-10-08 14:25:53", "", "", "", "failed", "120", "5003"), table.rows().get(1));
+        assertEquals("start", table.rows().get(2).get(4));
+        assertEquals(List.of("datetime", "used", "limit", "currency"), table.columns(), "the status and timing are not columns of the panel");
     }
 }

@@ -867,7 +867,11 @@ file; that made `theHistoryEndpointGivesTheRowsNewestFirst` fail now and then, a
 
 ### 19. The history file: `status`, `interval`, `duration_ms`, and rows for failed queries
 
-**Status: planned.** Requirements: Usage history, The usage history panel.
+**Status: done (version 0.04); how the red `failed` and the gray rows look is for a person to judge.** The timing is
+taken in `AppRuntime`'s recording wrapper around the whole fetch, so it includes getting a token and the one
+retry after a 401; a query cut short by the program stopping writes no row. `UsageHistory` has `append(snapshot,
+interval, duration)` and `appendFailure(at, interval, duration)`. `describeHistory` also returns `failed` flags,
+and `app.js` gives that cell a red `failed` class. Requirements: Usage history, The usage history panel.
 
 - **Timing.** `UsageFetcher`/`UsageService` measure how long each request took, from sending to the answer or
   failure, and the interval in force when it was made, and hand both to the history with the outcome. A reading

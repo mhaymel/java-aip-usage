@@ -406,10 +406,36 @@ test('the first line of each run in the log is marked, and only that', () => {
     assert.deepEqual(v.marks, [false, true, false, true]);
 });
 
-test('a history row is marked when its fifth field is 1, and that field is not shown', () => {
-    const rows = [['2026-10-08 14:26:53', '186.12', '1000.00', 'USD', ''], ['2026-10-08 14:25:53', '186.07', '1000.00', 'USD', '1']];
-    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 2, rows });
+test('a history row is marked as the start of a run by its status, and the status, interval and duration are not shown', () => {
+    const rows = [
+        ['2026-10-08 14:27:53', '186.12', '1000.00', 'USD', '', '60', '400'],
+        ['2026-10-08 14:26:53', '186.07', '1000.00', 'USD', 'start', '60', '412'],
+        ['2026-10-08 14:25:53', '', '', '', 'start-failed', '60', '20']
+    ];
+    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 3, rows });
 
-    assert.deepEqual(v.marks, [false, true]);
-    assert.deepEqual(v.rows, [rows[0].slice(0, 4), rows[1].slice(0, 4)]);
+    assert.deepEqual(v.marks, [false, true, true]);
+    assert.deepEqual(v.rows[0], ['2026-10-08 14:27:53', '186.12', '1000.00', 'USD']);
+    assert.equal(v.rows[1].length, 4);
+});
+
+test('a failed query says failed in the place of its amount, whether or not it began the run', () => {
+    const rows = [
+        ['2026-10-08 14:28:53', '', '', '', 'failed', '60', '5003'],
+        ['2026-10-08 14:27:53', '', '', '', 'start-failed', '60', '20'],
+        ['2026-10-08 14:26:53', '186.07', '1000.00', 'USD', 'start', '60', '412']
+    ];
+    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 3, rows });
+
+    assert.deepEqual(v.failed, [true, true, false]);
+    assert.equal(v.rows[0][1], 'failed');
+    assert.equal(v.rows[1][1], 'failed');
+    assert.equal(v.rows[2][1], '186.07');
+});
+
+test('rows of an older shape, with fewer fields, are neither marked nor failed', () => {
+    const v = view.describeHistory({ exists: true, columns: COLUMNS, total: 1, rows: [['2026-10-08 14:26:53', '1.00', '2.00', 'USD']] });
+
+    assert.deepEqual(v.marks, [false]);
+    assert.deepEqual(v.failed, [false]);
 });

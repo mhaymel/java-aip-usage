@@ -310,3 +310,8 @@ input[aria-invalid="true"] {
 .panel-lines .mark {
     background: #e6e6e6;
 }
+
+/* A row of a query that did not succeed says so in red, in the place of its amount. */
+.panel-lines .failed {
+    color: var(--bad);
+}

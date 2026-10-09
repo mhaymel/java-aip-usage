@@ -10,6 +10,8 @@ import org.example.usage.UsageSnapshot;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -48,7 +50,7 @@ final class AppRuntime implements AutoCloseable {
         IntervalSettings settings =
                 IntervalSettings.load(new SettingsStore(files.settings()), options.usageInterval(), options.pollInterval());
         UsageHistory history = new UsageHistory(files.history());
-        UsageService service = new UsageService(recording(fetcher, history), settings.usageInterval());
+        UsageService service = new UsageService(recording(fetcher, history, settings::usageSeconds), settings.usageInterval());
         history.latest().ifPresent(earlier -> {
             service.restore(earlier);
             LOG.log(System.Logger.Level.INFO, "Showing the newest reading in the usage history until the first refresh is done");
@@ -61,20 +63,44 @@ final class AppRuntime implements AutoCloseable {
     }
 
     /**
-     * The fetcher, with each reading it returns added to the history. A history that cannot be
-     * written is logged and nothing more: the reading is good, and the refresh did succeed.
+     * The fetcher, with each query it makes added to the history: the reading it returns, or a row for
+     * the failure, which is then thrown on as it was. The row says how long the query took and what
+     * the interval was. A history that cannot be written is logged and nothing more: the reading is
+     * good, and the refresh did succeed. A query cut short because the program is stopping is not a failure to record.
      */
-    private static Supplier<UsageSnapshot> recording(Supplier<UsageSnapshot> fetcher, UsageHistory history) {
+    private static Supplier<UsageSnapshot> recording(
+            Supplier<UsageSnapshot> fetcher, UsageHistory history, IntSupplier intervalSeconds) {
         return () -> {
-            UsageSnapshot snapshot = fetcher.get();
+            int interval = intervalSeconds.getAsInt();
+            long started = System.nanoTime();
+            UsageSnapshot snapshot;
             try {
-                history.append(snapshot);
-            } catch (IOException | RuntimeException e) {
-                LOG.log(System.Logger.Level.WARNING,
-                        "Could not add the reading to " + history.file() + ": " + e.getMessage());
+                snapshot = fetcher.get();
+            } catch (RuntimeException failure) {
+                if (!Thread.currentThread().isInterrupted()) {
+                    record(history, () -> history.appendFailure(Instant.now(), interval, millisSince(started)));
+                }
+                throw failure;
             }
+            record(history, () -> history.append(snapshot, interval, millisSince(started)));
             return snapshot;
         };
+    }
+
+    private interface Write {
+        void run() throws IOException;
+    }
+
+    private static void record(UsageHistory history, Write write) {
+        try {
+            write.run();
+        } catch (IOException | RuntimeException e) {
+            LOG.log(System.Logger.Level.WARNING, "Could not add the reading to " + history.file() + ": " + e.getMessage());
+        }
+    }
+
+    private static long millisSince(long startedNanos) {
+        return (System.nanoTime() - startedNanos) / 1_000_000L;
     }
 
     URI baseUri() {

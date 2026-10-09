@@ -310,12 +310,15 @@
         }
     }
 
-    function cells(className, values, marked) {
+    function cells(className, values, marked, failed) {
         var row = document.createElement('div');
         row.className = className + ' cols-' + values.length + (marked ? ' mark' : '');
-        values.forEach(function (value) {
+        values.forEach(function (value, i) {
             var cell = document.createElement('span');
             cell.textContent = value;
+            if (failed && i === 1) {
+                cell.className = 'failed';
+            }
             row.append(cell);
         });
         return row;
@@ -338,7 +341,7 @@
             box.append(cells('row head', shown.header));
         }
         shown.rows.forEach(function (row, i) {
-            box.append(cells('row', row, shown.marks && shown.marks[i]));
+            box.append(cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i]));
         });
         // Rows that came in above what the person was reading push it down; follow it.
         var added = panelRows.length ? rowKeys.indexOf(panelRows[0]) : 0;

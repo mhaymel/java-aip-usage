@@ -202,6 +202,11 @@
         return view;
     }
 
+    /** Whether the status field of a history row (the fifth) says `word`: start, failed, or both as start-failed. */
+    function hasStatus(row, word) {
+        return typeof row[4] === 'string' && row[4].split('-').indexOf(word) !== -1;
+    }
+
     /** Whether a log line is the one that records the start of a run. */
     function isRunStart(line) {
         return /\] Starting java-aip-usage( |$)/.test(line);
@@ -242,9 +247,18 @@
         return {
             note: data.rows.length < data.total ? 'Showing the newest ' + data.rows.length + ' of ' + data.total + ' rows.' : null,
             header: data.columns,
-            // The file's fifth field says the row is the first of a run; it is marked, not shown.
-            rows: data.rows.map(function (row) { return row.slice(0, data.columns.length); }),
-            marks: data.rows.map(function (row) { return row[data.columns.length] === '1'; })
+            // The fifth field is the row's status: `start` and `start-failed` begin a run and are marked,
+            // `failed` and `start-failed` are queries that did not succeed. The status, the interval and the
+            // duration are not shown; a failed row says so in the place of its amount.
+            rows: data.rows.map(function (row) {
+                var cells = row.slice(0, data.columns.length);
+                if (hasStatus(row, 'failed')) {
+                    cells[1] = 'failed';
+                }
+                return cells;
+            }),
+            marks: data.rows.map(function (row) { return hasStatus(row, 'start'); }),
+            failed: data.rows.map(function (row) { return hasStatus(row, 'failed'); })
         };
     }
 
