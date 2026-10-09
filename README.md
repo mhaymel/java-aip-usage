@@ -60,7 +60,7 @@ Hover over things to see what they are:
 - **Error log** (the triangle) lists the errors of this run, newest first, with the time and the message: every failed
   refresh, an HTTP 429 and a problem with the token (not logged in, `claude` not found) included. It is kept in memory only and is empty at
   every start. An HTTP 429 is shown only as a red countdown, which tells you why when you hover over it, and is not a message under the row.
-- The history shows the time of day (a setting adds the date), and hovering over the first line of a run says `The program started here`. The window
+- The history shows the time of day (a setting adds the date) at the left and the amounts, the currency (`Cur.`) and, if switched on, the changes (`Δ used`, the time in seconds as `Δ time`) packed to the right, and hovering over the first line of a run says `The program started here`. The window
   remembers the height you leave the history and the log at.
 - **Settings** (⚙, at the right-hand end) shows the settings in the panel area below the row, like the log and the history: the time
   between usage requests (a dropdown: 60 to 300 s, default 60), whether the row shows the percentage spent (off by default), the interval (a box you can type any number of seconds in, or pick from), whether the history shows the date, the time between usage requests and the change

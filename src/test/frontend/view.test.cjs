@@ -197,8 +197,8 @@ test('lines before the first entry start of what was read are kept as an entry o
 test('the history table gets the two change columns, after the currency, only when the backend says they are on', () => {
     const rows = [['2026-10-08 14:26:53', '186.12', '1000.00', 'USD', '', '60', '400'], ['2026-10-08 14:25:53', '', '', '', 'failed', '60', '20']];
     const deltas = [
-        { delta_used: 0.05, delta_time: 60, delta_used_text: '+0.05', delta_time_text: '1 m' },
-        { delta_used: null, delta_time: 60, delta_used_text: null, delta_time_text: '1 m' },
+        { delta_used: 0.05, delta_time: 60, delta_used_text: '+0.05', delta_time_text: '1 m', delta_seconds_text: '60 s' },
+        { delta_used: null, delta_time: 60, delta_used_text: null, delta_time_text: '1 m', delta_seconds_text: '60 s' },
     ];
     const base = { exists: true, columns: COLUMNS, total: 2, rows, deltas };
 
@@ -208,12 +208,12 @@ test('the history table gets the two change columns, after the currency, only wh
 
     const both = view.describeHistory({ ...base, show: { deltaUsed: true, deltaTime: true } });
     assert.deepEqual(both.header, [...COLUMNS, '\u0394 used', '\u0394 time']);
-    assert.deepEqual(both.rows[0], ['2026-10-08 14:26:53', '186.12', '1000.00', 'USD', '+0.05', '1 m']);
-    assert.deepEqual(both.rows[1], ['2026-10-08 14:25:53', 'failed', '', '', '', '1 m'], 'an empty value is an empty cell');
+    assert.deepEqual(both.rows[0], ['2026-10-08 14:26:53', '186.12', '1000.00', 'USD', '+0.05', '60 s'], 'the time in seconds, never in minutes');
+    assert.deepEqual(both.rows[1], ['2026-10-08 14:25:53', 'failed', '', '', '', '60 s'], 'an empty value is an empty cell');
 
     const timeOnly = view.describeHistory({ ...base, show: { deltaUsed: false, deltaTime: true } });
     assert.deepEqual(timeOnly.header, [...COLUMNS, '\u0394 time']);
-    assert.deepEqual(timeOnly.rows[0].slice(4), ['1 m']);
+    assert.deepEqual(timeOnly.rows[0].slice(4), ['60 s']);
 });
 
 test('the history table is described as the backend sent it: its titles, the wide time, and a hover text for the first line of a run', () => {
@@ -246,4 +246,14 @@ test('the message of an HTTP 429 is read from the display for the red countdown'
 
     assert.equal(v.countdownAlert, 'Anthropic is rate limiting usage requests (HTTP 429).');
     assert.equal(view.describeStatus({ display: DISPLAY }).countdownAlert, null);
+});
+
+test('the history takes the time in seconds from the backend, however long, and leaves an unknown one empty', () => {
+    const deltas = [{ delta_seconds_text: '3600 s', delta_time_text: '1 h' }, { delta_seconds_text: '126 s', delta_time_text: '2 m' }, { delta_seconds_text: null, delta_time_text: null }];
+    const rows = [0, 1, 2].map(i => ['14:0' + i + ':00', '1.00', '2.00', 'USD', '', '60', '1']);
+
+    const v = view.describeHistory({ exists: true, columns: ['time', 'used', 'limit', 'Cur.'], total: 3, rows, deltas, show: { deltaUsed: false, deltaTime: true } });
+
+    assert.deepEqual(v.rows.map(r => r[4]), ['3600 s', '126 s', '']);
+    assert.deepEqual(v.header, ['time', 'used', 'limit', 'Cur.', '\u0394 time']);
 });

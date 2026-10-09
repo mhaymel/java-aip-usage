@@ -1187,15 +1187,15 @@ test('the error log button opens the panel with a line for each error, newest fi
     assert.equal(page.el('panel-lines').hidden, false);
 });
 
-test('the error log has the size of the log: ten rows tall, three rows and the scrollbar wide, both ways resizable, panel named', async () => {
+test('the error log is half as wide as the log: ten rows tall, one and a half rows and the scrollbar wide, both ways resizable, panel named', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
     page.el('top').rect = { width: 399.2, height: 41.5 };
 
     await page.click('errors-button');
 
-    assert.equal(page.window.contentSize(), '1215,420,2,errors', 'as wide as the log: three rows and the scrollbar');
+    assert.equal(page.window.contentSize(), '615,420,2,errors', 'half as wide as the log: one and a half rows (600) and the scrollbar');
     page.el('top').rect = { width: 399.2, height: 90 };
-    assert.equal(page.window.contentSize(), '1215,420,2,errors', 'not moved by the main view');
+    assert.equal(page.window.contentSize(), '615,420,2,errors', 'not moved by the main view');
 });
 
 test('the history and the log name themselves to the host, which remembers their heights', async () => {
@@ -1403,7 +1403,7 @@ test('a table that has not been measured, or has no rows, adds nothing to the wi
     assert.equal(page.window.contentSize(), '415,420,1,history');
 });
 
-test('the width is the history\'s own: the log and the error log keep theirs', async () => {
+test('the width is the history\'s own: the log and the error log keep theirs, the error log half the log\'s', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
     page.el('top').rect = { width: 399.2, height: 41.5 };
     page.el('table-probe').rect = { width: 700, height: 60 };
@@ -1411,7 +1411,7 @@ test('the width is the history\'s own: the log and the error log keep theirs', a
     await page.click('log-button');
     assert.equal(page.window.contentSize(), '1215,420,2,log');
     await page.click('errors-button');
-    assert.equal(page.window.contentSize(), '1215,420,2,errors');
+    assert.equal(page.window.contentSize(), '615,420,2,errors');
 });
 
 test('the last width measured is kept while the history is closed, so it opens at once as wide as it was', async () => {
@@ -1476,4 +1476,125 @@ test('Apply and Cancel close the settings, so its button is no longer green', as
     await page.click('settings-button');
     await page.click('settings-apply');
     assert.ok(!classOf(page, 'settings-button').includes('active'));
+});
+
+// ---- leaving the settings brings back the view that was shown before
+
+test('Cancel brings back the history that was open when the settings were opened, and asks for it afresh', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('history-button');
+    const loads = () => page.calls.filter(c => c.url === '/api/history').length;
+    const before = loads();
+
+    await page.click('settings-button');
+    assert.equal(page.el('settings-view').hidden, false);
+    await page.click('settings-cancel');
+
+    assert.equal(page.el('settings-view').hidden, true);
+    assert.equal(page.el('panel').hidden, false, 'the panel is still there');
+    assert.equal(page.el('history-button').title, 'Hide the usage history');
+    assert.ok(classOf(page, 'history-button').includes('active'), 'and its button is green again');
+    assert.ok(!classOf(page, 'settings-button').includes('active'));
+    assert.ok(loads() > before, 'read again, so that it shows what the settings now say');
+    assert.equal(rows(page).length, 2);
+});
+
+test('Apply brings back the view that was open, and reads it with the new settings', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+    await page.click('settings-button');
+    page.el('set-historyDeltaTime').checked = true;
+    state.history = () => ({ status: 200, body: { ...HISTORY, show: { deltaTime: true },
+        deltas: [{ delta_seconds_text: '63 s' }, { delta_seconds_text: '' }] } });
+
+    await page.click('settings-apply');
+
+    assert.equal(page.el('settings-view').hidden, true);
+    assert.equal(page.el('history-button').title, 'Hide the usage history');
+    assert.deepEqual(head(page)[0].slice(4), ['\u0394 time']);
+    assert.equal(rows(page)[0][4], '63 s', 'the new column is there');
+});
+
+test('the settings button again also brings the earlier view back', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('log-button');
+    await page.click('settings-button');
+
+    await page.click('settings-button');
+
+    assert.equal(page.el('log-button').title, 'Hide the log');
+    assert.equal(page.el('settings-view').hidden, true);
+});
+
+test('the log and the error log come back too', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    for (const [button, title] of [['log-button', 'Hide the log'], ['errors-button', 'Hide the error log']]) {
+        await page.click(button);
+        await page.click('settings-button');
+        await page.click('settings-cancel');
+        assert.equal(page.el(button).title, title, button);
+        await page.click(button); // close it again
+    }
+});
+
+test('with nothing shown before the settings, nothing is shown after them', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('settings-button');
+    await page.click('settings-cancel');
+
+    assert.equal(page.el('panel').hidden, true);
+    for (const id of ['log-button', 'history-button', 'errors-button', 'settings-button']) {
+        assert.ok(!classOf(page, id).includes('active'), id);
+    }
+});
+
+test('another panel\'s button while the settings are shown shows that panel, and what was shown before is forgotten', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('history-button');
+    await page.click('settings-button');
+
+    await page.click('log-button');
+    assert.equal(page.el('log-button').title, 'Hide the log');
+    assert.equal(page.el('settings-view').hidden, true);
+
+    await page.click('settings-button');
+    await page.click('settings-cancel');
+    assert.equal(page.el('log-button').title, 'Hide the log', 'back to the log, which was shown just before the settings, not the history');
+    assert.equal(page.el('history-button').title, 'Show the usage history');
+
+    await page.click('log-button');
+    await page.click('settings-button');
+    await page.click('log-button'); // forgets the history that was never open again
+    await page.click('log-button');
+    assert.equal(page.el('panel').hidden, true);
+});
+
+test('the window asks for the remembered panel again when it comes back: the history with its own size string', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    await page.click('history-button');
+    await page.click('settings-button');
+    page.el('app').rect = { width: 399.2, height: 500 };
+    assert.equal(page.window.contentSize(), '400,500,3');
+
+    await page.click('settings-cancel');
+
+    assert.equal(page.window.contentSize(), '415,420,1,history', 'ten rows tall again, with the panel named for the host to restore its height');
+});
+
+test('a failed Apply keeps the settings open and does not bring anything back', async () => {
+    const page = await load(backendOf({
+        config: CONFIG, status: SPEND_STATUS,
+        postSettings: () => ({ status: 400, body: { error: 'The usage interval must be a whole number of seconds from 5 to 3600.' } }),
+    }));
+    await page.click('history-button');
+    await page.click('settings-button');
+    page.el('set-usageIntervalSeconds').value = '4';
+
+    await page.click('settings-apply');
+
+    assert.equal(page.el('settings-view').hidden, false);
+    assert.equal(page.el('history-button').title, 'Show the usage history');
 });

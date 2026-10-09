@@ -1194,6 +1194,35 @@ test of those rules, since the fake DOM has no layout. Requirements: The button 
 
 *Assumed:* "as before" means the 20 px button, 12 px glyph, 1.6 line and the muted gray; the dark theme green is chosen to be as vivid there.
 
+### 30. Seconds in the history, a right-aligned table, `Cur.`, a narrower error log, and back to the view before the settings
+
+**Status: done (version 0.16); how the packed table, the error log width and the return look and behave in the window is for a person to judge.** Built as planned. `togglePanel`
+is now a thin function over `showPanelNamed`, with `returnTo` holding what the settings replaced; the host needed nothing, as planned. The fixed widths are `used` 10ch, `limit` 10ch,
+`Cur.` 5ch, `Δ used` 9ch, `Δ time` 8ch. Requirements: The usage history panel (layout, `Cur.`, Δ time in seconds), Settings (the texts, leaving the settings), The error log panel (size), Compact window (size).
+
+- **Δ time in seconds (backend).** `ApiHandler.DeltaBody` gets `deltaSecondsText` (`"63 s"`, `null` when the time cannot be worked out), serialised as `delta_seconds_text`; it is `seconds + " s"` with
+  no scaling. `delta_time_text` stays the short `1 m` form, which the row's item and the status use. `describeHistory` uses `delta_seconds_text` for the Δ time cells. Tests: `ApiTest`
+  (`63 s` and `3600 s` in the history, `1 m` in the status for the same row), `view.test.cjs`.
+- **`Cur.`.** `ApiHandler.history` sets the fourth column title to `Cur.` (the first is `time` or `date time`, as now); the cells are untouched. Tests: `ApiTest`, `app.test.cjs` header.
+- **A table packed to the right.** In `app.css` the history grids become `minmax(8ch, 1fr)` (the time, `minmax(19ch, 1fr)` with the date) for the left column and fixed
+  widths for the others, as before so that the rows line up: `used` 10ch, `limit` 10ch, `Cur.` 5ch, `Δ used` 9ch, `Δ time` 8ch (`cols-4`, `cols-5`, `cols-6`, and the `date`
+  variants); every cell but the first gets `text-align: right`, header included, and the 3ch paddings between `used` and `limit` are replaced by the room the column widths leave (about three characters for a
+  typical budget). The `1fr` time column takes the free space, so the other columns sit against the right edge. A longer amount than the column holds would overflow it; the widths are
+  generous (up to 9,999,999.99) and are the one fixed-number assumption of the table. The probe measures the same grids, so the window stays as wide as the table needs. Tests: `layout.test.cjs`
+  (the track lists, right alignment, `minmax(...,1fr)` first, no padding rule left), `app.test.cjs` (titles `Cur.`, `Δ used`, `Δ time` in order).
+- **Settings texts.** In `index.html` the two History view checkboxes read `Δ used` and `Δ time` (the Main view ones keep their long texts). Test: `layout.test.cjs`
+  (the settings texts test is changed).
+- **Error log width.** `contentSize` for `errors` reports `ceil(1.5 * row) + scrollbar`, flag `2`, panel `errors`; the height stays `panelHeight`. Tests: `app.test.cjs` (the size string), docs.
+- **Back to the view before the settings.** `app.js` keeps `returnTo`: when the settings button opens the settings while the log, history or error log is shown, that panel's name is
+  remembered; leaving the settings (Apply after a successful post, Cancel, the settings button again) opens `returnTo` through the same path as a click on its button (fresh load, so
+  the history shows its new columns, date and times, and the panel height is taken again from the row), then clears it. Opening another panel's button while the settings are shown clears
+  `returnTo` first. The host needs nothing: the history and the log come back at their remembered heights because the page reports the panel again, the error log at its opening size.
+  Tests: `app.test.cjs` (history open, settings, Cancel returns to history; Apply returns to history and requests it again with the new setting; the same for the log and the error
+  log; nothing open before means nothing open after; another panel's button forgets it; the green button follows).
+- **Docs.** `api.md` (the new field, `Cur.`, the error log width), README.
+
+*Assumed:* the amounts that fit the fixed columns are up to `9999999.99`; the error log's height is not restored beyond its opening size, since it is not remembered.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,
@@ -1217,8 +1246,8 @@ test of those rules, since the fake DOM has no layout. Requirements: The button 
 - Perform a manual macOS UI smoke test for startup, initial load, the history, log, error log and settings panels,
   the interval setting, manual refresh, refresh failure and 429 display, and verify closing the window terminates the app
   cleanly. Also check the layout by eye, which tests cannot: one row at the target size, the window growing and shrinking
-  around messages, each panel's size and scrollbars (nothing covered), the history as wide as its table with every column unclipped (the date and both
-  change columns on, then off again), the gear and icon spacing, the settings
+  around messages, each panel's size and scrollbars (nothing covered), the history as wide as its table with every column unclipped and packed to the right (the date and both
+  change columns on, then off again), the settings giving back the view that was open before them, the gear and icon spacing, the settings
   without a scrollbar, text selection in the settings, the width of the dropdowns, readable text, and time of day only.
 
 ## Related repositories

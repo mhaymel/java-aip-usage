@@ -919,6 +919,28 @@ class ApiTest {
     }
 
     @Test
+    void theHistoryGivesTheTimeInWholeSecondsWhileTheStatusKeepsTheShortForm() throws Exception {
+        writeHistory("datetime,used,limit,currency,status,interval,duration_ms",
+                "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:03,10.05,1000.00,USD,,60,400",
+                "2026-10-08 14:03:09,10.10,1000.00,USD,,60,400",
+                "2026-10-08 15:03:09,10.20,1000.00,USD,,60,400");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        // Newest first.
+        assertEquals("3600 s", history.at("/deltas/0/delta_seconds_text").asText(), "an hour, in seconds");
+        assertEquals("126 s", history.at("/deltas/1/delta_seconds_text").asText(), "two minutes and six seconds");
+        assertEquals("63 s", history.at("/deltas/2/delta_seconds_text").asText());
+        assertTrue(history.at("/deltas/3/delta_seconds_text").isNull(), "the first row of a run has none");
+        assertEquals("1 h", history.at("/deltas/0/delta_time_text").asText(), "the short form is still there for the row");
+        assertEquals("1 h", json(get(app, "/api/status")).at("/display/deltaTime/text").asText(), "and the row uses it");
+    }
+
+    @Test
     void aChangeOfZeroIsShownNowhereButAChangeIs() throws Exception {
         writeHistory("datetime,used,limit,currency,status,interval,duration_ms",
                 "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
@@ -1043,7 +1065,7 @@ class ApiTest {
         assertEquals("java-aip-usage.csv", history.get("file").asText());
         assertEquals("time", history.at("/columns/0").asText(), "the time of day only, until the date is switched on");
         assertEquals("limit", history.at("/columns/2").asText());
-        assertEquals("currency", history.at("/columns/3").asText());
+        assertEquals("Cur.", history.at("/columns/3").asText(), "the currency's title is short; its cells keep the code");
         assertEquals("USD", history.at("/rows/0/3").asText());
         assertEquals(history.get("total").asInt(), history.get("rows").size());
         assertEquals("14:26:53", history.at("/rows/0/0").asText(), "sorted by date and time, newest first, shown as time of day");

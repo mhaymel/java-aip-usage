@@ -132,7 +132,8 @@
                     cells.push(delta.delta_used_text || '');
                 }
                 if (show.deltaTime) {
-                    cells.push(delta.delta_time_text || '');
+                    // The history gives the time in seconds, never in minutes; the row's item has the short form.
+                    cells.push(delta.delta_seconds_text || '');
                 }
                 return cells;
             }),

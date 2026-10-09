@@ -295,27 +295,41 @@ test('the row has its own width, which the window follows: it wraps at 900 px, a
     assert.doesNotMatch(ruleOf('#app'), /max-width/, 'a wide log is not held to the width of the row');
 });
 
-test('the history is a table: four columns spread over the width, close together, used, limit and currency centred', () => {
+test('the history is a table: the time at the left takes what room there is, the other columns are fixed and right-aligned', () => {
     const table = ruleOf('.panel-lines .cols-4');
     assert.match(table, /display:\s*grid/);
     const columns = table.match(/grid-template-columns:\s*(.+);/)[1].trim().split(/\s+(?![^(]*\))/);
     assert.equal(columns.length, 4);
-    assert.match(columns[0], /^\d+ch$/, 'the time has room for what it holds, so is not clipped');
-    assert.match(columns[3], /^\d+ch$/, 'and so has the currency, with its title');
-    assert.ok(Number(columns[3].replace('ch', '')) >= 'currency'.length, 'wide enough for its own title');
-    assert.ok(Number(columns[0].replace('ch', '')) >= '21:01:22'.length, 'the time of day');
-    const withDate = ruleOf('.panel-lines .cols-4.date').match(/grid-template-columns:\s*(\d+)ch/);
-    assert.ok(Number(withDate[1]) >= '2026-10-08 21:01:22'.length, 'and with the date it is wider');
-    assert.match(columns[1], /fr/, 'the amounts share what is left, which is how they spread over the width');
-    assert.match(columns[2], /fr/);
+    assert.match(columns[0], /^minmax\(\d+ch,\s*1fr\)$/, 'the time is the flexible one, so the others sit against the right edge');
+    assert.ok(Number(columns[0].match(/\d+/)[0]) >= '21:01:22'.length, 'it has room for the time of day');
+    for (const fixed of columns.slice(1)) {
+        assert.match(fixed, /^\d+ch$/, 'a fixed width, so that the rows line up with each other: ' + fixed);
+    }
+    assert.ok(Number(columns[3].replace('ch', '')) >= 'USD'.length && Number(columns[3].replace('ch', '')) >= 'Cur.'.length, 'wide enough for the code and its short title');
+    assert.ok(Number(columns[1].replace('ch', '')) >= '9999999.99'.length, 'used holds the amounts the requirements name');
+    assert.ok(Number(columns[2].replace('ch', '')) >= '9999999.99'.length, 'so does limit');
+    const withDate = ruleOf('.panel-lines .cols-4.date').match(/grid-template-columns:\s*minmax\((\d+)ch/);
+    assert.ok(Number(withDate[1]) >= '2026-10-08 21:01:22'.length, 'with the date the time is wider');
     assert.ok(Number(table.match(/column-gap:\s*(\d+)px/)[1]) <= 10, 'little space between the columns');
-    assert.match(ruleOf('.panel-lines .cols-4 > :not(:first-child)'), /text-align:\s*center/);
-    assert.doesNotMatch(table, /text-align/, 'the date keeps the default, at the left');
+    assert.match(ruleOf('.panel-lines .cols-4 > :not(:first-child)'), /text-align:\s*right/);
+    assert.doesNotMatch(table, /text-align/, 'the time keeps the default, at the left');
 });
 
-test('the column titles are centred, and that rule comes after the one aligning the cells', () => {
-    assert.match(ruleOf('.panel-lines .head.cols-4 > *'), /text-align:\s*center/);
-    assert.ok(css.indexOf('.panel-lines .head.cols-4 > *') > css.indexOf('.panel-lines .cols-4 > :not(:first-child)'), 'so it wins');
+test('the change columns are fixed and right-aligned too, after the currency, in both widths of the time', () => {
+    for (const [cols, count] of [['cols-5', 5], ['cols-6', 6]]) {
+        for (const suffix of ['', '.date']) {
+            const columns = ruleOf('.panel-lines .' + cols + suffix).match(/grid-template-columns:\s*(.+);/)[1].trim().split(/\s+(?![^(]*\))/);
+            assert.equal(columns.length, count, cols + suffix);
+            assert.match(columns[0], /^minmax\(\d+ch,\s*1fr\)$/);
+            columns.slice(1).forEach(c => assert.match(c, /^\d+ch$/, cols + suffix + ' ' + c));
+        }
+    }
+    assert.match(ruleOf('.panel-lines .cols-5 > :not(:first-child),\n.panel-lines .cols-6 > :not(:first-child)'), /text-align:\s*right/);
+});
+
+test('the titles are aligned like their columns: the time at the left, the others at the right', () => {
+    assert.match(ruleOf('.panel-lines .head > :first-child'), /text-align:\s*left/);
+    assert.doesNotMatch(css, /\.head\.cols-\d > \*[^{]*{[^}]*text-align:\s*center/, 'nothing is centred any more');
 });
 
 test('the table header stays at the top of the panel as the rows scroll, and is bold', () => {
@@ -370,11 +384,6 @@ test('the countdown is red during a back-off, and its message is bold red under 
     assert.match(ruleOf('.note-alert'), /font-weight:\s*[89]00/);
 });
 
-test('between used and limit there is more room than between the other columns', () => {
-    assert.match(ruleOf('.panel-lines .cols-4 > :nth-child(2),\n.panel-lines .cols-5 > :nth-child(2),\n.panel-lines .cols-6 > :nth-child(2)'), /padding-right:\s*[1-9]/);
-    assert.match(ruleOf('.panel-lines .cols-4 > :nth-child(3),\n.panel-lines .cols-5 > :nth-child(3),\n.panel-lines .cols-6 > :nth-child(3)'), /padding-left:\s*[1-9]/);
-});
-
 test('a history table wider than the panel scrolls sideways: rows are never narrower than their content, and the box scrolls on x only when needed', () => {
     for (const cols of ['cols-4', 'cols-5', 'cols-6']) {
         assert.match(ruleOf('.panel-lines .' + cols), /min-width:\s*max-content/, cols);
@@ -401,8 +410,10 @@ test('the settings texts are the ones the requirements give', () => {
     assert.match(html, /<input id="set-logResponse" type="checkbox"> Log the response<\/label>/);
     assert.match(html, /<legend>History view<\/legend>/);
     assert.match(html, /<input id="set-historyDate" type="checkbox"> Date as well as the time<\/label>/);
-    assert.match(html, /<input id="set-historyDeltaUsed" type="checkbox"> Change in the amount used<\/label>/);
-    assert.match(html, /<input id="set-historyDeltaTime" type="checkbox"> Time since the previous reading<\/label>/);
+    assert.match(html, /<input id="set-historyDeltaUsed" type="checkbox"> \u0394 used<\/label>/, 'the History view: like the title of the column');
+    assert.match(html, /<input id="set-historyDeltaTime" type="checkbox"> \u0394 time<\/label>/);
+    assert.match(html, /<input id="set-showDeltaUsed" type="checkbox"> Change in the amount used<\/label>/, 'the Main view keeps the long texts');
+    assert.match(html, /<input id="set-showDeltaTime" type="checkbox"> Time since the previous reading<\/label>/);
     assert.doesNotMatch(html, /Column/, 'no \'Column\' anywhere in the page');
     assert.doesNotMatch(html, /Time between requests/);
 });
@@ -433,9 +444,9 @@ test('a margin as wide as a scrollbar is always kept at the right of the panel t
     assert.doesNotMatch(ruleOf('.table-probe'), /padding/, 'and does not take it away');
 });
 
-test('the room between used and limit is one and a half characters on each side', () => {
-    assert.match(ruleOf('.panel-lines .cols-4 > :nth-child(2),\n.panel-lines .cols-5 > :nth-child(2),\n.panel-lines .cols-6 > :nth-child(2)'), /padding-right:\s*1\.5ch/);
-    assert.match(ruleOf('.panel-lines .cols-4 > :nth-child(3),\n.panel-lines .cols-5 > :nth-child(3),\n.panel-lines .cols-6 > :nth-child(3)'), /padding-left:\s*1\.5ch/);
+test('there is no padding left between used and limit: their room is what the fixed columns leave', () => {
+    assert.doesNotMatch(css, /:nth-child\(2\)/);
+    assert.doesNotMatch(css, /:nth-child\(3\)/);
 });
 
 test('the active button is 24 px with a 16 px icon and heavier lines, and takes back what it grew by so nothing moves', () => {

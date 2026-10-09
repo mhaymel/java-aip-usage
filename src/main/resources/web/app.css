@@ -375,65 +375,53 @@ body {
 }
 
 /*
- * A row of the history is a table row: the columns spread over the width, all but the time centred in theirs. The time is
- * the time of day, 8 characters; with the date (the `date` class) it is 19. There is more room between `used` and `limit`.
- * A row is never narrower than its content, so a table wider than the panel scrolls sideways instead of being cut.
+ * A row of the history is a table row. The time is at the left and takes what room there is (a flexible track); every other
+ * column has a fixed width, in characters, so that the rows line up with each other, and is right-aligned, so that the columns
+ * sit against the right edge and the numbers line up by their last digit. The time is the time of day, 8 characters; with the date
+ * (the `date` class) it is 19. The widths hold amounts up to 9,999,999.99; the room the columns leave between `used` and `limit`
+ * is about three characters. A row is never narrower than its content, so a table wider than the panel scrolls sideways.
  */
 .panel-lines .cols-4 {
     display: grid;
-    /* Fixed widths for the time and the currency, in characters, so that nothing is clipped; the amounts share the rest. */
-    grid-template-columns: 8ch minmax(0, 1fr) minmax(0, 1fr) 8ch;
+    grid-template-columns: minmax(8ch, 1fr) 10ch 10ch 5ch;
     column-gap: 8px;
     min-width: max-content;
 }
 
 .panel-lines .cols-4.date {
-    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch;
+    grid-template-columns: minmax(19ch, 1fr) 10ch 10ch 5ch;
 }
 
 .panel-lines .cols-4 > :not(:first-child) {
-    text-align: center;
+    text-align: right;
 }
 
 /* The change columns, when switched on, come after the currency: fixed widths again. */
 .panel-lines .cols-5 {
     display: grid;
-    grid-template-columns: 8ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch;
+    grid-template-columns: minmax(8ch, 1fr) 10ch 10ch 5ch 9ch;
     column-gap: 8px;
     min-width: max-content;
 }
 
 .panel-lines .cols-5.date {
-    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch;
+    grid-template-columns: minmax(19ch, 1fr) 10ch 10ch 5ch 9ch;
 }
 
 .panel-lines .cols-6 {
     display: grid;
-    grid-template-columns: 8ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch 9ch;
+    grid-template-columns: minmax(8ch, 1fr) 10ch 10ch 5ch 9ch 8ch;
     column-gap: 8px;
     min-width: max-content;
 }
 
 .panel-lines .cols-6.date {
-    grid-template-columns: 19ch minmax(0, 1fr) minmax(0, 1fr) 8ch 9ch 9ch;
+    grid-template-columns: minmax(19ch, 1fr) 10ch 10ch 5ch 9ch 8ch;
 }
 
 .panel-lines .cols-5 > :not(:first-child),
 .panel-lines .cols-6 > :not(:first-child) {
-    text-align: center;
-}
-
-/* More room between the used amount and the budget than between the other columns. */
-.panel-lines .cols-4 > :nth-child(2),
-.panel-lines .cols-5 > :nth-child(2),
-.panel-lines .cols-6 > :nth-child(2) {
-    padding-right: 1.5ch;
-}
-
-.panel-lines .cols-4 > :nth-child(3),
-.panel-lines .cols-5 > :nth-child(3),
-.panel-lines .cols-6 > :nth-child(3) {
-    padding-left: 1.5ch;
+    text-align: right;
 }
 
 /* The error log: the time, then the message, which is never wrapped. */
@@ -451,14 +439,9 @@ body {
     background: Canvas;
 }
 
-/* The column titles are centred over their columns, whatever the cells below them do. */
-.panel-lines .head.cols-4 > * {
-    text-align: center;
-}
-
-.panel-lines .head.cols-5 > *,
-.panel-lines .head.cols-6 > * {
-    text-align: center;
+/* The titles are aligned like their columns: the time at the left, the others at the right, whatever the cells below them do. */
+.panel-lines .head > :first-child {
+    text-align: left;
 }
 
 /* The first line of a run, in the log and the history: a light gray background over the whole line. */

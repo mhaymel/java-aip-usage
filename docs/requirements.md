@@ -179,7 +179,7 @@ so it must take as little screen space as it can while staying easy to read.
   fits its content and follows it as it changes. The exceptions are while the usage history or the
   error log is shown, when it is ten times as tall as the single row (the history, and the log, may open
   taller, as the person last left them) and can be resized in height, and, for the
-  log and the error log, three times as wide and resizable in width too (see The log panel, The usage history panel and The error log panel),
+  log, three times as wide, and the error log, one and a half times as wide, both resizable in width too (see The log panel, The usage history panel and The error log panel),
   and while the settings are shown, when the window is as tall as the row, its message lines and the settings
   need, exactly (see Settings). A row that would be wider than about 900
   pixels, for an account with many plan windows, wraps onto a second line.
@@ -329,6 +329,13 @@ names, shown as its code, here `USD`.
   below the row and its message lines, sharing the one panel area with them: showing one replaces the
   other. Its tooltip and behaviour are those of the other two buttons. It replaces the config button
   and the interval field in the row, which are gone.
+- **Leaving the settings brings back the view that was shown before.** If the log, the history or the error log was shown when
+  the settings button was pressed, it is shown again when the settings are left, whichever way they are left (Apply, Cancel, or the
+  settings button once more), at the size it had before, so the person finds the window as they left it: the history and the log at
+  their remembered height, the error log at its opening size. It shows the changes the settings made: the history with its new
+  columns, times and date, the row with its new items. If nothing was shown before, nothing is shown afterwards, as before.
+  Pressing the button of another panel while the settings are shown shows that panel, and the settings are left without coming back
+  to anything: what was shown before the settings is then forgotten.
 - **The window is exactly as tall as the row, its message lines and the settings need**, so the
   settings are shown whole, with no vertical scrollbar, and with no empty space below them. The height of the
   row counts: the settings are never clipped by it. The height follows the content: when the row changes,
@@ -366,8 +373,9 @@ names, shown as its code, here `USD`.
   five choices offered besides it.
 - **The texts of the view.** The interval's label reads `Interval`, and so does the checkbox for the row's item;
   the row item's tooltip keeps `Time between usage requests`. The checkbox for the log reads `Log the response`.
-  Under the heading `History view` the checkboxes read `Date as well as the time`, `Change in the amount used` and
-  `Time since the previous reading`: no `Column`, and no colon in them.
+  Under the heading `History view` the checkboxes read `Date as well as the time`, `Δ used` and `Δ time`, like the titles of the
+  columns they switch on: no `Column`, and no colon in them. Under `Main view` the two checkboxes for the row keep their longer
+  texts, `Change in the amount used` and `Time since the previous reading`.
 - **Every control is wide enough for its own value**, the arrow of a dropdown included: the value is never
   covered by the arrow, nor cut off.
 - **The text of the view can be selected and copied.**
@@ -443,23 +451,24 @@ The history is shown inside the main window, not in a window of its own.
   setting adds or removes a column or the date, and nothing is computed from fixed numbers. The width cannot be
   dragged: the person changes the height only. The scrollbar never covers a column: the last one is whole next to it. The table keeps a margin at its right
   edge as wide as a scrollbar, always, so that a scrollbar that is drawn over the content (as on macOS, where it takes no room of its
-  own) does not hide the title of the last column, `currency`, either.
+  own) does not hide the title of the last column, `Cur.` or a change column, either.
   Nothing else in the row moves.
 - **While the panel is shown, the window's height does not follow the main view.** When a message line
   appears or goes, or the row changes in any other way, the window keeps the height it has, as opened
   or as the person dragged it, and the panel takes up the difference.
 - The history is a table with a header row (`time`, `used`, `limit`, `currency`, and, when
-  their settings are on, `Δ used` and `Δ time`; it does not scroll away) and one line for each reading, the columns **spread across the width of the panel**, with
-  space between them so that nothing is cut off (in particular
-  the currency and its title): the time at the left, and `used`, `limit` and
-  `currency` each centred horizontally in their own column. **There is a little more space between `used` and `limit`**
-  than between the others, so the two numbers do not run together: about three characters of room between them,
-  besides the usual gap, and no more. For example, as wide as the row:
+  their settings are on, `Δ used` and `Δ time`; it does not scroll away) and one line for each reading, with space between the
+  columns so that nothing is cut off (in particular the last title). **The time is at the left, and every other column is at
+  the right side**: `used`, `limit`, the currency and, when switched on, `Δ used` and `Δ time` are packed against the right edge of the
+  panel, each right-aligned in its own column, so that the numbers are lined up by their last digit, and the free space of the
+  panel is between the time and `used`. **The currency's title is abbreviated to `Cur.`**; its cells keep the code the
+  response named, for example `USD`. **There is a little more space between `used` and `limit`** than between the others, so
+  the two numbers do not run together: about three characters of room between them, besides the usual gap, and no more. For example, as wide as the row:
 
   ```
-  time        used         limit     currency
-  21:01:22    263.89       1000.00     USD
-  20:46:11    260.66       1000.00     USD
+  time        used     limit  Cur.
+  21:01:22   263.89   1000.00  USD
+  20:46:11   260.66   1000.00  USD
   ```
 
 - **The first column is the time of day only**, `21:01:22`, and its title is `time`. A setting (see
@@ -471,14 +480,14 @@ The history is shown inside the main window, not in a window of its own.
   happens only if the table is wider than the largest window there is (2,400 pixels), so that nothing is out of
   reach. It takes no room when it is not needed.
 
-- The column titles are centred over their columns.
+- The column titles are aligned like their columns: `time` at the left, the others at the right.
 - `Δ used` and `Δ time` are the change in the amount used and the time since the previous
   reading, as described under Changes between readings, worked out by the backend for each row from the
   file and sent with the rows. The titles are a delta symbol, a space, and `used` or `time`: they sit
   beside the `used` column and are told apart from it by the symbol. Each column is shown only when its setting
   is on, and both are off by default; the columns are the last two, after `currency`. An empty value is an
-  empty cell, and a change in the amount used of zero is an empty cell too, not `0.00`. The time is written as
-  in the row, for example `1 m`.
+  empty cell, and a change in the amount used of zero is an empty cell too, not `0.00`. **The time is in whole seconds, with the unit,
+  never in minutes or hours**: `63 s`, `126 s`, `3600 s`. (The row's item keeps its short form, for example `1 m`.)
 - A row of a failed query (status `failed` or `start-failed`, see Usage history) is shown with its
   time, empty amounts and empty currency, and the word `failed` in red in the `used` column.
 - The line of the first row recorded after the program started (a row whose `status` is `start` or
@@ -540,9 +549,9 @@ they happen, so that a person can see what went wrong and when without opening t
 - It holds the newest 1,000 errors. If there are none yet, the panel says so in one line.
 - While the panel is shown it keeps up: a new error appears at the top soon after it happens, without pressing
   anything, and what the person has scrolled to does not move.
-- **Its size is that of the log**: ten times the row's height, and three times the row's width plus the vertical scrollbar,
-  resizable in height and in width, the height not following the main view, and a horizontal scrollbar when a line is
-  wider than the panel. Like the log it opens at that width, not narrower.
+- **Its size is half that of the log in width**: ten times the row's height, and one and a half times the row's width plus the
+  vertical scrollbar, resizable in height and in width, the height not following the main view, and a horizontal scrollbar when a
+  line is wider than the panel. It opens at that width, not narrower; a long message scrolls sideways.
 - The data comes from the application through a read-only request that reveals no credential and no file name.
 
 **Messages and states**

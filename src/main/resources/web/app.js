@@ -27,6 +27,8 @@
     var panelHasHeader = false;
     // Whether the pointer is over the countdown, which then shows the message of an HTTP 429 under the row.
     var hoveringCountdown = false;
+    // The panel that was shown when the settings were opened, which they give back when they are left; null if none.
+    var returnTo = null;
     // The height the window has while a log or history is shown, and the width the vertical scrollbar of their panel takes.
     var panelHeight = 0;
     var scrollbarWidth = 0;
@@ -500,9 +502,30 @@
         });
     }
 
-    /** Opens the panel, or closes it if it is the one shown; opening one replaces the other. */
+    /**
+     * Opens the panel, or closes it if it is the one shown; opening one replaces the other. The settings are a panel that remembers
+     * what it replaced: leaving them (Apply, Cancel, the button again) shows that again, freshly loaded so that it has the new settings.
+     * Another panel's button while the settings are shown shows that one, and what the settings replaced is forgotten.
+     */
     function togglePanel(name) {
-        openPanel = openPanel === name ? null : name;
+        if (name === 'settings') {
+            if (openPanel === 'settings') {
+                var back = returnTo;
+                returnTo = null;
+                showPanelNamed(back);
+            } else {
+                returnTo = openPanel;
+                showPanelNamed('settings');
+            }
+            return;
+        }
+        returnTo = null;
+        showPanelNamed(openPanel === name ? null : name);
+    }
+
+    /** Shows the named panel, or none for null, in the one panel area, loading what it shows afresh. */
+    function showPanelNamed(name) {
+        openPanel = name;
         panelKey = null;
         panelRows = [];
         panelHasHeader = false;
@@ -554,8 +577,8 @@
             return (Math.max(width, currentTableWidth() + 16) + scrollbarWidth) + ',' + panelHeight + ',1,history';
         }
         if (openPanel === 'errors') {
-            // As wide as the log: its messages are long.
-            return (3 * width + scrollbarWidth) + ',' + panelHeight + ',2,errors';
+            // Half as wide as the log; a long message scrolls sideways.
+            return (Math.ceil(1.5 * width) + scrollbarWidth) + ',' + panelHeight + ',2,errors';
         }
         return width + ',' + height + ',0';
     };

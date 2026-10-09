@@ -259,6 +259,7 @@ final class ApiHandler implements HttpHandler {
             List<String> columns = new java.util.ArrayList<>(table.columns());
             // The first column is the time of day; with the setting on it has the date too, and says so in its title.
             columns.set(0, now.historyDate() ? "date time" : "time");
+            columns.set(3, "Cur.");
             List<List<String>> rows = table.rows().stream().map(row -> {
                 List<String> shown = new java.util.ArrayList<>(row);
                 shown.set(0, historyTime(row.get(0), now.historyDate()));
@@ -438,14 +439,17 @@ final class ApiHandler implements HttpHandler {
             @JsonProperty("delta_used") Double deltaUsed,
             @JsonProperty("delta_time") Long deltaTime,
             @JsonProperty("delta_used_text") String deltaUsedText,
-            @JsonProperty("delta_time_text") String deltaTimeText) {
+            @JsonProperty("delta_time_text") String deltaTimeText,
+            @JsonProperty("delta_seconds_text") String deltaSecondsText) {
 
         static DeltaBody of(Double used, Long seconds) {
             return new DeltaBody(
                     used, seconds,
                     // A change of nothing says nothing: no text for it, so no cell and no item show it.
                     used == null || Math.abs(used) < 0.005 ? null : Formatting.signedAmount(java.math.BigDecimal.valueOf(used)),
-                    seconds == null ? null : Formatting.gap(seconds));
+                    seconds == null ? null : Formatting.gap(seconds),
+                    // The history shows the time in whole seconds, never in minutes.
+                    seconds == null ? null : seconds + " s");
         }
     }
 

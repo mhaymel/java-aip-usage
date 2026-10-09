@@ -194,7 +194,7 @@ Read-only. The usage history, for the panel the history button opens in the main
 {
   "file": "java-aip-usage.csv",
   "exists": true,
-  "columns": ["time", "used", "limit", "currency"],
+  "columns": ["time", "used", "limit", "Cur."],
   "total": 1440,
   "rows": [
     ["16:46:11", "260.66", "1000.00", "USD", "", "60", "412"],
@@ -206,7 +206,7 @@ Read-only. The usage history, for the panel the history button opens in the main
 }
 ```
 
-- `columns`: the four the panel shows. The first is `time`, and `date time` when the date setting is on; the
+- `columns`: the four the panel shows. The fourth, the currency, is titled `Cur.` (its cells keep the code, `USD`). The first is `time`, and `date time` when the date setting is on; the
   first field of a row is then the time of day, `16:46:11`, or the date and time, `2026-10-08 16:46:11` (a value
   that is not in that form is sent as it is). The file itself always holds the full date and time.
   A row has three more fields after the four: the `status` (`start`,
@@ -215,7 +215,8 @@ Read-only. The usage history, for the panel the history button opens in the main
 - `show`: `{deltaUsed, deltaTime, date}`, whether the settings switch on the two change columns of the table, and
   whether the times have the date. A client
   that shows them puts them after the currency, with the titles `delta used` and `delta time`.
-- `deltas` also carry the finished texts, `delta_used_text` (`+0.05`) and `delta_time_text` (`1 m`), or `null`. A change in the amount used of zero has no `delta_used_text` (`null`, though `delta_used` is
+- `deltas` also carry the finished texts, `delta_used_text` (`+0.05`), `delta_time_text` (`1 m`, the short form the row uses) and
+  `delta_seconds_text` (`63 s`, the same time in whole seconds, never minutes, which the history table shows), or `null`. A change in the amount used of zero has no `delta_used_text` (`null`, though `delta_used` is
   `0.0`), so no client shows `0.00`; the same goes for the status's `display.deltaUsed`. A client that shows the two columns titles them `\u0394 used` and `\u0394 time`.
 - `deltas`: one for each of `rows`, in the same order: the change in the amount used and the seconds since the
   row before it **in the file**, as `GET /api/status`'s `change`. A row out of order is still compared with the
@@ -283,7 +284,7 @@ panel's vertical scrollbar, which the page measures and always reserves (three r
 Those are the starting point, not the size the window was dragged to. While the settings are shown it
 reports flag `3` and the height of the whole page, the row and its message lines and the settings, so the
 window is exactly as tall as they need, and follows them. An optional last field names the panel: `415,420,1,history`,
-`1215,420,2,log` or `1215,420,2,errors` (the error log is as wide as the log). For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
+`1215,420,2,log` or `615,420,2,errors` (the error log is half as wide as the log, rounded up). For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
 is whole. The host (`WindowFit`) remembers the height of the history and of the log, in the settings
 file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
 resize only what it is told may be. The page measures its own content, never the window, so resizing the
