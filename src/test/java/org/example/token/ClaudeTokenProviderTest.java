@@ -2,8 +2,6 @@ package org.example.token;
 
 import org.example.token.TokenException.Reason;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -114,12 +112,18 @@ class ClaudeTokenProviderTest {
     }
 
     @Test
-    // Windows has no execute permission to withhold. It refuses such a file for another reason
-    // ("%1 is not a valid Win32 application"), and says so in the language the system is set to.
-    @DisabledOnOs(value = OS.WINDOWS, disabledReason = "there is no execute permission to take away on Windows")
     void aCommandThatIsFoundButCannotBeRunReportsTheRealReason() throws IOException {
-        // A file with no execute permission: present, but the system refuses to run it.
+        // A file the system will not run: present, but not startable. Each system refuses for its
+        // own reason and in its own language -- no execute permission on a Mac, "not a valid Win32
+        // application" on Windows -- so what the reason says is asked of the system itself rather
+        // than written down here. The provider sets no working directory, which would otherwise
+        // show up in the wording.
         Path notExecutable = Files.createFile(dir.resolve("claude"));
+        String fromTheSystem = assertThrows(
+                IOException.class,
+                () -> new ProcessBuilder(notExecutable.toString()).start()).getMessage().strip();
+        // Without this the check below would hold for an empty string, and so say nothing.
+        assertFalse(fromTheSystem.isBlank(), "the system gave no reason to pass on");
         ClaudeTokenProvider provider = new ClaudeTokenProvider(
                 Map.of(), List.of(notExecutable.toString()), TIMEOUT, logged::add, warned::add);
 
@@ -127,7 +131,7 @@ class ClaudeTokenProviderTest {
 
         assertEquals(Reason.NOT_INSTALLED, e.reason());
         assertTrue(e.getMessage().startsWith("Claude Code was found but could not be started:"), e.getMessage());
-        assertTrue(e.getMessage().contains("Permission denied"), e.getMessage());
+        assertTrue(e.getMessage().contains(fromTheSystem), "expected \"" + fromTheSystem + "\" in:\n" + e.getMessage());
         assertFalse(e.getMessage().contains("not be found on the PATH"), e.getMessage());
     }
 
