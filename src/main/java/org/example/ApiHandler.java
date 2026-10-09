@@ -12,6 +12,7 @@ import org.example.settings.InvalidSettingException;
 import org.example.settings.Settings;
 import org.example.settings.SettingsException;
 import org.example.settings.TimeFormat;
+import org.example.usage.HistoryDeltas;
 import org.example.usage.HistoryReader;
 import org.example.usage.Spend;
 import org.example.usage.UsageService;
@@ -62,6 +63,9 @@ final class ApiHandler implements HttpHandler {
     private final AppFiles files;
 
     private final ObjectMapper mapper = new ObjectMapper();
+
+    /** The status is polled every second; the history is read again only when its file has changed. */
+    private final LatestChangeCache latestChangeCache = new LatestChangeCache();
 
     ApiHandler(UsageService service, IntervalSettings settings, AppFiles files) {
         this.service = service;
@@ -257,7 +261,8 @@ final class ApiHandler implements HttpHandler {
         try {
             HistoryReader.Table table = HistoryReader.read(files.history(), HISTORY_ROWS);
             return new HistoryBody(
-                    files.history().getFileName().toString(), table.exists(), table.columns(), table.total(), table.rows());
+                    files.history().getFileName().toString(), table.exists(), table.columns(), table.total(), table.rows(),
+                    table.deltas().stream().map(ApiHandler::deltaBody).toList());
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
             throw new ApiException(500, "The usage history could not be read.", null);
@@ -265,6 +270,19 @@ final class ApiHandler implements HttpHandler {
     }
 
     // ---- /api/status
+
+    private static DeltaBody deltaBody(HistoryDeltas.Delta delta) {
+        return new DeltaBody(delta.used() == null ? null : delta.used().doubleValue(), delta.seconds());
+    }
+
+    private DeltaBody latestChange() {
+        try {
+            return latestChangeCache.get(files.history());
+        } catch (IOException e) {
+            LOG.log(System.Logger.Level.WARNING, "Could not read the usage history for the change: " + e.getMessage());
+            return null;
+        }
+    }
 
     private StatusBody status(UsageState state) {
         UsageSnapshot snapshot = state.snapshot();
@@ -274,7 +292,8 @@ final class ApiHandler implements HttpHandler {
                 state.stale(),
                 countdown.isPresent() ? countdown.getAsLong() : null,
                 state.error() == null ? null : new ErrorBody(state.error(), state.errorAt().toString()),
-                snapshot == null ? null : usage(snapshot));
+                snapshot == null ? null : usage(snapshot),
+                snapshot == null ? null : latestChange());
     }
 
     private static UsageBody usage(UsageSnapshot snapshot) {
@@ -389,7 +408,12 @@ final class ApiHandler implements HttpHandler {
     record LogBody(String file, boolean exists, boolean truncated, List<String> lines) {
     }
 
-    record HistoryBody(String file, boolean exists, List<String> columns, int total, List<List<String>> rows) {
+    /** What changed since the row before: the amount used, and the seconds; either is null if it cannot be worked out. */
+    record DeltaBody(@JsonProperty("delta_used") Double deltaUsed, @JsonProperty("delta_time") Long deltaTime) {
+    }
+
+    record HistoryBody(
+            String file, boolean exists, List<String> columns, int total, List<List<String>> rows, List<DeltaBody> deltas) {
     }
 
     record ErrorBody(String message, String at) {
@@ -408,6 +432,7 @@ final class ApiHandler implements HttpHandler {
             List<WindowBody> windows) {
     }
 
-    record StatusBody(boolean refreshing, boolean stale, Long nextRefreshInSeconds, ErrorBody error, UsageBody usage) {
+    record StatusBody(
+            boolean refreshing, boolean stale, Long nextRefreshInSeconds, ErrorBody error, UsageBody usage, DeltaBody change) {
     }
 }

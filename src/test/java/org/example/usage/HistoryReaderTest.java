@@ -176,4 +176,33 @@ class HistoryReaderTest {
         assertEquals("start", table.rows().get(2).get(4));
         assertEquals(List.of("datetime", "used", "limit", "currency"), table.columns(), "the status and timing are not columns of the panel");
     }
+
+    @Test
+    void theDeltasAreWorkedOutInFileOrderAndComeBackWithTheirRowsNewestFirst() throws IOException {
+        HistoryReader.Table table = HistoryReader.read(write("""
+                datetime,used,limit,currency,status,interval,duration_ms
+                2026-10-08 14:24:53,10.00,1000.00,USD,start,60,400
+                2026-10-08 14:25:53,10.50,1000.00,USD,,60,400
+                2026-10-08 14:26:53,,,,failed,60,400
+                2026-10-08 14:30:53,11.00,1000.00,USD,,60,400
+                """), 3);
+
+        assertEquals(List.of("2026-10-08 14:30:53", "2026-10-08 14:26:53", "2026-10-08 14:25:53"), times(table));
+        assertEquals(3, table.deltas().size(), "one for each row shown");
+        assertEquals(240L, table.deltas().get(0).seconds());
+        assertEquals(null, table.deltas().get(0).used(), "the row before it failed");
+        assertEquals(60L, table.deltas().get(1).seconds());
+        assertEquals(new java.math.BigDecimal("0.50"), table.deltas().get(2).used());
+    }
+
+    @Test
+    void aFileOutOfOrderIsWorkedOutInTheOrderItWasWritten() throws IOException {
+        HistoryReader.Table table = HistoryReader.read(write("""
+                datetime,used,limit,currency,status,interval,duration_ms
+                2026-10-08 14:26:53,10.00,1000.00,USD,start,60,400
+                2026-10-08 14:24:53,10.50,1000.00,USD,,60,400
+                """), 10);
+
+        assertEquals(null, table.deltas().get(1).seconds(), "the second was written after, but is earlier");
+    }
 }

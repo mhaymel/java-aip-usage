@@ -781,6 +781,37 @@ class ApiTest {
     }
 
     @Test
+    void theHistoryAndTheStatusCarryTheChangeSinceTheRowBefore() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        AppRuntime app = start(fetch);
+        await(() -> history(app).size() >= 2);
+        post(app, "/api/refresh", "{}");
+        await(() -> history(app).size() >= 3);
+
+        JsonNode history = json(get(app, "/api/history"));
+        assertEquals(2, history.get("deltas").size(), "one for each row");
+        assertTrue(history.at("/deltas/1/delta_used").isNull(), "the first row of the run has none");
+        assertTrue(history.at("/deltas/1/delta_time").isNull());
+        assertEquals(0.0, history.at("/deltas/0/delta_used").asDouble(), 1e-9, "FakeFetch answers the same amount");
+        assertTrue(history.at("/deltas/0/delta_time").isIntegralNumber());
+
+        JsonNode change = json(get(app, "/api/status")).get("change");
+        assertEquals(history.at("/deltas/0"), change, "the status has the newest reading's");
+    }
+
+    @Test
+    void theStatusHasNoChangeBeforeThereIsAReading() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        fetch.answer = () -> {
+            throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
+        };
+        AppRuntime app = start(fetch);
+        await(() -> app.service().state().error() != null);
+
+        assertTrue(json(get(app, "/api/status")).get("change").isNull());
+    }
+
+    @Test
     void aPlanAccountsReadingWritesNothing() throws Exception {
         FakeFetch fetch = new FakeFetch();
         fetch.answer = () -> WINDOWS;

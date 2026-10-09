@@ -136,10 +136,16 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
       "severity": "normal"
     },
     "windows": []
-  }
+  },
+  "change": { "delta_used": 0.05, "delta_time": 60 }
 }
 ```
 
+- `change`: what changed between the newest reading (the newest history row that has amounts) and the row
+  directly before it in the history file, worked out by the backend; `null` when there is no usage or no
+  history. `delta_used` is the change in the amount used, `delta_time` the whole seconds between the
+  two rows. Either is `null` when it cannot be worked out: the first row of a run has neither, a failed row
+  before it leaves no `delta_used`. See the requirements, Changes between readings.
 - `refreshing`: a fetch is running now.
 - `nextRefreshInSeconds`: whole seconds until the next *scheduled* refresh, to the
   nearest second, worked out by the backend; a frontend shows it and does no counting
@@ -201,9 +207,19 @@ Read-only. The usage history, for the panel the history button opens in the main
   "exists": true,
   "columns": ["datetime", "used", "limit", "currency"],
   "total": 1440,
-  "rows": [["2026-10-08 16:46:11", "260.66", "1000.00", "USD"], ["2026-10-08 16:45:11", "260.66", "1000.00", ""]]
+  "rows": [
+    ["2026-10-08 16:46:11", "260.66", "1000.00", "USD", "", "60", "412"],
+    ["2026-10-08 16:45:11", "260.66", "1000.00", "", "start", "60", "388"]
+  ],
+  "deltas": [{ "delta_used": 0.0, "delta_time": 60 }, { "delta_used": null, "delta_time": null }]
 }
 ```
+
+- `columns`: the four the panel shows. A row has three more fields after them: the `status` (`start`,
+  `failed`, `start-failed` or empty), the `interval` in seconds and the `duration_ms`.
+- `deltas`: one for each of `rows`, in the same order: the change in the amount used and the seconds since the
+  row before it **in the file**, as `GET /api/status`'s `change`. A row out of order is still compared with the
+  one written before it.
 
 - `rows`: the newest 1,000 at most, **sorted by `datetime`, latest first**, each as strings exactly as
   in the file (an empty field stays empty). It sorts by the column and does not merely reverse the

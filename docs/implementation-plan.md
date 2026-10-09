@@ -894,7 +894,10 @@ and `app.js` gives that cell a red `failed` class. Requirements: Usage history, 
 
 ### 20. Differences between readings, worked out by the backend
 
-**Status: planned.** Requirements: Changes between readings, The usage history panel.
+**Status: done (version 0.05).** The history response has a parallel `deltas` array (`delta_used`, `delta_time`)
+instead of two more fields in each row, so the rows keep their seven strings; `/api/status` has `change`. The
+status reads the history only when its file's size or time has changed (`LatestChangeCache`), since it is polled
+every second. Rows with the same time are now sorted later-written first. Requirements: Changes between readings, The usage history panel.
 
 - **Calculation.** A small `HistoryDeltas` class in `usage/` takes the rows of the history in file order and returns,
   for each, the change in the amount used and the time since the previous row. A row marked `start` or

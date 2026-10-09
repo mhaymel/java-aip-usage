@@ -32,8 +32,10 @@ public final class HistoryReader {
      * @param rows the newest rows, latest first, as many as were asked for; each has the four columns and
      *     three more: the status ({@code start}, {@code failed},
      *     {@code start-failed} or empty), the interval in seconds and the duration in milliseconds
+     * @param deltas the differences from the row before it in the file, one for each of {@code rows}, in the
+     *     same order; see {@link HistoryDeltas}
      */
-    public record Table(boolean exists, int total, List<List<String>> rows) {
+    public record Table(boolean exists, int total, List<List<String>> rows, List<HistoryDeltas.Delta> deltas) {
 
         public List<String> columns() {
             return COLUMNS;
@@ -46,7 +48,7 @@ public final class HistoryReader {
     /** @param limit the most rows to return, the newest of them */
     public static Table read(Path file, int limit) throws IOException {
         if (!Files.isRegularFile(file)) {
-            return new Table(false, 0, List.of());
+            return new Table(false, 0, List.of(), List.of());
         }
         List<List<String>> rows = new ArrayList<>();
         for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
@@ -62,7 +64,17 @@ public final class HistoryReader {
                 rows.add(List.copyOf(row));
             }
         }
-        rows.sort(Comparator.<List<String>, String>comparing(row -> row.get(0)).reversed());
-        return new Table(true, rows.size(), List.copyOf(rows.subList(0, Math.min(limit, rows.size()))));
+        // The differences are of each row to the one before it in the file, so they are worked out before sorting.
+        List<HistoryDeltas.Delta> all = HistoryDeltas.compute(rows);
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            order.add(i);
+        }
+        // Newest first; of two with the same time, the one written later.
+        order.sort(Comparator.<Integer, String>comparing(i -> rows.get(i).get(0)).thenComparing(Comparator.naturalOrder()).reversed());
+        List<Integer> shown = order.subList(0, Math.min(limit, order.size()));
+        return new Table(true, rows.size(),
+                shown.stream().map(rows::get).toList(),
+                shown.stream().map(all::get).toList());
     }
 }
