@@ -1174,6 +1174,26 @@ The usage history panel (space between `used` and `limit`, the gutter), The erro
 *Assumed:* the interval shown is rounded up to whole seconds and never below the configured one; 16 px is the gutter because that is what a
 classic scrollbar takes; the green is the severity-normal green already in the style sheet.
 
+### 29. A green icon that is easy to see
+
+**Status: done (version 0.15); how it looks is for a person to judge.** Built as planned, with one addition: `.icon.active` has `margin: -2px`, which takes back the 4 px the button grew by, so the row is
+neither wider nor taller and the window does not change size (the plan only argued the height). The page test for "contentSize unchanged" is a layout
+test of those rules, since the fake DOM has no layout. Requirements: The button of the open panel is green, and bigger (Compact window, The row).
+
+- **Colour.** A new style variable `--active` (`#00b341`, and `#3ddc6b` in the dark theme block that already redefines `--ok`) replaces `var(--ok)` in `.icon.active`;
+  `--ok` stays the severity green.
+- **Size and line.** `.icon.active` is `width/height: 24px` (the refresh button's size, so the strip's `align-items: center` and its 34 px row do not
+  change) and its `svg` is `width/height: 16px`, which beat the `width="12"` attributes; `stroke-width: 2.2` in CSS beats the attribute `1.6`. The gear's `viewBox` is 24 and not
+  16, so its line is `3.3` (2.2 x 24/16) to look the same; this is one rule on `#settings-button.active svg`. Nothing else changes: the class is still set by
+  `labelButtons`, and removing it brings back the 20 px button, the 12/13 px glyph and the gray, with no extra state.
+- **No window change.** Because the strip height is set by the 24 px refresh button, the page's reported size does not change when a button grows; a test keeps
+  `contentSize()` unchanged across opening and closing a panel except for the panel's own size.
+- **Tests.** `layout.test.cjs`: the `--active` variable in both themes, `.icon.active` 24 px, its `svg` 16 px and `stroke-width: 2.2`, the gear's 3.3, that the active rule
+  comes after the `.icon.tiny` rules, and that the button size is not larger than the refresh button's. `app.test.cjs`: the class toggling already tested stays.
+  A manual check of the look by a person, which is the point of the change.
+
+*Assumed:* "as before" means the 20 px button, 12 px glyph, 1.6 line and the muted gray; the dark theme green is chosen to be as vivid there.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

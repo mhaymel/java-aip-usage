@@ -5,6 +5,8 @@
     --ok: #1a7f37;
     --warn: #a86a00;
     --bad: #cf222e;
+    /* The button of the open panel: a vivid green, easier to see than the severity green. */
+    --active: #00b341;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -12,6 +14,7 @@
         --ok: #3fb950;
         --warn: #d29922;
         --bad: #f85149;
+        --active: #3ddc6b;
     }
 }
 
@@ -503,7 +506,25 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-/* The button of the panel that is shown is green. */
+/*
+ * The button of the panel that is shown is green and bigger: a vivid green, 24 px with a 16 px icon instead of 20 and 12, and
+ * heavier lines. 24 px is the refresh button's size, so the row keeps its height. The margin takes back the 4 px it
+ * grew by, so that the row is no wider either and nothing beside it moves: opening a panel does not change the window.
+ */
 .icon.active {
-    color: var(--ok);
+    width: 24px;
+    height: 24px;
+    margin: -2px;
+    color: var(--active);
+}
+
+.icon.active svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2.2;
+}
+
+/* The gear is drawn on a grid of 24 units, the others of 16: the same look is 2.2 x 24 / 16. */
+#settings-button.active svg {
+    stroke-width: 3.3;
 }

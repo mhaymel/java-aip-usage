@@ -54,7 +54,7 @@ Hover over things to see what they are:
   is longer while the application is backing off after a rate limit, and goes negative
   (`-3 s`) if the refresh is overdue, for example because a request is slow. It is
   empty until the first request has been made.
-- The button of the panel that is shown (log, history, error log, settings) is green; it goes back to gray when that panel is closed or another opens.
+- The button of the panel that is shown (log, history, error log, settings) is a vivid green, a little bigger and bolder than the others; it goes back to gray when that panel is closed or another opens.
 - After HTTP 429s the application waits longer than the interval you set. That longer wait is what the interval item in the row and the interval box of the
   settings show (and Apply then saves what the box shows); it eases back by itself as requests succeed.
 - **Error log** (the triangle) lists the errors of this run, newest first, with the time and the message: every failed

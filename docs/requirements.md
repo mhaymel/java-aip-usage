@@ -236,9 +236,13 @@ snug against the button, so they read as one group:
 The four icon buttons at the right-hand end sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
 
-**The button of the open panel is green.** Of the log, history, error log and settings buttons, the one whose panel is
-shown is green. When that panel is closed, or another is opened, the new one turns green and the one that was green goes back to
-the colour it had, gray. No more than one is green, and none is when no panel is shown.
+**The button of the open panel is green, and bigger.** Of the log, history, error log and settings buttons, the one whose panel is
+shown stands out so that it is seen at a glance: it is green, a vivid green and not the dark green of the severity (about
+`#00b341` on the light theme and `#3ddc6b` on the dark one), its button is 24 pixels instead of 20 and its icon 16 pixels
+instead of 12, and its lines are heavier (about 2.2 instead of 1.6, in the same proportion for the gear). Twenty-four pixels is
+the height of the refresh button, so the row keeps its height and the window does not change size when a panel is opened or
+closed. When that panel is closed, or another is opened, the new one turns green and bigger and the one that was goes back to
+what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is green, and none is when no panel is shown.
 
 The severity is shown by colour on the percentage, when it is shown, and on the amounts, rather than by
 extra words. With the percentage switched off the amounts still carry the colour. The severity is named in

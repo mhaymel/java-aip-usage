@@ -418,8 +418,12 @@ test('the table probe is never seen: off the page, hidden, and as wide as its co
     assert.ok(css.indexOf('.table-probe {') > css.indexOf('.panel-lines {'), 'it comes after the panel rule it overrides');
 });
 
-test('the button of the open panel is green, with the colour the severity uses', () => {
-    assert.match(ruleOf('.icon.active'), /color:\s*var\(--ok\)/);
+test('the button of the open panel is a vivid green, easier to see than the severity green', () => {
+    assert.match(ruleOf('.icon.active'), /color:\s*var\(--active\)/);
+    assert.notEqual(css.match(/--active:\s*(#[0-9a-f]{6})/g).length, 0);
+    const colours = [...css.matchAll(/--active:\s*(#[0-9a-f]{6})/g)].map(m => m[1]);
+    assert.deepEqual(colours, ['#00b341', '#3ddc6b'], 'the light theme, then the dark one');
+    assert.ok(css.indexOf('--active: #3ddc6b') > css.indexOf('prefers-color-scheme: dark'), 'the second is in the dark block');
     assert.ok(css.indexOf('.icon.active {') > css.indexOf('.icon.tiny {'), 'it comes after the rule giving the buttons their gray, to win');
 });
 
@@ -432,4 +436,30 @@ test('a margin as wide as a scrollbar is always kept at the right of the panel t
 test('the room between used and limit is one and a half characters on each side', () => {
     assert.match(ruleOf('.panel-lines .cols-4 > :nth-child(2),\n.panel-lines .cols-5 > :nth-child(2),\n.panel-lines .cols-6 > :nth-child(2)'), /padding-right:\s*1\.5ch/);
     assert.match(ruleOf('.panel-lines .cols-4 > :nth-child(3),\n.panel-lines .cols-5 > :nth-child(3),\n.panel-lines .cols-6 > :nth-child(3)'), /padding-left:\s*1\.5ch/);
+});
+
+test('the active button is 24 px with a 16 px icon and heavier lines, and takes back what it grew by so nothing moves', () => {
+    const button = ruleOf('.icon.active');
+    assert.match(button, /width:\s*24px/);
+    assert.match(button, /height:\s*24px/);
+    assert.match(button, /margin:\s*-2px/, 'the 4 px it grew by, so the row is neither taller nor wider');
+    const icon = ruleOf('.icon.active svg');
+    assert.match(icon, /width:\s*16px/);
+    assert.match(icon, /height:\s*16px/);
+    assert.match(icon, /stroke-width:\s*2\.2/);
+    assert.match(ruleOf('#settings-button.active svg'), /stroke-width:\s*3\.3/, 'the gear is on a 24 unit grid: 2.2 x 24 / 16');
+});
+
+test('the active button is no bigger than the refresh button, which sets the height of the row', () => {
+    const refresh = Number(ruleOf('.icon').match(/height:\s*(\d+)px/)[1]);
+    const active = Number(ruleOf('.icon.active').match(/height:\s*(\d+)px/)[1]);
+    assert.ok(active <= refresh, 'the active button ' + active + ' px, the refresh button ' + refresh + ' px');
+    assert.ok(css.indexOf('.icon.active {') > css.indexOf('.icon.tiny {'), 'it comes after the rule that makes the buttons 20 px, to win');
+});
+
+test('the gear is drawn on a grid of 24 units and the other icons of 16, which is why its line is heavier', () => {
+    for (const id of ['log-button', 'history-button', 'errors-button']) {
+        assert.match(html.match(new RegExp('<button[^>]*id="' + id + '"[\\s\\S]*?</button>'))[0], /viewBox="0 0 16 16"/, id);
+    }
+    assert.match(html.match(/<button[^>]*id="settings-button"[\s\S]*?<\/button>/)[0], /viewBox="0 0 24 24"/);
 });
