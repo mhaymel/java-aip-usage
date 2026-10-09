@@ -1144,6 +1144,36 @@ filled with the header and the three rows with the most text, and `measureTable`
 *Assumed:* the amounts and the time are the widest data, so the header and the widest-looking rows are enough to measure; a very wide table
 past 2,400 px is cut by the window limit and reached with the horizontal scrollbar.
 
+### 28. The wait after a 429 is the interval, a gutter for the scrollbar, a wider error log, green icons
+
+**Status: done (version 0.14); the gutter, the used/limit room, the error log width and the green are for a person to judge in the window.** Built as planned. The
+gutter is `padding-right: 16px` on `.panel-lines` (and so on the probe, whose measured width then includes it), not `scrollbar-gutter`. Requirements: Refresh behavior (the longer wait is the interval in force), Row (items 6 and the green button), Tooltips,
+The usage history panel (space between `used` and `limit`, the gutter), The error log panel (its size).
+
+- **The interval in force (backend).** `UsageService.effectiveIntervalSeconds()` is `ceil(max(configured interval, backoff.hold()))` in whole
+  seconds, read under the lock. `ApiHandler` builds the settings it sends from `settings.current().withUsageIntervalSeconds(effective)`, so
+  `GET /api/settings` (the box), the `display.interval` item of the status and the status' own interval all show the wait in force;
+  `IntervalSettings` still holds the configured one, which `settings.json` keeps until something is applied. Apply is left as it is, which is what the
+  requirements ask: the box's value goes in, `apply` sees it differs from the saved one, saves it and calls `service.setInterval`. `GET /api/config` is
+  untouched (it reports what is configured). The backoff state is not reset by an apply; its hold simply no longer exceeds the new interval once that
+  is as long. Tests: `UsageServiceTest` (the effective value during and after a back-off, rounded up), `ApiTest` (after a 429 `/api/settings` and
+  the status interval show the longer wait, and applying that value saves it), `StatusDisplayTest`.
+- **Tooltips.** `StatusDisplay.spend` loses the `percentShown` parameter and the severity suffix of the amounts' tooltips; the percentage's tooltip keeps
+  naming the severity. Tests: `StatusDisplayTest` (the amounts' tooltips are the same with the percentage on or off), `ApiTest` if it looks at them.
+- **History table.** The cells next to the `used`/`limit` gap go from 3ch to 1.5ch padding. `.panel-lines` gets `padding-right: 16px`, a gutter that is
+  there whether the scrollbar takes room or is drawn over the content (macOS), so the `currency` title is never under it; the probe is a
+  `.panel-lines` too, so its measured width includes the gutter and the window's width follows without a constant in the script. Tests:
+  `layout.test.cjs` (the padding values, the gutter on `.panel-lines` and the probe).
+- **Error log width.** `contentSize` for `errors` reports `3 * row + scrollbar` with flag `2` and the panel name `errors`, like the log; the host needs
+  no change (it fixes nothing for `BOTH`). The row layout (`cols-2`) already scrolls sideways for long messages. Tests: `app.test.cjs` (the
+  size string), docs.
+- **Green icon.** `labelButtons` also sets the button's class: `icon tiny active` for the open panel's, `icon tiny` for the others; `.icon.active` is
+  `color: var(--ok)`. Tests: `app.test.cjs` (opening makes it green, closing or opening another moves it, never two, none when closed), `layout.test.cjs`
+  (the rule). Docs: `api.md` for the contentSize note, the README.
+
+*Assumed:* the interval shown is rounded up to whole seconds and never below the configured one; 16 px is the gutter because that is what a
+classic scrollbar takes; the green is the severity-normal green already in the style sheet.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,

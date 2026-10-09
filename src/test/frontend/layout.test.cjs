@@ -417,3 +417,19 @@ test('the table probe is never seen: off the page, hidden, and as wide as its co
     assert.match(rule, /font:\s*400 12px/, 'the same text as the panel, or it would measure the wrong width');
     assert.ok(css.indexOf('.table-probe {') > css.indexOf('.panel-lines {'), 'it comes after the panel rule it overrides');
 });
+
+test('the button of the open panel is green, with the colour the severity uses', () => {
+    assert.match(ruleOf('.icon.active'), /color:\s*var\(--ok\)/);
+    assert.ok(css.indexOf('.icon.active {') > css.indexOf('.icon.tiny {'), 'it comes after the rule giving the buttons their gray, to win');
+});
+
+test('a margin as wide as a scrollbar is always kept at the right of the panel text, and the probe has it too', () => {
+    assert.match(ruleOf('.panel-lines'), /padding-right:\s*16px/);
+    assert.match(html, /id="table-probe" class="panel-lines table-probe"/, 'the probe is a panel-lines too, so it is measured with the margin');
+    assert.doesNotMatch(ruleOf('.table-probe'), /padding/, 'and does not take it away');
+});
+
+test('the room between used and limit is one and a half characters on each side', () => {
+    assert.match(ruleOf('.panel-lines .cols-4 > :nth-child(2),\n.panel-lines .cols-5 > :nth-child(2),\n.panel-lines .cols-6 > :nth-child(2)'), /padding-right:\s*1\.5ch/);
+    assert.match(ruleOf('.panel-lines .cols-4 > :nth-child(3),\n.panel-lines .cols-5 > :nth-child(3),\n.panel-lines .cols-6 > :nth-child(3)'), /padding-left:\s*1\.5ch/);
+});

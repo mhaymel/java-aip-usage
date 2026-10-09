@@ -1187,15 +1187,15 @@ test('the error log button opens the panel with a line for each error, newest fi
     assert.equal(page.el('panel-lines').hidden, false);
 });
 
-test('the error log has the size of the history: ten rows, the row and the scrollbar wide, height resizable, panel named', async () => {
+test('the error log has the size of the log: ten rows tall, three rows and the scrollbar wide, both ways resizable, panel named', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
     page.el('top').rect = { width: 399.2, height: 41.5 };
 
     await page.click('errors-button');
 
-    assert.equal(page.window.contentSize(), '415,420,1,errors');
+    assert.equal(page.window.contentSize(), '1215,420,2,errors', 'as wide as the log: three rows and the scrollbar');
     page.el('top').rect = { width: 399.2, height: 90 };
-    assert.equal(page.window.contentSize(), '415,420,1,errors', 'not moved by the main view');
+    assert.equal(page.window.contentSize(), '1215,420,2,errors', 'not moved by the main view');
 });
 
 test('the history and the log name themselves to the host, which remembers their heights', async () => {
@@ -1411,7 +1411,7 @@ test('the width is the history\'s own: the log and the error log keep theirs', a
     await page.click('log-button');
     assert.equal(page.window.contentSize(), '1215,420,2,log');
     await page.click('errors-button');
-    assert.equal(page.window.contentSize(), '415,420,1,errors');
+    assert.equal(page.window.contentSize(), '1215,420,2,errors');
 });
 
 test('the last width measured is kept while the history is closed, so it opens at once as wide as it was', async () => {
@@ -1424,4 +1424,56 @@ test('the last width measured is kept while the history is closed, so it opens a
     await page.click('history-button');
 
     assert.equal(page.window.contentSize(), '595,420,1,history');
+});
+
+// ---- the button of the open panel is green
+
+const classOf = (page, id) => page.el(id).className.split(/\s+/);
+
+test('no button is green while no panel is shown', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    for (const id of ['log-button', 'history-button', 'errors-button', 'settings-button']) {
+        assert.ok(!classOf(page, id).includes('active'), id);
+    }
+});
+
+test('the button of the panel that is shown is green, and goes back when it is closed', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('history-button');
+    assert.ok(classOf(page, 'history-button').includes('active'));
+    assert.ok(classOf(page, 'history-button').includes('icon') && classOf(page, 'history-button').includes('tiny'), 'its other classes stay');
+
+    await page.click('history-button');
+    assert.ok(!classOf(page, 'history-button').includes('active'), 'back to gray');
+});
+
+test('opening another panel turns the new button green and gives the old one its colour back; never two', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    const greens = () => ['log-button', 'history-button', 'errors-button', 'settings-button'].filter(id => classOf(page, id).includes('active'));
+
+    await page.click('log-button');
+    assert.deepEqual(greens(), ['log-button']);
+    await page.click('errors-button');
+    assert.deepEqual(greens(), ['errors-button']);
+    await page.click('settings-button');
+    assert.deepEqual(greens(), ['settings-button']);
+    await page.click('history-button');
+    assert.deepEqual(greens(), ['history-button']);
+    await page.click('history-button');
+    assert.deepEqual(greens(), []);
+});
+
+test('Apply and Cancel close the settings, so its button is no longer green', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('settings-button');
+    assert.deepEqual(classOf(page, 'settings-button').includes('active'), true);
+    await page.click('settings-cancel');
+    assert.ok(!classOf(page, 'settings-button').includes('active'));
+
+    await page.click('settings-button');
+    await page.click('settings-apply');
+    assert.ok(!classOf(page, 'settings-button').includes('active'));
 });

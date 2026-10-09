@@ -54,6 +54,9 @@ Hover over things to see what they are:
   is longer while the application is backing off after a rate limit, and goes negative
   (`-3 s`) if the refresh is overdue, for example because a request is slow. It is
   empty until the first request has been made.
+- The button of the panel that is shown (log, history, error log, settings) is green; it goes back to gray when that panel is closed or another opens.
+- After HTTP 429s the application waits longer than the interval you set. That longer wait is what the interval item in the row and the interval box of the
+  settings show (and Apply then saves what the box shows); it eases back by itself as requests succeed.
 - **Error log** (the triangle) lists the errors of this run, newest first, with the time and the message: every failed
   refresh, an HTTP 429 and a problem with the token (not logged in, `claude` not found) included. It is kept in memory only and is empty at
   every start. An HTTP 429 is shown only as a red countdown, which tells you why when you hover over it, and is not a message under the row.

@@ -157,9 +157,18 @@ final class ApiHandler implements HttpHandler {
 
     // ---- /api/settings
 
+    /**
+     * The settings as the window shows them: the interval is the wait the service is using, which after HTTP 429s is longer
+     * than the configured one. The settings file keeps the configured one until a value is applied.
+     */
+    private Settings shown() {
+        Settings current = settings.current();
+        return current.withUsageIntervalSeconds(Math.max(current.usageIntervalSeconds(), service.effectiveIntervalSeconds()));
+    }
+
     private SettingsBody settingsBody() {
         return new SettingsBody(
-                toBody(settings.current()),
+                toBody(shown()),
                 toBody(Settings.defaults()),
                 Settings.INTERVAL_CHOICES,
                 new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())));
@@ -307,7 +316,7 @@ final class ApiHandler implements HttpHandler {
                 state.error() == null ? null : new ErrorBody(state.error(), state.errorAt().toString()),
                 snapshot == null ? null : usage(snapshot),
                 change,
-                StatusDisplay.build(state, countdown, change, settings.current(), Instant.now(), ZoneId.systemDefault()));
+                StatusDisplay.build(state, countdown, change, shown(), Instant.now(), ZoneId.systemDefault()));
     }
 
     private static UsageBody usage(UsageSnapshot snapshot) {

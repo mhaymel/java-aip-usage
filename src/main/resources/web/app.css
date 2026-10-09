@@ -352,6 +352,11 @@ body {
     /* The vertical scrollbar is always there, so that its room is always reserved and no column is under it. */
     overflow-x: auto;
     overflow-y: scroll;
+    /*
+     * A margin as wide as a scrollbar, always: a scrollbar that is drawn over the content (macOS) takes no room of its
+     * own and would hide the last column's title. The probe is a panel-lines too, so its measured width has it.
+     */
+    padding-right: 16px;
     white-space: pre;
     font-variant-numeric: tabular-nums;
 }
@@ -419,13 +424,13 @@ body {
 .panel-lines .cols-4 > :nth-child(2),
 .panel-lines .cols-5 > :nth-child(2),
 .panel-lines .cols-6 > :nth-child(2) {
-    padding-right: 3ch;
+    padding-right: 1.5ch;
 }
 
 .panel-lines .cols-4 > :nth-child(3),
 .panel-lines .cols-5 > :nth-child(3),
 .panel-lines .cols-6 > :nth-child(3) {
-    padding-left: 3ch;
+    padding-left: 1.5ch;
 }
 
 /* The error log: the time, then the message, which is never wrapped. */
@@ -496,4 +501,9 @@ body {
     font: 400 12px/15px ui-monospace, SFMono-Regular, Menlo, monospace;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
+}
+
+/* The button of the panel that is shown is green. */
+.icon.active {
+    color: var(--ok);
 }

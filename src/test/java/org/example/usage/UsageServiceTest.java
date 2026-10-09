@@ -509,6 +509,30 @@ class UsageServiceTest {
     }
 
     @Test
+    void theEffectiveIntervalIsTheConfiguredOneUntilThereIsABackOff() {
+        UsageService service = new UsageService(() -> snapshot(1), Duration.ofSeconds(60));
+
+        assertEquals(60, service.effectiveIntervalSeconds());
+        service.setInterval(Duration.ofMillis(60_500));
+        assertEquals(61, service.effectiveIntervalSeconds(), "rounded up to whole seconds");
+    }
+
+    @Test
+    void afterARateLimitTheEffectiveIntervalIsTheLongerWaitAndItEasesBack() {
+        Scripted fetch = new Scripted(true);
+
+        UsageService service = start(fetch, Duration.ofMillis(1500), Duration.ofSeconds(60));
+        await(() -> service.state().rateLimited());
+
+        // One 429 doubles the 1.5 s interval: 3 s.
+        assertEquals(3, service.effectiveIntervalSeconds());
+        await(() -> service.state().error() == null && service.state().snapshot() != null);
+        await(() -> service.effectiveIntervalSeconds() < 3 || fetch.callTimesMillis.size() >= 4);
+        assertTrue(service.effectiveIntervalSeconds() <= 3, "never more than the hold");
+        assertTrue(service.effectiveIntervalSeconds() >= 2, "and never less than the configured one rounded up");
+    }
+
+    @Test
     void aRateLimitedRefreshIsMarkedAndDoesNotMakeTheReadingStale() {
         Scripted fetch = new Scripted(false, true);
 

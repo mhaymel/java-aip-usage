@@ -495,6 +495,8 @@
             button.title = label;
             button.setAttribute('aria-label', label);
             button.setAttribute('aria-expanded', String(openPanel === name));
+            // The button of the panel that is shown is green; closing it, or showing another, gives it back its colour.
+            button.className = 'icon tiny' + (openPanel === name ? ' active' : '');
         });
     }
 
@@ -552,7 +554,8 @@
             return (Math.max(width, currentTableWidth() + 16) + scrollbarWidth) + ',' + panelHeight + ',1,history';
         }
         if (openPanel === 'errors') {
-            return (width + scrollbarWidth) + ',' + panelHeight + ',1,errors';
+            // As wide as the log: its messages are long.
+            return (3 * width + scrollbarWidth) + ',' + panelHeight + ',2,errors';
         }
         return width + ',' + height + ',0';
     };

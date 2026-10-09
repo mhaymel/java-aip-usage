@@ -868,6 +868,40 @@ class ApiTest {
     }
 
     @Test
+    void afterAnHttp429TheLongerWaitIsTheIntervalTheSettingsAndTheRowShow() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        fetch.answer = () -> {
+            throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429);
+        };
+        AppRuntime app = start(fetch, cli(60, null));
+        await(() -> app.service().state().rateLimited());
+
+        JsonNode settings = json(get(app, "/api/settings"));
+        JsonNode status = json(get(app, "/api/status"));
+
+        assertEquals(120, settings.at("/settings/usageIntervalSeconds").asInt(), "twice the interval, which is what the service waits");
+        assertEquals(60, settings.at("/defaults/usageIntervalSeconds").asInt(), "the defaults are the defaults");
+        assertEquals("120 s", status.at("/display/interval/text").asText());
+        assertEquals(60, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds(), "the file keeps the configured one");
+    }
+
+    @Test
+    void applyingWhileBackingOffSavesWhatTheBoxShowsAsTheInterval() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        fetch.answer = () -> {
+            throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429);
+        };
+        AppRuntime app = start(fetch, cli(60, null));
+        await(() -> app.service().state().rateLimited());
+        int shown = json(get(app, "/api/settings")).at("/settings/usageIntervalSeconds").asInt();
+
+        assertEquals(200, post(app, "/api/settings", allSettings(shown, false, "hh:mm")).statusCode());
+
+        assertEquals(shown, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds());
+        assertEquals(Duration.ofSeconds(shown), app.service().interval());
+    }
+
+    @Test
     void anHttp429IsInTheErrorLogAndHasNoMessageInTheStatusDisplay() throws Exception {
         FakeFetch fetch = new FakeFetch();
         fetch.answer = () -> {

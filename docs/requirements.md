@@ -100,6 +100,13 @@ Example token output:
   pace the server has just refused. A failure that is not a 429 leaves the wait as it
   is. The refresh button is never held back, since a person asked. The error shown
   says when the next try is.
+- **The longer wait is the interval in force.** While the application waits longer than the configured usage interval
+  because of 429s, that longer wait, in whole seconds (rounded up), is the interval the application is using, and it is the
+  one that is shown: in the row's interval item, if its setting is on, and in the interval box when the settings view is opened, and
+  where the backend reports the interval to a client. It falls back, as the wait eases after successes, to the configured
+  interval, which is what the settings file keeps until a value is applied. Applying settings saves what the interval box
+  shows, so applying while the application is backing off saves the longer wait as the configured interval, unless the person typed or picked another; it then is the
+  interval, and no longer eases back.
 - The backend reports the time until the next scheduled refresh together with the
   status, in whole seconds and possibly negative, as described under Compact window.
   The frontend does not work it out.
@@ -172,7 +179,7 @@ so it must take as little screen space as it can while staying easy to read.
   fits its content and follows it as it changes. The exceptions are while the usage history or the
   error log is shown, when it is ten times as tall as the single row (the history, and the log, may open
   taller, as the person last left them) and can be resized in height, and, for the
-  log, three times as wide and resizable in width too (see The log panel, The usage history panel and The error log panel),
+  log and the error log, three times as wide and resizable in width too (see The log panel, The usage history panel and The error log panel),
   and while the settings are shown, when the window is as tall as the row, its message lines and the settings
   need, exactly (see Settings). A row that would be wider than about 900
   pixels, for an account with many plan windows, wraps onto a second line.
@@ -213,7 +220,8 @@ snug against the button, so they read as one group:
    `42 s`, and `-3 s` when the refresh is overdue; it is always shown;
 6. the time between usage requests that is in force, the delay, for example `60 s`, when its setting is on
    (it is off by default); it is not the countdown, which counts down to the next request, but the interval
-   the countdown starts from, as set in the settings;
+   the countdown starts from, as set in the settings, or the longer wait the application is using after
+   an HTTP 429 (see Refresh behavior);
 7. the change since the previous reading, when its settings are on (both are off by default): first
    the change in the amount used, with its sign, for example `+0.05`, then the time since the previous
    reading, for example `1 m`; see Changes between readings;
@@ -228,9 +236,14 @@ snug against the button, so they read as one group:
 The four icon buttons at the right-hand end sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
 
+**The button of the open panel is green.** Of the log, history, error log and settings buttons, the one whose panel is
+shown is green. When that panel is closed, or another is opened, the new one turns green and the one that was green goes back to
+the colour it had, gray. No more than one is green, and none is when no panel is shown.
+
 The severity is shown by colour on the percentage, when it is shown, and on the amounts, rather than by
-extra words. With the percentage switched off the amounts still carry the colour, and the severity is
-still named in the tooltip of the amounts.
+extra words. With the percentage switched off the amounts still carry the colour. The severity is named in
+the tooltip of the percentage only: the tooltips of the amounts say what the number is and its unit, and nothing
+about the severity.
 
 For an account with Pro or Max plan windows instead of spend, the windows take the
 place of items 2 and 3 in the same row, each as its utilization first, then its
@@ -424,7 +437,9 @@ The history is shown inside the main window, not in a window of its own.
   width of the vertical scrollbar, which is always reserved so that nothing shifts when it appears or goes. It is
   never narrower than the row and the scrollbar. The page measures the table, so the width follows it when a
   setting adds or removes a column or the date, and nothing is computed from fixed numbers. The width cannot be
-  dragged: the person changes the height only. The scrollbar never covers a column: the last one is whole next to it.
+  dragged: the person changes the height only. The scrollbar never covers a column: the last one is whole next to it. The table keeps a margin at its right
+  edge as wide as a scrollbar, always, so that a scrollbar that is drawn over the content (as on macOS, where it takes no room of its
+  own) does not hide the title of the last column, `currency`, either.
   Nothing else in the row moves.
 - **While the panel is shown, the window's height does not follow the main view.** When a message line
   appears or goes, or the row changes in any other way, the window keeps the height it has, as opened
@@ -433,8 +448,9 @@ The history is shown inside the main window, not in a window of its own.
   their settings are on, `Δ used` and `Δ time`; it does not scroll away) and one line for each reading, the columns **spread across the width of the panel**, with
   space between them so that nothing is cut off (in particular
   the currency and its title): the time at the left, and `used`, `limit` and
-  `currency` each centred horizontally in their own column. **There is more space between `used` and `limit`**
-  than between the others, so the two numbers do not run together. For example, as wide as the row:
+  `currency` each centred horizontally in their own column. **There is a little more space between `used` and `limit`**
+  than between the others, so the two numbers do not run together: about three characters of room between them,
+  besides the usual gap, and no more. For example, as wide as the row:
 
   ```
   time        used         limit     currency
@@ -520,8 +536,9 @@ they happen, so that a person can see what went wrong and when without opening t
 - It holds the newest 1,000 errors. If there are none yet, the panel says so in one line.
 - While the panel is shown it keeps up: a new error appears at the top soon after it happens, without pressing
   anything, and what the person has scrolled to does not move.
-- Its size is that of the history: ten times the row's height, the width of the row plus the vertical scrollbar,
-  the height resizable and not following the main view, and a horizontal scrollbar when a line is wider than the panel.
+- **Its size is that of the log**: ten times the row's height, and three times the row's width plus the vertical scrollbar,
+  resizable in height and in width, the height not following the main view, and a horizontal scrollbar when a line is
+  wider than the panel. Like the log it opens at that width, not narrower.
 - The data comes from the application through a read-only request that reveals no credential and no file name.
 
 **Messages and states**

@@ -94,6 +94,20 @@ public final class UsageService implements AutoCloseable {
         }
     }
 
+    /**
+     * The time between requests the service is using, in whole seconds, rounded up: the configured interval, or
+     * the longer wait while it is backing off after an HTTP 429. This is the interval the window shows.
+     */
+    public int effectiveIntervalSeconds() {
+        lock.lock();
+        try {
+            long nanos = Math.max(schedule.interval(), backoff.hold());
+            return (int) Math.min(Integer.MAX_VALUE, (nanos + 999_999_999L) / 1_000_000_000L);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /** The errors of this run; in memory only. */
     public ErrorLog errors() {
         return errors;

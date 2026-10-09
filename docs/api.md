@@ -48,7 +48,10 @@ Every setting as the backend has it, read afresh each time the settings view is 
 
 `timeFormat` is `"hh:mm"` or `"hh:mm:ss"`. `intervalChoices` is what the settings view offers; the
 backend accepts anything within `limits`, so an interval set on the command line or in the file is
-shown as the current value even when it is not a choice. The same keys are in `settings.json`, which
+shown as the current value even when it is not a choice. `settings.usageIntervalSeconds` (and the status' `display.interval`) is the interval in force: the configured one, or, while the application
+waits longer after HTTP 429s, that longer wait in whole seconds rounded up. Applying values saves what is sent, so applying while backing off saves the longer
+wait as the configured interval. `defaults` and `GET /api/config` are not changed by a back-off.
+The same keys are in `settings.json`, which
 is created with the defaults if it is missing.
 
 ## `POST /api/settings`
@@ -280,7 +283,7 @@ panel's vertical scrollbar, which the page measures and always reserves (three r
 Those are the starting point, not the size the window was dragged to. While the settings are shown it
 reports flag `3` and the height of the whole page, the row and its message lines and the settings, so the
 window is exactly as tall as they need, and follows them. An optional last field names the panel: `415,420,1,history`,
-`1215,420,2,log` or `415,420,1,errors`. For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
+`1215,420,2,log` or `1215,420,2,errors` (the error log is as wide as the log). For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
 is whole. The host (`WindowFit`) remembers the height of the history and of the log, in the settings
 file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
 resize only what it is told may be. The page measures its own content, never the window, so resizing the

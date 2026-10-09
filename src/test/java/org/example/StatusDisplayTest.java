@@ -74,22 +74,22 @@ class StatusDisplayTest {
     void theTooltipsNameWhatTheNumbersAreAndTheUnitTheResponseGives() {
         StatusDisplay.View v = build(state(spend(SPEND), null, null));
 
-        assertEquals("19% of the budget spent. Severity: normal", v.spend().percentTooltip());
-
-        Settings shown = Settings.defaults().withShowPercentage(true);
-        StatusDisplay.View withPercentage = build(state(spend(SPEND), null, null), OptionalLong.empty(), null, shown);
-        assertEquals("Credits used, in USD", withPercentage.spend().usedTooltip());
-        assertEquals("Credit budget, in USD", withPercentage.spend().limitTooltip());
+        assertEquals("19% of the budget spent. Severity: normal", v.spend().percentTooltip(), "the percentage names the severity");
+        assertEquals("Credits used, in USD", v.spend().usedTooltip());
+        assertEquals("Credit budget, in USD", v.spend().limitTooltip());
     }
 
     @Test
-    void withThePercentageHiddenTheAmountsNameTheSeverityTheColourStandsFor() {
-        StatusDisplay.View v = build(state(spend(SPEND), null, null));
+    void theTooltipsOfTheAmountsNeverNameTheSeverityWhetherOrNotThePercentageIsShown() {
+        for (boolean percentage : new boolean[] {false, true}) {
+            Settings settings = Settings.defaults().withShowPercentage(percentage);
+            StatusDisplay.View v = build(state(spend(SPEND), null, null), OptionalLong.empty(), null, settings);
 
-        assertEquals("Credits used, in USD. Severity: normal", v.spend().usedTooltip());
-        assertEquals("Credit budget, in USD. Severity: normal", v.spend().limitTooltip());
-        assertEquals("normal", v.spend().severityKind(), "and they still carry the colour");
-        assertEquals(false, v.show().percentage());
+            assertEquals("Credits used, in USD", v.spend().usedTooltip(), "percentage " + percentage);
+            assertEquals("Credit budget, in USD", v.spend().limitTooltip(), "percentage " + percentage);
+            assertEquals("normal", v.spend().severityKind(), "the colour is still there");
+            assertEquals(percentage, v.show().percentage());
+        }
     }
 
     @Test

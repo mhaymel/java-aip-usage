@@ -73,7 +73,7 @@ final class StatusDisplay {
             time = Formatting.time(usage.fetchedAt(), settings.timeFormat(), zone);
             timeTooltip = "Last update: " + Formatting.dateTime(usage.fetchedAt(), zone);
             if (usage.spend() != null) {
-                spend = spend(usage.spend(), settings.showPercentage());
+                spend = spend(usage.spend());
             }
             windows = usage.windows().stream().map(w -> window(w, now)).toList();
             if (spend == null && windows.isEmpty()) {
@@ -121,7 +121,7 @@ final class StatusDisplay {
      * The numbers carry no currency sign, so the tooltips say what they are and in what unit. The unit
      * is the currency code the response names; without one they say what the numbers are and leave the unit out.
      */
-    private static SpendView spend(Spend spend, boolean percentShown) {
+    private static SpendView spend(Spend spend) {
         String unit = spend.currency() != null && !spend.currency().isEmpty() ? ", in " + spend.currency() : "";
         String percentText = spend.percent() != null ? spend.percent() + "%" : null;
         String severity = spend.severity() == null || spend.severity().isEmpty() ? null : spend.severity();
@@ -131,9 +131,8 @@ final class StatusDisplay {
                         + (severity != null ? ". Severity: " + severity : ""),
                 Formatting.amount(spend.used()),
                 Formatting.amount(spend.limit()),
-                // With the percentage hidden the colour is the only sign of the severity, so the amounts name it.
-                "Credits used" + unit + (!percentShown && severity != null ? ". Severity: " + severity : ""),
-                "Credit budget" + unit + (!percentShown && severity != null ? ". Severity: " + severity : ""),
+                "Credits used" + unit,
+                "Credit budget" + unit,
                 severity,
                 severity == null ? null : Formatting.severityKind(severity));
     }
