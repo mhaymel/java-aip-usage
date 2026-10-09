@@ -468,6 +468,18 @@
         tableWidth = Math.ceil(probe.getBoundingClientRect().width);
     }
 
+    /**
+     * The table's width as it is now. It is read again every time the host asks for the size, not only when the rows were
+     * put on the page: a font that is loaded after the first layout changes the width, and the window must follow.
+     */
+    function currentTableWidth() {
+        var probe = $('table-probe');
+        if (probe.children.length > 0) {
+            tableWidth = Math.ceil(probe.getBoundingClientRect().width);
+        }
+        return tableWidth;
+    }
+
     /** Reads the open panel again when there may be more to show: a new reading, or any time for the log. */
     function refreshPanel() {
         if (openPanel === 'log' || openPanel === 'errors' || (openPanel === 'history' && fetchedAt() !== panelMark)) {
@@ -537,7 +549,7 @@
         }
         if (openPanel === 'history') {
             // As wide as the table needs (16 px is the panel's padding), never narrower than the row.
-            return (Math.max(width, tableWidth + 16) + scrollbarWidth) + ',' + panelHeight + ',1,history';
+            return (Math.max(width, currentTableWidth() + 16) + scrollbarWidth) + ',' + panelHeight + ',1,history';
         }
         if (openPanel === 'errors') {
             return (width + scrollbarWidth) + ',' + panelHeight + ',1,errors';

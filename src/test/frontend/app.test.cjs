@@ -1382,6 +1382,18 @@ test('the table is measured in a copy of it: the header and the rows with the mo
     assert.ok(texts.includes('1234567.89') && texts.includes('999999.99'), 'the widest rows are in it: ' + texts);
 });
 
+test('the table is measured again at every ask, since a font that loads late changes its width and the window must follow', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    page.el('table-probe').rect = { width: 300, height: 60 };
+    await page.click('history-button');
+    assert.equal(page.window.contentSize(), '415,420,1,history', 'first measured while the narrow fallback font was in use');
+
+    page.el('table-probe').rect = { width: 507.2, height: 60 };
+
+    assert.equal(page.window.contentSize(), '539,420,1,history', '508 and 16 and 15, with no new rows to prompt it');
+});
+
 test('a table that has not been measured, or has no rows, adds nothing to the width', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { exists: false, columns: [], total: 0, rows: [], deltas: [] } }) }), { scrollbar: 15 });
     page.el('top').rect = { width: 399.2, height: 41.5 };
