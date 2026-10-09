@@ -12,6 +12,16 @@ The application fetches usage data from the Anthropic OAuth usage endpoint:
 
 `https://api.anthropic.com/api/oauth/usage`
 
+The part before the path, `https://api.anthropic.com`, is the base URL, and it is
+configurable: a command-line option (`--anthropic-url <url>`, see Command line)
+points the application at another server. The default is Anthropic's own, so a run
+that says nothing about it behaves as it always has. A run can instead fetch from
+the application's own fake backend (`--fake-backend`, see Fake backend), which needs
+no URL because the application knows where it put it.
+The path is always `/api/oauth/usage` and is appended to whatever
+base URL is in force; it is never configurable, because what the application
+parses is the document that path serves.
+
 The JSON examples below show the application's normalised view of a usage
 reading, the same shape `java-aip usage --format json` prints. They are not the
 raw HTTP response. The endpoint sends no `source` or `fetched_at`: the
@@ -75,6 +85,9 @@ The client must obtain an OAuth access token before it can fetch usage data.
 - If the usage endpoint responds with HTTP 401, fetch a fresh token and retry the request once. Do not refresh the token for other HTTP or network failures.
 - If the user is not logged in or the token is unavailable, the application should show a clear user-facing message instead of failing silently. The same goes when `claude` cannot be found on the `PATH` (the message says what to do, including that a changed `PATH` needs a restart) and when it is found but cannot be run.
 - If `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is set, `claude` would send that credential instead of its OAuth login token, so the application does not capture one: it shows a message naming the variable, never its value, and asks for it to be unset and the application restarted.
+- The whole token flow can be left out of a run with `--fake-token` (see Command line). The application then obtains no token and sends a fixed placeholder bearer instead, so it starts with no Claude Code installed, nobody logged in, and no paid account. It exists for running against a server that does not look at the token, and for not spending real requests on the usage endpoint while developing. A run that uses it is said so in the log, so that a reading taken this way cannot be mistaken for a real one.
+- `--fake-backend` leaves the token flow out by itself, because the fake backend ignores the token: the two options need not both be given, and giving both is no mistake either, since they then ask for the same thing.
+- `--fake-token` and `--anthropic-url` are independent. A placeholder bearer sent to the real endpoint is rejected, which is the ordinary HTTP 401 path and not a special case; a real token is used against a custom URL, which is what pointing the application at a proxy in front of the real endpoint needs. Neither combination is refused.
 
 Example token output:
 
@@ -706,18 +719,30 @@ These are things the program does that the sections above do not say, written do
 
 **Command line**
 
-- `-h` and `--help` print the usage text and the program ends without opening a window. The options are `--usage-interval <seconds>` and `--poll-interval <seconds>`, each also as `--name=<seconds>`;
-  values are trimmed. A mistake prints one of these messages and then the usage text on the error output, and the program ends with exit code 2 before anything is logged or shown:
+- `-h` and `--help` print the usage text and the program ends without opening a window. The options that take a value are `--usage-interval <seconds>`, `--poll-interval <seconds>`, `--anthropic-url <url>` and
+  `--fake-scenario <name>`, each also as `--name=<value>`; `--fake-token` and `--fake-backend` take none. Values are trimmed. A mistake prints one of these messages and then the usage text on the error output,
+  and the program ends with exit code 2 before anything is logged or shown:
   `Unknown option: X`, `<option> needs a value in seconds.`, `<option> was given more than once.`, `<option> must be a whole number of seconds, not "x".`, `<option> must be from 5 to 3600 seconds.`
-  (1 to 60 for the poll interval).
+  (1 to 60 for the poll interval), `--anthropic-url needs a URL.`, `--anthropic-url must be an absolute http or https URL, not "x".`, `<option> takes no value.` for a value given to one of the two that take none,
+  `--fake-backend and --anthropic-url cannot both be given: each says where usage comes from.`, `--fake-scenario needs a name.`, `--fake-scenario needs --fake-backend.`, and
+  `--fake-scenario must be one of <the names>, not "x".`
 - A command-line interval is never saved on its own: `settings.json` keeps what the person last applied.
+- `--anthropic-url <url>` replaces the base URL of the usage endpoint for the run. It is accepted when it is an absolute URL whose scheme is `http` or `https` and which has a host; any host is allowed, this machine
+  or any other, and no warning is given, because the person naming the URL is the one deciding where the token may go. A trailing slash is ignored, so `http://127.0.0.1:8080` and `http://127.0.0.1:8080/` are the same.
+  A path is kept as a prefix, so `http://127.0.0.1:8080/proxy` is fetched as `http://127.0.0.1:8080/proxy/api/oauth/usage`, which is what a proxy under a path needs. A URL with a query or a fragment is a mistake and
+  draws the message above, since neither has a meaning here. The default is `https://api.anthropic.com`.
+- `--fake-token` leaves out the token flow for the run, as Authentication says. A value given to it (`--fake-token=1`) is the mistake named above.
+- `--fake-backend` fetches from the application's own fake backend for the run, as Fake backend says, and leaves out the token flow with it. `--fake-scenario <name>` chooses what that backend answers; it is
+  meaningless without `--fake-backend` and is refused rather than ignored, so a run never quietly fetches real usage because the option that was meant to make it fake was forgotten.
+- None of the four is ever saved, as `--poll-interval` is not, and none has a setting or a window control: they belong to one run and are forgotten when the program stops.
 
 **The usage request**
 
 - The connection is made within 10 seconds and the answer comes within 20 seconds, else the refresh fails with `Anthropic did not answer within 20 seconds.` A redirect is never followed, so the token cannot
   be sent to another host; it fails like any other status, `Anthropic returned HTTP 3xx.`
 - The messages of a failed refresh (after `Refresh failed at HH:mm: `): `Anthropic rejected the OAuth token (HTTP 401).`, `Anthropic refused the usage request (HTTP 403).`,
-  `Anthropic is rate limiting usage requests (HTTP 429).` followed by ` Next try in N s.` or ` N min.` (rounded up), `Anthropic returned HTTP n.` for any other status, `Cannot reach api.anthropic.com: <detail>.`,
+  `Anthropic is rate limiting usage requests (HTTP 429).` followed by ` Next try in N s.` or ` N min.` (rounded up), `Anthropic returned HTTP n.` for any other status, `Cannot reach <host>: <detail>.` where the host is the one
+  of the base URL in force, so the default run reads `Cannot reach api.anthropic.com: <detail>.` and a run against the fake backend names that address instead,
   `Interrupted while fetching usage.`, and `Unexpected error (<kind>); see the log.` When the retry with a fresh token is rejected too: `Anthropic rejected a freshly obtained OAuth token (HTTP 401). Log in again with Claude Code, then refresh.`
 - The response is read as follows. `spend` counts only when its `enabled` flag is true; amounts are minor units divided by ten to the power of the exponent (0 if none); the currency is that of `used`, else of `limit`; the percentage is used as sent
   if it is a number; the severity is the text sent. The plan windows are the top-level objects that have a numeric `utilization`, in the order they come, except `extra_usage`. A response that is not JSON, not an object, empty, has trailing text,
@@ -742,7 +767,8 @@ These are things the program does that the sections above do not say, written do
 - A line is `yyyy-MM-dd HH:mm:ss LEVEL [Name] message`, with the level padded to seven characters and any stack trace after it; the console gets the same lines. If the log file cannot be opened the program goes on with the
   console only and says `Cannot write log file <file>; logging to console only`.
 - The line for each request to Anthropic is `GET api.anthropic.com/api/oauth/usage -> HTTP 200 in 412 ms (1234 bytes, request-id <id>)`, with `retry-after <n>` when the server sent one; the request id is written only if it is made of letters, digits,
-  `_` and `-`. A timeout or a failure is `timed out` or `failed` with the time and no size.
+  `_` and `-`. A timeout or a failure is `timed out` or `failed` with the time and no size. The host and path are those of the URL actually fetched, so a run against another base URL names that one; the line is the place
+  the log shows where a reading came from.
 - With the setting to log the response on, the line is `Response of GET <host><path> (HTTP <status>):` and the pretty printed JSON on the lines after it, for every status; a body that is not JSON is `(not JSON, N bytes, not logged)` and an empty one `(empty)`.
 - A change of settings is logged with all the values, a change of the interval also as `Usage fetch interval is now N s`, and a new remembered height as `The history window height is now N px`. Applying settings that change nothing writes and logs nothing.
 - Two programs started at the same time in one directory write to the same history and settings files; running several at once is not something the program is built for (what happens to the log file then is up to the logging system, and has not been checked).
@@ -794,6 +820,48 @@ These are things the program does that the sections above do not say, written do
   and `Showing the newest N lines of the log.`; those of the history are written by the program, as above.
 - Text the program sends is put on the page as text, never as HTML.
 
+## Fake backend
+
+The application carries a fake Anthropic backend of its own, so that it can be run and
+watched without a paid Anthropic account, without Claude Code installed or logged in, and
+without spending real requests on the usage endpoint. One option turns it on; nothing else
+is needed and nothing else has to be started.
+
+- `--fake-backend` (see Command line) makes the application start a fake usage server inside
+  its own process and fetch from it for the rest of the run. There is no second program and no
+  second command: the fake backend is part of the application and is reached only through this
+  option.
+- It is a real HTTP server on the loopback interface, on a port the operating system chooses,
+  and the application fetches from it over HTTP exactly as it fetches from Anthropic. It is not a
+  substitute for the usage client fitted in place of it: the connection, the status, the headers,
+  the timeouts and the refusal to follow a redirect are all the real ones, which is what makes a
+  run against it worth watching. The application cannot tell that the server is fake.
+- It serves `GET /api/oauth/usage` and nothing else; any other path or method is HTTP 404. It
+  never looks at the bearer token and never reaches the network.
+- Because it ignores the token, `--fake-backend` also leaves out the token flow, exactly as
+  `--fake-token` does, and does not have to be given with it (see Authentication).
+- `--fake-backend` and `--anthropic-url` contradict each other, since each says where usage comes
+  from. Giving both is a mistake and is refused on the command line (see Command line).
+- Its normal answer is a plausible usage document in the shape Source data describes: a `spend`
+  object that is enabled, and several plan windows with numeric `utilization` and reset times. The
+  figures move a little on each request, so that the row, the history and the differences between
+  readings all have something to show rather than the same numbers forever.
+- It can be made to answer otherwise, so that the behaviour the requirements describe for a bad
+  answer can be seen without waiting for the real endpoint to misbehave. The scenarios are at least:
+  the normal answer; HTTP 401, 403, 429 (with and without `retry-after`), and a 500; a body that is
+  not JSON, an empty body, a body that is JSON but neither a `spend` object nor any window, and a
+  body with trailing text; and an answer that is slow or never comes, past the 10 second connect and
+  20 second request limits of The usage request.
+- The scenario is chosen with `--fake-scenario <name>`, the normal answer by default, and can be
+  changed while the application runs so that one run can be taken through several of them. How it is
+  changed is an implementation decision, provided it is on the loopback interface, is not part of the
+  application's own local API, and cannot be reached from the page the application serves.
+- It ships inside the application rather than beside it, and that is the whole of its presence: it is
+  started only by its option, never otherwise; nothing in the window mentions it or shows that it is in
+  use; it adds no endpoint to the application's own local web server; and the log says plainly that it
+  is on (see Non-functional requirements), so that a reading invented by it cannot be mistaken for a
+  real one.
+
 ## Future extension
 
 The project should be designed to evolve toward a richer dashboard, potentially
@@ -820,6 +888,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - Use Java 25 with Gradle toolchain support.
 - Use the bundled Gradle wrapper rather than a manual local install.
 - Provide a `./gradlew run` task and keep the solution easy to run from the IDE. A distributable macOS app bundle is out of scope for the first version.
+- The fake backend (see Fake backend) is part of the application and needs no task, no second entry point and no second command of its own: `./gradlew run --args="--fake-backend"`, or the same option in an IDE run configuration, is the whole of it. It is in the shipped artefact, reachable only through its option.
 - Prefer simple, testable interaction boundaries between token acquisition, usage fetching, and rendering.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
@@ -827,6 +896,10 @@ These repos are intended as a source of knowledge and reusable implementation id
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).
+  After the settings path comes a line naming the base URL usage is fetched from, `Usage is fetched from https://api.anthropic.com`, on every run and not only a configured one, so that the log of any run says where
+  its readings came from; for a run with `--fake-backend` it names the address the fake backend was given, preceded by a line of its own, `The fake backend is in use: these readings are invented (--fake-backend,
+  scenario <name>)`. When no token is obtained, a line follows: `No token is obtained: a placeholder is sent instead (--fake-token)`, and `(--fake-backend)` in its place when that is what left the token out.
+  A change of scenario while the application runs is logged too, as `The fake backend scenario is now <name>`. These lines come after the one the log panel marks, so the marking is unaffected.
 - The settings file, `settings.json` in the same directory as the usage history file, holds all the
   settings, and the two remembered heights (see Remembered heights), stored as JSON, and nothing else. If there is none at startup a new one is created with the
   defaults, and the event is logged. The full path of the settings file is logged at startup, in a line of its

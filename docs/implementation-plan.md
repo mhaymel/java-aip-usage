@@ -36,6 +36,34 @@ Other decisions confirmed during discussion:
   has already elapsed, start the next request as soon as no request is running;
   otherwise wait until the interval elapses. Do not trigger an extra immediate
   request merely because the interval changed.
+- The base URL of the usage endpoint is configurable for one run with a CLI
+  option (`--anthropic-url <url>`), defaulting to `https://api.anthropic.com`.
+  What is configured is the base URL, not the whole endpoint: the path
+  `/api/oauth/usage` is appended to it, so a fake or proxying server cannot be
+  pointed at by the wrong path. Any host is accepted and none is warned about —
+  the person naming the URL is the one deciding where the token may go — which
+  is a deliberate relaxation of the "the token cannot be sent to another host"
+  note under The usage request, where refusing redirects remains the rule for
+  hosts the person did not name. It is never saved and has no window control.
+- A run can leave out the token flow with `--fake-token`, which sends a fixed
+  placeholder bearer instead of obtaining a real one, so the application starts
+  with no Claude Code installed, nobody logged in and no paid account. It is
+  independent of `--anthropic-url`: a placeholder against the real endpoint is
+  the ordinary 401 path, and a real token against a custom URL is what a
+  debugging proxy needs, so neither combination is refused. Both options are
+  named in the log at startup so a fake reading cannot pass for a real one.
+- The fake Anthropic backend lives in the application, not beside it: no second
+  entry point, no Gradle task, no test-only fixture. `--fake-backend` starts it
+  inside the process and fetches from it for the run, and `--fake-scenario`
+  chooses what it answers. It is a real HTTP server on loopback on an
+  OS-chosen port, not a usage client swapped in behind the interface, so the
+  connection, the statuses, the headers, the timeouts and the refusal to follow
+  a redirect stay the real ones and a run against it is worth watching. It
+  answers `GET /api/oauth/usage` with a plausible, slowly changing usage
+  document, and on demand with the error statuses, malformed bodies and slow or
+  hanging answers the requirements describe. It implies `--fake-token`, since it
+  ignores the bearer anyway, and contradicts `--anthropic-url`, which is refused
+  on the command line.
 - The UI-to-backend polling interval is not a setting. It defaults to 1 second
   and can be overridden for one run with a CLI option (`--poll-interval`),
   accepting 1 through 60 seconds. It has no frontend control, never changes while
@@ -1402,6 +1430,62 @@ Differences between the code and the requirements found by reading the one again
 (`hidden` only when its switch is off) and sets `empty` when there is no value; the page's `OPTIONAL_CLASSES` keep the classes of the three optional items. The log's start-line gray is a style variable. Tests in `ApiTest`, `app.test.cjs` and `layout.test.cjs`; the
 tests that triggered a history read by changing `fetched_at` now change the stamp, and the test that expected an item with no value to be hidden now expects it empty.
 
+### 37. A configurable Anthropic URL, a run with no token, and a fake backend
+
+**Status: planned (version 0.23).** Requirements: Source data (the base URL), Authentication (`--fake-token`, `--fake-backend`), Command line (the four options and their messages), The usage request (the host in
+the messages), Fake backend, Non-functional requirements (the startup lines, no task of its own). The work divides cleanly: the application learns a base URL and a way to skip the token, and it gains a server of
+its own that answers on one. Nothing is added outside the application — no second program, no second command — so the whole change is reachable from the command line of the one that already exists.
+
+- **The four options (`LaunchOptions`).** The record grows `Optional<URI> baseUrl`, `boolean fakeToken`, `boolean fakeBackend` and `Optional<Scenario> fakeScenario`, and `none()` gains the empties and falses.
+  `--fake-token` and `--fake-backend` are handled with `-h` and `--help`, before the value handling, so they need no value; given one they are `<option> takes no value.` `--anthropic-url` and `--fake-scenario`
+  join the interval names in the known-option check and take their values the same two ways. A private `baseUrl(String)` validates: `URI.create` in a try for `IllegalArgumentException`, then `isAbsolute()`, a
+  scheme of `http` or `https` compared lower-cased, a host that is not null, and a null query and fragment; anything else is `--anthropic-url must be an absolute http or https URL, not "x".` and an empty value is
+  `--anthropic-url needs a URL.` A single trailing slash is stripped on the way in, so appending the path cannot double it. Two checks run after the loop, where both sides are known: `--fake-backend` with
+  `--anthropic-url` is `--fake-backend and --anthropic-url cannot both be given: each says where usage comes from.`, and `--fake-scenario` without `--fake-backend` is `--fake-scenario needs --fake-backend.` —
+  refused rather than ignored, so a forgotten `--fake-backend` cannot leave a run quietly fetching real usage. `USAGE` gains a line for each option and the note that none is saved.
+- **Appending the path (`UsageClient`).** `USAGE_PATH = "/api/oauth/usage"` and `DEFAULT_BASE_URL = URI.create("https://api.anthropic.com")` join `DEFAULT_URI`, and a static `usageUri(URI base)` returns
+  `URI.create(base + USAGE_PATH)`. String concatenation, not `URI.resolve`, which would throw away a path prefix and so break `http://127.0.0.1:8080/proxy`. `DEFAULT_URI` becomes `usageUri(DEFAULT_BASE_URL)`,
+  so the path is written once and the default keeps its name for the callers and tests that use it.
+- **The messages and log lines need no change.** `UsageClient` already builds `Cannot reach ` from `uri.getHost()`, and the request and response log lines from `uri.getHost() + uri.getPath()`, so all three follow a
+  configured URL on their own; the requirements now say so rather than naming `api.anthropic.com` as though it were fixed. This is the one part of the change that is only a test and a sentence.
+- **The placeholder token (`org.example.token`).** `PlaceholderTokenProvider implements TokenProvider` returns a fixed string that is deliberately not shaped like a credential, so `Redaction` has nothing to mask
+  and the log of a fake run stays readable; `acquire()` cannot fail. `UsageApp` picks the provider: `options.fakeToken() ? new PlaceholderTokenProvider() : ClaudeTokenProvider.create()`. Because
+  `ClaudeTokenProvider.create()` is then never called, a fake run also skips the `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN` refusal, which is right: no `claude` is started that could send the wrong credential.
+  `options.fakeToken() || options.fakeBackend()` is the condition, in one method so the two ways of asking for it cannot drift apart.
+- **Wiring (`UsageApp`).** The one construction site decides the base URL from the options: the fake backend's own address when `--fake-backend` started one, else `options.baseUrl()`, else
+  `UsageClient.DEFAULT_BASE_URL`. It becomes `new UsageFetcher(tokenProvider, UsageClient.create(UsageClient.usageUri(base), responseLog))`. Nothing below it knows a URL, and nothing below it knows the
+  backend it talks to is the same process.
+- **The startup lines (`AppRuntime`).** After `Settings are stored in`: for a fake run, `The fake backend is in use: these readings are invented (--fake-backend, scenario <name>)`; then
+  `Usage is fetched from <base URL>` on every run, configured or not, naming the fake backend's own address when that is where it fetches; then, when no token is obtained,
+  `No token is obtained: a placeholder is sent instead (--fake-token)`, with `(--fake-backend)` in its place when that is what left it out. All are after the line the log panel marks as the start of a run, so its
+  marking is untouched. `options` is already a parameter of `AppRuntime.start`; the base URL and whether a fake backend is in use have to reach it too, which is one more parameter or a small record beside `options`.
+- **The fake backend (`org.example.fake`).** `FakeBackend` has no `main`: it is a class the application starts, with `start()` returning the instance and `baseUrl()` its address, and `close()` stopping it, so that
+  the existing shutdown path can take it down with everything else (`RunOnce`, the shutdown hook). It uses `com.sun.net.httpserver.HttpServer` on the loopback address with port `0`, as `CredentialCapture` and
+  `LocalWebServer` already do, so nothing has to be said about a port and a taken one cannot spoil a run. `GET /api/oauth/usage` is answered by the current scenario; every other path and method is 404. It is a
+  server of its own on its own port, not a handler added to `LocalWebServer`, which keeps it out of the application's local API and out of reach of the page.
+- **The scenarios (`Scenario`).** An enum with the names the command line uses, lower-case with hyphens: `normal`, `http-401`, `http-403`, `http-429`, `http-429-retry-after`, `http-500`, `not-json`, `empty`,
+  `no-spend-no-windows`, `trailing-text`, `slow` (answers after 25 s, past the 20 s request limit) and `hang` (never answers). The enum is the one list: `LaunchOptions` validates against it and names its members in
+  `--fake-scenario must be one of <the names>, not "x".`, so the message and the behaviour cannot disagree. The scenario is held in a volatile field, read on each request, and `POST /scenario` with the name as the
+  body switches it while the application runs and logs `The fake backend scenario is now <name>`. A small `UsageDocument` builds the normal body in the shape Source data describes, with a counter that nudges the
+  utilizations and the spend a little on each request so that the row, the history and the differences all have something to show.
+- **Starting and stopping it (`UsageApp`, `AppRuntime`).** `--fake-backend` starts it before the fetcher is built, because the fetcher needs its address; it is closed on the one cleanup path the window close and the
+  process stop already share, so a run that ends either way leaves no listening socket behind. It is never started for any other reason, which is the whole of the requirement that it is reachable only through its
+  option: one `if` on `options.fakeBackend()`.
+- **Tests.** `LaunchOptionsTest`: the URL plain and as `--anthropic-url=`, a trailing slash stripped, a path prefix kept, `http` and `https`, upper-case scheme; rejected when relative, without a host, with another
+  scheme, with a query, with a fragment, empty, or given twice; `--fake-token` and `--fake-backend` on, off by default, each refused with a value; `--fake-backend` with `--anthropic-url` refused either way round;
+  `--fake-scenario` without `--fake-backend` refused; an unknown scenario name refused with the names in the message; a known one accepted in any case; the help text names all four. `UsageClientTest`: `usageUri`
+  for the default and for a base with a path; `Cannot reach <host>` and the request log line name a configured host, not `api.anthropic.com`. `PlaceholderTokenProviderTest`: a non-credential-shaped token, and
+  `Redaction` leaves it alone. `FakeBackendTest`: the normal body parses with the real `UsageParser` and differs between two requests; each error scenario answers its status, with `retry-after` where the name says
+  so; the malformed ones produce the parse failures the requirements already name; another path and another method are 404; `POST /scenario` switches it; `close()` leaves nothing listening. One test end to end: a
+  `UsageClient` pointed at a started `FakeBackend` with a `PlaceholderTokenProvider` yields a snapshot, which is the whole point of the facility. `slow` and `hang` are exercised against a client with shortened
+  timeouts rather than by waiting 20 s.
+- **Docs.** `README`: the four options, and the one command that runs the application against its own fake backend (`./gradlew run --args="--fake-backend"`). `docs/api.md` does not change (see the assumption).
+
+*Assumed:* the base URL is not reported by `/api/config` and nothing in the window mentions it or the fake backend, since no part of the page needs it and the log already records where a reading came from; a fake run
+skips the environment-variable refusal, as above; the fake backend's port is always the operating system's choice, there being no reason to name one now that nothing outside the process has to find it; the scenario is
+switched by a `POST` to the fake server rather than by a header or query on the usage request, so that what the application sends stays exactly what it sends against the real endpoint; and the fake backend is a real
+loopback server rather than a `UsageSource` fitted in place of the client, which costs a socket and buys the real HTTP path — the statuses, the timeouts and the redirect refusal — being what a fake run exercises.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,
@@ -1417,6 +1501,13 @@ tests that triggered a history read by changing `fetched_at` now change the stam
 - Test HTTP and token behavior against local test doubles; do not depend on
   live Anthropic credentials in the automated test suite.
 - Include fixtures for both response variants and malformed input.
+- Test the base URL and the placeholder token where they are decided — the command
+  line, the one place the client is constructed, and the startup log lines — and test
+  that the host in the failure message and in the request log line is the configured
+  one. The fake backend (phase 37) is the end-to-end double: one test drives a real
+  `UsageClient` against it with a placeholder token, and the error, malformed and slow
+  scenarios cover the failure paths that previously needed the real endpoint to
+  misbehave. It does not replace the existing unit-level doubles, which stay faster.
 - Test that the frontend does no arithmetic or formatting of readings (a check of the page scripts), that the
   settings are read from the backend each time the view opens and that Apply, Cancel and Restore defaults do what
   the requirements say, that an HTTP 429 gives no message line and no dimming but a red countdown, that every failed
