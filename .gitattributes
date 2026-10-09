@@ -1,0 +1,12 @@
+# Normalise text files to LF in the repository; check them out with the
+# platform's own line endings. This project is built on Windows and macOS.
+* text=auto
+
+# The POSIX launcher must stay LF even when checked out on Windows: a CRLF
+# shebang line makes it unrunnable under Git Bash and WSL.
+gradlew text eol=lf
+
+# The Windows launcher needs CRLF even when checked out on macOS.
+*.bat text eol=crlf
+
+*.jar binary

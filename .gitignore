@@ -20,6 +20,10 @@ build/
 .idea/jarRepositories.xml
 .idea/compiler.xml
 .idea/libraries/
+# Records the machine's own JDK name and local Gradle path; the build uses the
+# wrapper, and IDEA writes this file again on import.
+.idea/gradle.xml
+.idea/claudeCodeEditorTabs.xml
 *.iws
 *.iml
 *.ipr
