@@ -107,10 +107,10 @@
         var show = data.show || {};
         var header = data.columns.slice();
         if (show.deltaUsed) {
-            header.push('delta used');
+            header.push('\u0394 used');
         }
         if (show.deltaTime) {
-            header.push('delta time');
+            header.push('\u0394 time');
         }
         return {
             note: data.rows.length < data.total ? 'Showing the newest ' + data.rows.length + ' of ' + data.total + ' rows.' : null,

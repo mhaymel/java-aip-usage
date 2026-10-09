@@ -207,12 +207,12 @@ test('the history table gets the two change columns, after the currency, only wh
     assert.equal(none.rows[0].length, 4);
 
     const both = view.describeHistory({ ...base, show: { deltaUsed: true, deltaTime: true } });
-    assert.deepEqual(both.header, [...COLUMNS, 'delta used', 'delta time']);
+    assert.deepEqual(both.header, [...COLUMNS, '\u0394 used', '\u0394 time']);
     assert.deepEqual(both.rows[0], ['2026-10-08 14:26:53', '186.12', '1000.00', 'USD', '+0.05', '1 m']);
     assert.deepEqual(both.rows[1], ['2026-10-08 14:25:53', 'failed', '', '', '', '1 m'], 'an empty value is an empty cell');
 
     const timeOnly = view.describeHistory({ ...base, show: { deltaUsed: false, deltaTime: true } });
-    assert.deepEqual(timeOnly.header, [...COLUMNS, 'delta time']);
+    assert.deepEqual(timeOnly.header, [...COLUMNS, '\u0394 time']);
     assert.deepEqual(timeOnly.rows[0].slice(4), ['1 m']);
 });
 

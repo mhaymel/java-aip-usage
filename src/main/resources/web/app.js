@@ -30,6 +30,8 @@
     // The height the window has while a log or history is shown, and the width the vertical scrollbar of their panel takes.
     var panelHeight = 0;
     var scrollbarWidth = 0;
+    // How wide the history table needs to be, as last measured; kept while the panel is closed so that it opens at once as wide as it was.
+    var tableWidth = 0;
 
     function $(id) {
         return document.getElementById(id);
@@ -439,8 +441,31 @@
         box.scrollTop = scrolled > 0 && added > 0 ? scrolled + added * perRow : scrolled;
         panelRows = rowKeys;
         panelHasHeader = Boolean(shown.header);
+        if (openPanel === 'history') {
+            measureTable(shown);
+        }
         show('panel-lines', shown.rows.length > 0);
         setNote('panel-note', shown.note);
+    }
+
+    /**
+     * Measures how wide the history table needs to be, in a copy of it that nothing constrains: a row in the panel
+     * stretches to the window, so it could only report the window's own width. The copy has the header and the
+     * few rows with the most text, in the same classes, so each grid takes its content's width.
+     */
+    function measureTable(shown) {
+        var probe = $('table-probe');
+        probe.replaceChildren();
+        if (!shown.header || shown.rows.length === 0) {
+            return;
+        }
+        probe.append(cells('row head', shown.header, false, false, '', shown.wide));
+        shown.rows
+            .map(function (row) { return { row: row, size: row.join('').length }; })
+            .sort(function (a, b) { return b.size - a.size; })
+            .slice(0, 3)
+            .forEach(function (entry) { probe.append(cells('row', entry.row, false, false, '', shown.wide)); });
+        tableWidth = Math.ceil(probe.getBoundingClientRect().width);
     }
 
     /** Reads the open panel again when there may be more to show: a new reading, or any time for the log. */
@@ -511,7 +536,8 @@
             return (3 * width + scrollbarWidth) + ',' + panelHeight + ',2,log';
         }
         if (openPanel === 'history') {
-            return (width + scrollbarWidth) + ',' + panelHeight + ',1,history';
+            // As wide as the table needs (16 px is the panel's padding), never narrower than the row.
+            return (Math.max(width, tableWidth + 16) + scrollbarWidth) + ',' + panelHeight + ',1,history';
         }
         if (openPanel === 'errors') {
             return (width + scrollbarWidth) + ',' + panelHeight + ',1,errors';

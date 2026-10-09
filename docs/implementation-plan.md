@@ -142,7 +142,7 @@ Suggested backend boundaries:
 | `HistoryReader`, `HistoryDeltas`, `UsageHistory` | The CSV with its status, timing and failed rows; the differences between readings, worked out in the backend. |
 | `Formatting`, `StatusDisplay` | Every finished text, tooltip and flag the window shows; the frontend does no arithmetic or formatting of readings. |
 | `ErrorLog` | The in-memory errors of the run (every failed refresh, token problems included), newest first, read through a read-only endpoint. |
-| `WindowFit`, `RememberedHeights` | Parse the size the page asks for (with its panel); decide the height the history and log open at, and when a dragged height is stored. |
+| `WindowFit`, `RememberedHeights` | Parse the size the page asks for (with its panel); decide the height the history and log open at, and when a dragged height is stored. The history's width comes from the page, which measures its own table (phase 27). |
 | `Main` / application lifecycle | Parse CLI options, load settings, start services and the window, and terminate the program and all background resources when the window closes. |
 
 The response model must support both documented shapes: `spend` may be
@@ -1120,6 +1120,30 @@ hover line for the 429 (a native tooltip could not be red and bold, and a page t
 *Assumed:* the error log has no remembered height; remembered heights are in CSS pixels of the window's content; the history's date setting does not change the file;
 the 500 ms quiet period is a guess to tune; the error log keeps non-429 messages also in the row's message line.
 
+### 27. A history window as wide as its table, Δ titles, and no zero change
+
+**Status: done (version 0.12); every column unclipped, with the date and both change columns on, is for a person to judge in the window.** Built as planned: `#table-probe` is
+filled with the header and the three rows with the most text, and `measureTable` keeps `tableWidth` across closing. The probe's 12 px text is an addition to the layout test's list of text under 14 px (it is the panel's text, never seen). Requirements: The usage history panel (width, titles, change columns), Changes between readings (a change of zero).
+
+- **No zero change (backend).** `ApiHandler.DeltaBody.of` leaves `deltaUsedText` `null` when the change rounds to zero (`|used| < 0.005`; the raw `delta_used`
+  stays `0.0` for other clients). `StatusDisplay.deltaUsed` already returns no item when its text is `null`, so the row's change item and the history cell
+  both go empty through the same value; `Formatting.signedAmount` keeps `0.00` for zero, as a formatter should. A time since the previous reading is
+  untouched. Tests: `FormattingTest`/`ApiTest` (a zero change has no text in the history and no `deltaUsed` in the status, a non-zero one has), `StatusDisplayTest`.
+- **Titles.** `describeHistory` pushes `Δ used` and `Δ time` instead of `delta used` and `delta time`. Tests: `view.test.cjs`.
+- **Width.** The page measures the table's own width without the window in the way, since a row that stretches to its container would
+  report the container: a hidden `#table-probe` (`position: absolute; visibility: hidden; width: max-content`) is filled by `showPanel` with the
+  header and the few data rows with the most text, using the same row classes (`cols-N`, `date`), so each grid takes its content's
+  width. `contentSize` for the history reports `max(row width, ceil(probe width) + the panel's 16 px padding) + scrollbar` with flag `1,history`; the last
+  measured table width is kept across closing and opening so the window does not start narrow and then widen. The host already fixes the width at what the page
+  reports and lets only the height be dragged, so no host change is needed. The log and the error log keep their widths.
+- CSS: `.table-probe` rule; the rows keep `min-width: max-content` (the scrollbar then appears only past the 2,400 px limit of `WindowFit`).
+- Tests: `app.test.cjs` (the fake `#table-probe` reports 0 by default; with a wider probe the history asks for that plus padding and scrollbar, with a narrower
+  one the row's width, and the width follows when the probe changes), `layout.test.cjs` (the probe is hidden and `max-content`). A manual check of
+  every column unclipped with the date and both change columns on.
+
+*Assumed:* the amounts and the time are the widest data, so the header and the widest-looking rows are enough to measure; a very wide table
+past 2,400 px is cut by the window limit and reached with the horizontal scrollbar.
+
 ## Validation strategy
 
 - Unit-test response parsing, settings precedence, refresh scheduling behavior,
@@ -1138,11 +1162,13 @@ the 500 ms quiet period is a guess to tune; the error log keeps non-429 messages
 - Test that the frontend does no arithmetic or formatting of readings (a check of the page scripts), that the
   settings are read from the backend each time the view opens and that Apply, Cancel and Restore defaults do what
   the requirements say, that an HTTP 429 gives no message line and no dimming but a red countdown, that every failed
-  refresh reaches the error log, and that the remembered heights are stored, never smaller than the worked-out one.
+  refresh reaches the error log, that the remembered heights are stored, never smaller than the worked-out one, and that a change in the amount
+  used of zero is shown nowhere (no history cell, no row item) while a zero time is.
 - Perform a manual macOS UI smoke test for startup, initial load, the history, log, error log and settings panels,
   the interval setting, manual refresh, refresh failure and 429 display, and verify closing the window terminates the app
   cleanly. Also check the layout by eye, which tests cannot: one row at the target size, the window growing and shrinking
-  around messages, each panel's size and scrollbars (nothing covered), the gear and icon spacing, the settings
+  around messages, each panel's size and scrollbars (nothing covered), the history as wide as its table with every column unclipped (the date and both
+  change columns on, then off again), the gear and icon spacing, the settings
   without a scrollbar, text selection in the settings, the width of the dropdowns, readable text, and time of day only.
 
 ## Related repositories

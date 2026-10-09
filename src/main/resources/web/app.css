@@ -480,3 +480,20 @@ body {
     color: var(--bad);
     font-weight: 800;
 }
+
+/*
+ * A copy of the history table that nothing constrains, which the page measures to find out how wide the window must be for every
+ * column to be whole. It is the panel's text, and it is never seen.
+ */
+.table-probe {
+    position: absolute;
+    top: 0;
+    left: -10000px;
+    flex: none;
+    width: max-content;
+    overflow: visible;
+    visibility: hidden;
+    font: 400 12px/15px ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}

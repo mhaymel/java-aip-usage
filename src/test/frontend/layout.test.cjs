@@ -249,7 +249,7 @@ test('the panels and the settings view are the only text under 14 px', () => {
     const small = [...css.matchAll(/([^{}]+){([^}]*)}/g)]
         .filter(rule => [...rule[2].matchAll(/font(?:-size)?:\s*(?:[a-z0-9 ]*\s)?([0-9.]+)px/g)].some(m => Number(m[1]) < 14))
         .map(rule => rule[1].trim().split('\n').pop().trim());
-    assert.deepEqual([...small].sort(), ['.panel', '.settings']);
+    assert.deepEqual([...small].sort(), ['.panel', '.settings', '.table-probe']); // the probe is the panel's text, never seen
 });
 
 test('an error in the panel is red', () => {
@@ -405,4 +405,15 @@ test('the settings texts are the ones the requirements give', () => {
     assert.match(html, /<input id="set-historyDeltaTime" type="checkbox"> Time since the previous reading<\/label>/);
     assert.doesNotMatch(html, /Column/, 'no \'Column\' anywhere in the page');
     assert.doesNotMatch(html, /Time between requests/);
+});
+
+test('the table probe is never seen: off the page, hidden, and as wide as its content', () => {
+    const rule = ruleOf('.table-probe');
+    assert.match(rule, /position:\s*absolute/);
+    assert.match(rule, /visibility:\s*hidden/);
+    assert.match(rule, /width:\s*max-content/);
+    assert.match(rule, /left:\s*-\d+px/);
+    assert.match(html, /id="table-probe"[^>]*aria-hidden="true"/);
+    assert.match(rule, /font:\s*400 12px/, 'the same text as the panel, or it would measure the wrong width');
+    assert.ok(css.indexOf('.table-probe {') > css.indexOf('.panel-lines {'), 'it comes after the panel rule it overrides');
 });

@@ -221,6 +221,20 @@ class StatusDisplayTest {
     }
 
     @Test
+    void aChangeOfZeroHasNoItemInTheRowButItsTimeStillHas() {
+        UsageState s = state(spend(SPEND), null, null);
+
+        StatusDisplay.View none = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.0, 60L), Settings.defaults());
+        assertNull(none.deltaUsed(), "no 0.00");
+        assertEquals("1 m", none.deltaTime().text());
+
+        assertNull(build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.004, 60L), Settings.defaults()).deltaUsed(),
+                "rounds to zero");
+        assertEquals("+0.01", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.01, 60L), Settings.defaults()).deltaUsed().text());
+        assertEquals("-0.01", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(-0.01, 60L), Settings.defaults()).deltaUsed().text());
+    }
+
+    @Test
     void theSettingsSayWhichOptionalItemsAreSwitchedOn() {
         Settings on = new Settings(60, false, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false, false);
 

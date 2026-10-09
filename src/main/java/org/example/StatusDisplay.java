@@ -107,7 +107,7 @@ final class StatusDisplay {
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {
-        if (change == null || change.deltaUsed() == null) {
+        if (change == null || change.deltaUsed() == null || change.deltaUsedText() == null) {
             return null;
         }
         String currency = usage != null && usage.spend() != null && usage.spend().currency() != null

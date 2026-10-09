@@ -434,7 +434,8 @@ final class ApiHandler implements HttpHandler {
         static DeltaBody of(Double used, Long seconds) {
             return new DeltaBody(
                     used, seconds,
-                    used == null ? null : Formatting.signedAmount(java.math.BigDecimal.valueOf(used)),
+                    // A change of nothing says nothing: no text for it, so no cell and no item show it.
+                    used == null || Math.abs(used) < 0.005 ? null : Formatting.signedAmount(java.math.BigDecimal.valueOf(used)),
                     seconds == null ? null : Formatting.gap(seconds));
         }
     }

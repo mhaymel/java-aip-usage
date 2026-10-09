@@ -812,7 +812,8 @@ class ApiTest {
         JsonNode off = json(get(app, "/api/history"));
         assertFalse(off.at("/show/deltaUsed").asBoolean());
         assertFalse(off.at("/show/deltaTime").asBoolean());
-        assertEquals("0.00", off.at("/deltas/0/delta_used_text").asText(), "finished texts, whatever the settings");
+        assertTrue(off.at("/deltas/0/delta_used_text").isNull(), "FakeFetch answers the same amount: no change, so no text, never 0.00");
+        assertEquals(0.0, off.at("/deltas/0/delta_used").asDouble(), 1e-9, "the raw value is still there");
         assertTrue(off.at("/deltas/0/delta_time_text").asText().endsWith(" s"));
         assertTrue(off.at("/deltas/1/delta_used_text").isNull(), "the first row of the run has none");
 
@@ -881,6 +882,24 @@ class ApiTest {
         assertTrue(status.at("/display/countdownAlert").asText().contains("HTTP 429"));
         assertFalse(status.get("stale").asBoolean());
         assertTrue(json(get(app, "/api/errors")).at("/entries/0/message").asText().contains("HTTP 429"));
+    }
+
+    @Test
+    void aChangeOfZeroIsShownNowhereButAChangeIs() throws Exception {
+        writeHistory("datetime,used,limit,currency,status,interval,duration_ms",
+                "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:00,10.05,1000.00,USD,,60,400",
+                "2026-10-08 14:02:00,10.05,1000.00,USD,,60,400");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> WINDOWS;
+        AppRuntime app = start(plan);
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        // Newest first: no change, then +0.05, then the first row of the run.
+        assertTrue(history.at("/deltas/0/delta_used_text").isNull(), "a change of zero has no text");
+        assertEquals("+0.05", history.at("/deltas/1/delta_used_text").asText());
+        assertEquals("1 m", history.at("/deltas/0/delta_time_text").asText(), "the time is shown whatever it is");
     }
 
     @Test

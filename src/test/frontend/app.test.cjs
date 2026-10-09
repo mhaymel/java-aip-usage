@@ -47,7 +47,7 @@ const scrollbarOf = { width: 0 };
 function element(id) {
     const el = {
         id, hidden: HIDDEN_AT_START.has(id), textContent: '', className: '', value: '', title: '', children: [], attrs: {}, listeners: {},
-        focused: false, scrollTop: 0, scrollHeight: 0, rect: { width: 399.2, height: 41.5 },
+        focused: false, scrollTop: 0, scrollHeight: 0, rect: id === 'table-probe' ? { width: 0, height: 0 } : { width: 399.2, height: 41.5 },
         setAttribute(k, v) { this.attrs[k] = String(v); },
         removeAttribute(k) { delete this.attrs[k]; },
         addEventListener(type, fn) { this.listeners[type] = fn; },
@@ -1333,4 +1333,83 @@ test('the date setting is in the settings view and is sent with the rest', async
     await page.click('settings-apply');
 
     assert.equal(JSON.parse(settingsPosts(page)[0].body).historyDate, true);
+});
+
+// ---- the history window is as wide as its table
+
+test('the history window is as wide as the table needs plus the scrollbar, when that is more than the row', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    page.el('table-probe').rect = { width: 563.4, height: 60 };
+
+    await page.click('history-button');
+
+    // 564 (the table) and 16 (the panel's padding) and 15 (the scrollbar).
+    assert.equal(page.window.contentSize(), '595,420,1,history');
+});
+
+test('a table narrower than the row leaves the window the width of the row and the scrollbar', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    page.el('table-probe').rect = { width: 300, height: 60 };
+
+    await page.click('history-button');
+
+    assert.equal(page.window.contentSize(), '415,420,1,history');
+});
+
+test('the table is measured in a copy of it: the header and the rows with the most text, in the classes of the real ones', async () => {
+    const history = { ...HISTORY, columns: ['date time', 'used', 'limit', 'currency'], show: { date: true, deltaUsed: true, deltaTime: false },
+        deltas: [{ delta_used_text: '+0.05' }, { delta_used_text: null }, { delta_used_text: '+1,234.50' }, { delta_used_text: null }, { delta_used_text: null }],
+        rows: [
+            ['2026-10-08 20:46:11', '1.00', '2.00', 'USD', '', '60', '1'],
+            ['2026-10-08 20:45:11', '1234567.89', '10000000.00', 'USD', '', '60', '1'],
+            ['2026-10-08 20:44:11', '1.00', '2.00', '', '', '60', '1'],
+            ['2026-10-08 20:43:11', '999999.99', '9999999.99', 'EUR', '', '60', '1'],
+            ['2026-10-08 20:42:11', '5.00', '6.00', 'USD', '', '60', '1'],
+        ] };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
+
+    await page.click('history-button');
+
+    const probe = page.el('table-probe').children;
+    assert.equal(probe.length, 4, 'the header and three rows');
+    assert.match(probe[0].className, /\bhead\b/);
+    assert.match(probe[0].className, /\bcols-5\b/, 'the same columns as the table');
+    assert.match(probe[0].className, /\bdate\b/);
+    assert.deepEqual(probe[0].children.map(c => c.textContent), ['date time', 'used', 'limit', 'currency', '\u0394 used']);
+    const texts = probe.slice(1).map(r => r.children[1].textContent);
+    assert.ok(texts.includes('1234567.89') && texts.includes('999999.99'), 'the widest rows are in it: ' + texts);
+});
+
+test('a table that has not been measured, or has no rows, adds nothing to the width', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { exists: false, columns: [], total: 0, rows: [], deltas: [] } }) }), { scrollbar: 15 });
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+
+    await page.click('history-button');
+
+    assert.equal(page.window.contentSize(), '415,420,1,history');
+});
+
+test('the width is the history\'s own: the log and the error log keep theirs', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    page.el('table-probe').rect = { width: 700, height: 60 };
+
+    await page.click('log-button');
+    assert.equal(page.window.contentSize(), '1215,420,2,log');
+    await page.click('errors-button');
+    assert.equal(page.window.contentSize(), '415,420,1,errors');
+});
+
+test('the last width measured is kept while the history is closed, so it opens at once as wide as it was', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }), { scrollbar: 15 });
+    page.el('top').rect = { width: 399.2, height: 41.5 };
+    page.el('table-probe').rect = { width: 563.4, height: 60 };
+    await page.click('history-button');
+    await page.click('history-button');
+
+    await page.click('history-button');
+
+    assert.equal(page.window.contentSize(), '595,420,1,history');
 });

@@ -182,7 +182,8 @@ so it must take as little screen space as it can while staying easy to read.
   appearing or going, a panel opening or closing, and a setting that adds or removes an item of the row.
 - **The window's width is set by the row alone.** A message line, such as an error, never makes the
   window wider: it is wrapped to the width the row has and takes as many extra lines as it needs,
-  and the window grows in height only. The same holds for the log and the history.
+  and the window grows in height only. The same holds for the log. The one thing that sets the width of the
+  history is its own table (see The usage history panel).
 - The text is easy to read: a sans-serif font of at least 14 pixels, with strong
   contrast. It is set bold throughout (weight 700), with the percentage and the
   spent and budget heavier still (800). No thin or light weights, no fine print. The exceptions
@@ -301,6 +302,9 @@ names, shown as its code, here `USD`.
   the amount used is likewise against the row directly before: if that row is a failed one, with no
   amounts, there is no change, and a failed row itself has none.
 - A value that cannot be worked out is left empty, not shown as zero.
+- **A change in the amount used of exactly zero is left empty too**, as if it could not be worked out: no `0.00` in
+  the history column and no change item in the row. It is a figure that says nothing. The time since the previous
+  reading is shown whatever it is.
 
 **Settings**
 
@@ -415,14 +419,18 @@ The history is shown inside the main window, not in a window of its own.
   panel is hidden the window is back to fitting its row and cannot be resized. Opening the panel again
   starts at the height the person last left it at, never less than ten times the row's height (see
   Remembered heights).
-- The history panel keeps the width of the row, plus the width of the vertical scrollbar, which is always
-  reserved so that nothing shifts when it appears or goes. The scrollbar never covers a column: the last
-  column, the currency, is whole next to it. Only the height changes, and nothing else in the row moves.
+- **The window is as wide as the table needs, so that every column is whole**, never clipped: the time (with or
+  without the date), `used`, `limit`, `currency` and, when their settings are on, `Δ used` and `Δ time`, plus the
+  width of the vertical scrollbar, which is always reserved so that nothing shifts when it appears or goes. It is
+  never narrower than the row and the scrollbar. The page measures the table, so the width follows it when a
+  setting adds or removes a column or the date, and nothing is computed from fixed numbers. The width cannot be
+  dragged: the person changes the height only. The scrollbar never covers a column: the last one is whole next to it.
+  Nothing else in the row moves.
 - **While the panel is shown, the window's height does not follow the main view.** When a message line
   appears or goes, or the row changes in any other way, the window keeps the height it has, as opened
   or as the person dragged it, and the panel takes up the difference.
 - The history is a table with a header row (`time`, `used`, `limit`, `currency`, and, when
-  their settings are on, `delta used` and `delta time`; it does not scroll away) and one line for each reading, the columns **spread across the width of the panel**, with
+  their settings are on, `Δ used` and `Δ time`; it does not scroll away) and one line for each reading, the columns **spread across the width of the panel**, with
   space between them so that nothing is cut off (in particular
   the currency and its title): the time at the left, and `used`, `limit` and
   `currency` each centred horizontally in their own column. **There is more space between `used` and `limit`**
@@ -439,16 +447,18 @@ The history is shown inside the main window, not in a window of its own.
   the full date and time either way. The backend cuts the time; the window shows it as received.
 - **Hovering over a line of the first row of a run**, the one with the light gray background below, shows the
   text `The program started here`.
-- **A horizontal scrollbar** appears at the bottom of the panel when the columns are wider than the panel, for
-  instance with the date and both change columns on, so that nothing is out of reach. It takes no room
-  when it is not needed.
+- **A horizontal scrollbar** appears at the bottom of the panel when the columns are wider than the panel, which
+  happens only if the table is wider than the largest window there is (2,400 pixels), so that nothing is out of
+  reach. It takes no room when it is not needed.
 
 - The column titles are centred over their columns.
-- `delta used` and `delta time` are the change in the amount used and the time since the previous
+- `Δ used` and `Δ time` are the change in the amount used and the time since the previous
   reading, as described under Changes between readings, worked out by the backend for each row from the
-  file and sent with the rows. Each column is shown only when its setting is on, and both are off by
-  default; the columns are the last two, after `currency`. An empty value is an empty cell. `delta time`
-  is written as in the row, for example `1 m`.
+  file and sent with the rows. The titles are a delta symbol, a space, and `used` or `time`: they sit
+  beside the `used` column and are told apart from it by the symbol. Each column is shown only when its setting
+  is on, and both are off by default; the columns are the last two, after `currency`. An empty value is an
+  empty cell, and a change in the amount used of zero is an empty cell too, not `0.00`. The time is written as
+  in the row, for example `1 m`.
 - A row of a failed query (status `failed` or `start-failed`, see Usage history) is shown with its
   time, empty amounts and empty currency, and the word `failed` in red in the `used` column.
 - The line of the first row recorded after the program started (a row whose `status` is `start` or
