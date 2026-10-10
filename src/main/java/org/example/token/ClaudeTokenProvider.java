@@ -131,7 +131,8 @@ public final class ClaudeTokenProvider implements TokenProvider {
     }
 
     private Process launch(int port) {
-        ProcessBuilder builder = new ProcessBuilder(command);
+        ProcessBuilder builder = new ProcessBuilder(
+                isWindows() ? windowsCommand(command, System.getenv("PATH"), System.getenv("PATHEXT")) : command);
         builder.environment().put("ANTHROPIC_BASE_URL", "http://127.0.0.1:" + port + "/");
         builder.redirectErrorStream(true);
         Process process;
@@ -157,7 +158,12 @@ public final class ClaudeTokenProvider implements TokenProvider {
      */
     private TokenException notStarted(IOException cause) {
         String name = command.get(0);
-        if (isBareName(name) && !onPath(name)) {
+        // On Windows a command that could be started was found with one of its endings; one that reaches this
+        // point was found with none, and a file of that bare name is not something Windows runs.
+        boolean found = isWindows()
+                ? !windowsCommand(command, System.getenv("PATH"), System.getenv("PATHEXT")).equals(command) || !isBareName(name)
+                : !isBareName(name) || onPath(name);
+        if (!found) {
             return new TokenException(
                     Reason.NOT_INSTALLED,
                     "Claude Code could not be found on the PATH. Install it, then retry."
@@ -170,6 +176,73 @@ public final class ClaudeTokenProvider implements TokenProvider {
                 "Claude Code was found but could not be started: " + cause.getMessage().strip()
                         + ". Check that it is installed correctly and can be run, then retry.",
                 cause);
+    }
+
+    private static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("windows");
+    }
+
+    /** The endings Windows tries when a command is typed without one, if the environment names none. */
+    private static final String DEFAULT_PATHEXT = ".COM;.EXE;.BAT;.CMD";
+
+    /**
+     * The command as Windows has to be given it. Windows starts a program only by the full name of its file,
+     * and a command typed without an ending is found by trying the endings of {@code PATHEXT} in each
+     * directory of the {@code PATH}, which a shell does and the system call behind {@link ProcessBuilder}
+     * does not. Claude Code installed with npm is {@code claude.cmd}, beside a script called just
+     * {@code claude} that is for other shells and that Windows cannot run, so starting {@code claude} as it
+     * stands finds the wrong file. A batch file ({@code .cmd}, {@code .bat}) is not a program either and is
+     * run through {@code cmd.exe}.
+     *
+     * <p>A command with a directory part, or one that is found nowhere, is returned as it is, so that the
+     * failure to start it is reported as before.
+     */
+    static List<String> windowsCommand(List<String> command, String path, String pathext) {
+        String name = command.get(0);
+        if (!isBareName(name) || name.contains("/") || name.contains("\\") || path == null) {
+            return command;
+        }
+        List<String> endings = new ArrayList<>();
+        // A name that already has an ending is looked for as it is first, as a shell does.
+        if (name.contains(".")) {
+            endings.add("");
+        }
+        for (String ending : (pathext == null || pathext.isBlank() ? DEFAULT_PATHEXT : pathext).split(";")) {
+            if (!ending.isBlank()) {
+                endings.add(ending.strip());
+            }
+        }
+        for (String directory : path.split(";")) {
+            if (directory.isBlank()) {
+                continue;
+            }
+            for (String ending : endings) {
+                Path candidate;
+                try {
+                    candidate = Path.of(directory.strip(), name + ending);
+                } catch (java.nio.file.InvalidPathException e) {
+                    continue;
+                }
+                if (Files.isRegularFile(candidate)) {
+                    // The file by the name it really has: the endings of PATHEXT are in capitals, the file's seldom are.
+                    try {
+                        candidate = candidate.resolveSibling(candidate.toRealPath().getFileName());
+                    } catch (IOException e) {
+                        // As it was looked for, then; Windows does not mind the case.
+                    }
+                    List<String> resolved = new ArrayList<>();
+                    String lower = candidate.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+                    if (lower.endsWith(".cmd") || lower.endsWith(".bat")) {
+                        resolved.add("cmd.exe");
+                        resolved.add("/c");
+                    }
+                    resolved.add(candidate.toString());
+                    resolved.addAll(command.subList(1, command.size()));
+                    return resolved;
+                }
+            }
+        }
+        return command;
     }
 
     /** A command with no directory part, which the operating system looks up on the PATH. */

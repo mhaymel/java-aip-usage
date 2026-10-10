@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.27). What these mechanisms make the
+How the requirements are met today (version 0.28). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1364,6 +1364,24 @@ a file with an unknown header keeps the usage-based shape.
 
 **Not done.** No response of a real seat-based account has been seen. The window has not been looked at with either the seat-based
 row or the tabs, and the widths of the seat-based table are untried by eye.
+
+### 40. Start Claude Code on Windows, where it is a batch file
+
+**Status: done (version 0.28).** Requirement: Getting the token (the command on Windows).
+
+*Why.* The first run on Windows failed at the token: `Claude Code was found but could not be started: Cannot run program "claude":
+CreateProcess error=2`. npm installs Claude Code as `claude.cmd`, with a script called just `claude` beside it for other shells.
+`ProcessBuilder` hands the name to `CreateProcess`, which tries no ending but `.exe` and does not run batch files; and the check
+that tells "not found" from "could not be started" looked for a file of exactly the name `claude`, found the shell script, and so
+said the wrong one of the two.
+
+*Built.* `ClaudeTokenProvider.windowsCommand` resolves a bare command name through the `PATH` and the endings of `PATHEXT`, as a
+shell does, and returns the full name of the file, behind `cmd.exe /c` when it is a `.cmd` or a `.bat`; `launch` uses it when the
+operating system is Windows, and `notStarted` asks it whether the command was found. The file is named by the case it really has. It
+is a pure function of the command, the `PATH` and `PATHEXT`, so its tests run on any system: the npm layout, a program before a
+batch file on the `PATH`, a name found nowhere, and a command that has a directory. Checked by hand on Windows: it resolved to
+`cmd.exe /c ...\npm\claude.cmd` and `claude --version` answered through it. The capture of the token itself has not been run on
+Windows: `claude` and what it starts are killed as before, by way of the descendants of the process, which now begins at `cmd.exe`.
 
 ## Validation
 

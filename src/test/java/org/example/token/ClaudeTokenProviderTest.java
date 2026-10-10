@@ -211,4 +211,46 @@ class ClaudeTokenProviderTest {
         command.addAll(List.of(fakeArguments));
         return new ClaudeTokenProvider(env, command, timeout, logged::add, warned::add);
     }
+
+    // ---- finding the command as Windows does
+
+    @Test
+    void onWindowsACommandIsFoundByTheEndingsOfPathextAndABatchFileIsRunThroughCmd(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws java.io.IOException {
+        java.nio.file.Path empty = java.nio.file.Files.createDirectory(dir.resolve("empty"));
+        java.nio.file.Path npm = java.nio.file.Files.createDirectory(dir.resolve("npm"));
+        // What npm installs: a script for other shells with no ending, which Windows cannot run, and the batch file beside it.
+        java.nio.file.Files.writeString(npm.resolve("claude"), "#!/bin/sh\n");
+        java.nio.file.Files.writeString(npm.resolve("claude.cmd"), "@echo off\n");
+        String path = empty + ";" + npm;
+
+        List<String> command = ClaudeTokenProvider.windowsCommand(List.of("claude", "-p", "ping"), path, ".COM;.EXE;.BAT;.CMD");
+
+        assertEquals(List.of("cmd.exe", "/c", npm.resolve("claude.cmd").toString(), "-p", "ping"), command);
+    }
+
+    @Test
+    void onWindowsAProgramIsStartedByItsFullNameAndTheFirstDirectoryOfThePathWins(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws java.io.IOException {
+        java.nio.file.Path first = java.nio.file.Files.createDirectory(dir.resolve("first"));
+        java.nio.file.Path second = java.nio.file.Files.createDirectory(dir.resolve("second"));
+        java.nio.file.Files.writeString(first.resolve("claude.exe"), "");
+        java.nio.file.Files.writeString(second.resolve("claude.cmd"), "");
+
+        List<String> command = ClaudeTokenProvider.windowsCommand(List.of("claude", "-p", "ping"), first + ";" + second, null);
+
+        assertEquals(List.of(first.resolve("claude.exe").toString(), "-p", "ping"), command, "no cmd.exe for a program");
+    }
+
+    @Test
+    void onWindowsACommandThatIsFoundNowhereOrHasADirectoryIsLeftAsItIs(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws java.io.IOException {
+        java.nio.file.Files.writeString(dir.resolve("claude"), "#!/bin/sh\n");
+        List<String> bare = List.of("claude", "-p", "ping");
+        List<String> withDirectory = List.of(dir.resolve("claude.cmd").toString(), "-p", "ping");
+
+        assertEquals(bare, ClaudeTokenProvider.windowsCommand(bare, dir.toString(), ".EXE;.CMD"), "a file with no ending is not a command");
+        assertEquals(bare, ClaudeTokenProvider.windowsCommand(bare, null, ".EXE;.CMD"), "no PATH at all");
+        assertEquals(withDirectory, ClaudeTokenProvider.windowsCommand(withDirectory, dir.toString(), ".EXE;.CMD"));
+    }
 }
