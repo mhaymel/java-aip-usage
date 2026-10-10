@@ -1,160 +1,29 @@
 # Implementation plan
 
-Derived from [requirements.md](requirements.md) and the implementation choices
-clarified during discussion. This document describes how the first version can
-be built; observable behavior belongs in `requirements.md`.
+How the first version was built, phase by phase: the architecture, the classes,
+the reasons for a choice, what went wrong on the way, and what the tests cover.
 
-## Scope and confirmed decisions
+What the program must do is in [requirements.md](requirements.md), and only there.
+This document does not restate it: where a phase changed what the person sees, it
+names the section of the requirements instead. The local API is in [api.md](api.md).
 
-The first version is a Java 25 application that runs on macOS. It displays both
-usage-based spend data and Pro/Max plan-window data in a JavaFX WebView desktop
-window containing a browser-based UI. Keep the frontend independent of the
-Java backend where practical so it can be reused in a future Go rewrite.
-Windows support and cross-compiling a native Windows binary from macOS apply
-to that possible future Go version, not to the Java first version. The v1
-delivery target is `./gradlew run`; a distributable macOS app bundle is deferred.
+## Scope
 
-Other decisions confirmed during discussion:
+The first version is a Java 25 application for macOS, started with `./gradlew run`.
+Everything it has to do — the refresh rules, the window, the files, the command
+line, the fake backend, and what is left out of the first version — is specified in
+[requirements.md](requirements.md). The decisions confirmed in discussion, which
+used to be listed here, are stated there, each in the section it belongs to.
 
-- Adapt the token-fetching implementation from `java-aip` into this
-  repository; do not add a runtime dependency on the sibling repository. The
-  Claude Code CLI must be installed and logged in.
-- Reuse a token for usage requests. On HTTP 401, acquire a fresh token and
-  retry the request once. Do not refresh the token for other HTTP or network
-  failures.
-- Fetch usage immediately at startup, then use a 60-second default backend
-  usage-fetch interval. (It was 30 s until phase 8: a live run showed the endpoint
-  accepts about one request a minute over the long run and answers 429 to a faster
-  pace.) Configure it in seconds through both the CLI and the settings view,
-  allowing 5 through 3600 seconds (the view offers five choices and also takes a typed
-  value). Persist a change in the project-root settings file, which holds all the
-  settings (and the two remembered window heights). An applied value is
-  sent to the backend and replaces any CLI override for the rest of the run.
-- Changing the backend usage-fetch interval does not cancel an in-flight
-  request. Apply the new interval to the next scheduled request, measured from
-  when the current or most recent request was triggered. If the new interval
-  has already elapsed, start the next request as soon as no request is running;
-  otherwise wait until the interval elapses. Do not trigger an extra immediate
-  request merely because the interval changed.
-- The base URL of the usage endpoint is configurable for one run with a CLI
-  option (`--anthropic-url <url>`), defaulting to `https://api.anthropic.com`.
-  What is configured is the base URL, not the whole endpoint: the path
-  `/api/oauth/usage` is appended to it, so a fake or proxying server cannot be
-  pointed at by the wrong path. Any host is accepted and none is warned about —
-  the person naming the URL is the one deciding where the token may go — which
-  is a deliberate relaxation of the "the token cannot be sent to another host"
-  note under The usage request, where refusing redirects remains the rule for
-  hosts the person did not name. It is never saved and has no window control.
-- A run can leave out the token flow with `--fake-token`, which sends a fixed
-  placeholder bearer instead of obtaining a real one, so the application starts
-  with no Claude Code installed, nobody logged in and no paid account. It is
-  independent of `--anthropic-url`: a placeholder against the real endpoint is
-  the ordinary 401 path, and a real token against a custom URL is what a
-  debugging proxy needs, so neither combination is refused. Both options are
-  named in the log at startup so a fake reading cannot pass for a real one.
-- The fake Anthropic backend lives in the application, not beside it: no second
-  entry point, no Gradle task, no test-only fixture. `--fake-backend` starts it
-  inside the process and fetches from it for the run, and `--fake-scenario`
-  chooses what it answers. It is a real HTTP server on loopback on an
-  OS-chosen port, not a usage client swapped in behind the interface, so the
-  connection, the statuses, the headers, the timeouts and the refusal to follow
-  a redirect stay the real ones and a run against it is worth watching. It
-  answers `GET /api/oauth/usage` with a plausible, slowly changing usage
-  document, and on demand with the error statuses, malformed bodies and slow or
-  hanging answers the requirements describe. It implies `--fake-token`, since it
-  ignores the bearer anyway, and contradicts `--anthropic-url`, which is refused
-  on the command line.
-- The UI-to-backend polling interval is not a setting. It defaults to 1 second
-  and can be overridden for one run with a CLI option (`--poll-interval`),
-  accepting 1 through 60 seconds. It has no frontend control, never changes while
-  the application runs, and is never saved. (Before phase 8 it was a saved,
-  UI-editable setting; a value left in an old settings file is ignored.)
-- On startup, the frontend requests the effective intervals from the backend:
-  it uses the polling interval to poll for the latest available state, and the settings view
-  asks the backend for every setting each time it is opened (the frontend keeps none of its own).
-- Keep scheduled Anthropic fetching on the backend only; UI status polling
-  must not trigger usage requests. Provide a separate UI action that calls the
-  backend to start an immediate Anthropic usage fetch. The backend action
-  returns immediately without waiting for the fetch result. Do not run
-  overlapping usage requests; if a refresh is already running, return
-  immediately without starting another request. Keep the UI action enabled;
-  extra clicks during a refresh do not start additional requests.
-- If refreshing usage fails, retain the last successful data, indicate that it
-  is stale, and show the error. An HTTP 429 is the exception: it is a request to
-  slow down, so it has no message line and no dimming; the countdown turns red and
-  hovering it shows the message. Every failed refresh, 429 included, is also kept in an
-  in-memory error log for the run, shown in its own panel.
-- If Claude Code is missing or not logged in, keep the GUI open, show setup
-  guidance, and let the user retry token acquisition after resolving the issue.
-- Closing the application window terminates the program and stops its backend
-  server, scheduled tasks, and other background resources.
-- Write lifecycle events, each refresh success and failure, and detailed HTTP
-  diagnostics to both the console and `java-aip-usage.log`, an append-mode log
-  file in the project root alongside `gradlew`. Do not rotate the log in v1.
-- Sanitize log output: never log access tokens, credentials, or sensitive
-  request/response content.
-- The window is a compact status strip: as small as its content allows, one row in
-  its normal state, readable text of at least 14 px, local time of day only. The
-  row holds the refresh time, the percentage, spent and budget (or the plan windows),
-  a small refresh button, a countdown to the next refresh, optional items (the interval,
-  the changes since the previous reading, the percentage), and small log, history, error log and
-  settings icons, the settings gear last. The settings, log, history and error log open in one panel
-  area below the row. (The order and the countdown are from phase 9, the settings view from
-  phases 18 to 25, the error log and the remembered heights from phase 26.) See [Compact window](requirements.md#compact-window).
+## Architecture
 
-Charts and historical usage are not part of the first version.
-
-## Recommended architecture
-
-Use JavaFX WebView for the desktop shell and host a small HTTP server bound
-only to the loopback interface. The JavaFX window loads the web UI from that
-server; the UI communicates with the application through a small JSON API.
-This provides the requested minimal window while keeping the HTML, CSS, and
-JavaScript frontend separate from Java-specific code.
-
-The frontend provides a settings view, with a box for the backend usage-fetch interval among
-the other settings. It sends the applied values to the backend, which validates and persists them in the
-project-root settings file. An applied interval replaces a CLI override for the
-remainder of the run. The usage-fetch interval defaults to 60 seconds and
-accepts values from 5 through 3600 seconds. Changing it does not cancel an
-in-flight fetch or cause an extra immediate fetch. The next scheduled fetch is due one new
-interval after the current/most recent fetch was triggered; if that due time
-has passed while a request is running, run the next fetch as soon as the
-current one completes. Otherwise wait for the remaining interval. The UI
-polling interval is not a setting: it is one second unless the command line says
-otherwise (1 through 60 seconds), is reported to the frontend read-only, and the
-backend refuses to change it.
-At startup, the frontend requests the effective intervals from the backend and
-uses the UI polling interval to poll a read-only JSON status endpoint for the latest snapshot, refresh status, and
-errors. Status polls only read current backend state; they never trigger
-Anthropic requests.
-
-Expose a separate backend action for the UI's manual refresh control. It starts
-an immediate usage fetch without waiting for the next scheduled refresh and
-returns immediately without waiting for the result. Ensure scheduled and
-manual refreshes cannot overlap: if one is already in progress, return
-immediately without starting another. Keep the manual-refresh control enabled;
-extra clicks during an in-progress fetch do not start additional requests.
-Keep the API small and document its response shapes so a future Go backend can
-provide the same contract.
-
-The compact window (phase 7) adds one thing outside that API. The window must fit
-its content, so it has to change size when a message appears or a panel opens,
-and only the host can resize a window. The page therefore reports its content size
-(and which panel is open) to the Java host, which resizes the stage and, for the history and the log,
-remembers the height the person leaves the window at (phase 26). This is a window-management concern, not
-part of the contract a Go backend provides: a Go host would need its own way to
-resize its window, as it needs its own window host anyway.
-
-JavaFX WebView is the selected host because it is a direct fit for a Java
-desktop app and avoids bundling a full Chromium runtime. Revisit this choice
-only if a concrete frontend limitation appears.
-
-Keep the first frontend dependency-light: use HTML, CSS, and JavaScript unless
-the interface grows enough to justify a TypeScript build toolchain. Define the
-JSON API independently of Java classes so a future Go service can implement
-the same contract. The Go rewrite would need a Go-compatible desktop window
-host; JavaFX is not reusable as the Go host.
+A JavaFX WebView is the desktop shell, and a small HTTP server bound only to the
+loopback interface serves the web UI to it. The UI talks to the application through
+the JSON API of [api.md](api.md) and through nothing else, with one exception: the
+page reports its content size, and which panel is open, to the Java host, which
+resizes the stage and remembers the heights (phases 7 and 26). The reasons for the
+host, for the contract and for keeping the resizing outside it are in the
+requirements (Display requirements).
 
 Suggested backend boundaries:
 
@@ -172,12 +41,6 @@ Suggested backend boundaries:
 | `ErrorLog` | The in-memory errors of the run (every failed refresh, token problems included), newest first, read through a read-only endpoint. |
 | `WindowFit`, `RememberedHeights` | Parse the size the page asks for (with its panel); decide the height the history and log open at, and when a dragged height is stored. The history's width comes from the page, which measures its own table (phase 27). |
 | `Main` / application lifecycle | Parse CLI options, load settings, start services and the window, and terminate the program and all background resources when the window closes. |
-
-The response model must support both documented shapes: `spend` may be
-populated or `null`, and `windows` may be empty or contain plan windows.
-Preserve window names and nullable reset timestamps as supplied by the
-endpoint. Treat unexpected or malformed responses as visible errors rather
-than substituting empty usage data.
 
 ## Phases
 
@@ -221,23 +84,16 @@ discarding fields needed by the UI.
 **Status: done.** `org.example.usage` holds `UsageSnapshot`, `Spend`,
 `UsageWindow`, `UsageParser` and `UsageParseException`. Fixtures are the three
 `java-aip` responses (usage-based, plan, empty) in
-`src/test/resources/fixtures/`. A body is rejected, with a message safe to
-show the user, when it is not valid JSON or not an object, has neither a
-`spend` object nor any window, or enables spend without any amount. An account
-that legitimately reports nothing decodes as an empty snapshot rather than an
-error.
+`src/test/resources/fixtures/`. Which bodies are rejected, and which count as an
+account that reports no usage, is in the requirements (The usage request).
 
 ### 3. Implement OAuth token acquisition
 
 - Adapt the token-fetching implementation from `java-aip` into this
   repository's `TokenProvider`, preserving the no-runtime-dependency boundary.
-- Require the Claude Code CLI to be installed and logged in; show clear setup
-  guidance in the GUI if it is missing or unauthenticated. Keep the UI open
-  and allow the user to retry token acquisition after fixing the issue.
 - Ensure subprocesses, listeners, and other temporary resources are always
   closed, and surface actionable errors when the user is not logged in or a
   token cannot be acquired.
-- Keep credentials out of logs and persistent application settings.
 
 **Checkpoint:** tests cover successful token acquisition and the principal
 unavailable/login failure paths using controlled test doubles.
@@ -269,17 +125,7 @@ requests. The real CLI is not exercised by the automated tests.
 
 - Add an HTTP client with connection and request timeouts.
 - Send the OAuth token as a bearer token to the usage endpoint.
-- On HTTP 401, acquire a new token and retry once. Do not retry with a new
-  token for other HTTP statuses or network failures.
-- Keep the most recent successful snapshot when a refresh fails, and expose
-  its stale status and the latest error.
 - Prevent overlapping refreshes and cleanly stop scheduled work on shutdown.
-- When the backend usage-fetch interval changes, preserve any in-flight
-  request and reschedule the next fetch using the new interval from the
-  current/most recent request's trigger time. If the due time passes during an
-  in-flight request, start the next fetch as soon as it completes; otherwise
-  wait until the new interval elapses. Do not add a separate immediate fetch
-  solely because the interval changed.
 
 **Checkpoint:** tests verify normal fetches, a 401 followed by one token
 refresh and retry, repeated 401 handling, non-401 failures, and preservation of
@@ -296,21 +142,14 @@ fetch is idle and in progress, including due times that have already elapsed.
 | `UsageService` | One refresh thread and the published `UsageState`. `refreshNow()` returns at once and declines while a fetch is running or already requested. `close()` interrupts a fetch in flight and joins the thread. |
 | `UsageState` | Latest good snapshot, latest error, `stale()` and `refreshing`. |
 
-The interval is measured from when the most recent request was triggered,
-manual refreshes included. Changing it only moves the due time: a fetch in
-flight is neither cancelled nor duplicated, and a due time that has already
-passed starts the next fetch as soon as none is running. Range validation
-(5-3600 s and 1-60 s) is not in the service, which accepts any positive
-interval; it belongs to the settings and API layer in phase 5.
+Range validation (5-3600 s and 1-60 s) is not in the service, which accepts any
+positive interval; it belongs to the settings and API layer in phase 5.
 
 **Rate limiting (added after a live run).** Restarting the application about eight times
 in 15 minutes made the endpoint answer HTTP 429 with `retry-after: 0`, and the service
-kept retrying every 30 s. It now backs off: the first 429 doubles the wait, each further
-one in a row doubles it again up to 5 minutes (`DEFAULT_MAX_BACKOFF`), or the server's
-`Retry-After` if longer (believed up to an hour). A success eases the hold by an eighth
-and the eased value is the new wait, until it is no longer than the interval; other
-failures leave it alone, and a manual refresh is never held back. The policy is the
-pure class `Backoff`. `RefreshSchedule` takes the longer of the interval and the
+kept retrying every 30 s. It now backs off, by the rule in the requirements (Refresh
+behavior). The policy is the pure class `Backoff`, with the 5 minutes as
+`DEFAULT_MAX_BACKOFF`. `RefreshSchedule` takes the longer of the interval and the
 hold; `UsageService` extends the error with "Next try in N min". `UsageClient`
 passes `Retry-After` on, only when it is whole seconds above zero.
 
@@ -337,41 +176,8 @@ deliberately not included, by decision.
 UI polling interval is a command-line option only, with no frontend control and no
 saved value. The text below is as built in phase 5.*
 
-- Serve the static frontend and a narrowly scoped JSON API from a loopback-only
-  HTTP server on an available local port.
-- Expose the current snapshot, last successful fetch time, stale status,
-  user-visible error, and both effective intervals through local JSON
-  endpoints. On startup, have the frontend request both effective intervals,
-  display them, then poll the read-only status endpoint at the UI interval. Do
-  not perform Anthropic fetches in response to status polls.
-- Add frontend controls for both intervals. Send each committed valid value
-  to the backend for validation, persistence, and immediate application. A
-  frontend change replaces the corresponding CLI override for the remainder
-  of the current run.
-- Add a separate endpoint for the UI's manual refresh action. It starts an
-  immediate backend usage fetch and returns without waiting for the result.
-  Prevent manual and scheduled refreshes from overlapping; extra clicks while
-  a fetch is active return immediately without starting another request.
-- Implement the spend view and plan-window view, showing only relevant fields
-  for the shape received.
-- Trigger the first usage fetch immediately at startup.
-- Add a CLI option (`--usage-interval <seconds>`) and frontend control for the
-  backend usage-fetch interval; accept values from 5 through 3600, defaulting
-  to 30. Store the setting in `settings.json` in the project root beside
-  `gradlew`. A committed valid frontend edit is persisted and immediately
-  replaces any CLI override for the remainder of the run.
-- Add a CLI option (`--poll-interval <seconds>`) and frontend control for the
-  UI polling interval, defaulting to 1 second and accepting values from 1
-  through 60. Send frontend changes to the backend for validation,
-  persistence, and immediate application in the same settings file. The
-  backend returns both effective intervals on UI startup; display both values
-  and use the UI interval for status polling. A frontend edit
-  immediately replaces any CLI override for that interval for the remainder
-  of the run.
-- Open the UI automatically in a minimal JavaFX WebView window. Avoid exposing
-  credentials through the API or browser logs.
-- Ensure closing the window terminates the program and stops the server,
-  scheduled tasks, and other background resources.
+The plan for this phase was the local API, the two interval settings and the first
+page, as the requirements described them at the time; what was built is below.
 
 **Checkpoint:** tests cover both interval settings and API behavior: UI startup
 loads the effective poll interval, frontend interval changes are validated and
@@ -491,25 +297,9 @@ and tooltips. The text below is as built in phase 7.*
 **Status: implemented; the macOS smoke test is still to be done by a person.**
 Requirement: [Compact window](requirements.md#compact-window).
 
-- Rework the page into one row: percentage, spent and budget (or the plan windows),
-  time, a small refresh button, a very small config button, with small gaps and a
-  bold font of at least 14 px (700, and 800 for the percentage and amounts).
-  Severity is the colour of the percentage and amounts.
-- Show local time of day only. Add a time-only formatter to `view.js` and use it
-  for the refresh time and for error times. Show a window's reset as the time
-  remaining instead of a date and time.
-- Replace the settings panel with a config button that reveals the interval
-  fields in the row. They are confirmed together, with Enter or a small confirm
-  button, in one `POST /api/config` (the API already accepts both keys at once), and
-  hide again on success. (Phase 8 reduced these to the one fetch-interval field.) Validation errors keep them open with a brief message;
-  Escape or the config button closes them unchanged.
-- Move errors and stale notices to a short second line shown only while they apply.
-- Make the window fit its content. The page reports its content size to the Java
-  host, which resizes the stage when the size changes (message or config fields
-  shown or hidden), with a minimum size and a guard against resize loops. This is
-  the one part that needs host code; everything else is in `web/`.
-- Update the Node tests for the new view logic and page script, and the README's
-  description of the window.
+The plan for this phase was the one-row page, the time of day only, a config button
+in the row, the message line and a window that fits its content, as the requirements
+described them at the time; what was built is below.
 
 **What was built.** `view.js` produces a compact model (time of day only, spent and
 budget with percent and severity colour, plan windows with time remaining, one
@@ -592,11 +382,6 @@ titled with the name alone, so a new version means changing one line.
 One addition beyond the requirement: the percentage's tooltip says
 what it is and the severity, since the colour alone carried that.
 
-The row becomes: time, percentage, amounts as plain numbers (no `$`), refresh button,
-countdown, config button. Plan windows take the place of the percentage and amounts.
-The order of percentage and amounts was assumed (percentage first) and is the thing to
-confirm.
-
 - **Backend: the countdown.** The status gains `nextRefreshInSeconds`, an integer that
   may be negative, or `null` before any request has been triggered. It is the time the
   next scheduled request is due, minus now: the most recent trigger plus the longer of
@@ -612,13 +397,6 @@ confirm.
   countdown as `42 s` or `-3 s`, empty when the backend sends `null`. `index.html` and
   `app.js` follow, with each amount in its own element so each can have its own tooltip.
   The window shows the countdown as received and does no countdown of its own.
-- **Tooltips.** The time: `Last update: 8 Oct 2026, 14:24:53`, the one place a date
-  appears, so `view.js` needs a date-and-time formatter again. The used amount:
-  `Credits used, in USD`; the budget: `Credit budget, in USD`; the code comes from the
-  response's currency, and without one the tooltip says just `Credits used` and
-  `Credit budget`. The countdown: seconds until the next refresh, negative when overdue.
-- **Plan accounts.** No amounts, so no amount tooltips; the windows keep their reset
-  text as it is.
 - **Contract and docs.** `docs/api.md` documents `nextRefreshInSeconds`. The README's
   window section shows the new row.
 - **Tests.** `RefreshScheduleTest` and `UsageServiceTest` cover the countdown: the value
@@ -697,9 +475,8 @@ checked.
   changed, the fetch fails, confirming what the backend now has, and confirming the old value). Each was seen
   to fail when broken.
 
-**The usage history (CSV).** Every successful refresh that has amounts adds a row to
-`java-aip-usage.csv` in the project root: `datetime,used,limit`, for example
-`2026-10-08T14:24:53Z,186.02,1000.00`.
+**The usage history (CSV).** Requirement: Usage history. As first built the file had
+three columns, `datetime,used,limit`, and an ISO 8601 time in UTC.
 
 - *Decided by you:* a row for every successful refresh, and the three columns `datetime, used, limit`.
 - *Assumed, because the questions went unanswered, and easy to change:* the date and time are ISO 8601 in
@@ -1385,31 +1162,29 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-Found by reading the code against the requirements (version 0.21); none of it is a requirement, all of it is how the requirements are met today.
+How the requirements are met today (version 0.23). What these mechanisms make the
+program do is in the requirements; what is here is only the means.
 
 **Page and host**
-- The page asks nothing of the host and the host asks the page every 150 ms: `window.contentSize()` returns `width,height[,flag[,panel]]`, flag `0` the row (fixed), `1` the history (height may be dragged), `2` the log and error log (both),
-  `3` the settings (fixed, not the closed size), panel one of `history`, `log`, `errors`. `WindowFit` ignores anything else or a zero size, clamps to 160 x 32 and 2400 x 1600 and does not apply a size twice; the stage stays resizable and its min and max
-  size do the restricting. `RememberedHeights` and a 500 ms `PauseTransition` store a dragged height. The wire format is documented in `docs/api.md`.
-- The history's width is `max(row width, probe width + 16) + scrollbar`: the 16 is the panel's own padding written as a number in `app.js`, the one fixed number left in the measure (the probe, `#table-probe`, holds the header and the three rows with the
-  most characters, which is a heuristic and not every row). The scrollbar is measured once at start with an off-screen box that always scrolls; it is 0 where scrollbars float over the content (macOS) and the 16 px right padding of `.panel-lines` is what keeps
-  the last column clear. `panelHeight` is ten times the row's height at the moment a panel is opened and is not read again while it stays open.
-- Polling is chained `setTimeout` after each answer (no overlap) at the backend's poll interval; `setInterval(render, 1000)` draws the last status again each second without asking, which mostly keeps the hover line and the open panel's buttons in step. Startup asks
-  `/api/config` and repeats every 2 s with no back-off; the click handlers are attached only after it has answered. Every request has a 10 s abort. A refresh click that fails for any reason shows the lost-contact line.
-- A panel's lines are replaced only when the JSON differs (`panelKey`); the scroll is kept by adding the number of new rows times a row height estimate; at the top it stays at the top. The history is read again when `fetched_at` changes, the log and error log on every poll.
-- The page sets `.fit` on `#app` for the settings; there is no CSS rule for it (the settings are laid out by the absence of `.open`), so it is only a marker. `[hidden]` is forced with `display: none !important`; `box-sizing` is `border-box` throughout; numbers use tabular figures.
-- The log's run grouping and its run-start marker (`^yyyy-MM-dd HH:mm:ss ` and `] Starting java-aip-usage`) are in `view.js`: a hidden contract with the form of the log line.
+- `window.contentSize()` is the whole of the page-to-host exchange; its wire format is in `docs/api.md`. `WindowFit` parses and clamps it, the stage stays resizable and its min and max size do the
+  restricting, and `RememberedHeights` with a 500 ms `PauseTransition` stores a dragged height.
+- The 16 in the history's width is the panel's own padding written as a number in `app.js`, the one fixed number left in the measure; the probe is `#table-probe`. `panelHeight` is taken when a panel is
+  opened and not read again while it stays open.
+- Polling is chained `setTimeout` after each answer; `setInterval(render, 1000)` draws the last status again each second without asking, which mostly keeps the hover line and the open panel's buttons in
+  step. The click handlers are attached only after `/api/config` has answered.
+- A panel's lines are replaced only when the JSON differs (`panelKey`).
+- The page sets `.fit` on `#app` for the settings; there is no CSS rule for it (the settings are laid out by the absence of `.open`), so it is only a marker. `[hidden]` is forced with
+  `display: none !important`; `box-sizing` is `border-box` throughout.
+- The log's run grouping and its run-start marker are in `view.js`: a hidden contract with the form of the log line, which the requirements now state.
 
 **Backend**
-- Startup order: settings load, history `latest()` restore, listeners, `ResponseLog`, web server, then `service.start()`. `Main` is not an `Application` so that an IDE `main` works from the class path; `Logging` must be installed before `UsageApp` is loaded.
-  One JVM shutdown hook and `RunOnce` make the window close and the process stop share one cleanup; `ShutdownSafeLogManager` keeps the stop lines from being lost.
-- Writes are `<file>.tmp` and then an atomic move (the plain move when the file system has none), for `settings.json` and for the history upgrade; the history is appended with `CREATE`/`APPEND`, in UTF-8 with `\n`, the header when the file is missing or empty; amounts
-  are rounded HALF_UP to two decimals. `/api/history` reads the whole file on every call, `/api/status` only when `LatestChangeCache` sees a changed size or time.
-- Back-off in nanoseconds: `hold = max(min(max(hold, interval) * 2, 5 min), retryAfter)`, eased by `hold / 8 * 7` until it is not above the interval; `retryAfter` is capped at an hour in `UsageService`. The countdown of a requested but not started refresh is `min(0, left)`.
-- The token: a capture server on `127.0.0.1` answers a canned reply to `claude -p ping`, the first `x-api-key` or `Authorization: Bearer` is taken, `claude` and its descendants are killed and waited for 2 s; the environment is read once at start.
-- The server answers on virtual threads and is stopped with `stop(0)`; the refresh thread is a daemon. Static files come from the class path under `/web`, by extension for the content type; `..` is refused.
-- `Redaction` masks `sk-ant-...`, `Bearer ...`, and `x-api-key`, `authorization`, `api_key`, `access_token`, `refresh_token`, `password`, `secret` followed by `:` or `=`.
-- The JSON shapes of the API are in `docs/api.md`; the settings are one record (`Settings`), read leniently key by key by `SettingsStore`.
+- Startup order: settings load, history `latest()` restore, listeners, `ResponseLog`, web server, then `service.start()`. `Main` is not an `Application` so that an IDE `main` works from the class path;
+  `Logging` must be installed before `UsageApp` is loaded. One JVM shutdown hook and `RunOnce` make the window close and the process stop share one cleanup; `ShutdownSafeLogManager` keeps the stop lines
+  from being lost.
+- The history is appended with `CREATE`/`APPEND`. `/api/history` reads the whole file on every call, `/api/status` only when `LatestChangeCache` sees a changed size or time.
+- The back-off is kept in nanoseconds: `hold = max(min(max(hold, interval) * 2, 5 min), retryAfter)`, eased by `hold / 8 * 7`; `retryAfter` is capped at an hour in `UsageService`.
+- The server answers on virtual threads and is stopped with `stop(0)`; the refresh thread is a daemon. Static files come from the class path under `/web`.
+- The masking is `Redaction`; the settings are one record (`Settings`), read leniently key by key by `SettingsStore`.
 
 ## Open points found by the audit
 
@@ -1492,39 +1267,11 @@ skips the environment-variable refusal, as above; the fake backend's port is alw
 switched by a `POST` to the fake server rather than by a header or query on the usage request, so that what the application sends stays exactly what it sends against the real endpoint; and the fake backend is a real
 loopback server rather than a `UsageSource` fitted in place of the client, which costs a socket and buys the real HTTP path — the statuses, the timeouts and the redirect refusal — being what a fake run exercises.
 
-## Validation strategy
+## Validation
 
-- Unit-test response parsing, settings precedence, refresh scheduling behavior,
-  and stale/error state transitions.
-- Test that the UI obtains its effective polling interval at startup, frontend
-  usage-interval changes are validated and persisted, the polling interval cannot
-  be changed or saved, status polls do not trigger
-  provider requests, and manual refresh returns immediately and starts at most
-  one provider request when another refresh is not already in flight.
-- Test that lifecycle and refresh events and sanitized HTTP diagnostics are
-  emitted to the console and appended to `java-aip-usage.log`, and that
-  credentials and sensitive request/response content are redacted.
-- Test HTTP and token behavior against local test doubles; do not depend on
-  live Anthropic credentials in the automated test suite.
-- Include fixtures for both response variants and malformed input.
-- Test the base URL and the placeholder token where they are decided — the command
-  line, the one place the client is constructed, and the startup log lines — and test
-  that the host in the failure message and in the request log line is the configured
-  one. The fake backend (phase 37) is the end-to-end double: one test drives a real
-  `UsageClient` against it with a placeholder token, and the error, malformed and slow
-  scenarios cover the failure paths that previously needed the real endpoint to
-  misbehave. It does not replace the existing unit-level doubles, which stay faster.
-- Test that the frontend does no arithmetic or formatting of readings (a check of the page scripts), that the
-  settings are read from the backend each time the view opens and that Apply, Cancel and Restore defaults do what
-  the requirements say, that an HTTP 429 gives no message line and no dimming but a red countdown, that every failed
-  refresh reaches the error log, that the remembered heights are stored, never smaller than the worked-out one, and that a change in the amount
-  used of zero is shown nowhere (no history cell, no row item) while a zero time is.
-- Perform a manual macOS UI smoke test for startup, initial load, the history, log, error log and settings panels,
-  the interval setting, manual refresh, refresh failure and 429 display, and verify closing the window terminates the app
-  cleanly. Also check the layout by eye, which tests cannot: one row at the target size, the window growing and shrinking
-  around messages, each panel's size and scrollbars (nothing covered), the history as wide as its table with every column unclipped and packed to the right (the date and both
-  change columns on, then off again), the settings giving back the view that was open before them, the gear and icon spacing, the settings
-  without a scrollbar, text selection in the settings, the width of the dropdowns, readable text, and time of day only.
+What is tested, what stays outside the automated suite and what a person checks by
+eye on macOS is in the requirements (Testing and verification). The tests of each
+phase are named in that phase.
 
 ## Related repositories
 

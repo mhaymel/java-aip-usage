@@ -6,21 +6,36 @@ serve the same frontend by providing the same endpoints. The Java implementation
 is `ApiHandler`.
 
 The backend listens on `127.0.0.1` only, on a port chosen by the operating
-system, and serves the frontend at `/`. Every response from `/api/` is JSON with
-`Cache-Control: no-store`, except the plain-text `403` described under
+system, and serves the frontend at `/`. Every response from `/api/` is JSON
+(`application/json; charset=utf-8`) with `Cache-Control: no-store` and
+`X-Content-Type-Options: nosniff`, except the plain-text `403` described under
 Protections. Errors are `{"error": "<message fit to show a user>"}`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/config` | The configured intervals and the polling interval (read-only: the settings view changes the usage interval through `/api/settings`) |
-| `GET` | `/api/settings` | Every setting, the defaults, and the interval choices |
+| `GET` | `/api/config` | The configured usage interval and the polling interval (read-only) |
+| `GET` | `/api/settings` | Every setting, the defaults, and the limits of the interval |
 | `POST` | `/api/settings` | Apply a full set of settings |
-| `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
-| `GET` | `/api/status` | The latest usage reading and refresh outcome (read-only) |
+| `GET` | `/api/status` | The latest usage reading and refresh outcome, raw and finished for display (read-only) |
 | `POST` | `/api/refresh` | Start a usage fetch now |
+| `GET` | `/api/log` | The end of the log file (read-only) |
+| `GET` | `/api/history` | The usage history, as finished lines (read-only) |
+| `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 
-Any other path under `/api/` is `404`; any other method on these paths is `405`
-with an `Allow` header.
+Only a path that begins `/api/` is the API's; a query on it is not looked at. Any
+other path under `/api/` is `404` with `{"error":"No such endpoint."}`. Any other
+method on these paths is `405`, with the right one in the body and in an `Allow`
+header: `{"error":"Use GET."}` and `Allow: GET`; `{"error":"Use POST."}` and
+`Allow: POST` for the refresh; `{"error":"Use GET or POST."}` and `Allow: GET, POST`
+for the settings. A fault of the backend inside a request is `500` with
+`{"error":"Internal error; see the log."}`.
+
+A request is checked in this order: the path (`404`), the method (`405`), and for a
+`POST` the `Content-Type` (`415`), the size of the body (`413`), whether it is JSON
+(`400`), and then what it says.
+
+What the program does behind each endpoint is specified in
+[requirements.md](requirements.md); this document is the shapes and the statuses.
 
 ## `GET /api/settings`
 
@@ -62,14 +77,19 @@ is created with the defaults if it is missing.
 
 The body is an object with all keys of `settings`. A missing key, a value of the wrong type, an
 unknown `timeFormat` or an interval outside `limits` is a `400` and nothing is changed or saved; keys that
-are not settings are ignored.
+are not settings are ignored. A `null` counts as a missing key.
 
 - `200`: applied and saved, effective at once; the body is the same as `GET /api/settings`. The interval
   replaces any command-line override for the rest of the run.
-- `400`: a key is missing or has the wrong type, `timeFormat` is unknown, the body is not a JSON object, or the interval is outside `limits`.
-- `413`: the body is larger than 4096 bytes.
-- `415`: the `Content-Type` is not `application/json`.
-- `500`: the values are valid but could not be saved. Nothing is changed.
+- `400`: the first fault found, the interval being checked first and then the other keys in the order above:
+  `The usage interval must be a whole number of seconds from 5 to 3600.` (also for an interval that is not a
+  whole JSON number), `The setting X is missing.`, `The setting X must be true or false.`,
+  `The setting timeFormat must be "hh:mm" or "hh:mm:ss".`; and for the body itself
+  `The request body is not valid JSON.` or `The request body must be a JSON object.`
+- `413`: the body is larger than 4096 bytes: `The request body is too large.`
+- `415`: the `Content-Type` does not begin with `application/json` (in any case; `application/json; charset=utf-8`
+  passes), or there is none: `Send Content-Type: application/json.`
+- `500`: the values are valid but could not be saved: `The settings could not be saved: <reason>`. Nothing is changed.
 
 
 ## `GET /api/config`
@@ -88,13 +108,14 @@ The frontend asks for this once at startup, and then polls `/api/status` every
 ```
 
 - `usageIntervalSeconds`: how often the backend fetches usage from Anthropic.
-  Default 60. This is the one setting a frontend can change.
+  Default 60. It is changed, with the other settings, through `POST /api/settings`;
+  this endpoint changes nothing.
 - `pollIntervalSeconds`: how often the frontend asks the backend for the latest
   state. Default 1. It is read-only: it is set on the command line, for one run, and
   is never saved or changed through this API. It has no entry under `limits` for that
   reason.
 
-The usage interval is the configured one: a command-line option, else the saved setting, else the default (see the README), until the
+The usage interval is the configured one: a command-line option, else the saved setting, else the default (see the requirements, Refresh behavior), until the
 frontend changes it. It is not the longer wait of a back-off after HTTP 429s; `GET /api/settings` and the status' `display.interval` have that one.
 
 ## `GET /api/status`
@@ -119,9 +140,46 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
     },
     "windows": []
   },
-  "change": { "delta_used": 0.05, "delta_time": 60, "delta_used_text": "+0.05", "delta_seconds_text": "60 s" }
+  "change": { "delta_used": 0.05, "delta_time": 60, "delta_used_text": "+0.05", "delta_seconds_text": "60 s" },
+  "display": {
+    "time": "14:00",
+    "timeTooltip": "Last update: 8 Oct 2026, 14:00:00",
+    "spend": {
+      "percentText": "19%",
+      "percentTooltip": "19% of the budget spent. Severity: normal",
+      "used": "186.02",
+      "limit": "1,000.00",
+      "usedTooltip": "Credits used, in USD",
+      "limitTooltip": "Credit budget, in USD",
+      "severityText": "normal",
+      "severityKind": "normal"
+    },
+    "windows": [],
+    "placeholder": null,
+    "countdown": { "text": "42 s", "tooltip": "Seconds until the next refresh (negative when overdue)" },
+    "countdownAlert": null,
+    "interval": { "text": "60 s", "tooltip": "Time between usage requests" },
+    "deltaUsed": { "text": "+0.05", "tooltip": "Change in the amount used since the previous reading, in USD" },
+    "deltaTime": { "text": "60 s", "tooltip": "Time since the previous reading" },
+    "message": null,
+    "show": {
+      "percentage": false, "currency": false, "interval": false, "deltaUsed": false, "deltaTime": false,
+      "historyIcon": true, "logIcon": true, "errorIcon": true
+    }
+  },
+  "historyStamp": "48211-1791468293000"
 }
 ```
+
+Every member of `display` is always there, as `null` when it has nothing to say. `severityKind` is one of
+`normal`, `warning`, `critical` and `other` (a severity the backend does not know), and `null` with
+`severityText` when the response sent no severity; a client makes its colour from it. `message.kind` is
+`stale` when a reading is still on show and `error` when there is none, and `message.text` is
+`Refresh failed at <time>: <message>`. `interval` is always sent, whatever its switch says; `show.interval`
+says whether it is shown. An amount that is missing is `—`. A plan window is
+`{"name": "five_hour", "utilizationText": "12.3%", "resetsText": "in 2 h 5 min"}`, where `resetsText` can also be
+`reset unknown`, `reset due`, or `resets ` and the text as sent when it is not a time. The forms of all these
+texts are in the requirements (How the figures are written).
 
 - `display`: what the window shows, finished: the frontend does no calculation or formatting of readings.
   `time` (the local time of the last reading, `14:24` or `14:24:53` by the `timeFormat` setting) and `timeTooltip`
@@ -133,9 +191,10 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
   `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
   `deltaTime` the settings switch on (the countdown is always shown), and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
   the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
-  other clients. Numbers use a dot and `,` for thousands whatever the machine's language.
-- `historyStamp`: a text that changes whenever a row is added to the history file, a row of a failed refresh as well as a reading (the file's size and time); empty when there is no file. A client that
-  shows the history reads it again when the stamp is not the one it read.
+  other clients. Numbers use a dot and `,` for thousands whatever the machine's language (the cells of the history are the exception: they are the file's own text, `1000.00`).
+- `historyStamp`: a text that changes whenever a row is added to the history file, a row of a failed refresh as well as a reading: the file's size in bytes, a `-`, and its time of last change in milliseconds.
+  It is empty when there is no file, when what is there is not an ordinary file, and when the size or the time cannot be read. A client that
+  shows the history reads it again when the stamp is not the one it read, and should treat the text as opaque.
 - `change`: what changed between the newest reading (the newest history row that has amounts) and the row
   directly before it in the history file, worked out by the backend; `null` when there is no usage or no
   history. `delta_used` is the change in the amount used, `delta_time` the whole seconds between the
@@ -182,15 +241,19 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08T14:24:53Z INFO    [UsageApp] Starting java-aip-usage", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.23", "..."]
 }
 ```
 
+A line is `yyyy-MM-dd HH:mm:ss LEVEL [Name] message` in local time. A client that groups the lines of an
+entry, or marks where a run starts, goes by that form: an entry begins with a line that begins with the date
+and time, and a run with the line that has `] Starting java-aip-usage`.
+
 - `lines`: the last 1,000 lines at most, oldest first, so the newest is last. Only the last 512
   kilobytes of the file are read, since the log is never rotated.
-- `truncated`: `true` when earlier lines were left out. A line the byte limit cut in two is dropped,
-  never shown half.
-- `exists`: `false`, with no lines, when there is no log yet.
+- `truncated`: `true` when earlier lines were left out. When the file is larger than the 512 kilobytes the
+  first line of what was read is dropped, so that none is ever shown half.
+- `exists`: `false`, with no lines, when there is no log yet, or what is there is not an ordinary file.
 - `500` with `{"error": "The log could not be read."}` if the file cannot be read.
 
 ## `GET /api/history`
@@ -205,6 +268,7 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
   "columns": ["time", "used", "limit", "\u0394 used", "\u0394 time", "Cur."],
   "wide": false,
   "note": "Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.",
+  "noteHighlight": true,
   "total": 1500,
   "lines": [
     { "cells": ["16:46:11", "260.66", "1000.00", "+0.05", "63 s", "$"], "start": false, "failed": false, "title": "" },
@@ -243,7 +307,7 @@ credential or a file name.
 {
   "entries": [
     { "time": "11:34:42", "message": "Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min." },
-    { "time": "11:20:01", "message": "Claude Code is not logged in. Log in, then refresh." }
+    { "time": "11:20:01", "message": "Anthropic returned HTTP 500." }
   ]
 }
 ```
@@ -253,14 +317,16 @@ Newest first, at most the newest 1,000. `time` is the local time of day with sec
 
 ## `POST /api/refresh`
 
-Body: `{}`. Starts a usage fetch now instead of waiting for the next scheduled
-one, and returns at once without waiting for the result. Poll `/api/status` to
-see it.
+Body: `{}`, sent as `application/json`. The body is not read: with the right
+`Content-Type`, any body or none will do. Starts a usage fetch now instead of
+waiting for the next scheduled one, and returns at once without waiting for the
+result. Poll `/api/status` to see it.
 
 - `202` with `{"started": true}`: a fetch was started.
 - `200` with `{"started": false}`: none was started, because one is already
-  running or already requested. Extra requests are therefore harmless, and the
-  frontend keeps its button enabled.
+  running or already requested, or because refreshing has not started yet or has
+  been stopped. Extra requests are therefore harmless, and the frontend keeps its
+  button enabled.
 
 The request counts as the most recent fetch, so the scheduled interval restarts
 from it.
@@ -288,9 +354,11 @@ window is exactly as tall as they need, and follows them. An optional last field
 `1215,420,2,log` or `615,420,2,errors` (the error log is half as wide as the log, rounded up). For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
 is whole. The host (`WindowFit`) remembers the height of the history and of the log, in the settings
 file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
-resize only what it is told may be. The page measures its own content, never the window, so resizing the
+resize only what it is told may be: nothing for `0` and `3`, the height for `1`, the height and the width for `2`, and never
+below the size last reported with `0`. The page measures its own content, never the window, so resizing the
 window to match does not change the answer. The Java host (`WindowFit`) ignores anything that is not that
-shape, keeps the size between 160 x 32 and 2400 x 1600, and does not apply a size twice. A different host,
+shape (a width or a height of 0 or of more than five digits, a panel name other than the three), keeps the size it sets
+between 160 x 32 and 2400 x 1600, and does not apply a size twice; a change of the flag or of the panel alone counts as a new size. A different host,
 such as the future Go one, needs only to call the function and resize.
 
 The page exposes nothing else to its host, and the host exposes nothing to the page.
@@ -301,11 +369,16 @@ The server holds usage data, so it refuses requests that another web page on the
 same machine could make:
 
 - A request whose `Host` header is not `127.0.0.1:<port>` or `localhost:<port>`
-  gets `403`. This stops a web page from reaching the API through a hostname it
-  controls that resolves to `127.0.0.1` (DNS rebinding).
+  (in any case), or that has none, gets `403` with the plain text `Forbidden`,
+  for the page's files as for the API. This stops a web page from reaching the
+  API through a hostname it controls that resolves to `127.0.0.1` (DNS rebinding).
 - Every `POST` must send `Content-Type: application/json`, otherwise `415`. A page
   on another origin cannot do this without a CORS preflight, which the server
-  never answers with permission.
+  never answers with permission: no `Access-Control` header is ever sent.
 
-No endpoint accepts, returns or logs the OAuth token. Status polls are not
-logged, since they arrive every second.
+These guard against other web pages, not against other programs on the same
+machine, which can call the API like the window does; there is no password.
+
+No endpoint accepts, returns or logs the OAuth token. Requests of the window
+that succeed are not logged, the status polls among them, since they arrive
+every second; one that fails is.
