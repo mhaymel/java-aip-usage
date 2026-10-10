@@ -9,7 +9,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
-import java.util.Map;
 
 /**
  * Every figure and text the window shows that is worked out from something else. The frontend does no
@@ -27,14 +26,6 @@ final class Formatting {
     /** {@code 8 Oct 2026, 14:24:53}, with the English month, which the one place that shows a date uses. */
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm:ss", Locale.ENGLISH);
 
-    private static final Map<String, String> SEVERITY_KINDS = Map.of(
-            "normal", "normal",
-            "warning", "warning",
-            "warn", "warning",
-            "critical", "critical",
-            "exceeded", "critical",
-            "error", "critical");
-
     private Formatting() {
     }
 
@@ -48,9 +39,14 @@ final class Formatting {
         return DATE_TIME.format(at.atZone(zone));
     }
 
-    /** The time since the previous reading, in whole seconds with the unit and never in minutes: {@code 63 s}, {@code 3600 s}. */
+    /** The time since the previous reading as the history writes it, in whole seconds with the unit and never in minutes: {@code 63 s}, {@code 3600 s}. */
     static String seconds(long seconds) {
         return Math.max(0, seconds) + " s";
+    }
+
+    /** Seconds as the row writes them, with no space before the unit: {@code 63s}, {@code -3s}. */
+    static String rowSeconds(long seconds) {
+        return seconds + "s";
     }
 
     /**
@@ -84,14 +80,6 @@ final class Formatting {
         BigDecimal rounded = change.setScale(2, java.math.RoundingMode.HALF_UP);
         String text = decimal("#,##0.00").format(rounded.abs());
         return rounded.signum() > 0 ? "+" + text : rounded.signum() < 0 ? "-" + text : text;
-    }
-
-    /** One of a fixed set of style names, whatever the endpoint sends; the window puts it into a class name. */
-    static String severityKind(String severity) {
-        if (severity == null) {
-            return "other";
-        }
-        return SEVERITY_KINDS.getOrDefault(severity.toLowerCase(Locale.ROOT), "other");
     }
 
     private static DecimalFormat decimal(String pattern) {

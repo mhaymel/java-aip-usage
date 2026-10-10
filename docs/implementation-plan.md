@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.30). What these mechanisms make the
+How the requirements are met today (version 0.31). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1293,6 +1293,41 @@ response apart, and their entries are removed from this plan. `UsageParser` read
 `The usage response has no "spend" object; its format may have changed.` Nothing shows a plan window; the status keeps
 `usage.windows`, always empty, so that a reading has the shape `java-aip` prints. The fake backend's document stays the real
 response key for key. The fixture `usage-windows.json` and the tests of the refusal are deleted.
+
+### 43. One green in the row, and seconds without a space
+
+**Status: done (version 0.31); how it looks is for a person to judge.** Requirement: Compact window (One green; the order of the
+row) and How the figures are written.
+
+*Decided by the person:* one fixed green for the percentage, the amounts and the two change items, with no colour by severity; no
+currency symbol on the change in the amount used, ever (first asked for, then withdrawn); and no space before the `s` in the
+three seconds figures of the row, with the history and the messages left as they are.
+
+- **The texts.** `Formatting.rowSeconds` writes seconds without the space, and `StatusDisplay` uses it for the countdown, the
+  interval and the time since the previous reading, the last made from `change.deltaTime()` and never below `0s`.
+  `Formatting.seconds` keeps the space and is now the history's alone; `DeltaBody`, and with it the `change` of the status and
+  the cells of the history, is not touched. The change in the amount used keeps its text.
+- **The colour.** In `app.css` one rule gives `.delta-used`, `.delta-time` and `.spend` `var(--ok)`. The four `.sev-` rules and
+  the `--warn` colour, which nothing else used, are deleted, and `app.js` no longer puts a class on `spend`. `severityKind` had
+  no other use and is gone from `SpendView`, from `Formatting` with its table of severity words, from `view.js` and from
+  `api.md`; `severityText` stays, and the tooltip of the percentage still names the severity.
+- **Dimming.** `.stale .delta-used` and `.stale .delta-time` are dimmed with the time and the amounts. This is new: the change
+  items were not dimmed before, and now that they are the green of the amounts they go with them.
+- **The least widths.** `.countdown` 3.5ch, `.delta-interval` 4ch, `.delta-time` 5.5ch, each half a character less than
+  before; `.delta-used` as it was.
+- **Tests.** `FormattingTest`: `rowSeconds`, and the test of the severity kinds deleted. `StatusDisplayTest` and `ApiTest`:
+  the three texts of the row without the space, the cells of the history still with it. `app.test.cjs`: no class on the amounts
+  for a warning, a critical or an unknown severity, and the tooltip still naming it. `layout.test.cjs`: the one green rule and its
+  two colours, no `.sev-` rule and no amber, the time, countdown and interval without a colour, the red of a back-off kept, the
+  dimming, the widths.
+- **Docs.** The requirements (the section that specified this is worked into Compact window, How the figures are written and
+  Details of the behaviour), `api.md`.
+
+*Assumed, easy to change:* the severity still named in the tooltip of the percentage; the two change items dimmed with old
+figures; the dash of a missing amount green.
+
+**Not checked by a test.** How the green of five figures reads beside the black of the time and the countdown, in both themes,
+and whether the new least widths still keep the row from moving: for a person to look at in the window.
 
 ## Validation
 

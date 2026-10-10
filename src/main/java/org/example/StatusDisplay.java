@@ -24,7 +24,7 @@ final class StatusDisplay {
 
     record SpendView(
             String percentText, String percentTooltip, String used, String limit, String usedTooltip,
-            String limitTooltip, String severityText, String severityKind) {
+            String limitTooltip, String severityText) {
     }
 
     record Message(String kind, String text) {
@@ -86,13 +86,14 @@ final class StatusDisplay {
                 spend,
                 placeholder,
                 countdown.isPresent()
-                        ? new Tip(countdown.getAsLong() + " s", "Seconds until the next refresh (negative when overdue)")
+                        ? new Tip(Formatting.rowSeconds(countdown.getAsLong()), "Seconds until the next refresh (negative when overdue)")
                         : null,
                 state.rateLimited() ? state.error() : null,
-                new Tip(settings.usageIntervalSeconds() + " s", "Time between usage requests"),
+                new Tip(Formatting.rowSeconds(settings.usageIntervalSeconds()), "Time between usage requests"),
                 deltaUsed(change, usage),
                 change == null || change.deltaTime() == null ? null
-                        : new Tip(change.deltaSecondsText(), "Time since the previous reading"),
+                        // Never less than 0s, and without the space the history's cell has.
+                        : new Tip(Formatting.rowSeconds(Math.max(0, change.deltaTime())), "Time since the previous reading"),
                 message,
                 new Show(
                         settings.showPercentage(), settings.showCurrency(), settings.showInterval(), settings.showDeltaUsed(),
@@ -132,7 +133,6 @@ final class StatusDisplay {
                 amountText(spend.limit(), spend.currency(), withSymbol),
                 "Credits used" + unit,
                 "Credit budget" + unit,
-                severity,
-                severity == null ? null : Formatting.severityKind(severity));
+                severity);
     }
 }

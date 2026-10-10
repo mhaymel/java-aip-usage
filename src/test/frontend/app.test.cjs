@@ -206,7 +206,7 @@ test('it polls at the interval the backend reported', async () => {
 
 // ---- the row
 
-test('a spend reading shows the time, spent and budget, and percent, with severity as colour', async () => {
+test('a spend reading shows the time, spent and budget, and percent, and no class for the severity', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
 
     assert.equal(page.el('time').hidden, false);
@@ -215,7 +215,7 @@ test('a spend reading shows the time, spent and budget, and percent, with severi
     assert.equal(page.el('used').textContent, '186.02');
     assert.equal(page.el('limit').textContent, '1,000.00');
     assert.equal(page.el('percent').textContent, '19%');
-    assert.equal(page.el('spend').className, 'spend sev-normal');
+    assert.doesNotMatch(page.el('spend').className, /sev-/, 'the green is the style sheet\'s, the same for every severity');
     assert.equal(page.el('placeholder').hidden, true);
     assert.equal(page.el('note').hidden, true);
     assert.equal(page.el('app').className, '');
@@ -250,7 +250,7 @@ test('the countdown shows the seconds the backend sent, with the unit, after the
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
 
     assert.equal(page.el('countdown').hidden, false);
-    assert.equal(page.el('countdown').textContent, '42 s');
+    assert.equal(page.el('countdown').textContent, '42s');
     assert.equal(page.el('countdown').title, 'Seconds until the next refresh (negative when overdue)');
 });
 
@@ -260,37 +260,37 @@ test('the countdown follows the backend at each update, and does no counting of 
 
     state.status = { ...SPEND_STATUS, nextRefreshInSeconds: 41 };
     await page.firePoll();
-    assert.equal(page.el('countdown').textContent, '41 s');
+    assert.equal(page.el('countdown').textContent, '41s');
 
     // Time passes on the page, but nothing arrives: the number stays what it was told.
     await page.firePoll();
-    assert.equal(page.el('countdown').textContent, '41 s');
+    assert.equal(page.el('countdown').textContent, '41s');
 
     state.status = { ...SPEND_STATUS, nextRefreshInSeconds: 40 };
     await page.firePoll();
-    assert.equal(page.el('countdown').textContent, '40 s');
+    assert.equal(page.el('countdown').textContent, '40s');
 });
 
 test('an overdue refresh is shown as a negative number', async () => {
     const state = { config: CONFIG, status: { ...SPEND_STATUS, nextRefreshInSeconds: -3 } };
     const page = await load(backendOf(state));
 
-    assert.equal(page.el('countdown').textContent, '-3 s');
+    assert.equal(page.el('countdown').textContent, '-3s');
 
     state.status = { ...SPEND_STATUS, nextRefreshInSeconds: -4 };
     await page.firePoll();
-    assert.equal(page.el('countdown').textContent, '-4 s');
+    assert.equal(page.el('countdown').textContent, '-4s');
 });
 
 test('the countdown restarts when the backend says so, for instance after a manual refresh', async () => {
     const state = { config: CONFIG, status: { ...SPEND_STATUS, nextRefreshInSeconds: 3 } };
     const page = await load(backendOf(state));
-    assert.equal(page.el('countdown').textContent, '3 s');
+    assert.equal(page.el('countdown').textContent, '3s');
 
     state.status = { ...SPEND_STATUS, nextRefreshInSeconds: 60 };
     await page.click('refresh');
 
-    assert.equal(page.el('countdown').textContent, '60 s');
+    assert.equal(page.el('countdown').textContent, '60s');
 });
 
 test('with nothing to count to the countdown is left out', async () => {
@@ -314,7 +314,7 @@ test('the countdown goes away again if the backend stops sending one', async () 
 test('a reading with no usage shows the countdown too, and no amounts', async () => {
     const page = await load(backendOf({ config: CONFIG, status: NO_USAGE_STATUS }));
 
-    assert.equal(page.el('countdown').textContent, '17 s');
+    assert.equal(page.el('countdown').textContent, '17s');
     assert.equal(page.el('spend').hidden, true);
 });
 
@@ -353,6 +353,16 @@ test('the message line goes away again after a successful refresh', async () => 
 
     assert.equal(page.el('note').hidden, true);
     assert.equal(page.el('app').className, '');
+});
+
+test('no severity gives the amounts a class: warning and critical look like normal', async () => {
+    for (const severity of ['warning', 'critical', 'something new']) {
+        const status = { ...SPEND_STATUS, usage: { ...SPEND_STATUS.usage, spend: { ...SPEND_STATUS.usage.spend, severity } } };
+        const page = await load(backendOf({ config: CONFIG, status }));
+
+        assert.doesNotMatch(page.el('spend').className, /sev-|warn|critical/, severity);
+        assert.ok(page.el('percent').title.endsWith('Severity: ' + severity), 'the tooltip still names it');
+    }
 });
 
 test('backend text is never handed to the HTML parser', async () => {
@@ -1079,9 +1089,9 @@ const WITH_CHANGE = {
     ...SPEND_STATUS,
     display: {
         time: '14:24', timeTooltip: 'Last update: x', placeholder: null, message: null,
-        spend: { percentText: '19%', percentTooltip: 'p', used: '186.02', limit: '1,000.00', usedTooltip: 'u', limitTooltip: 'l', severityText: 'normal', severityKind: 'normal' },
-        countdown: { text: '42 s', tooltip: 'c' },
-        interval: { text: '60 s', tooltip: 'Time between usage requests' },
+        spend: { percentText: '19%', percentTooltip: 'p', used: '186.02', limit: '1,000.00', usedTooltip: 'u', limitTooltip: 'l', severityText: 'normal' },
+        countdown: { text: '42s', tooltip: 'c' },
+        interval: { text: '60s', tooltip: 'Time between usage requests' },
         deltaUsed: { text: '+0.05', tooltip: 'Change in the amount used since the previous reading, in USD' },
         deltaTime: { text: '1 m', tooltip: 'Time since the previous reading' },
         show: { interval: false, deltaUsed: true, deltaTime: false },
@@ -1092,7 +1102,7 @@ test('the countdown is always in the row; the interval and the two changes only 
     const page = await load(backendOf({ config: CONFIG, status: WITH_CHANGE }));
 
     assert.equal(page.el('countdown').hidden, false, 'not optional');
-    assert.equal(page.el('countdown').textContent, '42 s');
+    assert.equal(page.el('countdown').textContent, '42s');
     assert.equal(page.el('interval').hidden, true, 'off');
     assert.equal(page.el('delta-used').hidden, false, 'on');
     assert.equal(page.el('delta-used').textContent, '+0.05');
@@ -1107,7 +1117,7 @@ test('turning the settings on shows the items at the next poll, as the backend s
 
     await page.firePoll();
 
-    assert.equal(page.el('interval').textContent, '60 s');
+    assert.equal(page.el('interval').textContent, '60s');
     assert.equal(page.el('interval').title, 'Time between usage requests');
     assert.equal(page.el('delta-time').textContent, '1 m');
     assert.equal(page.el('delta-time').title, 'Time since the previous reading');
@@ -1234,14 +1244,13 @@ test('a panel opened while another is still being read is read as soon as that r
     assert.equal(page.el('panel-lines').children[1].children[0].textContent, '20:46:11');
 });
 
-test('the percentage is in the row only when its setting is on, and the amounts keep their colour either way', async () => {
+test('the percentage is in the row only when its setting is on, and the amounts stay either way', async () => {
     const hidden = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { percentage: false, interval: false, deltaUsed: false, deltaTime: false } } };
     const state = { config: CONFIG, status: hidden };
     const page = await load(backendOf(state));
 
     assert.equal(page.el('percent').hidden, true);
     assert.equal(page.el('spend').hidden, false, 'the amounts are still there');
-    assert.match(page.el('spend').className, /sev-normal/, 'and still coloured');
 
     state.status = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false } } };
     await page.firePoll();
@@ -1331,8 +1340,8 @@ const LIMITED = {
     stale: false,
     display: {
         time: '14:24', timeTooltip: 'Last update: x', placeholder: null, message: null,
-        spend: { percentText: '19%', percentTooltip: 'p', used: '186.02', limit: '1,000.00', usedTooltip: 'u', limitTooltip: 'l', severityText: 'normal', severityKind: 'normal' },
-        countdown: { text: '118 s', tooltip: 'c' },
+        spend: { percentText: '19%', percentTooltip: 'p', used: '186.02', limit: '1,000.00', usedTooltip: 'u', limitTooltip: 'l', severityText: 'normal' },
+        countdown: { text: '118s', tooltip: 'c' },
         countdownAlert: 'Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.',
         show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false },
     },
@@ -2018,8 +2027,8 @@ test('a panel whose switch is turned off at a poll while it is shown is not clos
 
 test('the row\'s time since the previous reading is the backend\'s seconds', async () => {
     const status = withShow(WITH_CHANGE, { ...ALL_ICONS, deltaTime: true });
-    status.display = { ...status.display, deltaTime: { text: '105 s', tooltip: 'Time since the previous reading' } };
+    status.display = { ...status.display, deltaTime: { text: '105s', tooltip: 'Time since the previous reading' } };
     const page = await load(backendOf({ config: CONFIG, status }));
 
-    assert.equal(page.el('delta-time').textContent, '105 s');
+    assert.equal(page.el('delta-time').textContent, '105s');
 });

@@ -52,6 +52,14 @@ class FormattingTest {
     }
 
     @Test
+    void theRowWritesSecondsWithoutTheSpace() {
+        assertEquals("42s", Formatting.rowSeconds(42));
+        assertEquals("0s", Formatting.rowSeconds(0));
+        assertEquals("-3s", Formatting.rowSeconds(-3), "an overdue countdown keeps its sign");
+        assertEquals("3600s", Formatting.rowSeconds(3600), "an hour is still seconds");
+    }
+
+    @Test
     void amountsArePlainNumbersWithTwoDecimalsAndNoCurrencySignWhateverTheLanguage() {
         java.util.Locale before = java.util.Locale.getDefault();
         try {
@@ -85,19 +93,6 @@ class FormattingTest {
         assertEquals("-0.05", Formatting.signedAmount(new BigDecimal("-0.05")));
         assertEquals("0.00", Formatting.signedAmount(BigDecimal.ZERO));
         assertEquals("+1,234.50", Formatting.signedAmount(new BigDecimal("1234.5")));
-    }
-
-    @Test
-    void severityMapsToAFixedSetOfStyleNamesWhateverTheEndpointSends() {
-        assertEquals("normal", Formatting.severityKind("normal"));
-        assertEquals("warning", Formatting.severityKind("WARNING"));
-        assertEquals("warning", Formatting.severityKind("warn"));
-        assertEquals("critical", Formatting.severityKind("critical"));
-        assertEquals("critical", Formatting.severityKind("exceeded"));
-        assertEquals("other", Formatting.severityKind("something new"));
-        assertEquals("other", Formatting.severityKind("\"><script>alert(1)</script>"));
-        assertEquals("other", Formatting.severityKind("constructor"));
-        assertEquals("other", Formatting.severityKind(null));
     }
 
     @Test

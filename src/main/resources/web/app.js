@@ -129,7 +129,6 @@
 
         show('spend', Boolean(v.spend));
         if (v.spend) {
-            $('spend').className = 'spend' + (v.spend.severityKind ? ' sev-' + v.spend.severityKind : '');
             show('percent', Boolean(v.show.percentage && v.spend.percentText));
             $('percent').textContent = v.spend.percentText || '';
             $('percent').title = v.spend.percentTooltip;

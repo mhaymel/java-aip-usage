@@ -6,15 +6,6 @@
 process.env.TZ = 'UTC';
 
 (function () {
-    var SEVERITY_KINDS = {
-        normal: 'normal',
-        warning: 'warning',
-        warn: 'warning',
-        critical: 'critical',
-        exceeded: 'critical',
-        error: 'critical'
-    };
-
     var DASH = '—';
 
     function pad(n) {
@@ -60,11 +51,6 @@ process.env.TZ = 'UTC';
         }
     }
 
-    function severityKind(severity) {
-        var key = typeof severity === 'string' ? severity.toLowerCase() : '';
-        return Object.prototype.hasOwnProperty.call(SEVERITY_KINDS, key) ? SEVERITY_KINDS[key] : 'other';
-    }
-
     /**
      * The numbers carry no currency sign, so the tooltips say what they are and in
      * what unit. The unit is the currency code the response names; without one the
@@ -81,8 +67,7 @@ process.env.TZ = 'UTC';
             limit: formatAmount(spend.limit, options),
             usedTooltip: 'Credits used' + unit,
             limitTooltip: 'Credit budget' + unit,
-            severityText: spend.severity || null,
-            severityKind: spend.severity ? severityKind(spend.severity) : null
+            severityText: spend.severity || null
         };
     }
 
@@ -95,7 +80,7 @@ process.env.TZ = 'UTC';
             return null;
         }
         return {
-            text: Math.round(seconds) + ' s',
+            text: Math.round(seconds) + 's',
             tooltip: 'Seconds until the next refresh (negative when overdue)'
         };
     }
@@ -108,7 +93,7 @@ process.env.TZ = 'UTC';
      *   time         local time of day of the last reading, or null
      *   timeTooltip  "Last update: " and the full date and time, or null
      *   spend        {percentText, percentTooltip, used, limit, usedTooltip, limitTooltip,
-     *                 severityText, severityKind}, or null
+     *                 severityText}, or null
      *   placeholder  text for a row with nothing else to show, or null
      *   countdown    {text, tooltip} for the seconds to the next refresh, or null
      *   message      {kind: 'error'|'stale', text} for the line under the row, or null
@@ -160,7 +145,7 @@ process.env.TZ = 'UTC';
         return Object.assign({}, status, {
             display: {
                 time: d.time, timeTooltip: d.timeTooltip, spend: d.spend, placeholder: d.placeholder,
-                countdown: d.countdown, interval: { text: '60 s', tooltip: 'Time between usage requests' }, deltaUsed: null, deltaTime: null,
+                countdown: d.countdown, interval: { text: '60s', tooltip: 'Time between usage requests' }, deltaUsed: null, deltaTime: null,
                 show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false }, message: d.message
             }
         });

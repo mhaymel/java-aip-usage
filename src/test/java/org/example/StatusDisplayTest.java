@@ -55,7 +55,6 @@ class StatusDisplayTest {
         assertEquals("19%", v.spend().percentText());
         assertEquals("186.02", v.spend().used());
         assertEquals("1,000.00", v.spend().limit());
-        assertEquals("normal", v.spend().severityKind());
         assertEquals("normal", v.spend().severityText());
         assertNull(v.placeholder());
     }
@@ -131,7 +130,6 @@ class StatusDisplayTest {
 
             assertEquals("Credits used, in USD", v.spend().usedTooltip(), "percentage " + percentage);
             assertEquals("Credit budget, in USD", v.spend().limitTooltip(), "percentage " + percentage);
-            assertEquals("normal", v.spend().severityKind(), "the colour is still there");
             assertEquals(percentage, v.show().percentage());
         }
     }
@@ -144,7 +142,6 @@ class StatusDisplayTest {
         assertEquals("Credit budget", v.spend().limitTooltip());
         assertEquals("Share of the budget spent", v.spend().percentTooltip());
         assertNull(v.spend().percentText());
-        assertNull(v.spend().severityKind());
     }
 
     @Test
@@ -190,7 +187,7 @@ class StatusDisplayTest {
 
         assertNull(v.message(), "no message line");
         assertEquals(message, v.countdownAlert(), "the hover line and the red come from this");
-        assertEquals("120 s", v.countdown().text());
+        assertEquals("120s", v.countdown().text());
         assertEquals("186.02", v.spend().used(), "the reading stays on show");
     }
 
@@ -209,8 +206,8 @@ class StatusDisplayTest {
     void theCountdownIsTheBackendsSecondsWithTheUnitAndMayBeNegative() {
         UsageState s = state(spend(SPEND), null, null);
 
-        assertEquals("42 s", build(s, OptionalLong.of(42), null, Settings.defaults()).countdown().text());
-        assertEquals("-3 s", build(s, OptionalLong.of(-3), null, Settings.defaults()).countdown().text());
+        assertEquals("42s", build(s, OptionalLong.of(42), null, Settings.defaults()).countdown().text());
+        assertEquals("-3s", build(s, OptionalLong.of(-3), null, Settings.defaults()).countdown().text());
         assertEquals("Seconds until the next refresh (negative when overdue)",
                 build(s, OptionalLong.of(1), null, Settings.defaults()).countdown().tooltip());
         assertNull(build(s, OptionalLong.empty(), null, Settings.defaults()).countdown(), "nothing to count to");
@@ -223,7 +220,7 @@ class StatusDisplayTest {
         StatusDisplay.View v = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.05, 61L), Settings.defaults());
         assertEquals("+0.05", v.deltaUsed().text());
         assertEquals("Change in the amount used since the previous reading, in USD", v.deltaUsed().tooltip());
-        assertEquals("61 s", v.deltaTime().text(), "in seconds, never minutes");
+        assertEquals("61s", v.deltaTime().text(), "in seconds, never minutes, and no space");
         assertEquals("Time since the previous reading", v.deltaTime().tooltip());
 
         StatusDisplay.View partly = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(null, 60L), Settings.defaults());
@@ -242,9 +239,9 @@ class StatusDisplayTest {
 
         StatusDisplay.View v = build(s, OptionalLong.empty(), null, every120);
 
-        assertEquals("120 s", v.interval().text());
+        assertEquals("120s", v.interval().text());
         assertEquals("Time between usage requests", v.interval().tooltip());
-        assertEquals("60 s", build(s).interval().text());
+        assertEquals("60s", build(s).interval().text());
     }
 
     @Test
@@ -253,7 +250,7 @@ class StatusDisplayTest {
 
         StatusDisplay.View none = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.0, 60L), Settings.defaults());
         assertNull(none.deltaUsed(), "no 0.00");
-        assertEquals("60 s", none.deltaTime().text(), "in seconds, never minutes");
+        assertEquals("60s", none.deltaTime().text(), "in seconds, never minutes");
 
         assertNull(build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.004, 60L), Settings.defaults()).deltaUsed(),
                 "rounds to zero");

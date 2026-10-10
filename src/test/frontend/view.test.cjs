@@ -10,10 +10,10 @@ const view = require('../../main/resources/web/view.js');
 const DISPLAY = {
     time: '14:24', timeTooltip: 'Last update: 8 Oct 2026, 14:24:53',
     spend: { percentText: '19%', percentTooltip: '19% of the budget spent. Severity: normal', used: '186.02', limit: '1,000.00',
-             usedTooltip: 'Credits used, in USD', limitTooltip: 'Credit budget, in USD', severityText: 'normal', severityKind: 'normal' },
+             usedTooltip: 'Credits used, in USD', limitTooltip: 'Credit budget, in USD', severityText: 'normal' },
     placeholder: null,
-    countdown: { text: '42 s', tooltip: 'Seconds until the next refresh (negative when overdue)' },
-    interval: { text: '60 s', tooltip: 'Time between usage requests' },
+    countdown: { text: '42s', tooltip: 'Seconds until the next refresh (negative when overdue)' },
+    interval: { text: '60s', tooltip: 'Time between usage requests' },
     deltaUsed: { text: '+0.05', tooltip: 'Change in the amount used since the previous reading, in USD' },
     deltaTime: { text: '1 m', tooltip: 'Time since the previous reading' },
     show: { percentage: false, interval: false, deltaUsed: true, deltaTime: true },

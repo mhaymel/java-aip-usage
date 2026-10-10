@@ -781,8 +781,8 @@ class ApiTest {
         assertEquals("186.02", display.at("/spend/used").asText());
         assertEquals("1,000.00", display.at("/spend/limit").asText());
         assertFalse(display.at("/show/interval").asBoolean());
-        assertEquals("60 s", display.at("/interval/text").asText());
-        assertTrue(display.at("/countdown/text").asText().endsWith(" s"));
+        assertEquals("60s", display.at("/interval/text").asText());
+        assertTrue(display.at("/countdown/text").asText().matches("-?\\d+s"));
 
         post(app, "/api/settings", allSettings(60, false, "hh:mm:ss"));
         display = json(get(app, "/api/status")).get("display");
@@ -868,7 +868,7 @@ class ApiTest {
 
         assertEquals(120, settings.at("/settings/usageIntervalSeconds").asInt(), "twice the interval, which is what the service waits");
         assertEquals(60, settings.at("/defaults/usageIntervalSeconds").asInt(), "the defaults are the defaults");
-        assertEquals("120 s", status.at("/display/interval/text").asText());
+        assertEquals("120s", status.at("/display/interval/text").asText());
         assertEquals(60, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds(), "the file keeps the configured one");
     }
 
@@ -1224,7 +1224,7 @@ class ApiTest {
         assertEquals("126 s", lines.get(1).at("/cells/" + time).asText(), "two minutes and six seconds");
         assertEquals("63 s", lines.get(2).at("/cells/" + time).asText());
         assertEquals("", lines.get(3).at("/cells/" + time).asText(), "the first line of a run has none");
-        assertEquals("3600 s", json(get(app, "/api/status")).at("/display/deltaTime/text").asText(), "the row too, in seconds, never in hours");
+        assertEquals("3600s", json(get(app, "/api/status")).at("/display/deltaTime/text").asText(), "the row too, in seconds, never in hours, without the space");
         assertFalse(json(get(app, "/api/status")).at("/change").has("delta_time_text"), "no short form is sent any more");
     }
 

@@ -146,8 +146,7 @@ remaining fields are those of `spend` (see Source data). Present:
 - `used` and `limit`, as two plain numbers, with no currency sign unless the setting for it is on (see Settings);
 - `currency`, in the tooltips of those two numbers;
 - `percent`, as a percentage;
-- `severity`, by the colour of the percentage and the numbers, and named in the
-  percentage's tooltip.
+- `severity`, named in the percentage's tooltip and shown nowhere else: it colours nothing.
 
 Section Compact window says where each goes and what the tooltips say.
 
@@ -248,14 +247,14 @@ snug against the button, so they read as one group:
    the tooltips;
 4. a small refresh button;
 5. a countdown to the next refresh, in seconds and with its unit, for example
-   `42 s`, and `-3 s` when the refresh is overdue; it is always shown;
-6. the time between usage requests that is in force, the delay, for example `60 s`, when its setting is on
+   `42s`, and `-3s` when the refresh is overdue, with no space before the `s`; it is always shown;
+6. the time between usage requests that is in force, the delay, for example `60s`, when its setting is on
    (it is off by default); it is not the countdown, which counts down to the next request, but the interval
    the countdown starts from, as set in the settings, or the longer wait the application is using after
    an HTTP 429 (see Refresh behavior);
 7. the change since the previous reading, when its settings are on (both are off by default): first
-   the change in the amount used, with its sign, for example `+0.05`, then the time since the previous
-   reading, **in whole seconds, never in minutes or hours**, for example `63 s` or `105 s`; see Changes between readings;
+   the change in the amount used, with its sign and never a currency symbol, for example `+0.05`, then the time since the previous
+   reading, **in whole seconds, never in minutes or hours**, for example `63s` or `105s`; see Changes between readings;
 8. a small button that shows the log below the row, and hides it again, an icon rather than a word, when its
    setting is on (it is on by default);
 9. next to it, a small button that shows the usage history below the row, and hides it again,
@@ -284,17 +283,21 @@ The four icon buttons sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
 
 **The button of the open panel is green, and bigger.** Of the log, history, error log and settings buttons, the one whose panel is
-shown stands out so that it is seen at a glance: it is green, a vivid green and not the dark green of the severity (about
+shown stands out so that it is seen at a glance: it is green, a vivid green and not the darker green of the figures (about
 `#00b341` on the light theme and `#3ddc6b` on the dark one), its button is 24 pixels instead of 20 and its icon 16 pixels
 instead of 12, and its lines are heavier (about 2.2 instead of 1.6; the gear, which is 13 pixels and drawn on a finer grid, is made to look the same). Twenty-four pixels is
 the height of the refresh button, so the row keeps its height and the window does not change size when a panel is opened or
 closed. When that panel is closed, or another is opened, the new one turns green and bigger and the one that was goes back to
 what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is green, and none is when no panel is shown.
 
-The severity is shown by colour on the percentage, when it is shown, and on the amounts, rather than by
-extra words. With the percentage switched off the amounts still carry the colour. The severity is named in
-the tooltip of the percentage only: the tooltips of the amounts say what the number is and its unit, and nothing
-about the severity.
+**One green.** The percentage spent, the amount used, the budget, the change in the amount used and the time since
+the previous reading are all in one green, `#1a7f37` on the light theme and `#3fb950` on the dark one. The green is
+fixed: it does not follow the severity, so nothing in the row turns amber or red as the budget is spent, and it is the
+same whether a severity was sent or not, whether a change is up or down, and whatever the settings are. A missing
+amount, the dash, is green like one that is there. The time of the reading, the countdown and the time between usage
+requests are in the colour of the text, and the countdown is red during a back-off after an HTTP 429 (see Countdown).
+The severity is named in the tooltip of the percentage and nowhere else: the tooltips of the amounts say what the
+number is and its unit, and nothing about the severity.
 
 **Countdown**
 
@@ -333,8 +336,7 @@ names, shown as its code, here `USD`.
 - The used amount (the first number): `Credits used, in USD`.
 - The budget (the second number): `Credit budget, in USD`.
 - The percentage: how much of the budget is spent, and the severity, for example
-  `19% of the budget spent. Severity: normal`, since the colour alone would be the only
-  place the severity showed.
+  `19% of the budget spent. Severity: normal`, which is the only place the severity shows.
 - The countdown: that it is the seconds until the next refresh, and negative when
   overdue.
 - The refresh button says `Refresh now`, and the settings button says `Show the settings`, and
@@ -365,14 +367,18 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
 - **The percentage spent** is the whole number the response sent, with `%`; the program does not round it or work it out
   (but see the reading shown at startup, under Details of the behaviour).
 - **The change in the amount used** has two decimals, rounded to the nearer and upwards at half, the comma for
-  thousands, and always its sign: `+0.05`, `-1.20`, `+1,234.50`.
-- **The time since the previous reading** is never less than `0 s`.
+  thousands, and always its sign: `+0.05`, `-1.20`, `+1,234.50`. It never has a currency symbol, whatever the
+  setting `Currency symbol` says: the symbol is for the amount used and the budget alone.
+- **Seconds in the row** have no space before the `s`: the countdown, `42s` and `-3s`; the time between usage requests,
+  `60s`; and the time since the previous reading, `63s`. Everywhere else the space is there: the `Δ time` column of the
+  history, `63 s`, and the messages, `Next try in 30 s.`
+- **The time since the previous reading** is never less than `0s`.
 - **The times** are `HH:mm` or `HH:mm:ss`, with leading zeros. The date of the time's tooltip is `d MMM yyyy,
   HH:mm:ss`, the day without a leading zero and the month in English, `8 Oct 2026, 14:24:53`. The times of the error
   log always have seconds, whatever the time format setting says, and are in the zone the machine has when the panel
   asks.
-- **The severity** is read without regard to case, so `WARNING` is a warning. A response with no severity has none: no
-  word in the tooltip and no colour of its own.
+- **The severity** is the text the response sent, as it was sent. A response with no severity has none: no
+  word in the tooltip.
 - **The message line** is `Refresh failed at <time>: <message>`, the time as the time format setting says, with or
   without seconds.
 - **`No usage reported`** comes with the time of that reading and its tooltip, since there is a reading; `Loading…` and
@@ -586,7 +592,7 @@ The history is shown inside the main window, not in a window of its own.
   beside the `used` column and are told apart from it by the symbol. Each column is shown only when its setting
   is on, and both are off by default; the columns are between `limit` and the currency, which stays the last. An empty value is an
   empty cell, and a change in the amount used of zero is an empty cell too, not `0.00`. **The time is in whole seconds, with the unit,
-  never in minutes or hours**: `63 s`, `126 s`, `3600 s`. (The row's item shows it the same way, in seconds.)
+  never in minutes or hours**: `63 s`, `126 s`, `3600 s`. (The row's item is in seconds too, but written without the space, `63s`.)
 - **Hiding lines.** Two settings (see Settings) say whether the history shows its zero usage lines and its failed lines; both are
   shown unless switched off. A **zero usage line** is a line whose change in the amount used, as under Changes between readings (against the
   row directly before it, in the same run), is exactly zero: the reading is the same as the one before. **The startup lines count as zero usage
@@ -1023,7 +1029,7 @@ These are things the program does that the sections above do not say, written do
 - When the window is closed, or the process is told to stop, the program logs `Shutting down`, `Usage refresh stopped` and `Frontend server stopped`, interrupts a request that is running, waits up to 5 seconds for it, and then ends; the interrupted request
   adds no error, no log line of failure and no row to the history. A request cut short is not a failure.
 - **The shutdown happens once, whichever way it is reached.** Closing the window and stopping the process are two ways to the same cleanup, and they can happen together — closing a window is one way of ending a process — so the lines above are written once and each resource is released once, with the second caller waiting for the first rather than doing it again. A fake backend of that run (see Fake backend) is stopped on the same path, so a run that ends either way leaves no listening socket behind.
-- The history on the first run is shown from the newest row that has amounts: the percentage is worked out from `used` and `limit` when the budget is above zero, and there is no severity, so the figures have no severity colour until the first refresh.
+- The history on the first run is shown from the newest row that has amounts: the percentage is worked out from `used` and `limit` when the budget is above zero, and there is no severity, so the tooltip of the percentage names none until the first refresh.
 - A line of the history file is a row if it has 3 to 7 fields (older files had fewer) and a date and time; the missing fields are empty. The change in time of a row is empty if the row is earlier than the one before it (the clock was set back) or a
   time cannot be read; a change in the amount of less than half a cent counts as zero in the row and the history cell.
 - The newest lines read of the log are those of its last 512 kilobytes (524,288 bytes), at most 1,000. Whenever the file is larger than that, the first line of what was read is dropped, whether or not the cut fell inside it, so that none is ever shown half, and the note says how many lines are shown. A line ends at a line feed, a carriage return, or both; an empty file is a log with no lines.
@@ -1045,7 +1051,7 @@ These are things the program does that the sections above do not say, written do
 - The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.
-- The window title is `aip usage v0.30`; the program is called `java-aip-usage v0.30` in the log.
+- The window title is `aip usage v0.31`; the program is called `java-aip-usage v0.31` in the log.
 - **The program asks the page for its size about every 150 milliseconds** and gives the window a new size when the answer is a new one, so the window follows its content within a moment. The page measures its own content, never the window, so that giving the window that size does not change the answer; the same size is not set twice. The page says nothing but its size, what may be dragged and which panel is open, and the program tells the page nothing.
 - **What may be dragged.** With no panel, and with the settings, nothing. With the history, the height only, the width staying what the page asked for. With the log and the error log, the height and the width. Neither can be dragged below the size the window has with no panel open, which is the size the page last asked for with none; until there has been one, the size the panel opened at is the least.
 - **An answer of the page that is not a size is passed over**: one that is not text, one with a width or a height of 0 or of more than five digits, a panel name other than `history`, `log` and `errors`. A change of what may be dragged, or of the panel, with the same numbers, counts as a new size.
@@ -1054,10 +1060,9 @@ These are things the program does that the sections above do not say, written do
 
 **The look of the page**
 
-- **Colours** follow the operating system's light or dark setting, and there is no setting for it. `muted` is `#8a8f98` in both; severity normal is `#1a7f37` and `#3fb950`, warning `#a86a00` and `#d29922`, critical and the red of errors `#cf222e` and `#f85149`, the open
-  panel's button `#00b341` and `#3ddc6b`, the blue of notes `#0969da` and `#58a6ff`. Background and text are the system's. A severity the program does not know is shown in the muted gray.
-- **Severity words:** `normal`; `warning` or `warn`; `critical`, `exceeded` or `error`; any other word is unknown.
-- The refresh icon turns round and round while a refresh is running. When a refresh has failed and the figures are old they are dimmed to 60 percent: the time, the amounts and the percentage, not the countdown, the other items or the buttons.
+- **Colours** follow the operating system's light or dark setting, and there is no setting for it. `muted` is `#8a8f98` in both; the green of the figures is `#1a7f37` and `#3fb950`, the red of errors `#cf222e` and `#f85149`, the open
+  panel's button `#00b341` and `#3ddc6b`, the blue of notes `#0969da` and `#58a6ff`. Background and text are the system's. There is no amber, and no colour stands for a severity.
+- The refresh icon turns round and round while a refresh is running. When a refresh has failed and the figures are old they are dimmed to 60 percent: the time, the amounts, the percentage, the change in the amount used and the time since the previous reading, not the countdown, the interval or the buttons. It is the same green, less opaque, not another colour.
 - The icons are: refresh, an arrow round a circle; log, a sheet with lines; history, a table; error log, a triangle with an exclamation mark; settings, a gear. An icon button has a border that is invisible and turns muted gray when the pointer is over it or it has the keyboard focus.
 - A time that the backend gave no tooltip for has the tooltip `Last update`.
 - Under the row, in this order, there can be the message line, the line with the message of an HTTP 429 that shows while the pointer is over the countdown, and the red line `Lost contact with the application. Still trying.`. The last one is the window's own: it shows when a request to the
@@ -1079,11 +1084,11 @@ These are things the program does that the sections above do not say, written do
 - **The buttons.** The refresh button is 24 by 24 pixels with an icon of 14, a line of 1.7, in the colour of the text, and it is never green. The log, history and error log icons are 12 pixels with a line of 1.6; the gear is 13, drawn on a finer grid with a line of 2, which becomes 3.3 when its panel is open
   (the 2.2 of the others at its scale). The button of the open panel takes back the 4 pixels it grew by on every side, so that the row is neither wider nor taller and nothing beside it moves. An icon button has corners rounded by 4 pixels and no focus ring of the browser's; the border that shows is its sign of
   focus. The refresh icon turns once a second, at an even speed.
-- **The room of the items that change.** The countdown has room for four characters, `-3 s` to `99 s`; the interval for `120 s`; the change in the amount for `+12.34`; the time since the previous reading for `3600 s`. A longer value, such as a countdown of `120 s` during a back-off, makes the row wider for
+- **The room of the items that change.** The countdown has room for `-3s` to `99s`; the interval for `120s`; the change in the amount for `+12.34`; the time since the previous reading for `3600s`. A longer value, such as a countdown of `120s` during a back-off, makes the row wider for
   as long as it shows. The time, the amounts and the percentage have no room kept for them: their digits are of equal width, so a change of a digit moves nothing, and a figure that gains a digit, `99.99` becoming `100.00`, makes the row that much wider. An item whose switch is on and which has no
   value keeps that least width, not the width of the value it lacks. The percentage is the exception among the optional items: with its switch on and no percentage sent, it is not there and takes no room. A countdown the backend did not send is likewise not there.
 - **Colours not said elsewhere.** The placeholder (`Loading…`, `No data`, `No usage reported`) is muted gray. The line of a 429 that shows over the countdown is weight 800, heavier than the 700 of the other message lines. A message line is 3
-  pixels below the row and breaks anywhere, inside a long word if it must. With no severity sent, the figures are in the colour of the text.
+  pixels below the row and breaks anywhere, inside a long word if it must.
 - **Before the first answer** the row shows `Loading…`, the refresh button and all four panel buttons, and no time, no figures, no countdown and no optional item. A status that says nothing of a button leaves it shown, so the three panel buttons are there until the first status that switches one off says so.
 - **What the page asks the application.** At startup `GET /api/config`, once, then the status at once, and never a refresh of its own. The polls never overlap: the next one is asked for the poll interval after the one before was answered, failed or given up, so the time between two is the interval and the time
   the answer took. Pressing the refresh button sends `POST /api/refresh` with `Content-Type: application/json` and the body `{}`, does not look at what comes back, and asks for the status at once, whether or not the press got through; so does a successful Apply. A status asked for at once while a poll is under
@@ -1328,7 +1333,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - **A poll is cheap.** The window asks for the status every second for as long as the application runs, so that answer costs no more work than it has to: the figures it carries are the ones the refresh already worked out, and the history file is read again only when it has changed (its size or its time), not once a second. A panel that is open is read again on the same terms: the history when its file has changed, the log and the error log on the poll, and the lines on the page are replaced only when they differ from what is already there, so that what a person is reading does not move for an answer that says nothing new.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
-  (`Starting java-aip-usage v0.30`), and then a line that says which file the usage history CSV is written to, as a full path, for example
+  (`Starting java-aip-usage v0.31`), and then a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).

@@ -546,8 +546,25 @@ test('the history\'s start line is green text with no background and no bold; th
     assert.doesNotMatch(ruleOf('.panel-lines .mark'), /color/);
 });
 
-test('the time since the previous reading in the row has room for six characters: 3600 s', () => {
-    assert.match(ruleOf('.delta-time'), /min-width:\s*6ch/);
+test('the seconds of the row have room for their usual values without the space: 99s, 120s, 3600s', () => {
+    assert.match(ruleOf('.countdown'), /min-width:\s*3\.5ch/);
+    assert.match(ruleOf('.delta-interval'), /min-width:\s*4ch/);
+    assert.match(ruleOf('.delta-time'), /min-width:\s*5\.5ch/);
+});
+
+test('the percentage, the amounts and the two changes are one fixed green, and no severity colours anything', () => {
+    assert.match(ruleOf('.delta-used,\n.delta-time,\n.spend'), /color:\s*var\(--ok\)/);
+    assert.deepEqual([...css.matchAll(/--ok:\s*(#[0-9a-f]{6})/g)].map(m => m[1]), ['#1a7f37', '#3fb950'], 'the light theme, then the dark one');
+    assert.doesNotMatch(css, /\.sev-/, 'no rule by severity');
+    assert.doesNotMatch(css, /--warn/, 'and no amber');
+    for (const rule of ['.time', '.countdown', '.delta-interval']) {
+        assert.doesNotMatch(ruleOf(rule), /color/, rule + ' stays in the colour of the text');
+    }
+    assert.match(ruleOf('.countdown.alert'), /color:\s*var\(--bad\)/, 'the red of a back-off stays');
+});
+
+test('old figures are dimmed, the two changes with the amounts', () => {
+    assert.match(ruleOf('.stale .time,\n.stale .spend,\n.stale .delta-used,\n.stale .delta-time'), /opacity:\s*0\.6/);
 });
 
 test('the log\'s start line has a gray for each theme, a light one and a dark one that the light text can be read on', () => {

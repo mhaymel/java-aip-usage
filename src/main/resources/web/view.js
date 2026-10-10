@@ -13,7 +13,7 @@
      *   time         local time of the last reading, or null
      *   timeTooltip  "Last update: " and the full date and time, or null
      *   spend        {percentText, percentTooltip, used, limit, usedTooltip, limitTooltip,
-     *                 severityText, severityKind}, or null
+     *                 severityText}, or null
      *   placeholder  text for a row with nothing else to show, or null
      *   countdown    {text, tooltip} for the seconds to the next refresh, or null
      *   countdownAlert  the message of an HTTP 429, for the red countdown and its hover line, or null

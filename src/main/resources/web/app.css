@@ -3,7 +3,6 @@
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
     --muted: #8a8f98;
     --ok: #1a7f37;
-    --warn: #a86a00;
     --bad: #cf222e;
     /* The button of the open panel: a vivid green, easier to see than the severity green. */
     --active: #00b341;
@@ -16,7 +15,6 @@
 @media (prefers-color-scheme: dark) {
     :root {
         --ok: #3fb950;
-        --warn: #d29922;
         --bad: #f85149;
         --active: #3ddc6b;
         --info: #58a6ff;
@@ -105,27 +103,28 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* One green for the amounts, the percentage and the two changes: fixed, and never a sign of the severity. */
+.delta-used,
+.delta-time,
+.spend {
+    color: var(--ok);
+}
+
 /*
  * The countdown changes every second, so it keeps a width that fits the usual values,
- * "-3 s" to "99 s": the window is sized to its content, and a width that moved with
+ * "-3s" to "99s": the window is sized to its content, and a width that moved with
  * every digit would resize the window as the count went by. It is left-aligned and pulled
  * towards the refresh button, so the number sits right beside the icon, and any spare
  * room falls after it. (Right-aligned, the spare room sat between the icon and the number.)
- * A longer value, such as "120 s" while backing off, widens the window for a moment.
+ * A longer value, such as "120s" while backing off, widens the window for a moment.
  */
 .countdown {
     display: inline-block;
-    min-width: 4ch;
+    min-width: 3.5ch;
     margin-left: -8px; /* takes most of the strip's 10 px gap away, leaving 2 px */
     font-variant-numeric: tabular-nums;
     text-align: left;
 }
-
-/* Severity is shown by colour alone. */
-.sev-normal { color: var(--ok); }
-.sev-warning { color: var(--warn); }
-.sev-critical { color: var(--bad); }
-.sev-other { color: var(--muted); }
 
 .placeholder {
     color: var(--muted);
@@ -133,7 +132,9 @@ body {
 
 /* Figures that predate a failed refresh are dimmed. */
 .stale .time,
-.stale .spend {
+.stale .spend,
+.stale .delta-used,
+.stale .delta-time {
     opacity: 0.6;
 }
 
@@ -192,7 +193,7 @@ body {
 }
 
 .delta-interval {
-    min-width: 4.5ch; /* "120 s" */
+    min-width: 4ch; /* "120s" */
 }
 
 .delta-used {
@@ -200,7 +201,7 @@ body {
 }
 
 .delta-time {
-    min-width: 6ch; /* "3600 s" */
+    min-width: 5.5ch; /* "3600s" */
 }
 
 /* The settings: a form in the panel area, in the row's own readable type rather than the log's small one. */

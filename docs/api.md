@@ -151,15 +151,14 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
       "limit": "1,000.00",
       "usedTooltip": "Credits used, in USD",
       "limitTooltip": "Credit budget, in USD",
-      "severityText": "normal",
-      "severityKind": "normal"
+      "severityText": "normal"
     },
     "placeholder": null,
-    "countdown": { "text": "42 s", "tooltip": "Seconds until the next refresh (negative when overdue)" },
+    "countdown": { "text": "42s", "tooltip": "Seconds until the next refresh (negative when overdue)" },
     "countdownAlert": null,
-    "interval": { "text": "60 s", "tooltip": "Time between usage requests" },
+    "interval": { "text": "60s", "tooltip": "Time between usage requests" },
     "deltaUsed": { "text": "+0.05", "tooltip": "Change in the amount used since the previous reading, in USD" },
-    "deltaTime": { "text": "60 s", "tooltip": "Time since the previous reading" },
+    "deltaTime": { "text": "60s", "tooltip": "Time since the previous reading" },
     "message": null,
     "show": {
       "percentage": false, "currency": false, "interval": false, "deltaUsed": false, "deltaTime": false,
@@ -170,9 +169,8 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
 }
 ```
 
-Every member of `display` is always there, as `null` when it has nothing to say. `severityKind` is one of
-`normal`, `warning`, `critical` and `other` (a severity the backend does not know), and `null` with
-`severityText` when the response sent no severity; a client makes its colour from it. `message.kind` is
+Every member of `display` is always there, as `null` when it has nothing to say. `severityText` is the
+severity as the response sent it, `null` when it sent none; the window colours nothing by it. `message.kind` is
 `stale` when a reading is still on show and `error` when there is none, and `message.text` is
 `Refresh failed at <time>: <message>`. `interval` is always sent, whatever its switch says; `show.interval`
 says whether it is shown. An amount that is missing is `—`. The forms of all these
@@ -181,10 +179,10 @@ texts are in the requirements (How the figures are written).
 - `display`: what the window shows, finished: the frontend does no calculation or formatting of readings.
   `time` (the local time of the last reading, `14:24` or `14:24:53` by the `timeFormat` setting) and `timeTooltip`
   (`Last update: 8 Oct 2026, 14:24:53`); `spend` (`percentText`, `percentTooltip`, `used`, `limit`, `usedTooltip`,
-  `limitTooltip`, `severityText`, `severityKind`); `placeholder` (`Loading…`, `No data`, `No usage reported`);
+  `limitTooltip`, `severityText`); `placeholder` (`Loading…`, `No data`, `No usage reported`);
   `countdown` (with `countdownAlert`, the message of an HTTP 429, which makes the countdown red and is shown when it is hovered; the 429
-  has no `message`), `interval` (the time between usage requests in force, `60 s`), `deltaUsed` and `deltaTime` as
-  `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
+  has no `message`), `interval` (the time between usage requests in force, `60s`), `deltaUsed` and `deltaTime` as
+  `{text, tooltip}` or `null` (the seconds of `countdown`, `interval` and `deltaTime` have no space before the `s`, and `deltaUsed` never has a currency symbol); `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
   `deltaTime` the settings switch on (the countdown is always shown), and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
   the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language (the cells of the history are the exception: they are the file's own text, `1000.00`).
@@ -195,7 +193,7 @@ texts are in the requirements (How the figures are written).
   directly before it in the history file, worked out by the backend; `null` when there is no usage or no
   history. `delta_used` is the change in the amount used, `delta_time` the whole seconds between the
   two rows, with the finished texts `delta_used_text` (`+0.05`, `null` for a change of zero) and `delta_seconds_text` (`63 s`, in seconds, never minutes, as the
-  history has it; there is no short minutes form). Either is `null` when it cannot be worked out: the first row of a run has neither, a failed row
+  history has it, with the space the row's `deltaTime` does not have; there is no short minutes form). Either is `null` when it cannot be worked out: the first row of a run has neither, a failed row
   before it leaves no `delta_used`. See the requirements, Changes between readings.
 - `refreshing`: a fetch is running now.
 - `nextRefreshInSeconds`: whole seconds until the next *scheduled* refresh, to the
@@ -235,7 +233,7 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.30", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.31", "..."]
 }
 ```
 
