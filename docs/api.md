@@ -241,7 +241,7 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.23", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.24", "..."]
 }
 ```
 

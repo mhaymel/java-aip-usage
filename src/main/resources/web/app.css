@@ -127,6 +127,10 @@ body {
 .sev-critical { color: var(--bad); }
 .sev-other { color: var(--muted); }
 
+/*
+ * The plan windows are the last item of the strip, after the buttons, so that the controls are always on the
+ * first line: windows that do not fit beside them wrap below, and never push them down.
+ */
 .windows {
     display: inline-flex;
     flex-wrap: wrap;
@@ -487,7 +491,7 @@ body {
     color: var(--bad);
 }
 
-/* The four icon buttons at the right-hand end sit close together, not a strip gap apart. */
+/* The four icon buttons sit close together, not a strip gap apart. */
 .tools {
     display: inline-flex;
     align-items: center;

@@ -246,7 +246,8 @@ so it must take as little screen space as it can while staying easy to read.
   log, three times as wide, and the error log, one and a half times as wide, both resizable in width too (see The log panel, The usage history panel and The error log panel),
   and while the settings are shown, when the window is as tall as the row, its message lines and the settings
   need, exactly (see Settings). A row that would be wider than about 900
-  pixels, for an account with many plan windows, wraps onto a second line.
+  pixels, for an account with many plan windows, wraps: the windows go onto the lines
+  below the controls (see The row).
 - **A refresh does not change the window's size.** New figures, the countdown ticking and a changed
   time never make the window bigger or smaller: the fields that change have room for their usual
   values (which, and what happens to a longer one, is under The look of the page). The window still changes size when something other than a refresh asks it to: a message line
@@ -297,8 +298,9 @@ snug against the button, so they read as one group:
    likewise an icon, when its setting is on (on by default);
 10. a small button that shows the error log below the row, and hides it again, an icon rather than a word
     (see The error log panel), when its setting is on (on by default);
-11. at the right-hand end, after the other buttons, the settings button, a very small icon of
-    a gear, not a word and not sliders. It is always there, so that the other buttons can be brought back.
+11. after the other buttons, the settings button, a very small icon of
+    a gear, not a word and not sliders. It is always there, so that the other buttons can be brought back;
+12. last of all, after the buttons, the plan windows, when the response has any (see below).
 
 **An item of the row whose switch is on keeps its room.** The interval and the two changes (the percentage is part of the figures) are in the row when their
 switches are on, and when the program has no value for one at that moment, for instance a change of zero or a time that cannot be worked out, the item is empty and not seen but keeps the width it would have, so the row does not change width from
@@ -315,7 +317,7 @@ row). The button of a panel that is shown is always shown, whatever its switch s
 shown, its panel replaces the settings and its button stays, so that the panel can be closed again; when the panel is closed the button goes
 if it is switched off. A button that is switched off is therefore never taken away from a panel that is open.
 
-The four icon buttons at the right-hand end sit close together: the space between them is small, no
+The four icon buttons sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
 
 **The button of the open panel is green, and bigger.** Of the log, history, error log and settings buttons, the one whose panel is
@@ -331,12 +333,17 @@ extra words. With the percentage switched off the amounts still carry the colour
 the tooltip of the percentage only: the tooltips of the amounts say what the number is and its unit, and nothing
 about the severity.
 
-For an account with Pro or Max plan windows instead of spend, the windows take the
-place of items 2 and 3 in the same row, each as its utilization first, then its
+**The plan windows come after the buttons.** A response can carry plan windows, as that of
+a Pro or Max account does, instead of spend or together with it. They are the last item of
+the row, after the settings button, each as its utilization first, then its
 name exactly as supplied, then the time remaining until it resets (for example
 `12.3% five_hour in 2 h 5 min`). Remaining time is used because a reset can be days
 away, and a time of day alone would then mislead. An unknown reset time is shown
-as unknown.
+as unknown. They are last so that the time, the amounts, the refresh button, the countdown
+and the buttons are always on the first line and in the same places, however many windows
+there are: windows that do not fit beside the buttons wrap onto the lines below them, and
+never push the controls down. With no spend, items 2 and 3 are simply not there and the
+windows still follow the buttons.
 
 **Countdown**
 
@@ -1091,7 +1098,7 @@ These are things the program does that the sections above do not say, written do
 - The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.
-- The window title is `aip usage v0.23`; the program is called `java-aip-usage v0.23` in the log.
+- The window title is `aip usage v0.24`; the program is called `java-aip-usage v0.24` in the log.
 - **The program asks the page for its size about every 150 milliseconds** and gives the window a new size when the answer is a new one, so the window follows its content within a moment. The page measures its own content, never the window, so that giving the window that size does not change the answer; the same size is not set twice. The page says nothing but its size, what may be dragged and which panel is open, and the program tells the page nothing.
 - **What may be dragged.** With no panel, and with the settings, nothing. With the history, the height only, the width staying what the page asked for. With the log and the error log, the height and the width. Neither can be dragged below the size the window has with no panel open, which is the size the page last asked for with none; until there has been one, the size the panel opened at is the least.
 - **An answer of the page that is not a size is passed over**: one that is not text, one with a width or a height of 0 or of more than five digits, a panel name other than `history`, `log` and `errors`. A change of what may be dragged, or of the panel, with the same numbers, counts as a new size.
@@ -1104,7 +1111,7 @@ These are things the program does that the sections above do not say, written do
   panel's button `#00b341` and `#3ddc6b`, the blue of notes `#0969da` and `#58a6ff`. Background and text are the system's. A severity the program does not know is shown in the muted gray.
 - **Severity words:** `normal`; `warning` or `warn`; `critical`, `exceeded` or `error`; any other word is unknown.
 - The refresh icon turns round and round while a refresh is running. When a refresh has failed and the figures are old they are dimmed to 60 percent: the time, the amounts, the percentage and the plan windows, not the countdown, the other items or the buttons.
-- The plan windows are the utilization in heavy weight, the name, and the reset text in muted gray at 14 pixels, 6 pixels apart in a window and 12 pixels between windows; they wrap in the row.
+- The plan windows are the utilization in heavy weight, the name, and the reset text in muted gray at 14 pixels, 6 pixels apart in a window and 12 pixels between windows; they are the last item of the row, after the buttons, and wrap there, below the controls.
 - The icons are: refresh, an arrow round a circle; log, a sheet with lines; history, a table; error log, a triangle with an exclamation mark; settings, a gear. An icon button has a border that is invisible and turns muted gray when the pointer is over it or it has the keyboard focus.
 - A time that the backend gave no tooltip for has the tooltip `Last update`.
 - Under the row, in this order, there can be the message line, the line with the message of an HTTP 429 that shows while the pointer is over the countdown, and the red line `Lost contact with the application. Still trying.`. The last one is the window's own: it shows when a request to the
@@ -1379,7 +1386,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - **A poll is cheap.** The window asks for the status every second for as long as the application runs, so that answer costs no more work than it has to: the figures it carries are the ones the refresh already worked out, and the history file is read again only when it has changed (its size or its time), not once a second. A panel that is open is read again on the same terms: the history when its file has changed, the log and the error log on the poll, and the lines on the page are replaced only when they differ from what is already there, so that what a person is reading does not move for an answer that says nothing new.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
-  (`Starting java-aip-usage v0.23`), and then a line that says which file the usage history CSV is written to, as a full path, for example
+  (`Starting java-aip-usage v0.24`), and then a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).

@@ -16,7 +16,7 @@ A status strip to keep beside your work: one row, as small as its content, with
 bold readable text. From the left it shows when usage was last refreshed, what has
 been spent and the budget, a refresh button, the countdown to the next refresh, and
 small buttons for the log, the usage history, the error log and the settings. A Pro
-or Max account shows its plan windows in place of the amounts. Hover over an item to
+or Max account's plan windows come after the buttons, wrapping below them when there are many. Hover over an item to
 see what it is.
 
 Everything the window shows and does — the row, the panels, the settings, the
