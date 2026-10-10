@@ -2,17 +2,11 @@ package org.example;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.example.settings.Settings;
-import org.example.usage.PlanLimits;
 import org.example.usage.Spend;
-import org.example.usage.UsageFormat;
 import org.example.usage.UsageSnapshot;
 import org.example.usage.UsageState;
 
-import java.math.BigDecimal;
-import java.time.DateTimeException;
-import java.time.Duration;
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.OptionalLong;
 
@@ -33,19 +27,6 @@ final class StatusDisplay {
             String limitTooltip, String severityText, String severityKind) {
     }
 
-    /**
-     * One limit of the seat-based format, as the row shows it.
-     *
-     * @param label {@code 5h} or {@code 7d}
-     * @param text the utilization, {@code 12.3%}
-     * @param resetsText the time until it is set back, {@code in 2 h 5 min}, or {@code null} when the row does not show it
-     */
-    record LimitView(String label, String text, String tooltip, String resetsText) {
-    }
-
-    record SeatView(LimitView fiveHour, LimitView sevenDay) {
-    }
-
     record Message(String kind, String text) {
     }
 
@@ -59,9 +40,7 @@ final class StatusDisplay {
     record View(
             String time,
             String timeTooltip,
-            String format,
             SpendView spend,
-            SeatView seat,
             String placeholder,
             Tip countdown,
             String countdownAlert,
@@ -74,7 +53,7 @@ final class StatusDisplay {
 
     /**
      * @param change the change since the previous row for the newest reading, or {@code null}
-     * @param now the time the remaining times of the seat-based format are counted to
+     * @param now kept for the callers; nothing shown is counted from it any more
      */
     static View build(
             UsageState state, OptionalLong countdown, ApiHandler.DeltaBody change, Settings settings, Instant now, ZoneId zone) {
@@ -82,7 +61,6 @@ final class StatusDisplay {
         String time = null;
         String timeTooltip = null;
         SpendView spend = null;
-        SeatView seat = null;
         String placeholder = null;
         if (usage != null) {
             time = Formatting.time(usage.fetchedAt(), settings.timeFormat(), zone);
@@ -90,12 +68,7 @@ final class StatusDisplay {
             if (usage.spend() != null) {
                 spend = spend(usage.spend(), settings.showCurrency());
             }
-            if (usage.limits() != null) {
-                seat = new SeatView(
-                        limit("5h", "Five-hour session limit", usage.limits().fiveHour(), settings.seatShowResets(), now, zone),
-                        limit("7d", "Weekly limit", usage.limits().sevenDay(), settings.seatShowResets(), now, zone));
-            }
-            if (spend == null && seat == null) {
+            if (spend == null) {
                 placeholder = "No usage reported";
             }
         } else {
@@ -110,9 +83,7 @@ final class StatusDisplay {
         return new View(
                 time,
                 timeTooltip,
-                usage == null || usage.format() == null ? null : usage.format().text(),
                 spend,
-                seat,
                 placeholder,
                 countdown.isPresent()
                         ? new Tip(countdown.getAsLong() + " s", "Seconds until the next refresh (negative when overdue)")
@@ -123,24 +94,12 @@ final class StatusDisplay {
                 change == null || change.deltaTime() == null ? null
                         : new Tip(change.deltaSecondsText(), "Time since the previous reading"),
                 message,
-                // The change is one item of the row in both formats, with a switch of its own in each.
                 new Show(
-                        settings.showPercentage(), settings.showCurrency(), settings.showInterval(),
-                        seat != null ? settings.seatShowDelta() : settings.showDeltaUsed(),
+                        settings.showPercentage(), settings.showCurrency(), settings.showInterval(), settings.showDeltaUsed(),
                         settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon()));
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {
-        if (usage != null && usage.format() == UsageFormat.SEAT_BASED) {
-            // Both percentages in one item; one that did not change is written as no change, and with neither there is no item.
-            if (change == null || (change.deltaUsedText() == null && change.deltaOtherText() == null)) {
-                return null;
-            }
-            return new Tip(
-                    (change.deltaUsedText() == null ? "0.0" : change.deltaUsedText())
-                            + " / " + (change.deltaOtherText() == null ? "0.0" : change.deltaOtherText()),
-                    "Change of the session limit and of the weekly limit since the previous reading, in percentage points");
-        }
         if (change == null || change.deltaUsed() == null || change.deltaUsedText() == null) {
             return null;
         }
@@ -149,28 +108,6 @@ final class StatusDisplay {
         return new Tip(
                 change.deltaUsedText(),
                 "Change in the amount used since the previous reading" + currency);
-    }
-
-    /**
-     * One limit: its utilization, and how long until it is set back. Remaining time rather than a clock time, because the
-     * weekly limit is days away and a time of day alone would mislead; the exact date and time is in the tooltip.
-     */
-    private static LimitView limit(String label, String name, PlanLimits.Limit limit, boolean showResets, Instant now, ZoneId zone) {
-        Instant at = null;
-        if (limit.resetsAt() != null) {
-            try {
-                at = OffsetDateTime.parse(limit.resetsAt()).toInstant();
-            } catch (DateTimeException e) {
-                // A reset time that cannot be read is no reset time.
-            }
-        }
-        String resets = at == null ? "reset unknown" : at.isAfter(now) ? "in " + Formatting.span(Duration.between(now, at)) : "reset due";
-        return new LimitView(
-                label,
-                Formatting.percent(limit.utilization()),
-                name + ": " + Formatting.plain(BigDecimal.valueOf(limit.utilization())) + "% used"
-                        + (at == null ? "" : ". Resets " + Formatting.dateTime(at, zone)),
-                showResets ? resets : null);
     }
 
     /** An amount as the row shows it: the plain number, or with the currency symbol before it if that is switched on; a missing amount has none. */

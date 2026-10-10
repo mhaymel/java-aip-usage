@@ -46,7 +46,6 @@ test('a status with no display shows nothing and every optional item off', () =>
 
     assert.equal(v.time, null);
     assert.equal(v.spend, null);
-    assert.ok(!('windows' in v), 'the page has no plan windows');
     assert.deepEqual(v.show, { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true },
         'the buttons are there until the backend says otherwise');
 });
@@ -240,32 +239,4 @@ test('the page decides nothing about the history note from its text', () => {
 test('the history marks its first lines with the green class and the log with the gray one', () => {
     assert.equal(view.describeHistory({ exists: true, columns: ['time'], total: 1, lines: [{ cells: ['14:00:00'], start: true, failed: false, title: '' }] }).markClass, 'start');
     assert.equal(view.describeLog({ exists: true, truncated: false, lines: ['2026-10-08 13:20:56 INFO    [Main] Starting java-aip-usage'] }).markClass, 'mark');
-});
-
-// ---- the seat-based format
-
-test('the limits of a seat-based status are passed on as the backend wrote them', () => {
-    const seat = { fiveHour: { label: '5h', text: '12.3%', tooltip: 't', resetsText: 'in 2 h 5 min' }, sevenDay: { label: '7d', text: '80%', tooltip: 'u', resetsText: null } };
-
-    assert.deepEqual(view.describeStatus({ display: { ...DISPLAY, spend: null, seat } }).seat, seat);
-    assert.equal(view.describeStatus({ display: DISPLAY }).seat, null);
-});
-
-test('the column widths of the seat-based table come from the kinds the backend names, and the other table has none', () => {
-    const seat = view.describeHistory({
-        format: 'seat-based', columns: ['time', '5h %', '7d %', '\u0394 5h', '\u0394 7d'], kinds: ['time', 'percent', 'percent', 'points', 'points'],
-        lines: [{ cells: ['16:25:53', '12.90', '80.10', '+0.6', ''], start: false, failed: false, title: '' }],
-    });
-    const dated = view.describeHistory({
-        format: 'seat-based', columns: ['date time', '5h %', '5h resets'], kinds: ['time', 'percent', 'date'], wide: true,
-        lines: [{ cells: ['2026-10-08 16:25:53', '12.90', '2026-10-08 18:00:00'], start: false, failed: false, title: '' }],
-    });
-    const usage = view.describeHistory({
-        format: 'usage-based', columns: ['time', 'used', 'limit', 'Cur.'], kinds: ['time', 'amount', 'amount', 'currency'],
-        lines: [{ cells: ['16:25:53', '1.00', '2.00', '$'], start: false, failed: false, title: '' }],
-    });
-
-    assert.equal(seat.grid, 'minmax(8ch, 1fr) 7ch 7ch 7ch 7ch');
-    assert.equal(dated.grid, 'minmax(19ch, 1fr) 7ch 19ch', 'with the date the time is wider, and so is a reset time');
-    assert.equal(usage.grid, null);
 });

@@ -56,14 +56,6 @@ public final class SettingsStore {
 
     static final String HISTORY_FAILED_LINES_KEY = "historyFailedLines";
 
-    static final String SEAT_SHOW_RESETS_KEY = "seatShowResets";
-
-    static final String SEAT_SHOW_DELTA_KEY = "seatShowDelta";
-
-    static final String SEAT_HISTORY_RESETS_KEY = "seatHistoryResets";
-
-    static final String SEAT_HISTORY_DELTA_KEY = "seatHistoryDelta";
-
     static final String HISTORY_HEIGHT_KEY = "historyHeight";
 
     static final String LOG_HEIGHT_KEY = "logHeight";
@@ -127,11 +119,7 @@ public final class SettingsStore {
                 flag(root, HISTORY_DELTA_TIME_KEY, defaults.historyDeltaTime()),
                 flag(root, HISTORY_DATE_KEY, defaults.historyDate()),
                 flag(root, HISTORY_ZERO_LINES_KEY, defaults.historyZeroLines()),
-                flag(root, HISTORY_FAILED_LINES_KEY, defaults.historyFailedLines()),
-                flag(root, SEAT_SHOW_RESETS_KEY, defaults.seatShowResets()),
-                flag(root, SEAT_SHOW_DELTA_KEY, defaults.seatShowDelta()),
-                flag(root, SEAT_HISTORY_RESETS_KEY, defaults.seatHistoryResets()),
-                flag(root, SEAT_HISTORY_DELTA_KEY, defaults.seatHistoryDelta()));
+                flag(root, HISTORY_FAILED_LINES_KEY, defaults.historyFailedLines()));
     }
 
     /**
@@ -264,10 +252,6 @@ public final class SettingsStore {
         root.put(HISTORY_DATE_KEY, settings.historyDate());
         root.put(HISTORY_ZERO_LINES_KEY, settings.historyZeroLines());
         root.put(HISTORY_FAILED_LINES_KEY, settings.historyFailedLines());
-        root.put(SEAT_SHOW_RESETS_KEY, settings.seatShowResets());
-        root.put(SEAT_SHOW_DELTA_KEY, settings.seatShowDelta());
-        root.put(SEAT_HISTORY_RESETS_KEY, settings.seatHistoryResets());
-        root.put(SEAT_HISTORY_DELTA_KEY, settings.seatHistoryDelta());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
 

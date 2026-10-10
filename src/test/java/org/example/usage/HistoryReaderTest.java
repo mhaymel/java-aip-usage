@@ -12,7 +12,6 @@ import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HistoryReaderTest {
@@ -244,62 +243,5 @@ class HistoryReaderTest {
         assertEquals(List.of("2026-10-08 14:01:00"), times(noZero));
         assertEquals(HistoryDeltas.Delta.NONE, noZero.deltas().get(0));
         assertEquals(1, noZero.visible());
-    }
-
-    // ---- a file in the seat-based format
-
-    private static final String SEAT_HEADER =
-            "datetime,five_hour,five_hour_resets,seven_day,seven_day_resets,status,interval,duration_ms\n";
-
-    @Test
-    void theHeaderTellsTheFormatOfTheFile() throws IOException {
-        assertEquals(UsageFormat.SEAT_BASED, HistoryReader.read(write(SEAT_HEADER), 10).format());
-        assertEquals(UsageFormat.USAGE_BASED,
-                HistoryReader.read(write("datetime,used,limit\n2026-10-08 14:00:00,1.00,2.00\n"), 10).format());
-        assertEquals(UsageFormat.USAGE_BASED, HistoryReader.read(write("2026-10-08 14:00:00,1.00,2.00\n"), 10).format(), "no header at all");
-    }
-
-    @Test
-    void theRowsOfASeatBasedFileHaveEightFieldsAndTheirStatusInTheSixth() throws IOException {
-        HistoryReader.Table table = HistoryReader.read(write(SEAT_HEADER
-                + "2026-10-08 14:00:00,12.34,2026-10-08 18:00:00,80.00,2026-10-10 02:00:00,start,60,412\n"
-                + "2026-10-08 14:01:00,,,,,failed,60,5003\n"
-                + "2026-10-08 14:02:00,1.00,2.00\n"), 10);
-
-        assertEquals(2, table.total(), "a line that has not the columns is left out");
-        assertEquals(5, table.statusIndex());
-        assertEquals(List.of("2026-10-08 14:01:00", "", "", "", "", "failed", "60", "5003"), table.rows().get(0));
-        assertEquals("start", table.rows().get(1).get(5));
-    }
-
-    @Test
-    void theChangesOfASeatBasedFileAreOfBothPercentages() throws IOException {
-        HistoryReader.Table table = HistoryReader.read(write(SEAT_HEADER
-                + "2026-10-08 14:00:00,12.34,2026-10-08 18:00:00,80.00,2026-10-10 02:00:00,start,60,412\n"
-                + "2026-10-08 14:01:00,12.94,2026-10-08 18:00:00,80.10,2026-10-10 02:00:00,,60,412\n"
-                + "2026-10-08 14:02:00,0.50,2026-10-08 23:00:00,80.10,2026-10-10 02:00:00,,60,412\n"), 10);
-
-        HistoryDeltas.Delta newest = table.deltas().get(0);
-        assertEquals(new java.math.BigDecimal("-12.44"), newest.used(), "set back: the change is negative");
-        assertEquals(0, newest.other().signum());
-        assertEquals(60L, newest.seconds());
-        assertEquals(new java.math.BigDecimal("0.60"), table.deltas().get(1).used());
-        assertEquals(new java.math.BigDecimal("0.10"), table.deltas().get(1).other());
-        assertNull(table.deltas().get(2).used(), "the first line of a run has none");
-    }
-
-    @Test
-    void aZeroUsageLineOfASeatBasedFileIsOneInWhichNeitherPercentageChanged() throws IOException {
-        Path file = write(SEAT_HEADER
-                + "2026-10-08 14:00:00,12.34,,80.00,,start,60,412\n"
-                + "2026-10-08 14:01:00,12.34,,80.00,,,60,412\n"
-                + "2026-10-08 14:02:00,12.34,,80.10,,,60,412\n"
-                + "2026-10-08 14:03:00,,,,,failed,60,412\n");
-
-        HistoryReader.Table table = HistoryReader.read(file, 10, new HistoryReader.Filter(false, false));
-
-        assertEquals(List.of("2026-10-08 14:02:00"), times(table), "one percentage changed, so it is no zero usage line");
-        assertEquals(2, table.hiddenZero(), "the startup line and the unchanged one");
-        assertEquals(1, table.hiddenFailed());
     }
 }

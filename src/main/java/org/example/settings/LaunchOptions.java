@@ -1,7 +1,6 @@
 package org.example.settings;
 
 import org.example.fake.Scenario;
-import org.example.usage.UsageFormat;
 
 import java.net.URI;
 import java.util.List;
@@ -21,7 +20,6 @@ import java.util.OptionalInt;
  * @param fakeToken the token flow is left out and a placeholder bearer sent instead
  * @param fakeBackend usage is fetched from the fake backend the application starts itself
  * @param fakeScenario what that backend answers; only ever present with {@code fakeBackend}
- * @param fakeFormat which of the two formats that backend's normal answer is in; only ever present with {@code fakeBackend}
  */
 public record LaunchOptions(
         OptionalInt usageInterval,
@@ -30,15 +28,7 @@ public record LaunchOptions(
         boolean fakeToken,
         boolean fakeBackend,
         Optional<Scenario> fakeScenario,
-        Optional<UsageFormat> fakeFormat,
         boolean help) {
-
-    /** The options as they were before the fake backend could be told a format: it has none named. */
-    public LaunchOptions(
-            OptionalInt usageInterval, OptionalInt pollInterval, Optional<URI> baseUrl, boolean fakeToken, boolean fakeBackend,
-            Optional<Scenario> fakeScenario, boolean help) {
-        this(usageInterval, pollInterval, baseUrl, fakeToken, fakeBackend, fakeScenario, Optional.empty(), help);
-    }
 
     /** The base URL of the real endpoint, used when the command line names none. */
     public static final URI DEFAULT_BASE_URL = URI.create("https://api.anthropic.com");
@@ -46,7 +36,7 @@ public record LaunchOptions(
     public static final String USAGE = """
             Usage: java-aip-usage [--usage-interval <seconds>] [--poll-interval <seconds>]
                                   [--anthropic-url <url>] [--fake-token]
-                                  [--fake-backend [--fake-scenario <name>] [--fake-format <name>]]
+                                  [--fake-backend [--fake-scenario <name>]]
 
               --usage-interval <seconds>  how often usage is fetched from Anthropic (%d-%d, default %d)
               --poll-interval <seconds>   how often the window asks for the latest state (%d-%d, default %d)
@@ -55,21 +45,18 @@ public record LaunchOptions(
               --fake-backend              fetch from a fake backend inside this program, not from Anthropic
               --fake-scenario <name>      what the fake backend answers (default %s):
                                           %s
-              --fake-format <name>        which format the fake backend answers in (default %s):
-                                          %s
               -h, --help                  show this help
 
             A usage interval chosen in the window is saved to settings.json and replaces --usage-interval
             for the rest of the run. --poll-interval applies to this run only and is never saved, and so
-            do --anthropic-url, --fake-token, --fake-backend, --fake-scenario and --fake-format.
+            do --anthropic-url, --fake-token, --fake-backend and --fake-scenario.
 
             --fake-backend needs nothing of Anthropic: no account, no login, no network. It implies
             --fake-token, because it ignores the token, and cannot be combined with --anthropic-url."""
             .formatted(
                     IntervalRange.USAGE.min(), IntervalRange.USAGE.max(), IntervalRange.USAGE.defaultValue(),
                     IntervalRange.POLL.min(), IntervalRange.POLL.max(), IntervalRange.POLL.defaultValue(),
-                    DEFAULT_BASE_URL, Scenario.NORMAL.optionName(), Scenario.names(),
-                    UsageFormat.USAGE_BASED.text(), UsageFormat.names());
+                    DEFAULT_BASE_URL, Scenario.NORMAL.optionName(), Scenario.names());
 
     /** The command line was not understood; the message says why. */
     public static final class InvalidOptionsException extends RuntimeException {
@@ -101,7 +88,6 @@ public record LaunchOptions(
         boolean fakeToken = false;
         boolean fakeBackend = false;
         Optional<Scenario> scenario = Optional.empty();
-        Optional<UsageFormat> format = Optional.empty();
         boolean help = false;
 
         for (int i = 0; i < args.size(); i++) {
@@ -125,7 +111,7 @@ public record LaunchOptions(
                 continue;
             }
             if (!name.equals("--usage-interval") && !name.equals("--poll-interval")
-                    && !name.equals("--anthropic-url") && !name.equals("--fake-scenario") && !name.equals("--fake-format")) {
+                    && !name.equals("--anthropic-url") && !name.equals("--fake-scenario")) {
                 throw new InvalidOptionsException("Unknown option: " + arg);
             }
 
@@ -157,12 +143,6 @@ public record LaunchOptions(
                     }
                     base = Optional.of(baseUrl(value));
                 }
-                case "--fake-format" -> {
-                    if (format.isPresent()) {
-                        throw repeated(name);
-                    }
-                    format = Optional.of(format(value));
-                }
                 default -> {
                     if (scenario.isPresent()) {
                         throw repeated(name);
@@ -182,11 +162,7 @@ public record LaunchOptions(
         if (scenario.isPresent() && !fakeBackend) {
             throw new InvalidOptionsException("--fake-scenario needs --fake-backend.");
         }
-        // Refused for the same reason: a format for a backend that was never started would be silently without effect.
-        if (format.isPresent() && !fakeBackend) {
-            throw new InvalidOptionsException("--fake-format needs --fake-backend.");
-        }
-        return new LaunchOptions(usage, poll, base, fakeToken, fakeBackend, scenario, format, help);
+        return new LaunchOptions(usage, poll, base, fakeToken, fakeBackend, scenario, help);
     }
 
     private static boolean once(boolean alreadyGiven, String option) {
@@ -204,7 +180,6 @@ public record LaunchOptions(
         return switch (option) {
             case "--anthropic-url" -> "--anthropic-url needs a URL.";
             case "--fake-scenario" -> "--fake-scenario needs a name.";
-            case "--fake-format" -> "--fake-format needs a name.";
             default -> option + " needs a value in seconds.";
         };
     }
@@ -248,15 +223,6 @@ public record LaunchOptions(
         }
         return Scenario.ofOptionName(text).orElseThrow(() -> new InvalidOptionsException(
                 "--fake-scenario must be one of " + Scenario.names() + ", not \"" + text + "\"."));
-    }
-
-    private static UsageFormat format(String value) {
-        String text = value.trim();
-        if (text.isEmpty()) {
-            throw new InvalidOptionsException(needsAValue("--fake-format"));
-        }
-        return UsageFormat.ofText(text).orElseThrow(() -> new InvalidOptionsException(
-                "--fake-format must be one of " + UsageFormat.names() + ", not \"" + text + "\"."));
     }
 
     private static int seconds(String option, String value, IntervalRange range) {

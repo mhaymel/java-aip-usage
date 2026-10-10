@@ -31,8 +31,6 @@
             time: d.time || null,
             timeTooltip: d.timeTooltip || null,
             spend: d.spend || null,
-            // The two limits of the seat-based format, or null: {fiveHour, sevenDay}, each {label, text, tooltip, resetsText}.
-            seat: d.seat || null,
             placeholder: d.placeholder || null,
             countdown: d.countdown || null,
             countdownAlert: d.countdownAlert || null,
@@ -92,22 +90,8 @@
      * What the history panel shows, from GET /api/history. The backend has finished every line (its cells, whether it begins a run,
      * whether it failed, its hover text) and the one line of explanation, so this only reads them into the shape the page
      * draws: nothing is worked out, sorted or chosen here.
-     * @returns {note, noteHighlight, header, wide, grid, rows, marks, markClass, failed, titles}
+     * @returns {note, noteHighlight, header, wide, rows, marks, markClass, failed, titles}
      */
-    // How wide a column of each kind is, in the seat-based table: the time takes the room that is left, the others are fixed
-    // so that the lines are under one another.
-    var COLUMN_WIDTHS = {
-        time: 'minmax(8ch, 1fr)', percent: '7ch', clock: '9ch', day: '12ch', date: '19ch', points: '7ch', seconds: '8ch'
-    };
-
-    function columnWidth(kind, wide) {
-        // A time with the date before it needs the room of both.
-        if (kind === 'time' && wide) {
-            return 'minmax(19ch, 1fr)';
-        }
-        return COLUMN_WIDTHS[kind] || '10ch';
-    }
-
     function describeHistory(data) {
         var lines = data.lines || [];
         return {
@@ -117,11 +101,6 @@
             header: lines.length > 0 ? data.columns : null,
             // A time with the date is wider than one without.
             wide: Boolean(data.wide),
-            // The table of the seat-based format has columns that come and go with the settings, so its column widths are put
-            // together from the kind the backend names for each column; the other format keeps the widths of the style sheet.
-            grid: data.format === 'seat-based' && data.kinds
-                ? data.kinds.map(function (kind) { return columnWidth(kind, Boolean(data.wide)); }).join(' ')
-                : null,
             rows: lines.map(function (line) { return line.cells; }),
             marks: lines.map(function (line) { return Boolean(line.start); }),
             // The first line of a run is drawn in green text, with no background of its own.

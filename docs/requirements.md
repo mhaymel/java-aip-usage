@@ -27,36 +27,13 @@ reading, the same shape `java-aip usage --format json` prints. They are not the
 raw HTTP response. The endpoint sends no `source` or `fetched_at`: the
 application stamps `fetched_at` with the time it received the response. It
 sends spend as minor units under a `spend.enabled` flag (`{"amount_minor":
-18602, "exponent": 2}` is 186.02) and plan windows as top-level keys holding a
-`utilization`, among unrelated and placeholder keys. The application maps the
+18602, "exponent": 2}` is 186.02), among unrelated and placeholder keys. The application maps the
 raw response to the shape below; real responses are in
 `src/test/resources/fixtures/`.
 
-**The endpoint answers in one of two formats, and the program supports both.**
-Which one an account gets depends on its subscription and on nothing else: not on the
-operating system and not on the machine. The same program therefore gets one format on
-one machine and the other on another only because the two are logged in with different
-subscriptions.
-
-| Name | Whose it is | What it carries | In this version |
-| --- | --- | --- | --- |
-| **usage-based format** | an account on a usage-based plan, where usage is billed as it is used, up to a spend limit | `spend` populated, `windows` empty | supported |
-| **seat-based format** | an account on a plan with a usage allowance, such as Pro, Max and the seat-based Team and Enterprise plans, which have a five-hour session limit and a weekly limit | `spend` is `null`, `windows` populated | supported; see [The seat-based format](#the-seat-based-format) |
-
-The names are this project's. Anthropic has no name for the two shapes of the response, so
-they are named after its own words for the two kinds of plan, "usage-based" and
-"seat-based"; its words for what the formats carry are a "spend limit" for the first and a
-"session limit" and "weekly limit" for the second. These two names are the ones this
-document, the code, the log and the tests use.
-
-**The program tells the two apart itself**, from the structure of each response: one that carries a
-plan window is seat-based, and any other is usage-based. What it shows, what it records and which
-settings apply follow the format of the latest reading, with nothing to choose. How it tells them
-apart, and everything that is particular to the seat-based format, is in
-[The seat-based format](#the-seat-based-format); the rest of this document describes the usage-based
-format, and what the two have in common.
-
-For the usage-based format, the reading contains spend details and an empty `windows` array:
+Of the response the application reads `spend` and nothing else: whatever the response carries beside
+it is passed over. The reading contains the spend details and a `windows` array that is always empty,
+kept so that the shape stays the one `java-aip` prints:
 
 ```json
 {
@@ -72,31 +49,6 @@ For the usage-based format, the reading contains spend details and an empty `win
   "windows": []
 }
 ```
-
-In the seat-based format the `spend` value is `null` and `windows`
-contains the plan usage windows instead. For example, as documented in the
-[`java-aip` JSON specification](../../java-aip/docs/json-spec.md):
-
-```json
-{
-  "source": "anthropic-oauth-usage",
-  "fetched_at": "2026-10-03T08:15:00Z",
-  "spend": null,
-  "windows": [
-    {
-      "window": "five_hour",
-      "utilization": 12.34,
-      "resets_at": "2026-10-06T18:00:00Z"
-    },
-    {
-      "window": "seven_day",
-      "utilization": 80.0,
-      "resets_at": "2026-10-10T00:00:00Z"
-    }
-  ]
-}
-```
-
 
 ## Authentication
 
@@ -189,9 +141,7 @@ that section and the descriptions below differ on presentation, it wins.
 
 The usage data must be displayed in a simple graphical user interface (GUI)
 that is easy to read at a glance. `fetched_at` must always be shown. The
-remaining fields depend on the format of the reading (see Source data).
-
-For the usage-based format (`spend` populated, `windows` empty), present:
+remaining fields are those of `spend` (see Source data). Present:
 
 - `used` and `limit`, as two plain numbers, with no currency sign unless the setting for it is on (see Settings);
 - `currency`, in the tooltips of those two numbers;
@@ -200,9 +150,6 @@ For the usage-based format (`spend` populated, `windows` empty), present:
   percentage's tooltip.
 
 Section Compact window says where each goes and what the tooltips say.
-
-For the seat-based format (`spend` is `null`, `windows` populated), present the two limits, each with its
-utilization and the time until it is set back, as [The seat-based format](#the-seat-based-format) says.
 
 The initial application must target Java 25 and run on macOS. Use JavaFX
 WebView to show the browser-based interface in a minimal desktop window without
@@ -510,10 +457,6 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Show the date in the history, as well as the time | on, off | off |
   | Show the zero usage lines in the history | on, off | on |
   | Show the failed lines in the history | on, off | on |
-  | Seat-based format: show the reset times in the row | on, off | on |
-  | Seat-based format: show the change of the percentages in the row | on, off | off |
-  | Seat-based format: show the reset times in the history | on, off | on |
-  | Seat-based format: show the changes of the percentages in the history | on, off | off |
   | Show the change in the amount used in the history | on, off | off |
   | Show the time since the previous reading in the history | on, off | off |
 
@@ -853,272 +796,6 @@ Every reading the application gets is kept, so the usage can be looked at afterw
   as `java-aip-usage.csv.tmp`, and none is left behind. If the upgrade fails, the row of that refresh is not
   written. A row is added to a file whose header is none of the known ones without a header being added.
 
-## The seat-based format
-
-Everything that is particular to the seat-based format, and to having two formats: how a response is
-told, what a history file may hold, and how the limits are recorded, shown and set. It was built on a
-made-up response, `src/test/resources/fixtures/usage-windows.json`; no response of a real Pro or Max
-account has been seen, and what a real one shows to be different is to be corrected when it is seen.
-
-### Both formats, told apart by the response
-
-- The program supports the usage-based format and the seat-based format, and it tells them apart
-  itself, from the structure of each response. There is no setting, no option and no question to the
-  person for it, and the operating system plays no part.
-- **How a response is told.** After the checks of a response that cannot be used (see The usage
-  request), the response is **seat-based** if it carries at least one plan window, that is, a
-  top-level object with a numeric `utilization` other than `extra_usage`; otherwise it is
-  **usage-based**. A window key that is `null` is no plan window, so the `null` keys of a usage-based
-  response do not make it seat-based.
-- **Plan windows and spend together are seat-based, and the spend is ignored.** An account on a
-  seat-based plan that has usage credits switched on can send both. One plan window is enough: the
-  response is seat-based, and its `spend` is neither shown nor written anywhere.
-- **Of the plan windows, two are used: `five_hour` and `seven_day`.** They are the session limit and
-  the weekly limit. Every other window a response carries, `seven_day_opus`, `seven_day_sonnet` and
-  any that is added later, is passed over: not shown, not written, not counted.
-- **A seat-based response must carry both.** One that is seat-based, because it carries some plan
-  window, and lacks `five_hour` or `seven_day`, or has one of them without a numeric `utilization`, is
-  a failed refresh: `The usage response is in the seat-based format but lacks "five_hour" or
-  "seven_day"; its format may have changed.` Half a reading is never shown. A `resets_at` that is
-  missing is not a fault: the limit is shown with no reset time.
-- **A reading with nothing to report has no format.** A response with no plan window and no enabled
-  `spend` is an account that reports no usage. It changes nothing about which format the program
-  takes the account to have, writes nothing, and moves no file.
-- **The format of a failed refresh is unknown**, since there is no response to tell it from. A failed
-  refresh never changes the format and never moves a file; its row goes into the history file as it
-  is (see below).
-- **A seat-based reading** therefore holds, besides the time it was received: for each of the two
-  windows its `utilization`, a percentage that can be over 100, and its `resets_at`, which can be
-  missing.
-
-### One format in one history file
-
-- `java-aip-usage.csv` holds one format, never both. Which one it holds is told by its header.
-- **When a reading arrives**, the program compares the format of the reading with the format of the
-  file.
-  - The same format: the row is added, as always.
-  - No file, or a file with nothing in it: the header of the reading's format is written, and the row.
-  - A file that has a header and no rows: it is replaced by one with the header of the reading's
-    format, and the row is added. Nothing is kept, since there is nothing to keep.
-  - **Another format, and rows in the file**: the file is set aside and a new one is begun, as
-    follows.
-- **Setting the file aside.** `java-aip-usage.csv` is moved, in one step where the file system can,
-  to `java-aip-usage.YYYY.MM.DD-HH.mm.ss.csv` beside it, named with the local date and time of the
-  move, for example `java-aip-usage.2026.10.10-14.24.53.csv`. A new `java-aip-usage.csv` is then
-  begun with the header of the reading's format, and the reading is its first row. The time is in the
-  name, and not the date alone, so that a second change on the same day cannot meet a file that is
-  already there; nothing is ever overwritten, merged or deleted. If the name is taken all the same,
-  the move is not made, the row is not written, and the failure is logged like any history that
-  cannot be written (the refresh still counts as a success).
-- **Two lines are logged**, at the information level: `The usage format changed: usage-based ==>
-  seat-based` (or `seat-based ==> usage-based`), and `The usage history so far was moved to <the full
-  path of the new file>`. Nothing in the window says so; the path is logged only, as the path of the
-  history is.
-- **The files set aside are the person's.** The program never reads them again, never shows them, and
-  never removes them. They are kept out of version control like the history itself.
-- **A failed refresh writes its row into the file as it is**, in that file's format, with the fields
-  of a reading empty. With no file yet, the row is written under the header of the format of the last
-  reading of this run, and under the usage-based header if there has been none. A file with a header
-  the program does not know gets the row in the usage-based shape, as it always did, and is left where
-  it is until a reading comes.
-- **The reading shown at startup** (see Messages and states) is taken from `java-aip-usage.csv` in
-  whichever format it holds, and shown in that format's row.
-- **The first check of a run** is the same check as any other: if the program was last run with one
-  subscription and is now logged in with another, the first reading sets the file aside.
-
-### The file of the seat-based format
-
-The file is as like the usage-based one as it can be: the same first column, the same last three
-columns, the same rules for the time, the numbers, the header and the status. What differs is the
-middle: there is no amount and no budget, but two percentages, each with the time at which it is set
-back.
-
-```
-datetime,five_hour,five_hour_resets,seven_day,seven_day_resets,status,interval,duration_ms
-2026-10-08 16:24:53,12.34,2026-10-08 18:00:00,80.00,2026-10-10 02:00:00,start,60,412
-2026-10-08 16:25:53,12.90,2026-10-08 18:00:00,80.10,2026-10-10 02:00:00,,60,388
-2026-10-08 16:26:53,,,,,failed,60,5003
-```
-
-| Column | What it is |
-| --- | --- |
-| `datetime` | the time of the reading, local, `yyyy-MM-dd HH:mm:ss`, exactly as in the usage-based file |
-| `five_hour` | the utilization of the five-hour session limit, in percent: a plain number with two decimals and a dot, no `%` sign; it can be over 100 |
-| `five_hour_resets` | when that limit is set back: the local date and time, `yyyy-MM-dd HH:mm:ss`, the same form as `datetime` and for the same reason, that Excel reads it as a date and time; empty when the response gave none or one that cannot be read |
-| `seven_day` | the utilization of the weekly limit, as `five_hour` |
-| `seven_day_resets` | when the weekly limit is set back, as `five_hour_resets` |
-| `status`, `interval`, `duration_ms` | exactly as in the usage-based file |
-
-- The header tells the format: a file whose header begins `datetime,five_hour,` is seat-based, and one
-  whose header begins `datetime,used,limit` is usage-based, the three older headers of that format
-  included (see Usage history).
-- A reading always has both percentages, since a response without both is refused; a reset time that
-  the response did not give is an empty field. A row of a failed refresh has the four fields empty,
-  like the three of a failed row in the usage-based file.
-- There is no `currency` column and no `limit` column: the format has neither.
-- Everything else Usage history says holds for this file as well: added to and never overwritten, the
-  header once, UTF-8 with a line feed after every line, rounding upwards at half, `start`, `failed`
-  and `start-failed`, a reading with nothing to report writing nothing.
-
-- **A file whose header is neither of the two is set aside like a file of the other format**, whatever
-  the format of the reading: it is moved to a name with the date and time, the two lines are logged,
-  the first of them as `The usage format changed: unknown ==> seat-based` (or `unknown ==>
-  usage-based`), and a new file is begun. Nothing is lost that way, and the new file is certain to
-  hold one format. (This replaces the rule of today, under which such a file is left as it is and
-  added to.)
-
-### The main view for the seat-based format
-
-The row keeps its shape: the time first, then the figures, the refresh button, the countdown, the
-optional items and the buttons. Only the figures are different.
-
-```
-14:24  5h 12.3% in 2 h 5 min   7d 80% in 1 d 4 h   ⟳ 42 s   ▤ ▦ ⚠ ⚙
-```
-
-1. the time of the last refresh, as now;
-2. the session limit: the label `5h`, its utilization, and, when its switch is on (on by default), the
-   time remaining until it is set back, in muted gray. It is the time remaining and not a time of day,
-   because the weekly limit is days away and a time of day alone would mislead; the exact date and
-   time is in the tooltip;
-3. the weekly limit: the label `7d`, its utilization, and the time until it is set back, likewise;
-4. the refresh button and the countdown, as now;
-5. the interval, when its switch is on, as now;
-6. the change since the previous reading, when its switches are on: the change of the two
-   percentages, in percentage points with their signs, `+0.6 / +0.1`, in one item, and the time since
-   the previous reading in whole seconds, as now. A percentage that did not change is `0.0` in the
-   pair, and when neither changed there is no item;
-7. the log, history, error log and settings buttons, as now.
-
-- **The percentages have no colour of their own.** The seat-based format sends no severity, and the
-  program does not invent one: both are in the colour of the text, in the heavy weight the amounts
-  have. Nothing turns amber or red as a limit comes near.
-- **How the figures are written.** A utilization has one decimal, rounded to the nearer and upwards at
-  half, without a `.0`, and `%`: 12.34 is `12.3%`, 80 is `80%`, and one over 100 is shown as it is.
-  The time until a limit is set back is `in ` and a span that is cut, never rounded: under a minute
-  `N s`, under an hour `N min`, under a day `H h` with ` M min` unless the minutes are 0, from a day on
-  `D d` with ` H h` unless the hours are 0. A limit with no reset time says `reset unknown`, and one
-  whose reset time has come says `reset due`; a reset time that cannot be read as a time is no reset
-  time. A change of a percentage has one decimal, rounded upwards at half, and always its sign; one of
-  less than five hundredths of a point shows as no change.
-- **Tooltips.** On the session limit: `Five-hour session limit: 12.34% used. Resets 8 Oct 2026,
-  18:00:00`; on the weekly limit: `Weekly limit: 80% used. Resets 10 Oct 2026, 02:00:00`; without the
-  second sentence when there is no reset time; the percentage in a tooltip is the one the response
-  sent, without the rounding of the row, and the label has the same tooltip as its figure. On the change: `Change of the session limit and of the
-  weekly limit since the previous reading, in percentage points`.
-- **A change of format changes the row at the next reading**, with nothing to press: the figures of
-  the other format go and those of the new one come, and the window follows the new width.
-- Everything else of the row is as it is: the message line, the dimming of old figures, the red
-  countdown of a 429, `Loading…`, `No data` and `No usage reported`.
-
-### The history view for the seat-based format
-
-The panel is the same panel, with the same size rules, the same note line, the same green startup
-line and red `failed`. The table has the columns of the seat-based file.
-
-```
-time        5h %   5h resets    7d %    7d resets   Δ 5h   Δ 7d   Δ time
-16:26:53   13.50       18:00   80.20  10-10 02:00   +0.6   +0.1     60 s
-16:25:53   12.90       18:00   80.10  10-10 02:00   +0.6   +0.1     60 s
-16:24:53   12.34       18:00   80.00  10-10 02:00
-```
-
-- The columns are `time` (or `date time`, by the date setting), `5h %`, `5h resets`, `7d %` and
-  `7d resets`, and, when their switch is on, `Δ 5h`, `Δ 7d` and `Δ time`. There is no currency column.
-  The time is at the left and every other column at the right, as now.
-- The percentages are the file's own text, two decimals, without a `%` sign in the cells, since the
-  title says it.
-- `5h resets` is the time of day, `18:00`, because that limit is set back within hours. `7d resets`
-  is the month, the day and the time of day, `10-10 02:00`, because that one is days away and a time
-  of day alone would mislead. With the date setting on, both are the full date and time. The two
-  reset columns have one switch between them (on by default).
-- `Δ 5h` and `Δ 7d` are the changes of the two percentages against the line before that is shown, in
-  the same run, in percentage points with one decimal and their sign; they have one switch between
-  them (off by default). When a limit is set back its change is negative, and is shown as it is; one
-  that did not change is an empty cell. `Δ time` is as now.
-- **A zero usage line** is one in which neither percentage changed against the row directly before it
-  in the same run; the startup lines count as such, as now. A failed line is as now.
-- The backend sends the lines finished, as now: the page draws them and decides nothing. Because the
-  columns of this table come and go with three switches, the backend also says what kind each column is,
-  and the page gives the columns their widths by that: the time takes the room that is left, a percentage
-  7 characters, a change 7, the time of day 9, the day and the time 12, a full date and time 19, and
-  `Δ time` 8.
-
-### The settings view, with a tab for each format
-
-What means the same in both formats is set once; what exists in one format only is on a tab of that
-format. A person therefore never sees a switch for a figure their account does not have, and never
-has to set the same thing twice.
-
-- **Set once, always shown**, as now: `Request` (the interval); in `Main view` the three icons, the
-  interval item, the time since the previous reading and the time format; in `History view` the date,
-  the zero usage lines, the failed lines and `Δ time`; and `Log`.
-- **Two tabs, `Usage-based` and `Seat-based`**, in a group of their own headed `Format`, after
-  `History view` and before `Log`. One is shown at a time, and pressing the other shows the other. What a
-  tab holds is under the small headings `Main view` and `History view`.
-
-  | Tab | Main view | History view |
-  | --- | --- | --- |
-  | `Usage-based` | `Percentage spent` (off), `Currency symbol` (off), `Change in the amount used` (off) | `Δ used` (off) |
-  | `Seat-based` | `Reset times` (on), `Change in the percentages` (off) | `Reset times` (on), `Δ 5h and Δ 7d` (off) |
-
-- **The tab shown when the view is opened is that of the format in force**: the format of the latest
-  reading; with no reading yet, the format of the history file; and with neither, `Usage-based`. The
-  backend says which it is with the settings. The tab that is shown is underlined, and the tab of the
-  format in force has a green dot before its name and the tooltip `The format of the current readings`,
-  whichever of the two is shown, so that it can be told which one the row is using.
-- **Apply applies both tabs**, with the shared settings, in one request; the tab that is not shown
-  keeps what it had. Restore defaults and Cancel act on both as well. `Maximum view` and `Minimum
-  view` switch the shared main-view items and those of both tabs.
-- The settings of a tab take effect only while its format is the one in force; those of the other tab
-  are kept for when it is.
-- The new settings, with the keys they would have in `settings.json`: `seatShowResets` (on),
-  `seatShowDelta` (off), `seatHistoryResets` (on) and `seatHistoryDelta` (off). The existing keys keep
-  their names and their meaning, so a settings file of today is read as it is.
-- The window is as tall as the settings need, as now, so it follows the tab that is shown.
-
-### The fake backend sends either format
-
-A run against the fake backend can show either format, and a change from one to the other, which is
-the one thing that cannot be made to happen with a real account at will.
-
-- `--fake-format <name>`, `usage-based` (the default) or `seat-based`, says which format its usage
-  documents are in; it needs `--fake-backend`, like `--fake-scenario`, and its name is read without
-  regard to case. The mistakes: `--fake-format needs a name.`, `--fake-format needs --fake-backend.`,
-  `--fake-format must be one of usage-based, seat-based, not "x".`, and `--fake-format was given more
-  than once.` It is never saved.
-- The format can be changed while the application runs, the way the scenario can: `POST /format` on the
-  fake backend's address, with the name as the body. The answer is 200 with the name; 400 `Unknown format
-  "<name>"; one of usage-based, seat-based`, and then nothing changes; and 405 `POST a format name` for
-  any other method. A change is logged as `The fake backend format is now <name>`. One run can so be
-  taken through the change and the setting aside of the history file. The format applies to every
-  scenario that sends a usage document: `normal`, `trailing-text` and `slow`.
-- Its seat-based answer is, key for key, what a seat-based account sends: `five_hour` with a
-  `utilization` of 8.0 + 1.7 for each reading since it was last set back, and `seven_day` with 41.0 +
-  0.35 for each, both with two decimals and stopping at 99.9; for each a `resets_at` that is 5 hours, or
-  7 days, after the first request and stays there until it is reached, when the limit is set back, begins
-  again and gets the next reset time; `seven_day_opus` with a `utilization` of exactly 0 and no reset
-  time, a further window that must be passed over; the other window keys `null`; an `extra_usage` that
-  is not enabled; and a `spend` that is not enabled.
-- The lines of the log that name the fake backend say the format as well: `Fake backend listening on
-  http://127.0.0.1:<port>, answering <scenario> in the <format> format`, and `The fake backend is in
-  use: these readings are invented (--fake-backend, scenario <name>, format <name>)`.
-
-### Decided, and assumed
-
-Decided by the person: plan windows with spend beside them are seat-based and the spend is ignored; only
-`five_hour` and `seven_day` are used; a file set aside is named with the date and the time; the
-percentages have no colour; a history file with a header the program does not know is set aside as well;
-the labels are `5h` and `7d`, in the row and in the titles of the history; the reset in the row is the
-time remaining; a seat-based response that lacks one of the two limits is a failed refresh; the format is
-built on the made-up response; and the file, the row, the history, the settings with their tabs and the
-fake backend are as proposed.
-
-Assumed in building it, and easy to change: that a percentage which did not change is written `0.0` in
-the row's pair and left empty in the history; that a reset time which cannot be read is treated as none;
-the widths of the columns of the seat-based table; and that Maximum view and Minimum view switch the
-main-view items of both tabs.
-
 ## Details of the behaviour
 
 These are things the program does that the sections above do not say, written down so that the requirements are the whole of it.
@@ -1126,7 +803,7 @@ These are things the program does that the sections above do not say, written do
 **Command line**
 
 - `-h` and `--help` print the usage text and the program ends without opening a window. The options that take a value are `--usage-interval <seconds>`, `--poll-interval <seconds>`, `--anthropic-url <url>` and
-  `--fake-scenario <name>` and `--fake-format <name>`, each also as `--name=<value>`; `--fake-token` and `--fake-backend` take none. Values are trimmed. A mistake prints one of these messages and then the usage text on the error output,
+  `--fake-scenario <name>`, each also as `--name=<value>`; `--fake-token` and `--fake-backend` take none. Values are trimmed. A mistake prints one of these messages and then the usage text on the error output,
   and the program ends with exit code 2 before anything is logged or shown:
   `Unknown option: X`, `<option> needs a value in seconds.`, `<option> was given more than once.`, `<option> must be a whole number of seconds, not "x".`, `<option> must be from 5 to 3600 seconds.`
   (1 to 60 for the poll interval), `--anthropic-url needs a URL.`, `--anthropic-url must be an absolute http or https URL, not "x".`, `<option> takes no value.` for a value given to one of the two that take none,
@@ -1140,7 +817,7 @@ These are things the program does that the sections above do not say, written do
 - `--fake-token` leaves out the token flow for the run, as Authentication says. A value given to it (`--fake-token=1`) is the mistake named above.
 - `--fake-backend` fetches from the application's own fake backend for the run, as Fake backend says, and leaves out the token flow with it. `--fake-scenario <name>` chooses what that backend answers; it is
   meaningless without `--fake-backend` and is refused rather than ignored, so a run never quietly fetches real usage because the option that was meant to make it fake was forgotten.
-- None of the five (`--anthropic-url`, `--fake-token`, `--fake-backend`, `--fake-scenario` and `--fake-format`) is ever saved, as `--poll-interval` is not, and none has a setting or a window control: they belong to one run and are forgotten when the program stops.
+- None of the four is ever saved, as `--poll-interval` is not, and none has a setting or a window control: they belong to one run and are forgotten when the program stops.
 - **Help.** The usage text goes to the standard output, the program ends with exit code 0, and it ends before the log is set up: no log file is created or added to and nothing is logged. A mistake wins over help: the whole
   command line is read before help is acted on, so `--help --bogus` prints the mistake and the usage text on the error output and ends with exit code 2. `-h` and `--help` may be given more than once, and anywhere among the
   other options, without that being a mistake. `--help=x` is not help: it is `Unknown option: --help=x`.
@@ -1163,7 +840,7 @@ These are things the program does that the sections above do not say, written do
   ```
   Usage: java-aip-usage [--usage-interval <seconds>] [--poll-interval <seconds>]
                         [--anthropic-url <url>] [--fake-token]
-                        [--fake-backend [--fake-scenario <name>] [--fake-format <name>]]
+                        [--fake-backend [--fake-scenario <name>]]
 
     --usage-interval <seconds>  how often usage is fetched from Anthropic (5-3600, default 60)
     --poll-interval <seconds>   how often the window asks for the latest state (1-60, default 1)
@@ -1172,13 +849,11 @@ These are things the program does that the sections above do not say, written do
     --fake-backend              fetch from a fake backend inside this program, not from Anthropic
     --fake-scenario <name>      what the fake backend answers (default normal):
                                 normal, http-401, http-403, http-429, http-429-retry-after, http-500, not-json, empty, no-spend-no-windows, trailing-text, slow, hang
-    --fake-format <name>        which format the fake backend answers in (default usage-based):
-                                usage-based, seat-based
     -h, --help                  show this help
 
   A usage interval chosen in the window is saved to settings.json and replaces --usage-interval
   for the rest of the run. --poll-interval applies to this run only and is never saved, and so
-  do --anthropic-url, --fake-token, --fake-backend, --fake-scenario and --fake-format.
+  do --anthropic-url, --fake-token, --fake-backend and --fake-scenario.
 
   --fake-backend needs nothing of Anthropic: no account, no login, no network. It implies
   --fake-token, because it ignores the token, and cannot be combined with --anthropic-url.
@@ -1201,9 +876,9 @@ These are things the program does that the sections above do not say, written do
   of the base URL in force, without its port, so the default run reads `Cannot reach api.anthropic.com: <detail>` and a run against the fake backend reads `Cannot reach 127.0.0.1: <detail>`,
   `Interrupted while fetching usage.`, and `Unexpected error (<kind>); see the log.` When the retry with a fresh token is rejected too: `Anthropic rejected a freshly obtained OAuth token (HTTP 401). Log in again with Claude Code, then refresh.`
 - The response is read as follows. `spend` counts only when its `enabled` flag is true; amounts are minor units divided by ten to the power of the exponent (0 if none); the currency is that of `used`, else of `limit`; the percentage is used as sent
-  if it is a number; the severity is the text sent. The plan windows are the top-level objects that have a numeric `utilization`, in the order they come, except `extra_usage`. A response that is not JSON, not an object, empty, has trailing text,
-  enables spend but reports neither `used` nor `limit`, or has neither a `spend` object nor any window is a failed refresh whose message says what is wrong (for example
-  `The usage response has neither a "spend" object nor any usage windows; its format may have changed.`). A `spend` that is not enabled, with no windows, is an account that reports no usage.
+  if it is a number; the severity is the text sent. A response that is not JSON, not an object, empty, has trailing text,
+  enables spend but reports neither `used` nor `limit`, or has no `spend` object is a failed refresh whose message says what is wrong (for example
+  `The usage response has no "spend" object; its format may have changed.`). A `spend` that is not enabled is an account that reports no usage.
 - The wait and the amount of a `Retry-After` header are only believed as a whole number of at most six digits; a date is taken as no header.
 - A manual refresh that has been asked for and has not started yet shows a countdown of 0 or less. `POST /api/refresh` answers 202 with `{"started":true}` when it started a request and 200 with `{"started":false}` when one is already
   running or asked for, and also when refreshing has not started yet or has been stopped.
@@ -1217,7 +892,7 @@ These are things the program does that the sections above do not say, written do
   header is looked at.
 - **The messages of a response that cannot be used**, each of which begins `The usage response`: `The usage response is not valid JSON: <what the JSON reader says is wrong>`; `The usage response is not a JSON object.`, which is
   also what a body with nothing in it, or with blanks alone, draws, and `null`, a number, a text and a list; `The usage response enables spend but reports neither "used" nor "limit"; its format may have changed.`; and the one
-  about neither a `spend` object nor any window, above. (`The usage response was empty.` is the message for a response that has no body at all, which an HTTP answer never is.) What the JSON reader says can name the first
+  about no `spend` object, above. (`The usage response was empty.` is the message for a response that has no body at all, which an HTTP answer never is.) What the JSON reader says can name the first
   thing it could not read, a word of the body, so that message is the one place where a few characters of a response can reach the window and the log; it is masked like everything else.
 - **A response is never guessed at.** One that cannot be understood is a failed refresh that says so; it is never shown as an empty reading, as zero, or as the figures of the reading before. The endpoint is not a published
   one, and if its format changes the window is to say what is wrong, not to show wrong numbers.
@@ -1225,10 +900,7 @@ These are things the program does that the sections above do not say, written do
   `limit`, or the other way round, is a reading with one amount. An `amount_minor` with a fraction is cut to a whole number before it is scaled, and the scaling is exact (1 with an exponent of 2 is 0.01); an exponent that is
   missing or not a number is 0. A `percent` with a fraction is cut to a whole number (19.9 is 19), and one that is not a number is missing, not a mistake. The severity and the currency are taken as text whatever was sent, a
   number as its digits; `null` and a missing key are none. The currency of `limit` is used also when that of `used` is `null`.
-- **What a plan window is, more exactly.** It is looked for only to tell the two formats apart. A window whose `utilization` is exactly 0 is a window. A top-level member that is `null`, a list, a plain value, or an object without a numeric `utilization` is passed over without a word,
-  and so is every key the program does not know, anywhere. Whether it has a `resets_at` makes no difference. `extra_usage` is left out because it says again what `spend` says. What is found
-  this way decides the format: one plan window is enough to make the response seat-based, a window at exactly 0 and a window with no reset time included, with an enabled `spend` beside it or with no `spend` key at all
-  (see The seat-based format). A seat-based response that lacks `five_hour` or `seven_day` is the failed refresh `The usage response is in the seat-based format but lacks "five_hour" or "seven_day"; its format may have changed.` The `spend` of a seat-based response is not read at all, so nothing in it can fail the reading.
+- **What is beside `spend` is not read.** Every other top-level member, whatever it holds, and every key the program does not know, anywhere, is passed over without a word.
 - **While a refresh runs, what the last one left stays**: the message, its time and the sign of a 429 are there until the running request has ended, and only a success takes them away; a new failure replaces the message and
   its time. The time of a failure, in the message line and in the error log, is when the failed request ended, not when it was started.
 - **Old figures, exactly.** The figures are old, and dimmed, when there is a reading, the latest refresh failed, and the failure was not a 429. A failure with no reading yet is not that, and a reading taken from the history
@@ -1313,7 +985,7 @@ These are things the program does that the sections above do not say, written do
   ` (resizable: both)` between them when it may be dragged. If the page cannot be asked for its size, the warning `Could not ask the page for its size: <reason>`, once in a run and not at every try.
 - **The order of the lines at startup**: `Logging to`, the start line, the history path, the settings path, the lines about the fake backend, the base URL and the token (see Non-functional requirements), the lines of the
   settings, the line about the reading taken from the history, `Frontend served at`, and then the first refresh. One line is out of that order in a run with `--fake-backend`: the fake backend is started first, so its own
-  `Fake backend listening on http://127.0.0.1:<port>, answering <scenario> in the <format> format` comes straight after the start line, before the history path.
+  `Fake backend listening on http://127.0.0.1:<port>, answering <scenario>` comes straight after the start line, before the history path.
 
 **The local server**
 
@@ -1373,7 +1045,7 @@ These are things the program does that the sections above do not say, written do
 - The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.
-- The window title is `aip usage v0.28`; the program is called `java-aip-usage v0.28` in the log.
+- The window title is `aip usage v0.30`; the program is called `java-aip-usage v0.30` in the log.
 - **The program asks the page for its size about every 150 milliseconds** and gives the window a new size when the answer is a new one, so the window follows its content within a moment. The page measures its own content, never the window, so that giving the window that size does not change the answer; the same size is not set twice. The page says nothing but its size, what may be dragged and which panel is open, and the program tells the page nothing.
 - **What may be dragged.** With no panel, and with the settings, nothing. With the history, the height only, the width staying what the page asked for. With the log and the error log, the height and the width. Neither can be dragged below the size the window has with no panel open, which is the size the page last asked for with none; until there has been one, the size the panel opened at is the least.
 - **An answer of the page that is not a size is passed over**: one that is not text, one with a width or a height of 0 or of more than five digits, a panel name other than `history`, `log` and `errors`. A change of what may be dragged, or of the panel, with the same numbers, counts as a new size.
@@ -1424,7 +1096,7 @@ These are things the program does that the sections above do not say, written do
   dropdown, then `Maximum view` and `Minimum view`; `History view`, with `Date`, `Zero usage lines`, `Failed lines`, `Δ used`, `Δ time`; and `Log`, with `Log the response`. The text is bold, 12 pixels on a line of 1.45, in the system's own interface font, not condensed. Each group is a box with a thin gray border
   and its heading set in the border; each setting has a line of its own, the control 4 pixels from its text. The buttons are 6 pixels apart, with a gray border that takes the colour of the text under the pointer or with the focus; a disabled one is at half strength. `Apply` has no tooltip. The dropdown is at
   least 12 characters wide. The red line of the view is at its top, above the groups; it stays until the view is opened again, whatever is typed or pressed meanwhile. When the settings cannot be read it says `The settings could not be read: <reason>` and the groups are not shown at all, not shown empty; Cancel
-  still works. A refusal of the backend is shown in its own words. The check of the interval field is: blanks at its ends aside, digits and nothing else, so ` 60 ` and `0060` are taken, the latter as 60, and `-5`, `5.0`, `1e3`, `60s` and an empty field are not. Apply sends all twenty settings in one request.
+  still works. A refusal of the backend is shown in its own words. The check of the interval field is: blanks at its ends aside, digits and nothing else, so ` 60 ` and `0060` are taken, the latter as 60, and `-5`, `5.0`, `1e3`, `60s` and an empty field are not. Apply sends all sixteen settings in one request.
   Restore defaults fills in the defaults the backend sent with the settings; the page has none of its own. A setting the backend's answer lacks is shown switched off.
 - **The panels, exactly.** The text is 12 pixels on a line of 15, in a fixed-width font (`ui-monospace, SFMono-Regular, Menlo, monospace`), regular weight, the letters drawn very slightly closer. From the top: the note, the red line of a read that failed, the lines. Opening a panel, or changing to another,
   clears the lines, the note and the red line of the one before at once, so nothing of another panel is ever under the new button, and an answer that comes for a panel that is no longer the one shown is dropped. A panel with no lines shows no box of lines, only its note. The red line goes with the next read that
@@ -1460,7 +1132,7 @@ is needed and nothing else has to be started.
   substitute for the usage client fitted in place of it: the connection, the status, the headers,
   the timeouts and the refusal to follow a redirect are all the real ones, which is what makes a
   run against it worth watching. The application cannot tell that the server is fake.
-- It serves `GET /api/oauth/usage`, and the two requests that change its scenario and its format (below, and under The seat-based format), and nothing
+- It serves `GET /api/oauth/usage`, and the one request that changes its scenario (below), and nothing
   else. Any other path is HTTP 404 with no body, a path beneath the usage path such as
   `/api/oauth/usage/extra` included, and any other method on the usage path is HTTP 405 with no body. It
   never looks at the bearer token and never reaches the network.
@@ -1468,15 +1140,14 @@ is needed and nothing else has to be started.
   `--fake-token` does, and does not have to be given with it (see Authentication).
 - `--fake-backend` and `--anthropic-url` contradict each other, since each says where usage comes
   from. Giving both is a mistake and is refused on the command line (see Command line).
-- Its normal answer is a plausible usage document in the **usage-based format** (see Source data),
-  unless `--fake-format` or a later change says the seat-based one (see The seat-based format): a
-  `spend` object that is enabled, and no plan window. The figures move a little on each request, so
+- Its normal answer is a plausible usage document: a `spend` object that is enabled, among the keys a
+  real response carries beside it. The figures move a little on each request, so
   that the row, the history and the differences between readings all have something to show rather
   than the same numbers forever.
 - It can be made to answer otherwise, so that the behaviour the requirements describe for a bad
   answer can be seen without waiting for the real endpoint to misbehave. The scenarios are at least:
   the normal answer; HTTP 401, 403, 429 (with and without `retry-after`), and a 500; a body that is
-  not JSON, an empty body, a body that is JSON but neither a `spend` object nor any window, and a
+  not JSON, an empty body, a body that is JSON but has no `spend` object, and a
   body with trailing text; and an answer that is slow or never comes, past the 20 second request limit
   of The usage request. (Both take the connection at once, so neither goes past the 10 second connect
   limit; no scenario does.)
@@ -1521,20 +1192,19 @@ is needed and nothing else has to be started.
 
   | Member | Value |
   | --- | --- |
-  | `five_hour`, `seven_day`, `seven_day_oauth_apps`, `seven_day_opus`, `seven_day_sonnet` | each `null`: the keys of the plan windows are there, as in a real response of the usage-based format, and none is a window |
+  | `five_hour`, `seven_day`, `seven_day_oauth_apps`, `seven_day_opus`, `seven_day_sonnet` | each `null`, as in a real response |
   | `juniper_tide`, `cedar_ember` | each `null`: stand-ins for the keys with invented names that a real response carries |
-  | `extra_usage` | `is_enabled` `true`, `monthly_limit` 100000, `used_credits` and `utilization` that follow the spend (the amount used in minor units, and that as a percentage of the limit with three decimals), `currency` `USD`, `decimal_places` 2: the credit figures said a second time, as a real response says them, which must stay out of the windows although it has a `utilization` |
+  | `extra_usage` | `is_enabled` `true`, `monthly_limit` 100000, `used_credits` and `utilization` that follow the spend (the amount used in minor units, and that as a percentage of the limit with three decimals), `currency` `USD`, `decimal_places` 2: the credit figures said a second time, as a real response says them |
   | `limits` | an empty list |
   | `spend` | `used` of 18602 + 137 × n minor units and `limit` of 100000, both `USD` with an exponent of 2; `percent`, the share used as a whole number, rounded down; `severity` `warning` from 80 percent and `normal` below; `enabled` `true`; `disabled_reason` `null` |
   | `member_dashboard_available` | `true` |
   | `seven_day_breakdown` | `null` |
 
   The first reading is therefore 187.39 of 1,000.00 US dollars, 18 percent, and each reading adds 1.37 to
-  the amount used. The document is, key for key, what a real response of the usage-based format is,
-  awkward parts and all, because those are what a parser must get right: the keys of the plan windows
-  present and `null`, keys with invented names, an `extra_usage` with a `utilization` that is no window, and
-  keys that are no window at all. Read by the application it is a reading in the usage-based format, with
-  spend and no limits. The amount used is not held at the budget, so on a long run it passes it and the percent
+  the amount used. The document is, key for key, what a real response is,
+  awkward parts and all, because those are what a parser must get right: keys that are present and
+  `null`, keys with invented names, and an `extra_usage` that says the spend again. Read by the
+  application it is a reading with spend. The amount used is not held at the budget, so on a long run it passes it and the percent
   passes 100; and the severity is `normal` or `warning` only, never critical. `normal`, `trailing-text` and a
   `slow` answer that was sent share the one count, which starts again with every run.
 - **A fake reading is kept like any other.** The application does not know that its backend is fake, so a
@@ -1555,9 +1225,8 @@ is needed and nothing else has to be started.
 What the sections above require is to be held up by tests, and the few things no test can judge are to be
 looked at by a person. This section says which is which, so that "it works" means something.
 
-- **The behaviour that can be tested is tested.** The parsing of the usage-based format and of every
-  malformed body, the telling apart of the two formats, and the setting aside of a history file of the other format, from fixtures of
-  real responses; the precedence of the command line over the settings
+- **The behaviour that can be tested is tested.** The parsing of the usage response and of every
+  malformed body, from fixtures of real responses; the precedence of the command line over the settings
   file over the default; the refresh schedule, including an interval changed while a request is in flight
   and a due time that has already passed; the back-off after an HTTP 429 and its easing; and the move
   between fresh, stale and failed state.
@@ -1659,7 +1328,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - **A poll is cheap.** The window asks for the status every second for as long as the application runs, so that answer costs no more work than it has to: the figures it carries are the ones the refresh already worked out, and the history file is read again only when it has changed (its size or its time), not once a second. A panel that is open is read again on the same terms: the history when its file has changed, the log and the error log on the poll, and the lines on the page are replaced only when they differ from what is already there, so that what a person is reading does not move for an answer that says nothing new.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
-  (`Starting java-aip-usage v0.28`), and then a line that says which file the usage history CSV is written to, as a full path, for example
+  (`Starting java-aip-usage v0.30`), and then a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).
@@ -1675,7 +1344,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `seatShowResets`, `seatShowDelta`, `seatHistoryResets`, `seatHistoryDelta`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, and the two heights
   `historyHeight` and `logHeight`. Where this document says "in the project root, beside `gradlew`", the files are in the working directory the program was
   started from, which is the project root for `./gradlew run` and for an IDE run configuration set as the notes say.
 - **The settings file as written.** One JSON object, printed over several lines, with the keys always in the order above, the two heights last and always there, as `0` when none is remembered. Every save writes the whole file

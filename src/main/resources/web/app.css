@@ -96,31 +96,6 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-/*
- * The two limits of the seat-based format: a label, the percentage, and the time until the limit is set back, in the
- * colour of the text, since that format sends no severity to colour them by.
- */
-.seat {
-    display: inline-flex;
-    gap: 12px;
-}
-
-.limit {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    font-variant-numeric: tabular-nums;
-}
-
-.limit-value {
-    font-weight: 800;
-}
-
-.limit-reset {
-    font-size: 14px;
-    color: var(--muted);
-}
-
 /* The figures that matter, heavier than the rest. */
 .spend {
     display: inline-flex;
@@ -158,8 +133,7 @@ body {
 
 /* Figures that predate a failed refresh are dimmed. */
 .stale .time,
-.stale .spend,
-.stale .seat {
+.stale .spend {
     opacity: 0.6;
 }
 
@@ -266,23 +240,6 @@ body {
 
 .settings label input[type="checkbox"] {
     margin: 0;
-}
-
-/* The two tabs: the one shown is underlined, and the one of the format in force has a dot before its name. */
-.settings .tab.selected {
-    border-color: CanvasText;
-    text-decoration: underline;
-}
-
-.settings .tab.in-force::before {
-    content: "\25CF\00a0";
-    color: var(--active);
-}
-
-.settings .tab-heading {
-    display: block;
-    margin-top: 2px;
-    color: var(--muted);
 }
 
 .settings .buttons {
@@ -466,20 +423,6 @@ body {
 
 .panel-lines .cols-5 > :not(:first-child),
 .panel-lines .cols-6 > :not(:first-child) {
-    text-align: right;
-}
-
-/*
- * The table of the seat-based format. Its columns come and go with the settings, so the page gives each line its column
- * widths from what the backend says the columns are; here is what they have in common with the other table.
- */
-.panel-lines .seat-table {
-    display: grid;
-    column-gap: 8px;
-    min-width: max-content;
-}
-
-.panel-lines .seat-table > :not(:first-child) {
     text-align: right;
 }
 

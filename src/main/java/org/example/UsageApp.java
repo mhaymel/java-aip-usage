@@ -100,9 +100,7 @@ public class UsageApp extends Application {
             ResponseLog responseLog = new ResponseLog();
             // Started before the fetcher, which needs the address it chose.
             if (options.fakeBackend()) {
-                fakeBackend = FakeBackend.start(
-                        options.fakeScenario().orElse(Scenario.NORMAL),
-                        options.fakeFormat().orElse(org.example.usage.UsageFormat.USAGE_BASED));
+                fakeBackend = FakeBackend.start(options.fakeScenario().orElse(Scenario.NORMAL));
             }
             URI base = fakeBackend != null
                     ? fakeBackend.baseUrl()

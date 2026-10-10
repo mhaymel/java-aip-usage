@@ -100,8 +100,7 @@ class SettingsStoreTest {
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines",
-                        "seatShowResets", "seatShowDelta", "seatHistoryResets", "seatHistoryDelta", "historyHeight", "logHeight"),
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -254,23 +253,5 @@ class SettingsStoreTest {
     void aPanelThatIsNeitherTheHistoryNorTheLogHasNoHeight() {
         assertEquals(0, new SettingsStore.Heights(640, 500).of("errors"));
         assertThrows(IllegalArgumentException.class, () -> SettingsStore.Heights.NONE.withHeight("errors", 300));
-    }
-
-    @Test
-    void theFourSwitchesOfTheSeatBasedFormatHaveTheirDefaultsAreSavedAndAreReadBack() throws IOException {
-        Settings defaults = new SettingsStore(file()).load();
-        assertTrue(defaults.seatShowResets());
-        assertFalse(defaults.seatShowDelta());
-        assertTrue(defaults.seatHistoryResets());
-        assertFalse(defaults.seatHistoryDelta());
-
-        new SettingsStore(file()).save(defaults.withSeat(false, true, false, true));
-
-        Settings read = new SettingsStore(file()).load();
-        assertFalse(read.seatShowResets());
-        assertTrue(read.seatShowDelta());
-        assertFalse(read.seatHistoryResets());
-        assertTrue(read.seatHistoryDelta());
-        assertEquals(defaults.withSeat(false, true, false, true), read.withShowPercentage(read.showPercentage()), "a change of another setting keeps them");
     }
 }

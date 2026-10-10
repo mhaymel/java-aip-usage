@@ -117,45 +117,4 @@ class FormattingTest {
         assertEquals("", Formatting.historyCurrency(null));
         assertEquals("", Formatting.historyCurrency(""));
     }
-
-    // ---- the figures of the seat-based format
-
-    @Test
-    void aUtilizationHasOneDecimalRoundedUpwardsAtHalfAndNoPointZero() {
-        assertEquals("12.3%", Formatting.percent(12.34));
-        assertEquals("12.4%", Formatting.percent(12.35));
-        assertEquals("80%", Formatting.percent(80));
-        assertEquals("0%", Formatting.percent(0));
-        assertEquals("100%", Formatting.percent(99.96));
-        assertEquals("150%", Formatting.percent(150), "over 100 is shown as it is");
-    }
-
-    @Test
-    void aSpanOfTimeIsCutAndNeverRounded() {
-        assertEquals("0 s", Formatting.span(java.time.Duration.ZERO));
-        assertEquals("59 s", Formatting.span(java.time.Duration.ofSeconds(59)));
-        assertEquals("1 min", Formatting.span(java.time.Duration.ofSeconds(119)));
-        assertEquals("1 h", Formatting.span(java.time.Duration.ofHours(1)));
-        assertEquals("1 h 5 min", Formatting.span(java.time.Duration.ofMinutes(65)));
-        assertEquals("1 d", Formatting.span(java.time.Duration.ofDays(1)));
-        assertEquals("1 d 1 h", Formatting.span(java.time.Duration.ofMinutes(25 * 60 + 59)), "from a day on there are no minutes");
-        assertEquals("0 s", Formatting.span(java.time.Duration.ofSeconds(-5)));
-    }
-
-    @Test
-    void aChangeOfAPercentageHasOneDecimalAndAlwaysItsSign() {
-        assertEquals("+0.6", Formatting.signedPoints(new BigDecimal("0.60")));
-        assertEquals("-45.0", Formatting.signedPoints(new BigDecimal("-45")));
-        assertEquals("+0.1", Formatting.signedPoints(new BigDecimal("0.05")));
-        assertEquals("0.0", Formatting.signedPoints(BigDecimal.ZERO));
-    }
-
-    @Test
-    void aResetTimeOfTheHistoryIsTheTimeOfDayWithTheDayWhenAskedOrWholeWithTheDate() {
-        assertEquals("18:00", Formatting.resetCell("2026-10-08 18:00:00", false, false));
-        assertEquals("10-10 02:00", Formatting.resetCell("2026-10-10 02:00:00", false, true));
-        assertEquals("2026-10-10 02:00:00", Formatting.resetCell("2026-10-10 02:00:00", true, true));
-        assertEquals("", Formatting.resetCell("", false, true), "none is none");
-        assertEquals("soon", Formatting.resetCell("soon", false, false), "anything else as it is");
-    }
 }

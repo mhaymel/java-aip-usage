@@ -14,10 +14,6 @@
             <span id="percent" class="percent"></span>
             <span class="amounts"><span id="used"></span> / <span id="limit"></span></span>
         </span>
-        <span id="seat" class="seat" hidden>
-            <span class="limit"><span id="five-hour-label" class="limit-label"></span><span id="five-hour" class="limit-value"></span><span id="five-hour-resets" class="limit-reset" hidden></span></span>
-            <span class="limit"><span id="seven-day-label" class="limit-label"></span><span id="seven-day" class="limit-value"></span><span id="seven-day-resets" class="limit-reset" hidden></span></span>
-        </span>
         <span id="placeholder" class="placeholder">Loading…</span>
 
         <button id="refresh" class="icon" type="button" aria-label="Refresh now" title="Refresh now">
@@ -88,10 +84,13 @@
                 </fieldset>
                 <fieldset>
                     <legend>Main view</legend>
+                    <label><input id="set-showPercentage" type="checkbox"> Percentage spent</label>
+                    <label><input id="set-showCurrency" type="checkbox"> Currency symbol</label>
                     <label><input id="set-showHistoryIcon" type="checkbox"> History icon</label>
                     <label><input id="set-showLogIcon" type="checkbox"> Log icon</label>
                     <label><input id="set-showErrorIcon" type="checkbox"> Error log icon</label>
                     <label><input id="set-showInterval" type="checkbox"> Interval</label>
+                    <label><input id="set-showDeltaUsed" type="checkbox"> Change in the amount used</label>
                     <label><input id="set-showDeltaTime" type="checkbox"> Time since the previous reading</label>
                     <label>Time format
                         <select id="set-timeFormat" aria-label="Time format">
@@ -108,30 +107,8 @@
                     <label><input id="set-historyDate" type="checkbox"> Date</label>
                     <label><input id="set-historyZeroLines" type="checkbox"> Zero usage lines</label>
                     <label><input id="set-historyFailedLines" type="checkbox"> Failed lines</label>
+                    <label><input id="set-historyDeltaUsed" type="checkbox"> Δ used</label>
                     <label><input id="set-historyDeltaTime" type="checkbox"> Δ time</label>
-                </fieldset>
-                <fieldset class="formats">
-                    <legend>Format</legend>
-                    <span class="buttons" role="tablist">
-                        <button id="tab-usage" class="tab" type="button" role="tab" aria-controls="tab-usage-panel">Usage-based</button>
-                        <button id="tab-seat" class="tab" type="button" role="tab" aria-controls="tab-seat-panel">Seat-based</button>
-                    </span>
-                    <div id="tab-usage-panel" role="tabpanel">
-                        <span class="tab-heading">Main view</span>
-                        <label><input id="set-showPercentage" type="checkbox"> Percentage spent</label>
-                        <label><input id="set-showCurrency" type="checkbox"> Currency symbol</label>
-                        <label><input id="set-showDeltaUsed" type="checkbox"> Change in the amount used</label>
-                        <span class="tab-heading">History view</span>
-                        <label><input id="set-historyDeltaUsed" type="checkbox"> Δ used</label>
-                    </div>
-                    <div id="tab-seat-panel" role="tabpanel" hidden>
-                        <span class="tab-heading">Main view</span>
-                        <label><input id="set-seatShowResets" type="checkbox"> Reset times</label>
-                        <label><input id="set-seatShowDelta" type="checkbox"> Change in the percentages</label>
-                        <span class="tab-heading">History view</span>
-                        <label><input id="set-seatHistoryResets" type="checkbox"> Reset times</label>
-                        <label><input id="set-seatHistoryDelta" type="checkbox"> Δ 5h and Δ 7d</label>
-                    </div>
                 </fieldset>
                 <fieldset>
                     <legend>Log</legend>

@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -268,67 +267,5 @@ class StatusDisplayTest {
 
         assertEquals(new StatusDisplay.Show(true, false, true, true, false, true, true, true), build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
         assertEquals(new StatusDisplay.Show(false, false, false, false, false, true, true, true), build(state(spend(SPEND), null, null)).show(), "all off by default");
-    }
-
-    // ---- the seat-based format
-
-    private static final UsageSnapshot SEAT = UsageSnapshot.seatBased(FETCHED, new org.example.usage.PlanLimits(
-            new org.example.usage.PlanLimits.Limit(12.34, "2026-10-08T16:30:53Z"),
-            new org.example.usage.PlanLimits.Limit(80, "2026-10-10T02:00:00+00:00")));
-
-    @Test
-    void aSeatBasedReadingShowsTheTwoLimitsWithTheTimeUntilEachIsSetBack() {
-        StatusDisplay.View v = build(state(SEAT, null, null));
-
-        assertEquals("seat-based", v.format());
-        assertNull(v.spend());
-        assertNull(v.placeholder());
-        assertEquals(new StatusDisplay.LimitView(
-                "5h", "12.3%", "Five-hour session limit: 12.34% used. Resets 8 Oct 2026, 16:30:53", "in 2 h 6 min"), v.seat().fiveHour());
-        assertEquals(new StatusDisplay.LimitView(
-                "7d", "80%", "Weekly limit: 80% used. Resets 10 Oct 2026, 02:00:00", "in 1 d 11 h"), v.seat().sevenDay());
-    }
-
-    @Test
-    void theResetTimesOfTheRowHaveASwitchAndALimitWithNoneSaysSo() {
-        UsageSnapshot odd = UsageSnapshot.seatBased(FETCHED, new org.example.usage.PlanLimits(
-                new org.example.usage.PlanLimits.Limit(150.5, null), new org.example.usage.PlanLimits.Limit(5, "2026-10-08T10:00:00Z")));
-
-        StatusDisplay.View shown = build(state(odd, null, null));
-        StatusDisplay.View hidden = build(state(odd, null, null), OptionalLong.empty(), null,
-                Settings.defaults().withSeat(false, false, true, false));
-
-        assertEquals("150.5%", shown.seat().fiveHour().text(), "over 100 is shown as it is");
-        assertEquals("reset unknown", shown.seat().fiveHour().resetsText());
-        assertEquals("Five-hour session limit: 150.5% used", shown.seat().fiveHour().tooltip(), "no second sentence without a reset time");
-        assertEquals("reset due", shown.seat().sevenDay().resetsText());
-        assertNull(hidden.seat().fiveHour().resetsText(), "switched off: the row has no reset time");
-        assertEquals("5%", hidden.seat().sevenDay().text());
-    }
-
-    @Test
-    void theChangeOfASeatBasedReadingIsBothPercentagesInOneItemWithItsOwnSwitch() {
-        ApiHandler.DeltaBody change = ApiHandler.DeltaBody.ofSeat(0.6, 0.0, 60L);
-
-        StatusDisplay.View off = build(state(SEAT, null, null), OptionalLong.empty(), change, Settings.defaults());
-        StatusDisplay.View on = build(state(SEAT, null, null), OptionalLong.empty(), change,
-                Settings.defaults().withSeat(true, true, true, false));
-
-        assertEquals("+0.6 / 0.0", on.deltaUsed().text());
-        assertEquals("Change of the session limit and of the weekly limit since the previous reading, in percentage points",
-                on.deltaUsed().tooltip());
-        assertTrue(on.show().deltaUsed());
-        assertFalse(off.show().deltaUsed(), "off by default, whatever the switch of the other format says");
-        assertNull(build(state(SEAT, null, null), OptionalLong.empty(), ApiHandler.DeltaBody.ofSeat(0.0, 0.01, 60L), Settings.defaults())
-                .deltaUsed(), "neither changed: no item");
-    }
-
-    @Test
-    void aUsageBasedReadingSaysItsFormatAndHasNoLimits() {
-        StatusDisplay.View v = build(state(spend(SPEND), null, null));
-
-        assertEquals("usage-based", v.format());
-        assertNull(v.seat());
-        assertNull(build(state(null, null, null)).format(), "no reading, no format");
     }
 }

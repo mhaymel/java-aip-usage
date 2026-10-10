@@ -152,8 +152,7 @@ final class AppRuntime implements AutoCloseable {
         if (options.fakeBackend()) {
             LOG.log(System.Logger.Level.INFO,
                     "The fake backend is in use: these readings are invented (--fake-backend, scenario "
-                            + options.fakeScenario().orElse(Scenario.NORMAL).optionName()
-                            + ", format " + options.fakeFormat().orElse(org.example.usage.UsageFormat.USAGE_BASED).text() + ")");
+                            + options.fakeScenario().orElse(Scenario.NORMAL).optionName() + ")");
         }
         fetchedFrom.ifPresent(uri -> LOG.log(System.Logger.Level.INFO, "Usage is fetched from " + uri));
         if (options.placeholderToken()) {

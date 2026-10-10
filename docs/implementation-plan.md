@@ -29,7 +29,7 @@ Suggested backend boundaries:
 
 | Component | Responsibility |
 | --- | --- |
-| `UsageSnapshot` and related value types | Represent the timestamp and the optional spend details of a reading in the usage-based format. |
+| `UsageSnapshot` and related value types | Represent the timestamp and the optional spend details of a reading. |
 | `TokenProvider` | Acquire and refresh an OAuth token using the selected sibling-repo flow. Keep tokens in memory; do not log them. |
 | `UsageClient` | Call the Anthropic usage endpoint with the bearer token, decode the response, and distinguish HTTP 401 from other failures. |
 | `UsageService` | Own the current snapshot, refresh interval, last error/stale state, and non-overlapping scheduled refreshes. |
@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.28). What these mechanisms make the
+How the requirements are met today (version 0.30). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1267,104 +1267,6 @@ skips the environment-variable refusal, as above; the fake backend's port is alw
 switched by a `POST` to the fake server rather than by a header or query on the usage request, so that what the application sends stays exactly what it sends against the real endpoint; and the fake backend is a real
 loopback server rather than a `UsageSource` fitted in place of the client, which costs a socket and buys the real HTTP path — the statuses, the timeouts and the redirect refusal — being what a fake run exercises.
 
-### 38. Two named formats, the seat-based one refused, and a fake backend that sends only the usage-based one
-
-**Status: done (version 0.26); not seen in the window, and no real seat-based account has been tried.** Requirements: Source data,
-Display requirements, The row, Usage history, The usage request, Fake backend, Testing and verification.
-
-*Why.* A run against the fake backend showed spend and four plan windows in one row. No real account answers like that, the window
-display had only ever met fixtures, and the format a machine gets depends on the subscription it is logged in with, not on its
-operating system. Showing a format that has never been verified against a real account is worse than saying it is not supported.
-
-*Decided by the person:* the names, **usage-based format** and **seat-based format**, after Anthropic's words for the two kinds of
-plan (Anthropic has no name for the two shapes of the response; its help pages speak of usage-based plans with a spend limit, and of
-Pro, Max and seat-based plans with a five-hour session limit and a weekly limit); that a response which carries plan windows is
-refused as a failed refresh, with spend beside the windows or without; that the refusal is recorded like any failed refresh, a
-`failed` history row at every refresh included; that the code which displayed plan windows is deleted, not kept for later; that the
-fake backend's document is the real usage-based response, key for key; and that the fake backend gets no scenario for the refusal.
-
-- **The refusal (`UsageParser`).** After the checks that were there (not JSON, not an object, enabled spend without amounts, neither
-  spend nor windows), a document in which a plan window is found throws `UsageParseException` with `SEAT_BASED_REFUSED`, whether
-  `spend` was read or not. The window scan became `hasPlanWindows`: the same rule of shape, `extra_usage` and `null` keys passed
-  over, now only to recognise the format. A `UsageParseException` was already a failed refresh that keeps the token, starts no
-  back-off and reaches the message line, the error log, the log and a `failed` history row, so nothing above the parser changed.
-- **What was deleted.** `UsageWindow`; the `windows` of `UsageSnapshot`, which is now a time and a spend; `StatusDisplay.WindowView`
-  and the `windows` member of the display; `Formatting.span` and `Formatting.percent`; the `windows` element of the page, its
-  styles and `renderWindows`; and the tests of all of them. The status' `usage.windows` stays, always an empty list, so that the
-  reading keeps the shape `java-aip` prints. The requirements lost the passages on where plan windows go in the row and how their
-  figures are written; how the seat-based format is to be shown is to be decided when it is supported.
-- **The fake document (`UsageDocument`).** The body is the usage-based response of `usage-credits.json`: the five window keys and
-  two invented ones `null`, an `extra_usage` that repeats the spend (with a `utilization`), `limits`, `spend` as before (18602 +
-  137 n of 100000 minor units, the percent, the severity), `member_dashboard_available` and `seven_day_breakdown`. The climbing
-  utilizations and the reset times are gone. `trailing-text` and `slow` keep using it.
-- **Tests.** `UsageParserTest`: `usage-windows.json` is refused with the message; spend beside one window is refused; a window at
-  exactly 0, one with a `null` reset time and one with no reset time are each enough; what is no plan window (null keys, a list, an
-  object without a numeric utilization, `extra_usage`) does not make it the seat-based format; windows with no `spend` object draw
-  the refusal and not the "neither" message. `FakeBackendTest`: the document has the awkward parts of the real one, and a thousand
-  readings in a row are never refused. `ApiTest`: a refused response is a failed refresh with the message, leaves the reading that
-  was there on show and old, sends no window, is no 429, adds an error log entry and a `failed` history row. The tests that used a
-  plan reading as "a reading with no amounts" use an account that reports no usage instead. Page tests: no element and no style for
-  a plan window, and a status that carried one is ignored.
-- **Docs.** `api.md` (`usage.windows` always empty, no `display.windows`, the refusal), README (the two formats, what is not
-  supported), the fixtures README (`usage-windows.json` is the fixture of the refusal).
-
-*Assumed, easy to change:* the wording of the message; that "carries plan windows" means the scan finds at least one, so the `null`
-keys of a usage-based response do not count; and that an account that reports nothing at all (`No usage reported`) stays a valid
-reading and is not refused.
-
-### 39. Both formats: the seat-based one supported, one format to a history file, a tab for each in the settings
-
-**Status: done (version 0.27); not seen in the window, and built on a made-up response.** Requirement: The seat-based format (and
-Source data, Display requirements, Command line, Fake backend). It undoes the refusal of phase 38 and brings back, in another shape,
-some of what that phase deleted: a reading can hold limits again, though two named ones and not a list of windows.
-
-- **The model.** `UsageFormat` (`usage-based`, `seat-based`, with the text the log, the command line and the API write);
-  `PlanLimits` with its `Limit` (a utilization and the reset time as sent); and `UsageSnapshot`, which now holds a spend or the
-  limits, never both, and says its `format()`, `null` for a reading that reports nothing. The two-argument constructor stays for the
-  usage-based reading, and a seat-based one is made with `UsageSnapshot.seatBased`: two two-argument constructors would be ambiguous
-  for a `null`.
-- **The parser.** `hasPlanWindows` decides the format, as it decided the refusal. A seat-based response is read from `five_hour` and
-  `seven_day` alone and refused with `SEAT_BASED_INCOMPLETE` if either is missing; its `spend` is not read at all, so a spend
-  that could not be read cannot fail a reading in which it is ignored.
-- **The history file (`UsageHistory`).** `content()` reads what the file holds from its first line: empty, a format, or a header
-  that is neither's. `makeRoomFor` then leaves it (upgrading an old usage-based header), empties it (a header and no rows), or sets it
-  aside with `setAside`, a move to `<name>.<yyyy.MM.dd-HH.mm.ss>.csv` that never replaces a file, with the two log lines. The time
-  of the name comes from a `Clock`, a constructor parameter so that a test knows the name. A failed row is written in the shape of
-  the file, or of `lastFormat` when there is none. `latest()` restores a reading of either format.
-- **Reading it back.** `HistoryReader` tells the format from the header and gives `Table.format()`; a seat-based row has eight
-  fields and its status in the sixth (`statusIndex`). `HistoryDeltas.Delta` has a second figure, `other`, for the weekly limit, and
-  `isZero(format)` says what a zero usage line is in each format. The existing one-format entry points stay as overloads.
-- **The display.** `Formatting` has `percent`, `span`, `signedPoints` and `resetCell` (the first two came back from phase 38).
-  `StatusDisplay` sends `format` and a `seat` block with two `LimitView`s, and puts the change of both percentages into the one
-  `deltaUsed` item, whose `show` flag follows the switch of the format in force, so the page needed no new flag. `ApiHandler`
-  builds the seat-based history in `seatHistory`, with `kinds` naming what each column is, sends the two limits as
-  `usage.windows`, and says the format in force with the settings (`formatInForce`).
-- **Settings.** Four switches, `seatShowResets`, `seatShowDelta`, `seatHistoryResets` and `seatHistoryDelta`, at the end of the
-  record, with the sixteen-argument constructor kept so that the many positional calls of the tests stand; `withSeat` sets them.
-- **The fake backend.** `--fake-format` in `LaunchOptions` (an old seven-argument constructor kept), `FakeBackend.start(scenario,
-  format)`, `POST /format`, and `UsageDocument.nextSeatBased`, whose limits climb and are set back when their reset time is reached.
-- **The page.** A `seat` group in the strip beside `spend`, filled by `renderLimit`. The seat-based table has columns that come and
-  go with three switches, so its lines get their column widths inline, from `view.js`'s map of the backend's `kinds`, and the class
-  `seat-table`; the usage-based table keeps the `cols-N` rules of the style sheet. The settings have a `Format` group with two tab
-  buttons and two panels; the four switches that exist in the usage-based format only moved from `Main view` and `History view` onto
-  its tab. `showTab` shows one and marks the one in force.
-- **Tests.** Parser: both formats told apart, spend ignored beside windows, the two limits only, the refusal of an incomplete
-  response. History: the seat-based row and its local reset times, a failed row in each shape, the file set aside both ways round and
-  for an unknown header, a header-only file replaced, never onto a file that is there, nothing moved by a failure or an empty reading,
-  the reading restored at startup. Reader and deltas: the format from the header, eight fields, both changes, the zero usage line.
-  Display, formatting, options, fake backend (the limits climb, are set back, the format switched while running), settings store.
-  `ApiTest`: a seat-based reading end to end, the seat-based history with its switches, and a change of format through the running
-  application. Page: the row, the change of format at a poll, the table with its widths, the tabs, Apply with both tabs, Maximum and
-  Minimum view. The tests of the refusal of phase 38 became tests of the reading.
-- **Docs.** The requirements (the section is no longer a proposal), `api.md`, the README, the fixtures README.
-
-*Assumed, easy to change:* a percentage that did not change is `0.0` in the row's pair and an empty cell in the history; a reset
-time that cannot be read is none; the widths of the seat-based columns; Maximum and Minimum view act on both tabs; a failed row for
-a file with an unknown header keeps the usage-based shape.
-
-**Not done.** No response of a real seat-based account has been seen. The window has not been looked at with either the seat-based
-row or the tabs, and the widths of the seat-based table are untried by eye.
-
 ### 40. Start Claude Code on Windows, where it is a batch file
 
 **Status: done (version 0.28).** Requirement: Getting the token (the command on Windows).
@@ -1382,6 +1284,15 @@ is a pure function of the command, the `PATH` and `PATHEXT`, so its tests run on
 batch file on the `PATH`, a name found nowhere, and a command that has a directory. Checked by hand on Windows: it resolved to
 `cmd.exe /c ...\npm\claude.cmd` and `claude --version` answered through it. The capture of the token itself has not been run on
 Windows: `claude` and what it starts are killed as before, by way of the descendants of the process, which now begins at `cmd.exe`.
+
+### 42. Only the spend is read
+
+**Status: done (version 0.30).** Requirement: Source data. Phases 38, 39 and 41 are undone as far as they told two formats of the
+response apart, and their entries are removed from this plan. `UsageParser` reads `spend` and nothing else: a response with a
+`spend` object is a reading, with spend or with none, whatever else it carries, and one without is refused with
+`The usage response has no "spend" object; its format may have changed.` Nothing shows a plan window; the status keeps
+`usage.windows`, always empty, so that a reading has the shape `java-aip` prints. The fake backend's document stays the real
+response key for key. The fixture `usage-windows.json` and the tests of the refusal are deleted.
 
 ## Validation
 

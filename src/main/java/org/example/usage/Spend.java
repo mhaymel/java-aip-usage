@@ -1,7 +1,7 @@
 package org.example.usage;
 
 /**
- * The credit balance of a usage-based account: what it has spent against the
+ * The credit balance of an account: what it has spent against the
  * ceiling it was given.
  *
  * <p>The endpoint sends amounts as minor units with an exponent ({@code 18602}
