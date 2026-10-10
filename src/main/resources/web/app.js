@@ -389,12 +389,15 @@
         }
         var name = openPanel;
         var spec = PANELS[name];
+        var stamp = historyStamp();
         panelLoading = true;
-        panelMark = historyStamp();
         try {
             var shown = spec.describe(await request(spec.path));
             if (name === openPanel) {
                 showPanel(shown);
+                // Noted only now that the read has been shown: a read that failed, or was for a panel that
+                // has gone, leaves the mark as it was, so the history is read again at the next poll.
+                panelMark = stamp;
             }
         } catch (e) {
             // What was shown stays; only the error is added.
@@ -403,6 +406,10 @@
             }
         } finally {
             panelLoading = false;
+        }
+        // Another panel was opened while this read was under way and could not start its own: it starts now.
+        if (name !== openPanel) {
+            loadPanel();
         }
     }
 
@@ -532,6 +539,8 @@
     function showPanelNamed(name) {
         openPanel = name;
         panelKey = null;
+        // Nothing of this panel has been read yet, whatever stamp the one before was read at.
+        panelMark = null;
         panelRows = [];
         panelHasHeader = false;
         $('panel-lines').replaceChildren();

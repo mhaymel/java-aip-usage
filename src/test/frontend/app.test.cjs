@@ -1215,6 +1215,45 @@ test('a new reading with the same file stamp does not read the history: the stam
     assert.equal(page.calls.filter(c => c.url === '/api/history').length, 1);
 });
 
+test('a history read that failed is tried again at the next poll, though no row was added', async () => {
+    const state = { config: CONFIG, status: { ...SPEND_STATUS, historyStamp: 'a' } };
+    const page = await load(backendOf(state));
+    state.history = () => ({ status: 500, body: { error: 'The usage history could not be read.' } });
+    await page.click('history-button');
+    assert.match(page.el('panel-error').textContent, /could not be read/);
+
+    // The file is the same; the read is tried again all the same, and this time it works.
+    state.history = null;
+    await page.firePoll();
+
+    assert.equal(page.calls.filter(c => c.url === '/api/history').length, 2);
+    assert.equal(page.el('panel-error').textContent, '');
+    assert.equal(page.el('panel-lines').children.length, 3, 'the header and the two lines');
+
+    // Once it has been read, the same stamp is left alone again.
+    await page.firePoll();
+    assert.equal(page.calls.filter(c => c.url === '/api/history').length, 2);
+});
+
+test('a panel opened while another is still being read is read as soon as that read ends', async () => {
+    const state = { config: CONFIG, status: { ...SPEND_STATUS, historyStamp: 'a' } };
+    const page = await load(backendOf(state));
+    let answerLog;
+    state.log = () => new Promise(resolve => { answerLog = () => resolve({ status: 200, body: LOG }); });
+    await page.click('log-button');
+
+    // The log has not answered yet, and the person goes on to the history.
+    await page.click('history-button');
+    assert.equal(page.calls.filter(c => c.url === '/api/history').length, 0, 'one read at a time');
+
+    answerLog();
+    await settle();
+
+    assert.equal(page.calls.filter(c => c.url === '/api/history').length, 1, 'read without waiting for a new row');
+    assert.equal(page.el('panel-lines').children.length, 3, 'the history, not the log that answered late');
+    assert.equal(page.el('panel-lines').children[1].children[0].textContent, '20:46:11');
+});
+
 test('the percentage is in the row only when its setting is on, and the amounts keep their colour either way', async () => {
     const hidden = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { percentage: false, interval: false, deltaUsed: false, deltaTime: false } } };
     const state = { config: CONFIG, status: hidden };

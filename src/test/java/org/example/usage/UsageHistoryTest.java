@@ -231,6 +231,20 @@ class UsageHistoryTest {
     }
 
     @Test
+    void anUpgradedFileEndsEveryLineWithALineFeedOnEveryOperatingSystem() throws IOException {
+        Files.writeString(file(), "datetime,used,limit\r\n2026-10-08 14:24:53,1.00,2.00\r\n");
+
+        new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT.plusSeconds(120), 5.0, 6.0), 60, 412);
+
+        assertEquals(
+                "datetime,used,limit,currency,status,interval,duration_ms\n"
+                        + "2026-10-08 14:24:53,1.00,2.00,,,,\n"
+                        + "2026-10-08 14:26:53,5.00,6.00,USD,start,60,412\n",
+                Files.readString(file()),
+                "the rows that were there and the row that was added end alike");
+    }
+
+    @Test
     void aFileFromBeforeTheStartupMarkIsUpgradedInPlaceByTheNextRow() throws IOException {
         Files.write(file(), List.of("datetime,used,limit,currency", "2026-10-08 14:24:53,1.00,2.00,EUR"));
 

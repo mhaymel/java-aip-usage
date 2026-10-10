@@ -406,9 +406,8 @@ The backend writes every figure, and it writes them the same on every machine, w
 decimals, a comma for the thousands, English for the month, and the 24-hour clock in the machine's own time zone.
 
 - **Amounts in the row** have two decimals and a comma for the thousands, `1,234,567.89` and `0.00`. A third decimal
-  is rounded to the nearer second one; at exactly half it goes to the even digit, as the number is held, which is not
-  always the way the history file rounds the same amount (see Usage history), so the row and the file can differ in the
-  last digit for such an amount. An amount that is missing is shown as a dash, `—`, not as zero and not as nothing, and
+  is rounded to the nearer second one and upwards when it is exactly half, on the decimal form of the number, exactly
+  as the history file rounds it (see Usage history), so the row and the file always show the same amount. An amount that is missing is shown as a dash, `—`, not as zero and not as nothing, and
   has no currency symbol even when the symbol is on.
 - **The currency symbol.** Only the code `USD`, written so, is `$`. A code of blanks alone is no currency. In the history
   the cell is the same without the space after a code.
@@ -839,6 +838,8 @@ Every reading the application gets is kept, so the usage can be looked at afterw
   credential. At the default interval of a minute it grows by about 60 kilobytes a day.
 - **The file as bytes.** It is UTF-8. Every row the program adds, and the header, ends with a single line feed
   on every operating system, Windows included; the header of a new file and its first row are written together.
+  A file that is upgraded from an older header is written the same way, every line of it, so a file never has
+  two kinds of line ending because of the program.
   A file whose lines end with a carriage return and a line feed is read all the same.
 - **What is written, more exactly.** A reading with one of the two amounts missing still writes a row, with
   that field empty. An amount used of zero is written `0.00`, not left empty. The `datetime` is cut to the
@@ -1098,7 +1099,7 @@ These are things the program does that the sections above do not say, written do
 - The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.
-- The window title is `aip usage v0.24`; the program is called `java-aip-usage v0.24` in the log.
+- The window title is `aip usage v0.25`; the program is called `java-aip-usage v0.25` in the log.
 - **The program asks the page for its size about every 150 milliseconds** and gives the window a new size when the answer is a new one, so the window follows its content within a moment. The page measures its own content, never the window, so that giving the window that size does not change the answer; the same size is not set twice. The page says nothing but its size, what may be dragged and which panel is open, and the program tells the page nothing.
 - **What may be dragged.** With no panel, and with the settings, nothing. With the history, the height only, the width staying what the page asked for. With the log and the error log, the height and the width. Neither can be dragged below the size the window has with no panel open, which is the size the page last asked for with none; until there has been one, the size the panel opened at is the least.
 - **An answer of the page that is not a size is passed over**: one that is not text, one with a width or a height of 0 or of more than five digits, a panel name other than `history`, `log` and `errors`. A change of what may be dragged, or of the panel, with the same numbers, counts as a new size.
@@ -1154,7 +1155,7 @@ These are things the program does that the sections above do not say, written do
   Restore defaults fills in the defaults the backend sent with the settings; the page has none of its own. A setting the backend's answer lacks is shown switched off.
 - **The panels, exactly.** The text is 12 pixels on a line of 15, in a fixed-width font (`ui-monospace, SFMono-Regular, Menlo, monospace`), regular weight, the letters drawn very slightly closer. From the top: the note, the red line of a read that failed, the lines. Opening a panel, or changing to another,
   clears the lines, the note and the red line of the one before at once, so nothing of another panel is ever under the new button, and an answer that comes for a panel that is no longer the one shown is dropped. A panel with no lines shows no box of lines, only its note. The red line goes with the next read that
-  succeeds, even one that brings nothing new. The log and the error log are read again at every poll, so a failed read is tried again then; the history is read again when its stamp changes, so after a failed read its red line and its old lines stay until the next row is written. The header of a table stays at the
+  succeeds, even one that brings nothing new. The log and the error log are read again at every poll, and the history when its stamp is not the one it was last read and shown at; a read that failed is tried again at the next poll, for the history as for the others, whether or not a row was added meanwhile. Only one panel is read at a time: a panel opened while another is still being read is read as soon as that read has ended, without waiting for a poll or a new row. The header of a table stays at the
   top with the page's background behind it; the log has none. The 16 pixels kept clear at the right are kept in the log and the error log as in the history. How far the lines are moved to keep a person's place is worked out from the average height of a line.
 - **The history, exactly.** The columns are, in characters: the time at least 8, or 19 with the date, and taking the room that is left; `used` 10; `limit` 10; `Δ used` 9; `Δ time` 8; `Cur.` 5; with 8 pixels between them. With one of the two change columns on it is 9 wide, whichever it is. The room between
   `used` and `limit` is what an amount shorter than its column leaves, not a gap of its own. The width of the first column follows what the backend says of the date, and the red of `failed` is put on the second cell of a line the backend marks as failed: the page looks for no word. The header is shown only when
@@ -1386,7 +1387,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - **A poll is cheap.** The window asks for the status every second for as long as the application runs, so that answer costs no more work than it has to: the figures it carries are the ones the refresh already worked out, and the history file is read again only when it has changed (its size or its time), not once a second. A panel that is open is read again on the same terms: the history when its file has changed, the log and the error log on the poll, and the lines on the page are replaced only when they differ from what is already there, so that what a person is reading does not move for an answer that says nothing new.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
-  (`Starting java-aip-usage v0.24`), and then a line that says which file the usage history CSV is written to, as a full path, for example
+  (`Starting java-aip-usage v0.25`), and then a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).

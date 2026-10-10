@@ -8,8 +8,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const WEB = path.join(__dirname, '../../main/resources/web');
-const css = fs.readFileSync(path.join(WEB, 'app.css'), 'utf8');
-const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8');
+// Read with line feeds whatever the checkout has: on Windows the files are checked out with CR LF, and the
+// rules below that span two lines are looked for with a line feed between them.
+const read = name => fs.readFileSync(path.join(WEB, name), 'utf8').replace(/\r\n/g, '\n');
+const css = read('app.css');
+const html = read('index.html');
 
 test('no text is smaller than 14 px', () => {
     const sizes = [...css.matchAll(/font-size:\s*([0-9.]+)px/g)].map(m => Number(m[1]));
@@ -55,15 +58,16 @@ test('the base text is a sans-serif font', () => {
 
 test('the controls come in the required order, in one strip', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
-    // Time first, then the percentage, the two amounts (or the plan windows), the refresh button,
-    // the countdown, the two changes, the settings button, then the log and history buttons.
-    const order = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"', 'id="windows"',
+    // Time first, then the percentage, the two amounts, the refresh button, the countdown, the two
+    // changes, the log, history, error log and settings buttons, and the plan windows last, so that a
+    // row too wide for one line wraps the windows below the controls and not the controls below them.
+    const order = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"',
         'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"',
-        'id="log-button"', 'id="history-button"', 'id="settings-button"'];
+        'id="log-button"', 'id="history-button"', 'id="errors-button"', 'id="settings-button"', 'id="windows"'];
     const positions = order.map(marker => strip.indexOf(marker));
     positions.forEach((position, i) => assert.ok(position >= 0, 'missing ' + order[i] + ' in the strip'));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions,
-        'the order is time, percentage, used, limit, windows, refresh, countdown, changes, settings, log, history');
+        'the order is time, percentage, used, limit, refresh, countdown, changes, log, history, error log, settings, windows');
 });
 
 test('the time is the very first thing in the strip', () => {

@@ -79,6 +79,15 @@ class FormattingTest {
     }
 
     @Test
+    void aThirdDecimalOfAnAmountIsRoundedUpwardsAtHalfAsTheHistoryFileRoundsIt() {
+        assertEquals("0.13", Formatting.amount(0.125), "not 0.12, which rounding to the even digit gives");
+        assertEquals("2.68", Formatting.amount(2.675), "not 2.67, which the number as it is held gives");
+        assertEquals("1.01", Formatting.amount(1.005));
+        assertEquals("186.02", Formatting.amount(186.024));
+        assertEquals("1,000.00", Formatting.amount(999.995));
+    }
+
+    @Test
     void aMissingAmountIsADashNotAZero() {
         assertEquals("—", Formatting.amount(null));
     }

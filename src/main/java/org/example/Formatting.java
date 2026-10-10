@@ -72,9 +72,14 @@ final class Formatting {
         return Math.max(0, seconds) + " s";
     }
 
-    /** An amount as a plain number with two decimals and no currency sign: 1000 reads {@code 1,000.00}. */
+    /**
+     * An amount as a plain number with two decimals and no currency sign: 1000 reads {@code 1,000.00}. A third decimal is
+     * rounded as the history file rounds it, on the decimal form and upwards at half, so the row and the file agree.
+     */
     static String amount(Double amount) {
-        return amount == null ? DASH : decimal("#,##0.00").format(amount);
+        return amount == null
+                ? DASH
+                : decimal("#,##0.00").format(BigDecimal.valueOf(amount).setScale(2, java.math.RoundingMode.HALF_UP));
     }
 
     /**

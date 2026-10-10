@@ -162,7 +162,9 @@ public final class UsageHistory {
             }
         }
         Path beside = file.resolveSibling(file.getFileName() + ".tmp");
-        Files.write(beside, upgraded, StandardCharsets.UTF_8);
+        // A line feed after every line, as the rows that are appended have, and not the platform's line ending:
+        // the file would otherwise have two kinds of line ending on Windows.
+        Files.writeString(beside, String.join("\n", upgraded) + "\n", StandardCharsets.UTF_8);
         // Atomic where the file system can: a plain replacing move deletes the old file first, and a reader
         // (the history panel) arriving in that moment would find no file.
         try {
