@@ -66,26 +66,35 @@ class FakeBackendTest {
 
         assertNotNull(snapshot.spend(), "an enabled spend, as a credit account sends");
         assertEquals("USD", snapshot.spend().currency());
-        assertFalse(snapshot.windows().isEmpty(), "plan windows, as a Pro or Max account sends");
+        assertFalse(snapshot.isEmpty(), "the usage-based format: spend, and nothing the parser refuses");
     }
 
     @Test
-    void theAwkwardPartsOfARealDocumentAreThereToo() throws Exception {
-        UsageSnapshot snapshot = fetch(start(Scenario.NORMAL));
-        List<String> names = snapshot.windows().stream().map(w -> w.key()).toList();
+    void theAwkwardPartsOfARealUsageBasedResponseAreThereToo() throws Exception {
+        com.fasterxml.jackson.databind.JsonNode document =
+                new com.fasterxml.jackson.databind.ObjectMapper().readTree(new UsageDocument().next(java.time.Instant.now()));
 
-        // Selected by shape, so a key that is no window must not become one, and
-        // extra_usage must stay out although it carries a utilization of its own.
-        assertFalse(names.contains("extra_usage"), names.toString());
-        assertFalse(names.contains("limits"), names.toString());
-        assertFalse(names.contains("seven_day_sonnet"), names.toString());
-        assertTrue(names.contains("five_hour"), names.toString());
-        assertTrue(
-                snapshot.windows().stream().anyMatch(w -> w.utilization() == 0),
-                "a window at exactly zero: " + names);
-        assertTrue(
-                snapshot.windows().stream().anyMatch(w -> w.resetsAt() == null),
-                "a window whose resets_at is null: " + names);
+        // The keys of the plan windows are there and null, as a real response of the usage-based format has them.
+        for (String key : List.of("five_hour", "seven_day", "seven_day_oauth_apps", "seven_day_opus", "seven_day_sonnet",
+                "juniper_tide", "cedar_ember", "seven_day_breakdown")) {
+            assertTrue(document.has(key) && document.get(key).isNull(), key + " is there and null");
+        }
+        // extra_usage restates the spend and has a utilization of its own, and is still no plan window.
+        assertTrue(document.at("/extra_usage/utilization").isNumber());
+        assertEquals(document.at("/spend/used/amount_minor").asLong(), document.at("/extra_usage/used_credits").asLong());
+        assertTrue(document.get("limits").isArray());
+        assertTrue(document.at("/spend/enabled").asBoolean());
+    }
+
+    @Test
+    void theNormalAnswerIsNeverInTheSeatBasedFormatHoweverLongTheRun() {
+        UsageDocument document = new UsageDocument();
+        org.example.usage.UsageParser parser = new org.example.usage.UsageParser();
+
+        for (int reading = 1; reading <= 1000; reading++) {
+            // The parser refuses a document that carries a plan window, so parsing is the check.
+            assertNotNull(parser.parse(document.next(java.time.Instant.now()), java.time.Instant.now()).spend(), "reading " + reading);
+        }
     }
 
     @Test
@@ -97,9 +106,6 @@ class FakeBackendTest {
 
         assertTrue(second.spend().used() > first.spend().used(),
                 first.spend().used() + " then " + second.spend().used());
-        assertTrue(
-                second.windows().getFirst().utilization() > first.windows().getFirst().utilization(),
-                "the window climbs too");
     }
 
     // ---- the statuses

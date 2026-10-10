@@ -29,7 +29,7 @@ Suggested backend boundaries:
 
 | Component | Responsibility |
 | --- | --- |
-| `UsageSnapshot` and related value types | Represent the timestamp, optional spend details, and zero or more usage windows. |
+| `UsageSnapshot` and related value types | Represent the timestamp and the optional spend details of a reading in the usage-based format. |
 | `TokenProvider` | Acquire and refresh an OAuth token using the selected sibling-repo flow. Keep tokens in memory; do not log them. |
 | `UsageClient` | Call the Anthropic usage endpoint with the bearer token, decode the response, and distinguish HTTP 401 from other failures. |
 | `UsageService` | Own the current snapshot, refresh interval, last error/stale state, and non-overlapping scheduled refreshes. |
@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.23). What these mechanisms make the
+How the requirements are met today (version 0.26). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1266,6 +1266,51 @@ port. 62 tests were added; 622 pass.
 skips the environment-variable refusal, as above; the fake backend's port is always the operating system's choice, there being no reason to name one now that nothing outside the process has to find it; the scenario is
 switched by a `POST` to the fake server rather than by a header or query on the usage request, so that what the application sends stays exactly what it sends against the real endpoint; and the fake backend is a real
 loopback server rather than a `UsageSource` fitted in place of the client, which costs a socket and buys the real HTTP path — the statuses, the timeouts and the redirect refusal — being what a fake run exercises.
+
+### 38. Two named formats, the seat-based one refused, and a fake backend that sends only the usage-based one
+
+**Status: done (version 0.26); not seen in the window, and no real seat-based account has been tried.** Requirements: Source data,
+Display requirements, The row, Usage history, The usage request, Fake backend, Testing and verification.
+
+*Why.* A run against the fake backend showed spend and four plan windows in one row. No real account answers like that, the window
+display had only ever met fixtures, and the format a machine gets depends on the subscription it is logged in with, not on its
+operating system. Showing a format that has never been verified against a real account is worse than saying it is not supported.
+
+*Decided by the person:* the names, **usage-based format** and **seat-based format**, after Anthropic's words for the two kinds of
+plan (Anthropic has no name for the two shapes of the response; its help pages speak of usage-based plans with a spend limit, and of
+Pro, Max and seat-based plans with a five-hour session limit and a weekly limit); that a response which carries plan windows is
+refused as a failed refresh, with spend beside the windows or without; that the refusal is recorded like any failed refresh, a
+`failed` history row at every refresh included; that the code which displayed plan windows is deleted, not kept for later; that the
+fake backend's document is the real usage-based response, key for key; and that the fake backend gets no scenario for the refusal.
+
+- **The refusal (`UsageParser`).** After the checks that were there (not JSON, not an object, enabled spend without amounts, neither
+  spend nor windows), a document in which a plan window is found throws `UsageParseException` with `SEAT_BASED_REFUSED`, whether
+  `spend` was read or not. The window scan became `hasPlanWindows`: the same rule of shape, `extra_usage` and `null` keys passed
+  over, now only to recognise the format. A `UsageParseException` was already a failed refresh that keeps the token, starts no
+  back-off and reaches the message line, the error log, the log and a `failed` history row, so nothing above the parser changed.
+- **What was deleted.** `UsageWindow`; the `windows` of `UsageSnapshot`, which is now a time and a spend; `StatusDisplay.WindowView`
+  and the `windows` member of the display; `Formatting.span` and `Formatting.percent`; the `windows` element of the page, its
+  styles and `renderWindows`; and the tests of all of them. The status' `usage.windows` stays, always an empty list, so that the
+  reading keeps the shape `java-aip` prints. The requirements lost the passages on where plan windows go in the row and how their
+  figures are written; how the seat-based format is to be shown is to be decided when it is supported.
+- **The fake document (`UsageDocument`).** The body is the usage-based response of `usage-credits.json`: the five window keys and
+  two invented ones `null`, an `extra_usage` that repeats the spend (with a `utilization`), `limits`, `spend` as before (18602 +
+  137 n of 100000 minor units, the percent, the severity), `member_dashboard_available` and `seven_day_breakdown`. The climbing
+  utilizations and the reset times are gone. `trailing-text` and `slow` keep using it.
+- **Tests.** `UsageParserTest`: `usage-windows.json` is refused with the message; spend beside one window is refused; a window at
+  exactly 0, one with a `null` reset time and one with no reset time are each enough; what is no plan window (null keys, a list, an
+  object without a numeric utilization, `extra_usage`) does not make it the seat-based format; windows with no `spend` object draw
+  the refusal and not the "neither" message. `FakeBackendTest`: the document has the awkward parts of the real one, and a thousand
+  readings in a row are never refused. `ApiTest`: a refused response is a failed refresh with the message, leaves the reading that
+  was there on show and old, sends no window, is no 429, adds an error log entry and a `failed` history row. The tests that used a
+  plan reading as "a reading with no amounts" use an account that reports no usage instead. Page tests: no element and no style for
+  a plan window, and a status that carried one is ignored.
+- **Docs.** `api.md` (`usage.windows` always empty, no `display.windows`, the refusal), README (the two formats, what is not
+  supported), the fixtures README (`usage-windows.json` is the fixture of the refusal).
+
+*Assumed, easy to change:* the wording of the message; that "carries plan windows" means the scan finds at least one, so the `null`
+keys of a usage-based response do not count; and that an account that reports nothing at all (`No usage reported`) stays a valid
+reading and is not refused.
 
 ## Validation
 

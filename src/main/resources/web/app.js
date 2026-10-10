@@ -13,7 +13,6 @@
     var lastStatus = null;
     var pollTimer = null;
     var polling = false;
-    var lastWindowsKey = null;
     var lastStale = false;
     // Which panel is shown below the strip: 'history', 'log', or none.
     var openPanel = null;
@@ -140,8 +139,6 @@
             $('limit').title = v.spend.limitTooltip;
         }
 
-        renderWindows(v.windows);
-
         show('placeholder', Boolean(v.placeholder));
         $('placeholder').textContent = v.placeholder || '';
 
@@ -192,35 +189,6 @@
         $('app').className = (lastStale ? 'stale' : '')
             + (openPanel === 'log' || openPanel === 'history' || openPanel === 'errors' ? ' open' : '')
             + (openPanel === 'settings' ? ' fit' : '');
-    }
-
-    function renderWindows(windows) {
-        show('windows', windows.length > 0);
-        // Rebuilt only when something changed, so the once-a-second clock refresh
-        // does not disturb the page.
-        var key = JSON.stringify(windows);
-        if (key === lastWindowsKey) {
-            return;
-        }
-        lastWindowsKey = key;
-
-        var container = $('windows');
-        container.replaceChildren();
-        windows.forEach(function (w) {
-            var item = document.createElement('span');
-            item.className = 'win';
-            var name = document.createElement('span');
-            name.className = 'win-name';
-            name.textContent = w.name;
-            var value = document.createElement('span');
-            value.className = 'win-value';
-            value.textContent = w.utilizationText;
-            var resets = document.createElement('span');
-            resets.className = 'win-reset';
-            resets.textContent = w.resetsText;
-            item.append(value, name, resets);
-            container.append(item);
-        });
     }
 
     // ---- the settings view: a form the backend fills in each time it is opened

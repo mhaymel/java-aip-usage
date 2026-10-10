@@ -5,7 +5,6 @@ import org.example.settings.TimeFormat;
 import org.example.usage.Spend;
 import org.example.usage.UsageSnapshot;
 import org.example.usage.UsageState;
-import org.example.usage.UsageWindow;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
@@ -36,7 +35,7 @@ class StatusDisplayTest {
     }
 
     private static UsageSnapshot spend(Spend spend) {
-        return new UsageSnapshot(FETCHED, spend, List.of());
+        return new UsageSnapshot(FETCHED, spend);
     }
 
     private static StatusDisplay.View build(UsageState state, OptionalLong countdown, ApiHandler.DeltaBody change, Settings settings) {
@@ -58,7 +57,6 @@ class StatusDisplayTest {
         assertEquals("1,000.00", v.spend().limit());
         assertEquals("normal", v.spend().severityKind());
         assertEquals("normal", v.spend().severityText());
-        assertEquals(List.of(), v.windows());
         assertNull(v.placeholder());
     }
 
@@ -158,25 +156,8 @@ class StatusDisplayTest {
     }
 
     @Test
-    void aPlanReadingShowsEachWindowWithTheTimeUntilItResets() {
-        UsageSnapshot plan = new UsageSnapshot(FETCHED, null, List.of(
-                new UsageWindow("five_hour", 12.34, "2026-10-08T16:30:53Z"),
-                new UsageWindow("seven_day", 80, null),
-                new UsageWindow("old", 5, "2026-10-08T10:00:00Z"),
-                new UsageWindow("odd", 5, "not a date")));
-
-        StatusDisplay.View v = build(state(plan, null, null));
-
-        assertNull(v.spend());
-        assertEquals(new StatusDisplay.WindowView("five_hour", "12.3%", "in 2 h 6 min"), v.windows().get(0));
-        assertEquals("reset unknown", v.windows().get(1).resetsText());
-        assertEquals("reset due", v.windows().get(2).resetsText());
-        assertEquals("resets not a date", v.windows().get(3).resetsText());
-    }
-
-    @Test
     void anAccountThatReportsNothingSaysSo() {
-        assertEquals("No usage reported", build(state(new UsageSnapshot(FETCHED, null, List.of()), null, null)).placeholder());
+        assertEquals("No usage reported", build(state(new UsageSnapshot(FETCHED, null), null, null)).placeholder());
     }
 
     @Test

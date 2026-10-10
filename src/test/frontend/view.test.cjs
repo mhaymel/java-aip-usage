@@ -11,7 +11,7 @@ const DISPLAY = {
     time: '14:24', timeTooltip: 'Last update: 8 Oct 2026, 14:24:53',
     spend: { percentText: '19%', percentTooltip: '19% of the budget spent. Severity: normal', used: '186.02', limit: '1,000.00',
              usedTooltip: 'Credits used, in USD', limitTooltip: 'Credit budget, in USD', severityText: 'normal', severityKind: 'normal' },
-    windows: [], placeholder: null,
+    placeholder: null,
     countdown: { text: '42 s', tooltip: 'Seconds until the next refresh (negative when overdue)' },
     interval: { text: '60 s', tooltip: 'Time between usage requests' },
     deltaUsed: { text: '+0.05', tooltip: 'Change in the amount used since the previous reading, in USD' },
@@ -46,17 +46,15 @@ test('a status with no display shows nothing and every optional item off', () =>
 
     assert.equal(v.time, null);
     assert.equal(v.spend, null);
-    assert.deepEqual(v.windows, []);
+    assert.ok(!('windows' in v), 'the page has no plan windows');
     assert.deepEqual(v.show, { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true },
         'the buttons are there until the backend says otherwise');
 });
 
-test('windows, placeholder and message are passed on as the backend wrote them', () => {
-    const windows = [{ name: 'five_hour', utilizationText: '12.3%', resetsText: 'in 2 h 5 min' }];
+test('placeholder and message are passed on as the backend wrote them', () => {
     const message = { kind: 'stale', text: 'Refresh failed at 14:25: Anthropic returned HTTP 503.' };
-    const v = view.describeStatus({ stale: true, display: { ...DISPLAY, spend: null, windows, placeholder: 'No data', message } });
+    const v = view.describeStatus({ stale: true, display: { ...DISPLAY, spend: null, placeholder: 'No data', message } });
 
-    assert.deepEqual(v.windows, windows);
     assert.equal(v.placeholder, 'No data');
     assert.deepEqual(v.message, message);
 });

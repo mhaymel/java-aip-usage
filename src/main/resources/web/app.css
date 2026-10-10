@@ -127,40 +127,13 @@ body {
 .sev-critical { color: var(--bad); }
 .sev-other { color: var(--muted); }
 
-/*
- * The plan windows are the last item of the strip, after the buttons, so that the controls are always on the
- * first line: windows that do not fit beside them wrap below, and never push them down.
- */
-.windows {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 2px 12px;
-}
-
-.win {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    font-variant-numeric: tabular-nums;
-}
-
-.win-value {
-    font-weight: 800;
-}
-
-.win-reset {
-    font-size: 14px;
-    color: var(--muted);
-}
-
 .placeholder {
     color: var(--muted);
 }
 
 /* Figures that predate a failed refresh are dimmed. */
 .stale .time,
-.stale .spend,
-.stale .windows {
+.stale .spend {
     opacity: 0.6;
 }
 

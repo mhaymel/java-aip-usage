@@ -38,7 +38,7 @@ class UsageServiceTest {
     }
 
     private static UsageSnapshot snapshot(int n) {
-        return new UsageSnapshot(Instant.ofEpochSecond(n), null, List.of());
+        return new UsageSnapshot(Instant.ofEpochSecond(n), null);
     }
 
     private UsageService start(Supplier<UsageSnapshot> fetcher, Duration interval) {

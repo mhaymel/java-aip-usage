@@ -30,24 +30,60 @@ class UsageParserTest {
 
         assertEquals(FETCHED_AT, snapshot.fetchedAt());
         assertEquals(new Spend(186.02, 1000.0, "USD", 19, "normal"), snapshot.spend());
-        // Every plan window is null, and extra_usage must not stand in for one.
-        assertEquals(List.of(), snapshot.windows());
+        // Every plan window key is null and extra_usage holds a utilization: neither makes it the seat-based format.
         assertFalse(snapshot.isEmpty());
     }
 
     @Test
-    void decodesPlanAccountKeepingKeysOrderAndNullResets() throws IOException {
-        UsageSnapshot snapshot = parser.parse(fixture("usage-windows.json"), FETCHED_AT);
+    void aResponseInTheSeatBasedFormatIsRefused() throws IOException {
+        UsageParseException refused = assertThrows(
+                UsageParseException.class, () -> parser.parse(fixture("usage-windows.json"), FETCHED_AT));
 
-        assertNull(snapshot.spend());
         assertEquals(
-                List.of(
-                        new UsageWindow("five_hour", 12.34, "2026-10-06T18:00:00Z"),
-                        new UsageWindow("seven_day", 80.0, "2026-10-10T00:00:00Z"),
-                        // Exactly zero is a reading, not an absent window.
-                        new UsageWindow("seven_day_opus", 0.0, "2026-10-10T00:00:00Z"),
-                        new UsageWindow("cedar_ember", 3.5, null)),
-                snapshot.windows());
+                "This account answers in the seat-based format (plan limits), which this version does not"
+                        + " support yet; only the usage-based format (spend) is.",
+                refused.getMessage());
+    }
+
+    @Test
+    void spendBesideAPlanWindowIsRefusedLikeTheWindowsAlone() {
+        String body = """
+                {"five_hour": {"utilization": 12.5, "resets_at": "2026-10-06T18:00:00Z"},
+                 "spend": {"enabled": true,
+                  "used": {"amount_minor": 18602, "currency": "USD", "exponent": 2},
+                  "limit": {"amount_minor": 100000, "currency": "USD", "exponent": 2}}}
+                """;
+
+        UsageParseException refused = assertThrows(UsageParseException.class, () -> parser.parse(body, FETCHED_AT));
+
+        assertEquals(UsageParser.SEAT_BASED_REFUSED, refused.getMessage());
+    }
+
+    @Test
+    void oneWindowIsEnoughEvenAtExactlyZeroOrWithNoResetTime() {
+        for (String window : List.of(
+                "{\"utilization\": 0, \"resets_at\": \"2026-10-10T00:00:00Z\"}",
+                "{\"utilization\": 3.5, \"resets_at\": null}",
+                "{\"utilization\": 7.5}")) {
+            String body = "{\"spend\": {\"enabled\": false}, \"seven_day_opus\": " + window + "}";
+
+            UsageParseException refused =
+                    assertThrows(UsageParseException.class, () -> parser.parse(body, FETCHED_AT), window);
+
+            assertEquals(UsageParser.SEAT_BASED_REFUSED, refused.getMessage(), window);
+        }
+    }
+
+    @Test
+    void whatIsNoPlanWindowDoesNotMakeItTheSeatBasedFormat() {
+        // Null keys, a list, a plain value, an object without a numeric utilization, and extra_usage, which has one.
+        String body = """
+                {"spend": {"enabled": false}, "five_hour": null, "limits": [], "member_dashboard_available": true,
+                 "tangelo": {"utilization": "high"}, "iguana_necktie": {"resets_at": null},
+                 "extra_usage": {"utilization": 18.6, "is_enabled": true}}
+                """;
+
+        assertTrue(parser.parse(body, FETCHED_AT).isEmpty());
     }
 
     @Test
@@ -55,7 +91,6 @@ class UsageParserTest {
         UsageSnapshot snapshot = parser.parse(fixture("usage-empty.json"), FETCHED_AT);
 
         assertNull(snapshot.spend());
-        assertEquals(List.of(), snapshot.windows());
         assertTrue(snapshot.isEmpty());
     }
 
@@ -91,22 +126,18 @@ class UsageParserTest {
     @Test
     void toleratesUnknownFields() {
         String body = """
-                {"spend": {"enabled": false}, "something_new": [1, 2, 3],
-                 "five_hour": {"utilization": 1, "resets_at": null, "brand_new": true}}
+                {"spend": {"enabled": false, "brand_new": true}, "something_new": [1, 2, 3], "another": {"deep": {"er": 1}}}
                 """;
 
-        UsageSnapshot snapshot = parser.parse(body, FETCHED_AT);
-
-        assertEquals(List.of(new UsageWindow("five_hour", 1.0, null)), snapshot.windows());
+        assertTrue(parser.parse(body, FETCHED_AT).isEmpty());
     }
 
     @Test
-    void acceptsWindowsWithoutASpendObject() {
-        UsageSnapshot snapshot =
-                parser.parse("{\"five_hour\": {\"utilization\": 7.5}}", FETCHED_AT);
+    void windowsWithoutASpendObjectAreTheSeatBasedFormatAndNotSomeOtherDocument() {
+        UsageParseException refused = assertThrows(
+                UsageParseException.class, () -> parser.parse("{\"five_hour\": {\"utilization\": 7.5}}", FETCHED_AT));
 
-        assertNull(snapshot.spend());
-        assertEquals(List.of(new UsageWindow("five_hour", 7.5, null)), snapshot.windows());
+        assertEquals(UsageParser.SEAT_BASED_REFUSED, refused.getMessage());
     }
 
     @ParameterizedTest

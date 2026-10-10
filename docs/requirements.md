@@ -32,8 +32,42 @@ sends spend as minor units under a `spend.enabled` flag (`{"amount_minor":
 raw response to the shape below; real responses are in
 `src/test/resources/fixtures/`.
 
-The shape depends on the account's subscription. For usage-based accounts,
-the reading contains spend details and an empty `windows` array:
+**The endpoint answers in one of two formats, and this version supports one of them.**
+Which one an account gets depends on its subscription and on nothing else: not on the
+operating system and not on the machine. The same program therefore gets one format on
+one machine and the other on another only because the two are logged in with different
+subscriptions.
+
+| Name | Whose it is | What it carries | In this version |
+| --- | --- | --- | --- |
+| **usage-based format** | an account on a usage-based plan, where usage is billed as it is used, up to a spend limit | `spend` populated, `windows` empty | supported |
+| **seat-based format** | an account on a plan with a usage allowance, such as Pro, Max and the seat-based Team and Enterprise plans, which have a five-hour session limit and a weekly limit | `spend` is `null`, `windows` populated | **not supported** |
+
+The names are this project's. Anthropic has no name for the two shapes of the response, so
+they are named after its own words for the two kinds of plan, "usage-based" and
+"seat-based"; its words for what the formats carry are a "spend limit" for the first and a
+"session limit" and "weekly limit" for the second. These two names are the ones this
+document, the code, the log and the tests use.
+
+**A response in the seat-based format is refused.** A response that carries any plan window,
+that is, any top-level object with a numeric `utilization` other than `extra_usage`, is a
+failed refresh, whether it carries `spend` as well or not: the two together are refused like
+the windows alone, and the spend of such a response is not shown. The message is
+`This account answers in the seat-based format (plan limits), which this version does not
+support yet; only the usage-based format (spend) is.` It is a failed refresh like any other
+(see Refresh behavior and Messages and states): the message line, the error log, the log and
+a `failed` row in the usage history, at every refresh for as long as the account answers so.
+It is not an HTTP 429, so nothing is slowed down, and it does not touch the token. A window
+key that is `null`, as the usage-based format has them, is no plan window and is passed
+over. Nothing of a refused response is shown, kept or written: no window, no utilization,
+no reset time.
+
+Nothing in the program shows a plan window, and nothing in this document says how one would be
+shown: no place in the row, no form for its figures, no test. How the seat-based format is to
+be displayed is to be decided, and written here, when it is supported, against a real account
+that answers in it.
+
+For the usage-based format, the reading contains spend details and an empty `windows` array:
 
 ```json
 {
@@ -50,7 +84,7 @@ the reading contains spend details and an empty `windows` array:
 }
 ```
 
-For Pro or Max plan subscriptions, the `spend` value is `null` and `windows`
+In the seat-based format, which is not supported, the `spend` value is `null` and `windows`
 contains the plan usage windows instead. For example, as documented in the
 [`java-aip` JSON specification](../../java-aip/docs/json-spec.md):
 
@@ -166,10 +200,10 @@ that section and the descriptions below differ on presentation, it wins.
 
 The usage data must be displayed in a simple graphical user interface (GUI)
 that is easy to read at a glance. `fetched_at` must always be shown. The
-remaining fields depend on which response shape the account returns; show only
-the fields relevant to the shape received.
+remaining fields are those of the usage-based format, the one format this version
+supports (see Source data).
 
-For a usage-based account (`spend` populated, `windows` empty), present:
+For the usage-based format (`spend` populated, `windows` empty), present:
 
 - `used` and `limit`, as two plain numbers, with no currency sign unless the setting for it is on (see Settings);
 - `currency`, in the tooltips of those two numbers;
@@ -179,12 +213,8 @@ For a usage-based account (`spend` populated, `windows` empty), present:
 
 Section Compact window says where each goes and what the tooltips say.
 
-For a Pro or Max account (`spend` is `null`, `windows` populated), present each
-window with:
-
-- `window` — the window name, as supplied by the endpoint
-- `utilization`
-- `resets_at` — may be absent; show it as unknown rather than omitting the window
+The seat-based format (`spend` is `null`, `windows` populated) is not shown in this
+version: a response in it is refused, as Source data says.
 
 The initial application must target Java 25 and run on macOS. Use JavaFX
 WebView to show the browser-based interface in a minimal desktop window without
@@ -246,8 +276,7 @@ so it must take as little screen space as it can while staying easy to read.
   log, three times as wide, and the error log, one and a half times as wide, both resizable in width too (see The log panel, The usage history panel and The error log panel),
   and while the settings are shown, when the window is as tall as the row, its message lines and the settings
   need, exactly (see Settings). A row that would be wider than about 900
-  pixels, for an account with many plan windows, wraps: the windows go onto the lines
-  below the controls (see The row).
+  pixels wraps onto a second line.
 - **A refresh does not change the window's size.** New figures, the countdown ticking and a changed
   time never make the window bigger or smaller: the fields that change have room for their usual
   values (which, and what happens to a longer one, is under The look of the page). The window still changes size when something other than a refresh asks it to: a message line
@@ -298,9 +327,8 @@ snug against the button, so they read as one group:
    likewise an icon, when its setting is on (on by default);
 10. a small button that shows the error log below the row, and hides it again, an icon rather than a word
     (see The error log panel), when its setting is on (on by default);
-11. after the other buttons, the settings button, a very small icon of
-    a gear, not a word and not sliders. It is always there, so that the other buttons can be brought back;
-12. last of all, after the buttons, the plan windows, when the response has any (see below).
+11. at the right-hand end, after the other buttons, the settings button, a very small icon of
+    a gear, not a word and not sliders. It is always there, so that the other buttons can be brought back.
 
 **An item of the row whose switch is on keeps its room.** The interval and the two changes (the percentage is part of the figures) are in the row when their
 switches are on, and when the program has no value for one at that moment, for instance a change of zero or a time that cannot be worked out, the item is empty and not seen but keeps the width it would have, so the row does not change width from
@@ -332,18 +360,6 @@ The severity is shown by colour on the percentage, when it is shown, and on the 
 extra words. With the percentage switched off the amounts still carry the colour. The severity is named in
 the tooltip of the percentage only: the tooltips of the amounts say what the number is and its unit, and nothing
 about the severity.
-
-**The plan windows come after the buttons.** A response can carry plan windows, as that of
-a Pro or Max account does, instead of spend or together with it. They are the last item of
-the row, after the settings button, each as its utilization first, then its
-name exactly as supplied, then the time remaining until it resets (for example
-`12.3% five_hour in 2 h 5 min`). Remaining time is used because a reset can be days
-away, and a time of day alone would then mislead. An unknown reset time is shown
-as unknown. They are last so that the time, the amounts, the refresh button, the countdown
-and the buttons are always on the first line and in the same places, however many windows
-there are: windows that do not fit beside the buttons wrap onto the lines below them, and
-never push the controls down. With no spend, items 2 and 3 are simply not there and the
-windows still follow the buttons.
 
 **Countdown**
 
@@ -416,13 +432,6 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
 - **The change in the amount used** has two decimals, rounded to the nearer and upwards at half, the comma for
   thousands, and always its sign: `+0.05`, `-1.20`, `+1,234.50`.
 - **The time since the previous reading** is never less than `0 s`.
-- **The utilization of a plan window** has one decimal, rounded to the nearer and upwards at half, without a `.0`, and
-  `%`: 12.34 is `12.3%`, 80 is `80%`, 99.96 is `100%`. It can be over 100 and is shown as it is, `150%`.
-- **The time until a plan window resets** is `in ` and a span that is cut, never rounded: under a minute `N s`; under an
-  hour `N min`; under a day `H h`, with ` M min` unless the minutes are 0 (`in 1 h`, `in 1 h 5 min`); from a day on
-  `D d`, with ` H h` unless the hours are 0, and no minutes (`in 1 d`, `in 1 d 1 h`). It is counted from the moment the
-  status is asked for. A window with no reset time says `reset unknown`; one whose reset time has come or is past says
-  `reset due`; and one whose reset time cannot be read as a time says `resets ` and the text as it was sent.
 - **The times** are `HH:mm` or `HH:mm:ss`, with leading zeros. The date of the time's tooltip is `d MMM yyyy,
   HH:mm:ss`, the day without a leading zero and the month in English, `8 Oct 2026, 14:24:53`. The times of the error
   log always have seconds, whatever the time format setting says, and are in the zone the machine has when the panel
@@ -824,8 +833,9 @@ Every reading the application gets is kept, so the usage can be looked at afterw
   `datetime,used,limit` gets `currency`, `status`, `interval` and `duration_ms`; `datetime,used,limit,currency` gets `status`, `interval` and
   `duration_ms`; and the header `datetime,used,limit,currency,startup` is replaced by the new one, and a `1` in `startup` becomes
   `start` in `status`. Only an exact match of one of the three old headers is upgraded; any other header leaves the file as it is. Nothing else in it changes.
-- A reading with no amounts, such as the plan windows of a Pro or Max account, writes nothing. A
-  failed query does write a row, as above.
+- A reading with no amounts, that of an account that reports no usage, writes nothing. A
+  failed query does write a row, as above, and a response in the seat-based format is a failed
+  query (see Source data), so an account that answers in it gets a `failed` row at every refresh.
 - A history that cannot be written is logged and nothing more. The reading is good, so the
   refresh still counts as a success, and the window shows it as usual.
 - **A file is never seen half written.** Adding a row is an append, so a reader sees whole rows. The two
@@ -956,9 +966,10 @@ These are things the program does that the sections above do not say, written do
   `limit`, or the other way round, is a reading with one amount. An `amount_minor` with a fraction is cut to a whole number before it is scaled, and the scaling is exact (1 with an exponent of 2 is 0.01); an exponent that is
   missing or not a number is 0. A `percent` with a fraction is cut to a whole number (19.9 is 19), and one that is not a number is missing, not a mistake. The severity and the currency are taken as text whatever was sent, a
   number as its digits; `null` and a missing key are none. The currency of `limit` is used also when that of `used` is `null`.
-- **The plan windows, more exactly.** A window whose `utilization` is exactly 0 is a window. A top-level member that is `null`, a list, a plain value, or an object without a numeric `utilization` is passed over without a word,
-  and so is every key the program does not know, anywhere. `resets_at` is kept as the text it was sent as, and is none when `null` or missing. `extra_usage` is left out because it says again what `spend` says. Spend and windows
-  do not exclude each other: a response with an enabled `spend` and windows is a reading with both, and windows with no `spend` key at all are a reading.
+- **What a plan window is, more exactly.** It is looked for only to tell the two formats apart. A window whose `utilization` is exactly 0 is a window. A top-level member that is `null`, a list, a plain value, or an object without a numeric `utilization` is passed over without a word,
+  and so is every key the program does not know, anywhere. Whether it has a `resets_at` makes no difference. `extra_usage` is left out because it says again what `spend` says. What is found
+  this way decides whether the response is refused: one plan window is enough to make it the seat-based format, a window at exactly 0 and a window with no reset time included, with an enabled `spend` beside it or with no `spend` key at all
+  (see Source data). The check comes after the checks of a response that cannot be used, so a body that is not a usage document at all draws its own message and not this one.
 - **While a refresh runs, what the last one left stays**: the message, its time and the sign of a 429 are there until the running request has ended, and only a success takes them away; a new failure replaces the message and
   its time. The time of a failure, in the message line and in the error log, is when the failed request ended, not when it was started.
 - **Old figures, exactly.** The figures are old, and dimmed, when there is a reading, the latest refresh failed, and the failure was not a 429. A failure with no reading yet is not that, and a reading taken from the history
@@ -1099,7 +1110,7 @@ These are things the program does that the sections above do not say, written do
 - The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.
-- The window title is `aip usage v0.25`; the program is called `java-aip-usage v0.25` in the log.
+- The window title is `aip usage v0.26`; the program is called `java-aip-usage v0.26` in the log.
 - **The program asks the page for its size about every 150 milliseconds** and gives the window a new size when the answer is a new one, so the window follows its content within a moment. The page measures its own content, never the window, so that giving the window that size does not change the answer; the same size is not set twice. The page says nothing but its size, what may be dragged and which panel is open, and the program tells the page nothing.
 - **What may be dragged.** With no panel, and with the settings, nothing. With the history, the height only, the width staying what the page asked for. With the log and the error log, the height and the width. Neither can be dragged below the size the window has with no panel open, which is the size the page last asked for with none; until there has been one, the size the panel opened at is the least.
 - **An answer of the page that is not a size is passed over**: one that is not text, one with a width or a height of 0 or of more than five digits, a panel name other than `history`, `log` and `errors`. A change of what may be dragged, or of the panel, with the same numbers, counts as a new size.
@@ -1111,8 +1122,7 @@ These are things the program does that the sections above do not say, written do
 - **Colours** follow the operating system's light or dark setting, and there is no setting for it. `muted` is `#8a8f98` in both; severity normal is `#1a7f37` and `#3fb950`, warning `#a86a00` and `#d29922`, critical and the red of errors `#cf222e` and `#f85149`, the open
   panel's button `#00b341` and `#3ddc6b`, the blue of notes `#0969da` and `#58a6ff`. Background and text are the system's. A severity the program does not know is shown in the muted gray.
 - **Severity words:** `normal`; `warning` or `warn`; `critical`, `exceeded` or `error`; any other word is unknown.
-- The refresh icon turns round and round while a refresh is running. When a refresh has failed and the figures are old they are dimmed to 60 percent: the time, the amounts, the percentage and the plan windows, not the countdown, the other items or the buttons.
-- The plan windows are the utilization in heavy weight, the name, and the reset text in muted gray at 14 pixels, 6 pixels apart in a window and 12 pixels between windows; they are the last item of the row, after the buttons, and wrap there, below the controls.
+- The refresh icon turns round and round while a refresh is running. When a refresh has failed and the figures are old they are dimmed to 60 percent: the time, the amounts and the percentage, not the countdown, the other items or the buttons.
 - The icons are: refresh, an arrow round a circle; log, a sheet with lines; history, a table; error log, a triangle with an exclamation mark; settings, a gear. An icon button has a border that is invisible and turns muted gray when the pointer is over it or it has the keyboard focus.
 - A time that the backend gave no tooltip for has the tooltip `Last update`.
 - Under the row, in this order, there can be the message line, the line with the message of an HTTP 429 that shows while the pointer is over the countdown, and the red line `Lost contact with the application. Still trying.`. The last one is the window's own: it shows when a request to the
@@ -1126,7 +1136,7 @@ These are things the program does that the sections above do not say, written do
   is reading does not move, and a panel scrolled to the top stays at the top. If a read fails the old lines stay and a red line says `The usage history could not be read: <reason>` (`The log could not be read: ...`, `The error log could not be read: ...`). A panel with nothing to list shows only its note. The notes of the log are `There is no log file yet.`, `The log is empty.`
   and `Showing the newest N lines of the log.`; those of the history are written by the program, as above.
 - Text the program sends is put on the page as text, never as HTML, the tooltips included.
-- **Type and page.** The row is 15 pixels, weight 700, with a line height of 1.3, in the font `-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif`; the message lines and the reset text of a plan window are 14. Every figure that changes has digits of equal width, so that a changing
+- **Type and page.** The row is 15 pixels, weight 700, with a line height of 1.3, in the font `-apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif`; the message lines are 14. Every figure that changes has digits of equal width, so that a changing
   digit does not move what is beside it. The page itself never scrolls; only the lines of a panel do. Checkboxes, the dropdown and the scrollbars follow the system's light or dark setting like the rest. The page is in English.
 - **The spacing of the row.** The row and its message lines have 5 pixels above and below and 8 at the sides, so a 24 pixel button gives a row of 34. The items are 10 pixels apart, centred on each other, and none is broken in two; a row that wraps has 2 pixels between its lines. The 900 pixels of the wrap
   include the 8 at each side. The percentage and the amounts are 8 pixels apart; the ` / ` between the amounts is the page's. The percentage is never smaller or grayer than the amounts. The refresh button is drawn 7 pixels nearer the amounts than the gap, about 8 pixels from the number, and the countdown 8
@@ -1135,9 +1145,9 @@ These are things the program does that the sections above do not say, written do
   (the 2.2 of the others at its scale). The button of the open panel takes back the 4 pixels it grew by on every side, so that the row is neither wider nor taller and nothing beside it moves. An icon button has corners rounded by 4 pixels and no focus ring of the browser's; the border that shows is its sign of
   focus. The refresh icon turns once a second, at an even speed.
 - **The room of the items that change.** The countdown has room for four characters, `-3 s` to `99 s`; the interval for `120 s`; the change in the amount for `+12.34`; the time since the previous reading for `3600 s`. A longer value, such as a countdown of `120 s` during a back-off, makes the row wider for
-  as long as it shows. The time, the amounts, the percentage and the plan windows have no room kept for them: their digits are of equal width, so a change of a digit moves nothing, and a figure that gains a digit, `99.99` becoming `100.00`, makes the row that much wider. An item whose switch is on and which has no
+  as long as it shows. The time, the amounts and the percentage have no room kept for them: their digits are of equal width, so a change of a digit moves nothing, and a figure that gains a digit, `99.99` becoming `100.00`, makes the row that much wider. An item whose switch is on and which has no
   value keeps that least width, not the width of the value it lacks. The percentage is the exception among the optional items: with its switch on and no percentage sent, it is not there and takes no room. A countdown the backend did not send is likewise not there.
-- **Colours not said elsewhere.** The placeholder (`Loading…`, `No data`, `No usage reported`) is muted gray. The name of a plan window is in the row's own weight and colour. The line of a 429 that shows over the countdown is weight 800, heavier than the 700 of the other message lines. A message line is 3
+- **Colours not said elsewhere.** The placeholder (`Loading…`, `No data`, `No usage reported`) is muted gray. The line of a 429 that shows over the countdown is weight 800, heavier than the 700 of the other message lines. A message line is 3
   pixels below the row and breaks anywhere, inside a long word if it must. With no severity sent, the figures are in the colour of the text.
 - **Before the first answer** the row shows `Loading…`, the refresh button and all four panel buttons, and no time, no figures, no countdown and no optional item. A status that says nothing of a button leaves it shown, so the three panel buttons are there until the first status that switches one off says so.
 - **What the page asks the application.** At startup `GET /api/config`, once, then the status at once, and never a refresh of its own. The polls never overlap: the next one is asked for the poll interval after the one before was answered, failed or given up, so the time between two is the interval and the time
@@ -1195,10 +1205,13 @@ is needed and nothing else has to be started.
   `--fake-token` does, and does not have to be given with it (see Authentication).
 - `--fake-backend` and `--anthropic-url` contradict each other, since each says where usage comes
   from. Giving both is a mistake and is refused on the command line (see Command line).
-- Its normal answer is a plausible usage document in the shape Source data describes: a `spend`
-  object that is enabled, and several plan windows with numeric `utilization` and reset times. The
-  figures move a little on each request, so that the row, the history and the differences between
-  readings all have something to show rather than the same numbers forever.
+- Its normal answer is a plausible usage document in the **usage-based format** (see Source data),
+  and in that format only: a `spend` object that is enabled, and no plan window. The fake backend
+  never answers in the seat-based format, in any scenario, because the application does not support
+  that format and a fake run is for watching what the application does support; it is to be given
+  such an answer only when the format is supported. The figures move a little on each request, so
+  that the row, the history and the differences between readings all have something to show rather
+  than the same numbers forever.
 - It can be made to answer otherwise, so that the behaviour the requirements describe for a bad
   answer can be seen without waiting for the real endpoint to misbehave. The scenarios are at least:
   the normal answer; HTTP 401, 403, 429 (with and without `retry-after`), and a 500; a body that is
@@ -1247,23 +1260,20 @@ is needed and nothing else has to be started.
 
   | Member | Value |
   | --- | --- |
-  | `five_hour` | `utilization` 8.0 + 1.7 × n, `resets_at` 5 hours after the request |
-  | `seven_day` | `utilization` 41.0 + 0.35 × n, `resets_at` 7 days after the request |
-  | `seven_day_opus` | `utilization` exactly `0`, `resets_at` 7 days after the request |
-  | `seven_day_sonnet` | `null` |
-  | `juniper_tide` | `null` |
-  | `cedar_ember` | `utilization` 3.5 + 0.1 × n, `resets_at` `null` |
-  | `extra_usage` | `utilization` 5.5 + 0.2 × n and `is_enabled` `true` |
+  | `five_hour`, `seven_day`, `seven_day_oauth_apps`, `seven_day_opus`, `seven_day_sonnet` | each `null`: the keys of the plan windows are there, as in a real response of the usage-based format, and none is a window |
+  | `juniper_tide`, `cedar_ember` | each `null`: stand-ins for the keys with invented names that a real response carries |
+  | `extra_usage` | `is_enabled` `true`, `monthly_limit` 100000, `used_credits` and `utilization` that follow the spend (the amount used in minor units, and that as a percentage of the limit with three decimals), `currency` `USD`, `decimal_places` 2: the credit figures said a second time, as a real response says them, which must stay out of the windows although it has a `utilization` |
   | `limits` | an empty list |
   | `spend` | `used` of 18602 + 137 × n minor units and `limit` of 100000, both `USD` with an exponent of 2; `percent`, the share used as a whole number, rounded down; `severity` `warning` from 80 percent and `normal` below; `enabled` `true`; `disabled_reason` `null` |
-  | `member_dashboard_available` | `false` |
+  | `member_dashboard_available` | `true` |
+  | `seven_day_breakdown` | `null` |
 
-  A utilization that climbs is written with two decimals and stops at 99.9. The first reading is therefore
-  187.39 of 1,000.00 US dollars, 18 percent, with `five_hour` at 9.70, and each reading adds 1.37 to the
-  amount used. The document has on purpose what a real one has and a parser must get right: a window at
-  exactly zero, a window with no reset time, keys that are `null`, an `extra_usage` with a `utilization` that
-  is no window, and keys that are no window at all. The reset times are counted from each request, so they
-  never come nearer; the amount used is not held at the budget, so on a long run it passes it and the percent
+  The first reading is therefore 187.39 of 1,000.00 US dollars, 18 percent, and each reading adds 1.37 to
+  the amount used. The document is, key for key, what a real response of the usage-based format is,
+  awkward parts and all, because those are what a parser must get right: the keys of the plan windows
+  present and `null`, keys with invented names, an `extra_usage` with a `utilization` that is no window, and
+  keys that are no window at all. Read by the application it is a reading with spend and no windows, so it
+  is never refused. The amount used is not held at the budget, so on a long run it passes it and the percent
   passes 100; and the severity is `normal` or `warning` only, never critical. `normal`, `trailing-text` and a
   `slow` answer that was sent share the one count, which starts again with every run.
 - **A fake reading is kept like any other.** The application does not know that its backend is fake, so a
@@ -1284,8 +1294,9 @@ is needed and nothing else has to be started.
 What the sections above require is to be held up by tests, and the few things no test can judge are to be
 looked at by a person. This section says which is which, so that "it works" means something.
 
-- **The behaviour that can be tested is tested.** The parsing of both response shapes and of every
-  malformed body, from fixtures of real responses; the precedence of the command line over the settings
+- **The behaviour that can be tested is tested.** The parsing of the usage-based format and of every
+  malformed body, and the refusal of the seat-based format, alone and together with spend, from fixtures of
+  real responses; the precedence of the command line over the settings
   file over the default; the refresh schedule, including an interval changed while a request is in flight
   and a due time that has already passed; the back-off after an HTTP 429 and its easing; and the move
   between fresh, stale and failed state.
@@ -1387,7 +1398,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - **A poll is cheap.** The window asks for the status every second for as long as the application runs, so that answer costs no more work than it has to: the figures it carries are the ones the refresh already worked out, and the history file is read again only when it has changed (its size or its time), not once a second. A panel that is open is read again on the same terms: the history when its file has changed, the log and the error log on the poll, and the lines on the page are replaced only when they differ from what is already there, so that what a person is reading does not move for an answer that says nothing new.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
-  (`Starting java-aip-usage v0.25`), and then a line that says which file the usage history CSV is written to, as a full path, for example
+  (`Starting java-aip-usage v0.26`), and then a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).

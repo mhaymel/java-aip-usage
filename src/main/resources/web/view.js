@@ -14,7 +14,6 @@
      *   timeTooltip  "Last update: " and the full date and time, or null
      *   spend        {percentText, percentTooltip, used, limit, usedTooltip, limitTooltip,
      *                 severityText, severityKind}, or null
-     *   windows      [{name, utilizationText, resetsText}]
      *   placeholder  text for a row with nothing else to show, or null
      *   countdown    {text, tooltip} for the seconds to the next refresh, or null
      *   countdownAlert  the message of an HTTP 429, for the red countdown and its hover line, or null
@@ -32,7 +31,6 @@
             time: d.time || null,
             timeTooltip: d.timeTooltip || null,
             spend: d.spend || null,
-            windows: d.windows || [],
             placeholder: d.placeholder || null,
             countdown: d.countdown || null,
             countdownAlert: d.countdownAlert || null,

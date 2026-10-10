@@ -18,7 +18,6 @@ import org.example.usage.Spend;
 import org.example.usage.UsageService;
 import org.example.usage.UsageSnapshot;
 import org.example.usage.UsageState;
-import org.example.usage.UsageWindow;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -416,11 +415,8 @@ final class ApiHandler implements HttpHandler {
                 spend == null
                         ? null
                         : new SpendBody(spend.used(), spend.limit(), spend.currency(), spend.percent(), spend.severity()),
-                snapshot.windows().stream().map(ApiHandler::window).toList());
-    }
-
-    private static WindowBody window(UsageWindow window) {
-        return new WindowBody(window.key(), window.utilization(), window.resetsAt());
+                // Always empty: a reading is in the usage-based format, and one with plan windows is refused.
+                List.of());
     }
 
     // ---- /api/refresh
@@ -566,14 +562,11 @@ final class ApiHandler implements HttpHandler {
     record SpendBody(Double used, Double limit, String currency, Integer percent, String severity) {
     }
 
-    record WindowBody(String window, double utilization, @JsonProperty("resets_at") String resetsAt) {
-    }
-
     record UsageBody(
             String source,
             @JsonProperty("fetched_at") String fetchedAt,
             SpendBody spend,
-            List<WindowBody> windows) {
+            List<Object> windows) {
     }
 
     record StatusBody(

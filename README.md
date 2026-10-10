@@ -4,10 +4,12 @@ A small Java client that monitors Anthropic OAuth usage. It fetches the
 current usage snapshot from `https://api.anthropic.com/api/oauth/usage` and
 shows it in a compact JavaFX WebView window, refreshed on a timer.
 
-Depending on the account, the snapshot carries either usage-based spend
-(`used`, `limit`, `currency`, `percent`, `severity`) or the Pro/Max plan
-windows (`window`, `utilization`, `resets_at`) — the window shows whichever shape
-the endpoint returns. When a refresh fails the last good figures stay on screen,
+The endpoint answers in one of two formats, depending on the subscription the
+account has. The **usage-based format** carries spend (`used`, `limit`,
+`currency`, `percent`, `severity`) and is the one this version supports. The
+**seat-based format**, that of Pro, Max and other plans with a session and a
+weekly limit, carries plan windows and is not supported yet: the window says so
+instead of showing figures. When a refresh fails the last good figures stay on screen,
 dimmed, with the error underneath.
 
 ## The window
@@ -15,9 +17,8 @@ dimmed, with the error underneath.
 A status strip to keep beside your work: one row, as small as its content, with
 bold readable text. From the left it shows when usage was last refreshed, what has
 been spent and the budget, a refresh button, the countdown to the next refresh, and
-small buttons for the log, the usage history, the error log and the settings. A Pro
-or Max account's plan windows come after the buttons, wrapping below them when there are many. Hover over an item to
-see what it is.
+small buttons for the log, the usage history, the error log and the settings. Hover
+over an item to see what it is.
 
 Everything the window shows and does — the row, the panels, the settings, the
 messages and every state — is specified in the
@@ -32,8 +33,8 @@ repos.
 
 > **Status:** first version complete. It has run end to end on macOS against a
 > usage-based account: startup, scheduled and manual refresh, saving a setting,
-> a missing Claude Code CLI, and clean shutdown. The Pro/Max plan-window view has
-> only been exercised with test data. See [Known limitations](#known-limitations).
+> a missing Claude Code CLI, and clean shutdown. An account on a Pro, Max or other
+> seat-based plan is not supported yet. See [Known limitations](#known-limitations).
 
 ## Prerequisites
 
@@ -144,8 +145,9 @@ What the program deliberately does not do is in the requirements
 has not been verified:
 
 - **macOS only.** Windows and Linux are untested.
-- **Plan windows are tested with fixtures only.** Verified live against a
-  usage-based account; the Pro/Max view has not met a real Pro or Max account.
+- **Only the usage-based format has met a real account.** The refusal of the
+  seat-based format is tested with a made-up response; no real Pro or Max
+  account has been tried.
 - **The rate limit is an inference.** The usage endpoint seems to accept about one
   request a minute over the long run, after a burst of about ten, and restarting the
   application repeatedly can draw HTTP 429 sooner, since each start fetches at once.

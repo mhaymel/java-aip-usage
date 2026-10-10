@@ -5,11 +5,12 @@ Responses of `https://api.anthropic.com/api/oauth/usage`, copied from the
 
 | File | Shape |
 | --- | --- |
-| `usage-credits.json` | Real response of a usage-based seat, amounts neutralised: plan windows all `null`, balance in `spend`. |
-| `usage-windows.json` | Synthetic Pro/Max seat: `spend.enabled` false, windows populated. |
+| `usage-credits.json` | The **usage-based format**, the one the application supports. Real response of a usage-based seat, amounts neutralised: plan windows all `null`, balance in `spend`. |
+| `usage-windows.json` | The **seat-based format**, which the application refuses: this is the fixture of the refusal. Synthetic Pro/Max seat: `spend.enabled` false, windows populated. |
 | `usage-empty.json` | Synthetic: neither spend nor windows. |
 
 Each carries detail the parser must get right: placeholder keys the real
-document ships, an `extra_usage` object that also holds a `utilization` and
-must stay out of the window list, a window at exactly `0`, and one whose
-`resets_at` is `null`.
+document ships, and an `extra_usage` object that also holds a `utilization`
+and is no plan window, so that it alone does not make a response the seat-based
+format; in `usage-windows.json`, a window at exactly `0` and one whose
+`resets_at` is `null`, each of which is a plan window all the same.

@@ -31,15 +31,11 @@ const SPEND_STATUS = {
         spend: { used: 186.02, limit: 1000, currency: 'USD', percent: 19, severity: 'normal' }, windows: [],
     },
 };
-const WINDOWS_STATUS = {
+// A reading of an account that reports no usage: no spend. (A response with plan windows never becomes a
+// reading: the backend refuses the seat-based format, so the page is never sent one.)
+const NO_USAGE_STATUS = {
     refreshing: false, stale: false, nextRefreshInSeconds: 17, error: null,
-    usage: {
-        source: 'anthropic-oauth-usage', fetched_at: NOW, spend: null,
-        windows: [
-            { window: 'five_hour', utilization: 12.34, resets_at: null },
-            { window: 'seven_day', utilization: 80, resets_at: '2099-01-01T00:00:00Z' },
-        ],
-    },
+    usage: { source: 'anthropic-oauth-usage', fetched_at: NOW, spend: null, windows: [] },
 };
 
 const scrollbarOf = { width: 0 };
@@ -221,7 +217,6 @@ test('a spend reading shows the time, spent and budget, and percent, with severi
     assert.equal(page.el('limit').textContent, '1,000.00');
     assert.equal(page.el('percent').textContent, '19%');
     assert.equal(page.el('spend').className, 'spend sev-normal');
-    assert.equal(page.el('windows').hidden, true);
     assert.equal(page.el('placeholder').hidden, true);
     assert.equal(page.el('note').hidden, true);
     assert.equal(page.el('app').className, '');
@@ -317,25 +312,22 @@ test('the countdown goes away again if the backend stops sending one', async () 
     assert.equal(page.el('countdown').hidden, true);
 });
 
-test('a plan reading shows the countdown too, and no amount tooltips because there are no amounts', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: WINDOWS_STATUS }));
+test('a reading with no usage shows the countdown too, and no amounts', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: NO_USAGE_STATUS }));
 
     assert.equal(page.el('countdown').textContent, '17 s');
     assert.equal(page.el('spend').hidden, true);
 });
 
-test('a plan reading shows each window in the row, in place of spent and budget', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: WINDOWS_STATUS }));
+test('the page has nothing to draw a plan window with, and ignores one a status might carry', async () => {
+    assert.ok(!INDEX_IDS.includes('windows'), 'no element for plan windows');
+    const status = withDisplay(SPEND_STATUS);
+    status.display.windows = [{ name: 'five_hour', utilizationText: '12.3%', resetsText: 'in 2 h 5 min' }];
+    // Loading would throw on an id the page does not have, so getting here means nothing looked for one.
+    const page = await load(backendOf({ config: CONFIG, status }));
 
-    assert.equal(page.el('spend').hidden, true);
-    assert.equal(page.el('windows').hidden, false);
-    const items = page.el('windows').children;
-    // Each window reads: utilization first, then its name, then when it resets.
-    assert.deepEqual(items.map(item => item.children.map(part => part.textContent)), [
-        ['12.3%', 'five_hour', 'reset unknown'],
-        ['80%', 'seven_day', items[1].children[2].textContent],
-    ]);
-    assert.match(items[1].children[2].textContent, /^in \d+ d/);
+    assert.equal(page.el('used').textContent, '186.02');
+    assert.equal(page.el('placeholder').hidden, true);
 });
 
 test('a stale reading stays in the row, looks stale, and gets a message line', async () => {
@@ -379,12 +371,12 @@ test('backend text is never handed to the HTML parser', async () => {
     const hostile = '<img src=x onerror=alert(1)>';
     const status = {
         refreshing: false, stale: true, error: { message: hostile, at: NOW },
-        usage: { ...WINDOWS_STATUS.usage, windows: [{ window: hostile, utilization: 1, resets_at: null }] },
+        usage: { ...SPEND_STATUS.usage, spend: { ...SPEND_STATUS.usage.spend, severity: hostile } },
     };
     const page = await load(backendOf({ config: CONFIG, status }));
 
     assert.equal(page.el('note').textContent, 'Refresh failed at 14:24:53: ' + hostile);
-    assert.equal(page.el('windows').children[0].children[1].textContent, hostile);
+    assert.ok(page.el('percent').title.endsWith(hostile), 'in a tooltip as well, as text: ' + page.el('percent').title);
 });
 
 test('the refresh button shows when a refresh is running', async () => {
@@ -1098,7 +1090,7 @@ test('no scrollbar width is added when the platform has none to measure', async 
 const WITH_CHANGE = {
     ...SPEND_STATUS,
     display: {
-        time: '14:24', timeTooltip: 'Last update: x', placeholder: null, windows: [], message: null,
+        time: '14:24', timeTooltip: 'Last update: x', placeholder: null, message: null,
         spend: { percentText: '19%', percentTooltip: 'p', used: '186.02', limit: '1,000.00', usedTooltip: 'u', limitTooltip: 'l', severityText: 'normal', severityKind: 'normal' },
         countdown: { text: '42 s', tooltip: 'c' },
         interval: { text: '60 s', tooltip: 'Time between usage requests' },
@@ -1350,7 +1342,7 @@ const LIMITED = {
     ...SPEND_STATUS,
     stale: false,
     display: {
-        time: '14:24', timeTooltip: 'Last update: x', placeholder: null, windows: [], message: null,
+        time: '14:24', timeTooltip: 'Last update: x', placeholder: null, message: null,
         spend: { percentText: '19%', percentTooltip: 'p', used: '186.02', limit: '1,000.00', usedTooltip: 'u', limitTooltip: 'l', severityText: 'normal', severityKind: 'normal' },
         countdown: { text: '118 s', tooltip: 'c' },
         countdownAlert: 'Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.',

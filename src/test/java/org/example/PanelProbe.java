@@ -10,7 +10,6 @@ import javafx.stage.Window;
 import javafx.util.Duration;
 import org.example.settings.LaunchOptions;
 import org.example.usage.UsageSnapshot;
-import org.example.usage.UsageWindow;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,8 +47,8 @@ public final class PanelProbe {
                 "2026-10-08 14:24:53,1.00,2.00",
                 "2026-10-08 14:26:53,3.00,4.00",
                 "2026-10-08 14:25:53,2.00,2.00"));
-        // A plan account's reading has no amounts, so the stand-in leaves the history as written above.
-        UsageSnapshot reading = new UsageSnapshot(Instant.now(), null, List.of(new UsageWindow("five_hour", 1.0, null)));
+        // A reading with no usage has no amounts, so the stand-in leaves the history as written above.
+        UsageSnapshot reading = new UsageSnapshot(Instant.now(), null);
         runtime = AppRuntime.start(files, LaunchOptions.none(), () -> reading);
         try {
             Application.launch(Probe.class, args);

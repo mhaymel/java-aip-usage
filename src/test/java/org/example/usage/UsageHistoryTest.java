@@ -29,7 +29,7 @@ class UsageHistoryTest {
     }
 
     private static UsageSnapshot reading(Instant at, Double used, Double limit) {
-        return new UsageSnapshot(at, new Spend(used, limit, "USD", 19, "normal"), List.of());
+        return new UsageSnapshot(at, new Spend(used, limit, "USD", 19, "normal"));
     }
 
     private List<String> lines() throws IOException {
@@ -176,17 +176,17 @@ class UsageHistoryTest {
     }
 
     @Test
-    void aPlanAccountsReadingHasNoAmountsAndWritesNothing() throws IOException {
-        UsageSnapshot windows = new UsageSnapshot(AT, null, List.of(new UsageWindow("five_hour", 12.0, null)));
+    void aReadingWithNoUsageHasNoAmountsAndWritesNothing() throws IOException {
+        UsageSnapshot noUsage = new UsageSnapshot(AT, null);
 
-        new UsageHistory(file(), ZoneOffset.UTC).append(windows, 60, 412);
+        new UsageHistory(file(), ZoneOffset.UTC).append(noUsage, 60, 412);
 
         assertFalse(Files.exists(file()), "not even the header");
     }
 
     @Test
     void aReadingThatReportsNothingWritesNothing() throws IOException {
-        new UsageHistory(file(), ZoneOffset.UTC).append(new UsageSnapshot(AT, null, List.of()), 60, 412);
+        new UsageHistory(file(), ZoneOffset.UTC).append(new UsageSnapshot(AT, null), 60, 412);
 
         assertFalse(Files.exists(file()));
     }
@@ -211,7 +211,7 @@ class UsageHistoryTest {
     @Test
     void aReadingWithNoCurrencyLeavesItEmpty() throws IOException {
         new UsageHistory(file(), ZoneOffset.UTC)
-                .append(new UsageSnapshot(AT, new Spend(1.0, 2.0, null, 50, null), List.of()), 60, 412);
+                .append(new UsageSnapshot(AT, new Spend(1.0, 2.0, null, 50, null)), 60, 412);
 
         assertEquals("2026-10-08 14:24:53,1.00,2.00,,start,60,412", lines().get(1));
     }
@@ -289,7 +289,7 @@ class UsageHistoryTest {
     void onlyTheFirstRowOfARunIsMarkedAndAnEmptyReadingDoesNotUseTheMarkUp() throws IOException {
         UsageHistory history = new UsageHistory(file(), ZoneOffset.UTC);
 
-        history.append(new UsageSnapshot(AT, null, List.of()), 60, 412);
+        history.append(new UsageSnapshot(AT, null), 60, 412);
         history.append(reading(AT.plusSeconds(60), 1.0, 2.0), 60, 412);
         history.append(reading(AT.plusSeconds(120), 3.0, 4.0), 60, 412);
 
@@ -352,7 +352,6 @@ class UsageHistoryTest {
         assertEquals(1000.0, latest.spend().limit());
         assertEquals("EUR", latest.spend().currency());
         assertEquals(26, latest.spend().percent());
-        assertTrue(latest.windows().isEmpty());
     }
 
     @Test

@@ -45,7 +45,6 @@ test('the text is bold, and the percentage and amounts are heavier still', () =>
     assert.ok(weightOf('body') >= 700, 'the text is set bold');
     assert.ok(weightOf('.spend') >= 800, 'the percentage and amounts are heavier than the rest');
     assert.ok(weightOf('.spend') > weightOf('body'));
-    assert.ok(weightOf('.win-value') >= 800, 'so is a window\'s utilization');
 });
 
 test('the percentage is not shrunk or greyed out, since it is the first thing read', () => {
@@ -59,20 +58,24 @@ test('the base text is a sans-serif font', () => {
 test('the controls come in the required order, in one strip', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     // Time first, then the percentage, the two amounts, the refresh button, the countdown, the two
-    // changes, the log, history, error log and settings buttons, and the plan windows last, so that a
-    // row too wide for one line wraps the windows below the controls and not the controls below them.
+    // changes, and the log, history, error log and settings buttons, the gear last.
     const order = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"',
         'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"',
-        'id="log-button"', 'id="history-button"', 'id="errors-button"', 'id="settings-button"', 'id="windows"'];
+        'id="log-button"', 'id="history-button"', 'id="errors-button"', 'id="settings-button"'];
     const positions = order.map(marker => strip.indexOf(marker));
     positions.forEach((position, i) => assert.ok(position >= 0, 'missing ' + order[i] + ' in the strip'));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions,
-        'the order is time, percentage, used, limit, refresh, countdown, changes, log, history, error log, settings, windows');
+        'the order is time, percentage, used, limit, refresh, countdown, changes, log, history, error log, settings');
+});
+
+test('there is nothing for a plan window: the seat-based format is refused, so none is ever shown', () => {
+    assert.doesNotMatch(html, /id="windows"|class="win/);
+    assert.doesNotMatch(css, /.windows|.win-|.win/);
 });
 
 test('the time is the very first thing in the strip', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
-    for (const later of ['id="percent"', 'id="used"', 'id="limit"', 'id="windows"', 'id="refresh"', 'id="countdown"', 'id="settings-button"']) {
+    for (const later of ['id="percent"', 'id="used"', 'id="limit"', 'id="refresh"', 'id="countdown"', 'id="settings-button"']) {
         assert.ok(strip.indexOf('id="time"') < strip.indexOf(later), 'the time comes before ' + later);
     }
 });

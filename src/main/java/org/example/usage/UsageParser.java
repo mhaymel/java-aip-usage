@@ -7,8 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -22,10 +20,16 @@ import java.util.Map;
 public final class UsageParser {
 
     /**
-     * Left out of the window list: it restates the credit figures that
-     * {@code spend} already reports, so listing it would show one number twice.
+     * No plan window, although it holds a {@code utilization}: it restates the credit
+     * figures that {@code spend} already reports, and a response of the usage-based
+     * format carries it.
      */
     private static final String RESTATES_SPEND = "extra_usage";
+
+    /** What a response in the seat-based format is refused with. */
+    static final String SEAT_BASED_REFUSED =
+            "This account answers in the seat-based format (plan limits), which this version does not"
+                    + " support yet; only the usage-based format (spend) is.";
 
     private final ObjectMapper mapper =
             new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
@@ -51,38 +55,42 @@ public final class UsageParser {
         }
 
         Spend spend = spend(root.get("spend"));
-        List<UsageWindow> windows = windows(root);
+        boolean planWindows = hasPlanWindows(root);
         // A real answer always carries a `spend` object, even for an account
         // with nothing to report. With neither it, nor a window, this is some
         // other document, for instance an error body.
-        if (!root.path("spend").isObject() && windows.isEmpty()) {
+        if (!root.path("spend").isObject() && !planWindows) {
             throw new UsageParseException(
                     "The usage response has neither a \"spend\" object nor any usage windows;"
                             + " its format may have changed.");
         }
-        return new UsageSnapshot(fetchedAt, spend, windows);
+        // One plan window makes it the seat-based format, with spend beside it or without:
+        // refused whole, so that nothing of a format that was never verified is shown.
+        if (planWindows) {
+            throw new UsageParseException(SEAT_BASED_REFUSED);
+        }
+        return new UsageSnapshot(fetchedAt, spend);
     }
 
     /**
-     * Windows are selected by shape, not by name: any member holding an object
-     * with a numeric {@code utilization}. The document carries a long tail of
-     * further keys, several evidently placeholders, and naming the known ones
-     * would hide any window Anthropic adds.
+     * Whether the document carries a plan window, which is what tells the seat-based
+     * format from the usage-based one. A window is known by its shape, not by its name:
+     * any member holding an object with a numeric {@code utilization}. The document
+     * carries a long tail of further keys, several evidently placeholders, and naming
+     * the known ones would miss any window Anthropic adds. A key that is {@code null},
+     * as the usage-based format has them, is none.
      */
-    private static List<UsageWindow> windows(JsonNode root) {
-        List<UsageWindow> windows = new ArrayList<>();
+    private static boolean hasPlanWindows(JsonNode root) {
         for (Map.Entry<String, JsonNode> field : root.properties()) {
             if (RESTATES_SPEND.equals(field.getKey())) {
                 continue;
             }
             JsonNode value = field.getValue();
-            if (!value.isObject() || !value.path("utilization").isNumber()) {
-                continue;
+            if (value.isObject() && value.path("utilization").isNumber()) {
+                return true;
             }
-            windows.add(new UsageWindow(
-                    field.getKey(), value.get("utilization").doubleValue(), text(value.get("resets_at"))));
         }
-        return windows;
+        return false;
     }
 
     /**

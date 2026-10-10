@@ -5,13 +5,9 @@ import org.example.settings.Settings;
 import org.example.usage.Spend;
 import org.example.usage.UsageSnapshot;
 import org.example.usage.UsageState;
-import org.example.usage.UsageWindow;
 
-import java.time.DateTimeException;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.OptionalLong;
 
 /**
@@ -31,9 +27,6 @@ final class StatusDisplay {
             String limitTooltip, String severityText, String severityKind) {
     }
 
-    record WindowView(String name, String utilizationText, String resetsText) {
-    }
-
     record Message(String kind, String text) {
     }
 
@@ -48,7 +41,6 @@ final class StatusDisplay {
             String time,
             String timeTooltip,
             SpendView spend,
-            List<WindowView> windows,
             String placeholder,
             Tip countdown,
             String countdownAlert,
@@ -61,7 +53,7 @@ final class StatusDisplay {
 
     /**
      * @param change the change since the previous row for the newest reading, or {@code null}
-     * @param now the time the remaining times are counted to
+     * @param now kept for the callers; nothing shown is counted from it any more
      */
     static View build(
             UsageState state, OptionalLong countdown, ApiHandler.DeltaBody change, Settings settings, Instant now, ZoneId zone) {
@@ -69,7 +61,6 @@ final class StatusDisplay {
         String time = null;
         String timeTooltip = null;
         SpendView spend = null;
-        List<WindowView> windows = List.of();
         String placeholder = null;
         if (usage != null) {
             time = Formatting.time(usage.fetchedAt(), settings.timeFormat(), zone);
@@ -77,8 +68,7 @@ final class StatusDisplay {
             if (usage.spend() != null) {
                 spend = spend(usage.spend(), settings.showCurrency());
             }
-            windows = usage.windows().stream().map(w -> window(w, now)).toList();
-            if (spend == null && windows.isEmpty()) {
+            if (spend == null) {
                 placeholder = "No usage reported";
             }
         } else {
@@ -94,7 +84,6 @@ final class StatusDisplay {
                 time,
                 timeTooltip,
                 spend,
-                windows,
                 placeholder,
                 countdown.isPresent()
                         ? new Tip(countdown.getAsLong() + " s", "Seconds until the next refresh (negative when overdue)")
@@ -145,24 +134,5 @@ final class StatusDisplay {
                 "Credit budget" + unit,
                 severity,
                 severity == null ? null : Formatting.severityKind(severity));
-    }
-
-    /**
-     * A plan window: its name as received, its utilization, and how long until it resets. Remaining time
-     * rather than a clock time, because a reset can be days away and a time of day alone would mislead.
-     */
-    private static WindowView window(UsageWindow window, Instant now) {
-        String resets;
-        if (window.resetsAt() == null) {
-            resets = "reset unknown";
-        } else {
-            try {
-                Instant at = Instant.parse(window.resetsAt());
-                resets = at.isAfter(now) ? "in " + Formatting.span(Duration.between(now, at)) : "reset due";
-            } catch (DateTimeException e) {
-                resets = "resets " + window.resetsAt();
-            }
-        }
-        return new WindowView(window.key(), Formatting.percent(window.utilization()), resets);
     }
 }

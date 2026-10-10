@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UsageFetcherTest {
 
-    private static final UsageSnapshot SNAPSHOT = new UsageSnapshot(Instant.EPOCH, null, List.of());
+    private static final UsageSnapshot SNAPSHOT = new UsageSnapshot(Instant.EPOCH, null);
 
     private final List<String> tokensIssued = new ArrayList<>();
 

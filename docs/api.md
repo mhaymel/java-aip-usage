@@ -154,7 +154,6 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
       "severityText": "normal",
       "severityKind": "normal"
     },
-    "windows": [],
     "placeholder": null,
     "countdown": { "text": "42 s", "tooltip": "Seconds until the next refresh (negative when overdue)" },
     "countdownAlert": null,
@@ -176,16 +175,13 @@ Every member of `display` is always there, as `null` when it has nothing to say.
 `severityText` when the response sent no severity; a client makes its colour from it. `message.kind` is
 `stale` when a reading is still on show and `error` when there is none, and `message.text` is
 `Refresh failed at <time>: <message>`. `interval` is always sent, whatever its switch says; `show.interval`
-says whether it is shown. An amount that is missing is `—`. A plan window is
-`{"name": "five_hour", "utilizationText": "12.3%", "resetsText": "in 2 h 5 min"}`, where `resetsText` can also be
-`reset unknown`, `reset due`, or `resets ` and the text as sent when it is not a time. The forms of all these
+says whether it is shown. An amount that is missing is `—`. The forms of all these
 texts are in the requirements (How the figures are written).
 
 - `display`: what the window shows, finished: the frontend does no calculation or formatting of readings.
   `time` (the local time of the last reading, `14:24` or `14:24:53` by the `timeFormat` setting) and `timeTooltip`
   (`Last update: 8 Oct 2026, 14:24:53`); `spend` (`percentText`, `percentTooltip`, `used`, `limit`, `usedTooltip`,
-  `limitTooltip`, `severityText`, `severityKind`) for a usage-based account; `windows` (`name`, `utilizationText`,
-  `resetsText` such as `in 2 h 5 min`) for a plan account; `placeholder` (`Loading…`, `No data`, `No usage reported`);
+  `limitTooltip`, `severityText`, `severityKind`); `placeholder` (`Loading…`, `No data`, `No usage reported`);
   `countdown` (with `countdownAlert`, the message of an HTTP 429, which makes the countdown red and is shown when it is hovered; the 429
   has no `message`), `interval` (the time between usage requests in force, `60 s`), `deltaUsed` and `deltaTime` as
   `{text, tooltip}` or `null`; `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
@@ -215,16 +211,18 @@ texts are in the requirements (How the figures are written).
   `/api/config`.
 - `usage`: the most recent *successful* reading, or `null` before the first one.
   - `fetched_at`: when the backend received it (RFC 3339, UTC).
-  - `spend`: for a usage-based account; `null` for a Pro or Max account. Its
-    members may each be `null`.
-  - `windows`: for a Pro or Max account; empty for a usage-based account. Each is
-    `{"window": "five_hour", "utilization": 12.34, "resets_at": "..."}`. `window`
-    is the name exactly as Anthropic sends it, `utilization` is a percentage
-    (it can exceed 100), and `resets_at` is `null` when no reset time is known.
-  - Both empty means the account reports no usage; that is a valid answer.
+  - `spend`: the spend of the account; `null` for an account that reports no usage, which
+    is a valid answer. Its members may each be `null`.
+  - `windows`: always an empty list. It is there so that the reading keeps the shape
+    `java-aip usage --format json` prints. A reading is in the usage-based format: a response
+    in the seat-based format, the one that carries plan windows, never becomes a reading (see
+    below), so there is nothing to put here, and `display` has no member for a window at all.
 - `error`: `null` after a successful refresh. After a failed one it is
   `{"message": "...", "at": "2026-10-08T12:01:00Z"}`, written to be shown to the
   user. It never contains a credential or any part of the response body.
+  A response in the seat-based format is refused, with spend beside its plan windows or without. It is a failed
+  refresh like any other, with this message, and nothing of the response is sent to a client:
+  `This account answers in the seat-based format (plan limits), which this version does not support yet; only the usage-based format (spend) is.`
 - `stale`: `true` when `usage` is present *and* the latest refresh failed, so the
   reading may be out of date. The next success clears `error` and `stale`.
 
@@ -241,7 +239,7 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.25", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.26", "..."]
 }
 ```
 

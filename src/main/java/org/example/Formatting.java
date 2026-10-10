@@ -5,7 +5,6 @@ import org.example.settings.TimeFormat;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -49,24 +48,6 @@ final class Formatting {
         return DATE_TIME.format(at.atZone(zone));
     }
 
-    /** {@code 5 s}, {@code 3 min}, {@code 2 h 5 min}, {@code 1 d 4 h}: a span of time, coarse on purpose. */
-    static String span(Duration span) {
-        long seconds = Math.max(0, span.toSeconds());
-        if (seconds < 60) {
-            return seconds + " s";
-        }
-        long minutes = seconds / 60;
-        if (minutes < 60) {
-            return minutes + " min";
-        }
-        long hours = minutes / 60;
-        if (hours < 24) {
-            return hours + " h" + (minutes % 60 != 0 ? " " + (minutes % 60) + " min" : "");
-        }
-        long days = hours / 24;
-        return days + " d" + (hours % 24 != 0 ? " " + (hours % 24) + " h" : "");
-    }
-
     /** The time since the previous reading, in whole seconds with the unit and never in minutes: {@code 63 s}, {@code 3600 s}. */
     static String seconds(long seconds) {
         return Math.max(0, seconds) + " s";
@@ -103,12 +84,6 @@ final class Formatting {
         BigDecimal rounded = change.setScale(2, java.math.RoundingMode.HALF_UP);
         String text = decimal("#,##0.00").format(rounded.abs());
         return rounded.signum() > 0 ? "+" + text : rounded.signum() < 0 ? "-" + text : text;
-    }
-
-    /** 12.34 reads {@code 12.3%}, 80 reads {@code 80%}. */
-    static String percent(double value) {
-        double rounded = Math.round(value * 10) / 10.0;
-        return (rounded == Math.rint(rounded) ? String.valueOf((long) rounded) : String.valueOf(rounded)) + "%";
     }
 
     /** One of a fixed set of style names, whatever the endpoint sends; the window puts it into a class name. */

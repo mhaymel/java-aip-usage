@@ -4,7 +4,6 @@ import org.example.settings.TimeFormat;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -39,18 +38,6 @@ class FormattingTest {
         } finally {
             java.util.Locale.setDefault(before);
         }
-    }
-
-    @Test
-    void spansReadNaturally() {
-        assertEquals("0 s", Formatting.span(Duration.ZERO));
-        assertEquals("59 s", Formatting.span(Duration.ofSeconds(59)));
-        assertEquals("1 min", Formatting.span(Duration.ofSeconds(60)));
-        assertEquals("1 h", Formatting.span(Duration.ofHours(1)));
-        assertEquals("1 h 5 min", Formatting.span(Duration.ofMinutes(65)));
-        assertEquals("1 d", Formatting.span(Duration.ofDays(1)));
-        assertEquals("1 d 1 h", Formatting.span(Duration.ofHours(25)));
-        assertEquals("0 s", Formatting.span(Duration.ofSeconds(-5)));
     }
 
     @Test
@@ -98,15 +85,6 @@ class FormattingTest {
         assertEquals("-0.05", Formatting.signedAmount(new BigDecimal("-0.05")));
         assertEquals("0.00", Formatting.signedAmount(BigDecimal.ZERO));
         assertEquals("+1,234.50", Formatting.signedAmount(new BigDecimal("1234.5")));
-    }
-
-    @Test
-    void percentagesDropATrailingPointZero() {
-        assertEquals("80%", Formatting.percent(80));
-        assertEquals("12.3%", Formatting.percent(12.34));
-        assertEquals("0%", Formatting.percent(0));
-        assertEquals("100%", Formatting.percent(99.96));
-        assertEquals("150%", Formatting.percent(150), "over 100 is shown as it is");
     }
 
     @Test

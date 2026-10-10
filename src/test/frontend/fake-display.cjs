@@ -48,24 +48,6 @@ process.env.TZ = 'UTC';
         return date.getDate() + ' ' + MONTHS[date.getMonth()] + ' ' + date.getFullYear() + ', ' + formatTime(iso);
     }
 
-    /** "5 s", "3 min", "2 h 5 min", "1 d 4 h": a span of time, coarse on purpose. */
-    function formatSpan(ms) {
-        var seconds = Math.max(0, Math.floor(ms / 1000));
-        if (seconds < 60) {
-            return seconds + ' s';
-        }
-        var minutes = Math.floor(seconds / 60);
-        if (minutes < 60) {
-            return minutes + ' min';
-        }
-        var hours = Math.floor(minutes / 60);
-        if (hours < 24) {
-            return hours + ' h' + (minutes % 60 ? ' ' + (minutes % 60) + ' min' : '');
-        }
-        var days = Math.floor(hours / 24);
-        return days + ' d' + (hours % 24 ? ' ' + (hours % 24) + ' h' : '');
-    }
-
     /** An amount as a plain number with two decimals and no currency sign: 1000 reads "1,000.00". */
     function formatAmount(amount, options) {
         if (amount === null || amount === undefined) {
@@ -76,11 +58,6 @@ process.env.TZ = 'UTC';
         } catch (e) {
             return amount.toFixed(2);
         }
-    }
-
-    /** 12.34 reads "12.3%", 80 reads "80%". */
-    function formatPercent(value) {
-        return (Math.round(value * 10) / 10) + '%';
     }
 
     function severityKind(severity) {
@@ -124,32 +101,6 @@ process.env.TZ = 'UTC';
     }
 
     /**
-     * A plan window: its name as received, its utilization, and how long until it
-     * resets. Remaining time rather than a clock time, because a reset can be days
-     * away and a time of day alone would mislead.
-     */
-    function describeWindow(window, nowMs) {
-        var resets;
-        if (window.resets_at === null || window.resets_at === undefined) {
-            resets = 'reset unknown';
-        } else {
-            var at = new Date(window.resets_at).getTime();
-            if (isNaN(at)) {
-                resets = 'resets ' + window.resets_at;
-            } else if (at > nowMs) {
-                resets = 'in ' + formatSpan(at - nowMs);
-            } else {
-                resets = 'reset due';
-            }
-        }
-        return {
-            name: window.window,
-            utilizationText: formatPercent(window.utilization),
-            resetsText: resets
-        };
-    }
-
-    /**
      * @param status the document from GET /api/status
      * @param nowMs the current time in milliseconds
      * @param options {locale}, optional; only the number format depends on it
@@ -158,7 +109,6 @@ process.env.TZ = 'UTC';
      *   timeTooltip  "Last update: " and the full date and time, or null
      *   spend        {percentText, percentTooltip, used, limit, usedTooltip, limitTooltip,
      *                 severityText, severityKind}, or null
-     *   windows      [{name, utilizationText, resetsText}]
      *   placeholder  text for a row with nothing else to show, or null
      *   countdown    {text, tooltip} for the seconds to the next refresh, or null
      *   message      {kind: 'error'|'stale', text} for the line under the row, or null
@@ -172,7 +122,6 @@ process.env.TZ = 'UTC';
             time: null,
             timeTooltip: null,
             spend: null,
-            windows: [],
             placeholder: null,
             countdown: describeCountdown(status.nextRefreshInSeconds),
             message: null,
@@ -186,10 +135,7 @@ process.env.TZ = 'UTC';
             if (usage.spend) {
                 view.spend = describeSpend(usage.spend, options);
             }
-            view.windows = (usage.windows || []).map(function (w) {
-                return describeWindow(w, nowMs);
-            });
-            if (!view.spend && view.windows.length === 0) {
+            if (!view.spend) {
                 view.placeholder = 'No usage reported';
             }
         } else {
@@ -213,7 +159,7 @@ process.env.TZ = 'UTC';
         var d = describeStatus(status, Date.now(), { locale: 'en-US' });
         return Object.assign({}, status, {
             display: {
-                time: d.time, timeTooltip: d.timeTooltip, spend: d.spend, windows: d.windows, placeholder: d.placeholder,
+                time: d.time, timeTooltip: d.timeTooltip, spend: d.spend, placeholder: d.placeholder,
                 countdown: d.countdown, interval: { text: '60 s', tooltip: 'Time between usage requests' }, deltaUsed: null, deltaTime: null,
                 show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false }, message: d.message
             }

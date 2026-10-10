@@ -37,8 +37,8 @@ import java.util.Optional;
  * empty otherwise. The interval is in whole seconds and the duration in whole milliseconds.
  *
  * <p>The header is written only when the file is new or empty, so successive runs add to the one
- * file. Nothing is ever rotated or removed. A reading with no amounts, such as a plan account's
- * windows, writes nothing. A file with an older header is upgraded in place by the first row added to
+ * file. Nothing is ever rotated or removed. A reading with no amounts, that of an account that
+ * reports no usage, writes nothing. A file with an older header is upgraded in place by the first row added to
  * it: the header gets the new columns and the rows already there empty fields, a {@code 1} in the old
  * {@code startup} column becoming {@code start}.
  */
@@ -194,7 +194,7 @@ public final class UsageHistory {
             Instant at = LocalDateTime.parse(row.get(0), TIME).atZone(zone).toInstant();
             String currency = row.get(3).isBlank() ? null : row.get(3);
             Integer percent = used != null && limit != null && limit > 0 ? (int) Math.round(used / limit * 100) : null;
-            return Optional.of(new UsageSnapshot(at, new Spend(used, limit, currency, percent, null), List.of()));
+            return Optional.of(new UsageSnapshot(at, new Spend(used, limit, currency, percent, null)));
         } catch (IOException | RuntimeException e) {
             return Optional.empty();
         }

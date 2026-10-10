@@ -8,7 +8,6 @@ import org.example.usage.Spend;
 import org.example.usage.UsageFetchException;
 import org.example.usage.UsageSnapshot;
 import org.example.usage.UsageState;
-import org.example.usage.UsageWindow;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -46,11 +45,10 @@ class ApiTest {
     private static final Instant FETCHED_AT = Instant.parse("2026-10-08T12:00:00Z");
 
     private static final UsageSnapshot SPEND = new UsageSnapshot(
-            FETCHED_AT, new Spend(186.02, 1000.0, "USD", 19, "normal"), List.of());
+            FETCHED_AT, new Spend(186.02, 1000.0, "USD", 19, "normal"));
 
-    private static final UsageSnapshot WINDOWS = new UsageSnapshot(FETCHED_AT, null, List.of(
-            new UsageWindow("five_hour", 12.34, "2026-10-06T18:00:00Z"),
-            new UsageWindow("cedar_ember", 3.5, null)));
+    /** A reading with no amounts: an account that reports no usage. Nothing of it is written to the history. */
+    private static final UsageSnapshot NO_USAGE = new UsageSnapshot(FETCHED_AT, null);
 
     @TempDir
     Path dir;
@@ -421,21 +419,31 @@ class ApiTest {
     }
 
     @Test
-    void statusShowsAPlanReadingWithWindowsAndANullSpend() throws Exception {
+    void aResponseInTheSeatBasedFormatIsAFailedRefreshLikeAnyOther() throws Exception {
         FakeFetch fetch = new FakeFetch();
-        fetch.answer = () -> WINDOWS;
         AppRuntime app = start(fetch);
         await(() -> app.service().state().snapshot() != null);
+        // The account now answers with plan windows, which the parser refuses.
+        String body = Files.readString(Path.of("src/test/resources/fixtures/usage-windows.json"));
+        fetch.answer = () -> new org.example.usage.UsageParser().parse(body, FETCHED_AT);
+        post(app, "/api/refresh", "{}");
+        await(() -> app.service().state().error() != null);
 
-        JsonNode usage = json(get(app, "/api/status")).get("usage");
+        JsonNode status = json(get(app, "/api/status"));
 
-        assertTrue(usage.get("spend").isNull());
-        assertEquals(2, usage.get("windows").size());
-        assertEquals("five_hour", usage.at("/windows/0/window").asText());
-        assertEquals(12.34, usage.at("/windows/0/utilization").asDouble());
-        assertEquals("2026-10-06T18:00:00Z", usage.at("/windows/0/resets_at").asText());
-        assertEquals("cedar_ember", usage.at("/windows/1/window").asText());
-        assertTrue(usage.at("/windows/1/resets_at").isNull(), "an unknown reset time is null, not missing");
+        String refusal = "This account answers in the seat-based format (plan limits), which this version does not"
+                + " support yet; only the usage-based format (spend) is.";
+        assertEquals(refusal, status.at("/error/message").asText());
+        assertTrue(status.get("stale").asBoolean(), "the reading that was there is old now, and dimmed");
+        assertEquals(186.02, status.at("/usage/spend/used").asDouble(), "and still on show");
+        assertEquals(0, status.at("/usage/windows").size(), "no window is ever sent");
+        assertFalse(status.get("display").has("windows"), "nor has the window anything to draw one from");
+        assertEquals("stale", status.at("/display/message/kind").asText());
+        assertTrue(status.at("/display/message/text").asText().endsWith(": " + refusal));
+        assertTrue(status.at("/display/countdownAlert").isNull(), "it is no 429: nothing is slowed down");
+        assertEquals(refusal, json(get(app, "/api/errors")).at("/entries/0/message").asText());
+        List<String> rows = history(app);
+        assertTrue(rows.getLast().contains(",failed,"), "a failed row in the history: " + rows);
     }
 
     @Test
@@ -772,7 +780,7 @@ class ApiTest {
                 "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
                 "2026-10-08 14:01:03,10.05,1000.00,USD,,60,400");
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
 
@@ -949,7 +957,7 @@ class ApiTest {
 
     private JsonNode historyWith(boolean zero, boolean failed) throws Exception {
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
         post(app, "/api/settings", withSwitches(zero, failed));
         return json(get(app, "/api/history"));
@@ -967,7 +975,7 @@ class ApiTest {
                 "2026-10-08 14:00:00,10.00,1000.00,EUR,start,60,400",
                 "2026-10-08 14:01:00,10.05,1000.00,EUR,,60,400");
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
         JsonNode none = json(get(app, "/api/history"));
@@ -995,7 +1003,7 @@ class ApiTest {
                 "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
                 "2026-10-08 14:01:00,,,,failed,60,5000");
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
         JsonNode lines = json(get(app, "/api/history")).get("lines");
@@ -1090,7 +1098,7 @@ class ApiTest {
     void theTimeSpansTheLinesThatAreHidden() throws Exception {
         writeMixedHistory();
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
         post(app, "/api/settings", withSwitches(false, false).replace("\"historyDeltaTime\": true", "\"historyDeltaTime\": true"));
 
@@ -1173,7 +1181,7 @@ class ApiTest {
     @Test
     void theNotesAboutThereBeingNoHistoryAreNotHighlighted() throws Exception {
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime none = start(plan);
         assertFalse(json(get(none, "/api/history")).get("noteHighlight").asBoolean());
 
@@ -1232,7 +1240,7 @@ class ApiTest {
                 "2026-10-08 14:03:09,10.10,1000.00,USD,,60,400",
                 "2026-10-08 15:03:09,10.20,1000.00,USD,,60,400");
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaTime\": true", "\"historyDeltaTime\": true"));
 
@@ -1255,7 +1263,7 @@ class ApiTest {
                 "2026-10-08 14:01:00,10.05,1000.00,USD,,60,400",
                 "2026-10-08 14:02:00,10.05,1000.00,USD,,60,400");
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
 
@@ -1294,7 +1302,7 @@ class ApiTest {
     @Test
     void theStampIsEmptyWhenThereIsNoHistoryFile() throws Exception {
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
         assertEquals("", json(get(app, "/api/status")).get("historyStamp").asText());
@@ -1313,9 +1321,9 @@ class ApiTest {
     }
 
     @Test
-    void aPlanAccountsReadingWritesNothing() throws Exception {
+    void aReadingWithNoUsageWritesNothing() throws Exception {
         FakeFetch fetch = new FakeFetch();
-        fetch.answer = () -> WINDOWS;
+        fetch.answer = () -> NO_USAGE;
         AppRuntime app = start(fetch);
         await(() -> app.service().state().snapshot() != null);
 
@@ -1400,7 +1408,7 @@ class ApiTest {
                 "2026-10-08 14:26:53,186.12,1000.00,USD",
                 "2026-10-08 14:25:53,186.07,1000.00,USD");
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
         JsonNode history = json(get(app, "/api/history"));
@@ -1479,7 +1487,7 @@ class ApiTest {
     @Test
     void theHistoryEndpointSaysSoWhenThereIsNoHistory() throws Exception {
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
         await(() -> app.service().state().snapshot() != null);
 
@@ -1494,7 +1502,7 @@ class ApiTest {
     void aHistoryWithNoRowsSaysSoToo() throws Exception {
         writeHistory("datetime,used,limit,currency");
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
         JsonNode history = json(get(app, "/api/history"));
@@ -1511,7 +1519,7 @@ class ApiTest {
         }
         writeHistory(rows.toArray(String[]::new));
         FakeFetch plan = new FakeFetch();
-        plan.answer = () -> WINDOWS;
+        plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
         JsonNode history = json(get(app, "/api/history"));
