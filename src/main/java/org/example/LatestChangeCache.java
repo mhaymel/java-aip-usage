@@ -37,14 +37,14 @@ final class LatestChangeCache {
         }
         HistoryReader.Table table = HistoryReader.read(history, Integer.MAX_VALUE);
         List<List<String>> rows = table.rows();
-        // The newest reading is the newest row that has amounts, as the window shows it.
+        // The newest reading is the newest row that has figures, as the window shows it; where the second one is depends on the format.
+        int second = table.format() == org.example.usage.UsageFormat.SEAT_BASED ? HistoryReader.SEVEN_DAY_INDEX : 2;
         Optional<Integer> newest = java.util.stream.IntStream.range(0, rows.size())
                 .boxed()
-                .filter(i -> !rows.get(i).get(1).isBlank() || !rows.get(i).get(2).isBlank())
+                .filter(i -> !rows.get(i).get(1).isBlank() || !rows.get(i).get(second).isBlank())
                 .findFirst();
         HistoryDeltas.Delta delta = newest.map(table.deltas()::get).orElse(null);
-        change = delta == null ? null
-                : ApiHandler.DeltaBody.of(delta.used() == null ? null : delta.used().doubleValue(), delta.seconds());
+        change = delta == null ? null : ApiHandler.deltaBody(delta, table.format());
         file = history;
         size = nowSize;
         modified = nowModified;

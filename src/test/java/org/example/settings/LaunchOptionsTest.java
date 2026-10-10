@@ -271,4 +271,33 @@ class LaunchOptionsTest {
             assertTrue(LaunchOptions.USAGE.contains(scenario.optionName()), scenario + " missing from the usage text");
         }
     }
+
+    // ---- --fake-format
+
+    private static String refusal(String... args) {
+        return assertThrows(LaunchOptions.InvalidOptionsException.class, () -> parse(args)).getMessage();
+    }
+
+    @Test
+    void theFakeBackendCanBeToldWhichFormatToAnswerIn() {
+        assertEquals(java.util.Optional.empty(), parse("--fake-backend").fakeFormat(), "none named: the usage-based one is the default");
+        assertEquals(java.util.Optional.of(org.example.usage.UsageFormat.SEAT_BASED), parse("--fake-backend", "--fake-format", "seat-based").fakeFormat());
+        assertEquals(java.util.Optional.of(org.example.usage.UsageFormat.USAGE_BASED), parse("--fake-format= Usage-Based ", "--fake-backend").fakeFormat());
+    }
+
+    @Test
+    void aFakeFormatIsRefusedWithoutTheBackendWithAnUnknownNameWithNoneOrTwice() {
+        assertEquals("--fake-format needs --fake-backend.", refusal("--fake-format", "seat-based"));
+        assertEquals("--fake-format must be one of usage-based, seat-based, not \"pro\".", refusal("--fake-backend", "--fake-format", "pro"));
+        assertEquals("--fake-format needs a name.", refusal("--fake-backend", "--fake-format"));
+        assertEquals("--fake-format needs a name.", refusal("--fake-backend", "--fake-format="));
+        assertEquals("--fake-format was given more than once.",
+                refusal("--fake-backend", "--fake-format", "seat-based", "--fake-format", "seat-based"));
+    }
+
+    @Test
+    void theHelpTextNamesTheFakeFormatAndItsTwoNames() {
+        assertTrue(LaunchOptions.USAGE.contains("--fake-format <name>"));
+        assertTrue(LaunchOptions.USAGE.contains("usage-based, seat-based"));
+    }
 }

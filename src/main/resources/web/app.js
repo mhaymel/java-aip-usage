@@ -139,6 +139,12 @@
             $('limit').title = v.spend.limitTooltip;
         }
 
+        show('seat', Boolean(v.seat));
+        if (v.seat) {
+            renderLimit('five-hour', v.seat.fiveHour);
+            renderLimit('seven-day', v.seat.sevenDay);
+        }
+
         show('placeholder', Boolean(v.placeholder));
         $('placeholder').textContent = v.placeholder || '';
 
@@ -191,16 +197,43 @@
             + (openPanel === 'settings' ? ' fit' : '');
     }
 
+    /** One limit of the seat-based format: its label, its percentage, and the time until it is set back when the backend sends one. */
+    function renderLimit(id, limit) {
+        $(id + '-label').textContent = limit.label;
+        $(id + '-label').title = limit.tooltip;
+        $(id).textContent = limit.text;
+        $(id).title = limit.tooltip;
+        show(id + '-resets', Boolean(limit.resetsText));
+        $(id + '-resets').textContent = limit.resetsText || '';
+    }
+
     // ---- the settings view: a form the backend fills in each time it is opened
 
     /** The settings as the backend gave them when the view was opened, to tell whether the form has unapplied changes. */
     var settingsShown = null;
     var settingsDefaults = null;
+    // The format the readings are in, as the backend said when the settings were read; its tab is the one marked.
+    var formatInForce = 'usage-based';
 
     // The setting that switches the button of each panel on and off; the settings have none, as their button is always there.
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon' };
 
-    var SETTING_FLAGS = ['showPercentage', 'showCurrency', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
+    var SETTING_FLAGS = ['showPercentage', 'showCurrency', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse',
+        'seatShowResets', 'seatShowDelta', 'seatHistoryResets', 'seatHistoryDelta'];
+
+    // What exists in one format only is on a tab of that format; the tab of the format in force is the one shown when the view opens.
+    var TABS = { 'usage-based': 'tab-usage', 'seat-based': 'tab-seat' };
+
+    /** Shows the tab of that format and hides the other; the one of the format in force is marked, whichever is shown. */
+    function showTab(format, inForce) {
+        Object.keys(TABS).forEach(function (name) {
+            var button = $(TABS[name]);
+            show(TABS[name] + '-panel', name === format);
+            button.setAttribute('aria-selected', String(name === format));
+            button.className = 'tab' + (name === format ? ' selected' : '') + (name === inForce ? ' in-force' : '');
+            button.title = name === inForce ? 'The format of the current readings' : '';
+        });
+    }
 
     /** The interval is one entry field for a whole number of seconds; it shows the value in force, which is what the backend has. */
     function fillInterval(current) {
@@ -235,6 +268,8 @@
             settingsDefaults = body.defaults;
             fillInterval(body.settings.usageIntervalSeconds);
             fillForm(body.settings);
+            formatInForce = TABS[body.format] ? body.format : 'usage-based';
+            showTab(formatInForce, formatInForce);
             show('settings-form', true);
         } catch (e) {
             // The frontend keeps no settings of its own, so with none to show there is no form.
@@ -291,7 +326,9 @@
 
     /** The main-view switches all on, or all off; the form only, until Apply. */
     function setMainView(all) {
-        ['showPercentage', 'showCurrency', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showInterval', 'showDeltaUsed', 'showDeltaTime'].forEach(function (key) {
+        // The shared items of the main view, and those of both formats' tabs.
+        ['showPercentage', 'showCurrency', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showInterval', 'showDeltaUsed', 'showDeltaTime',
+            'seatShowResets', 'seatShowDelta'].forEach(function (key) {
             $('set-' + key).checked = all;
         });
         $('set-timeFormat').value = all ? 'hh:mm:ss' : 'hh:mm';
@@ -381,9 +418,16 @@
         }
     }
 
+    // The column widths of the table on show, when the style sheet has none for it (the seat-based history); else null.
+    var panelGrid = null;
+
     function cells(className, values, marked, failed, title, wide, markClass) {
         var row = document.createElement('div');
-        row.className = className + ' cols-' + values.length + (marked ? ' ' + (markClass || 'mark') : '') + (wide ? ' date' : '');
+        row.className = className + ' cols-' + values.length + (marked ? ' ' + (markClass || 'mark') : '') + (wide ? ' date' : '')
+            + (panelGrid ? ' seat-table' : '');
+        if (panelGrid) {
+            row.style.gridTemplateColumns = panelGrid;
+        }
         if (title) {
             row.title = title;
         }
@@ -405,6 +449,7 @@
             return;
         }
         panelKey = key;
+        panelGrid = shown.grid || null;
         var box = $('panel-lines');
         var scrolled = box.scrollTop;
         var perRow = box.scrollHeight && panelRows.length ? box.scrollHeight / (panelRows.length + (panelHasHeader ? 1 : 0)) : 0;
@@ -605,6 +650,8 @@
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
         $('settings-restore').addEventListener('click', restoreDefaults);
         $('settings-cancel').addEventListener('click', cancelSettings);
+        $('tab-usage').addEventListener('click', function () { showTab('usage-based', formatInForce); });
+        $('tab-seat').addEventListener('click', function () { showTab('seat-based', formatInForce); });
         $('settings-maximum').addEventListener('click', function () { setMainView(true); });
         $('settings-minimum').addEventListener('click', function () { setMainView(false); });
         $('refresh').addEventListener('click', async function () {

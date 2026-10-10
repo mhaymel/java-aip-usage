@@ -26,10 +26,15 @@ public final class UsageParser {
      */
     private static final String RESTATES_SPEND = "extra_usage";
 
-    /** What a response in the seat-based format is refused with. */
-    static final String SEAT_BASED_REFUSED =
-            "This account answers in the seat-based format (plan limits), which this version does not"
-                    + " support yet; only the usage-based format (spend) is.";
+    /** The two plan windows a reading in the seat-based format is made of; every other window is passed over. */
+    private static final String FIVE_HOUR = "five_hour";
+
+    private static final String SEVEN_DAY = "seven_day";
+
+    /** What a seat-based response without both of them is refused with: half a reading is never shown. */
+    static final String SEAT_BASED_INCOMPLETE =
+            "The usage response is in the seat-based format but lacks \"five_hour\" or \"seven_day\";"
+                    + " its format may have changed.";
 
     private final ObjectMapper mapper =
             new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
@@ -54,7 +59,6 @@ public final class UsageParser {
             throw new UsageParseException("The usage response is not a JSON object.");
         }
 
-        Spend spend = spend(root.get("spend"));
         boolean planWindows = hasPlanWindows(root);
         // A real answer always carries a `spend` object, even for an account
         // with nothing to report. With neither it, nor a window, this is some
@@ -64,12 +68,25 @@ public final class UsageParser {
                     "The usage response has neither a \"spend\" object nor any usage windows;"
                             + " its format may have changed.");
         }
-        // One plan window makes it the seat-based format, with spend beside it or without:
-        // refused whole, so that nothing of a format that was never verified is shown.
+        // One plan window makes it the seat-based format, with spend beside it or without,
+        // and then the spend is ignored: it is not read, so nothing in it can fail the reading.
         if (planWindows) {
-            throw new UsageParseException(SEAT_BASED_REFUSED);
+            PlanLimits.Limit fiveHour = limit(root.get(FIVE_HOUR));
+            PlanLimits.Limit sevenDay = limit(root.get(SEVEN_DAY));
+            if (fiveHour == null || sevenDay == null) {
+                throw new UsageParseException(SEAT_BASED_INCOMPLETE);
+            }
+            return UsageSnapshot.seatBased(fetchedAt, new PlanLimits(fiveHour, sevenDay));
         }
-        return new UsageSnapshot(fetchedAt, spend);
+        return new UsageSnapshot(fetchedAt, spend(root.get("spend")));
+    }
+
+    /** One of the two limits, or {@code null} if the document has no such window. A missing reset time is no fault. */
+    private static PlanLimits.Limit limit(JsonNode window) {
+        if (window == null || !window.isObject() || !window.path("utilization").isNumber()) {
+            return null;
+        }
+        return new PlanLimits.Limit(window.get("utilization").doubleValue(), text(window.get("resets_at")));
     }
 
     /**

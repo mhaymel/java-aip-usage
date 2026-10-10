@@ -25,6 +25,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -243,5 +244,55 @@ class FakeBackendTest {
         try (HttpClient http = HttpClient.newHttpClient()) {
             return http.send(request, HttpResponse.BodyHandlers.ofString());
         }
+    }
+
+    // ---- the seat-based format
+
+    @Test
+    void theSeatBasedAnswerIsAReadingInThatFormatWhoseFiguresMove() throws Exception {
+        FakeBackend backend = FakeBackend.start(Scenario.NORMAL, org.example.usage.UsageFormat.SEAT_BASED);
+        started.add(backend);
+
+        UsageSnapshot first = fetch(backend);
+        UsageSnapshot second = fetch(backend);
+
+        assertEquals(org.example.usage.UsageFormat.SEAT_BASED, first.format());
+        assertNull(first.spend(), "its spend is not enabled");
+        assertNotNull(first.limits().fiveHour().resetsAt());
+        assertTrue(second.limits().fiveHour().utilization() > first.limits().fiveHour().utilization());
+        assertTrue(second.limits().sevenDay().utilization() > first.limits().sevenDay().utilization());
+        assertEquals(first.limits().fiveHour().resetsAt(), second.limits().fiveHour().resetsAt(), "the reset time is fixed, not a moving target");
+    }
+
+    @Test
+    void aLimitOfTheSeatBasedAnswerIsSetBackWhenItsTimeIsReached() throws Exception {
+        UsageDocument document = new UsageDocument();
+        org.example.usage.UsageParser parser = new org.example.usage.UsageParser();
+        java.time.Instant start = java.time.Instant.parse("2026-10-08T12:00:00Z");
+
+        double before = 0;
+        for (int i = 0; i < 5; i++) {
+            before = parser.parse(document.nextSeatBased(start.plusSeconds(60L * i)), start).limits().fiveHour().utilization();
+        }
+        org.example.usage.PlanLimits after = parser.parse(document.nextSeatBased(start.plus(java.time.Duration.ofHours(5))), start).limits();
+
+        assertTrue(after.fiveHour().utilization() < before, "set back: " + before + " then " + after.fiveHour().utilization());
+        assertEquals("2026-10-08T22:00:00Z", after.fiveHour().resetsAt(), "and the next reset is five hours on");
+        assertTrue(after.sevenDay().utilization() > 41.0 + 0.35 * 5, "the weekly limit goes on climbing");
+    }
+
+    @Test
+    void theFormatCanBeSwitchedWhileTheBackendRuns() throws Exception {
+        FakeBackend backend = start(Scenario.NORMAL);
+        assertEquals(org.example.usage.UsageFormat.USAGE_BASED, fetch(backend).format());
+
+        HttpResponse<String> switched = send(backend, "/format", "POST", " Seat-Based ");
+
+        assertEquals(200, switched.statusCode());
+        assertEquals("seat-based", switched.body());
+        assertEquals(org.example.usage.UsageFormat.SEAT_BASED, fetch(backend).format());
+        assertEquals(400, send(backend, "/format", "POST", "pro").statusCode());
+        assertEquals(405, send(backend, "/format", "GET", "").statusCode());
+        assertEquals(org.example.usage.UsageFormat.SEAT_BASED, backend.format(), "a refused name changes nothing");
     }
 }

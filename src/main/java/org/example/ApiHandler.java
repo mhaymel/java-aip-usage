@@ -14,7 +14,9 @@ import org.example.settings.SettingsException;
 import org.example.settings.TimeFormat;
 import org.example.usage.HistoryDeltas;
 import org.example.usage.HistoryReader;
+import org.example.usage.PlanLimits;
 import org.example.usage.Spend;
+import org.example.usage.UsageFormat;
 import org.example.usage.UsageService;
 import org.example.usage.UsageSnapshot;
 import org.example.usage.UsageState;
@@ -171,14 +173,33 @@ final class ApiHandler implements HttpHandler {
         return new SettingsBody(
                 toBody(shown()),
                 toBody(Settings.defaults()),
-                new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())));
+                new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())),
+                formatInForce().text());
+    }
+
+    /**
+     * The format the settings view opens its tab for: that of the latest reading; with none yet, that of the history file;
+     * and with neither, the usage-based one.
+     */
+    private UsageFormat formatInForce() {
+        UsageSnapshot snapshot = service.state().snapshot();
+        if (snapshot != null && snapshot.format() != null) {
+            return snapshot.format();
+        }
+        try {
+            HistoryReader.Table table = HistoryReader.read(files.history(), 1);
+            return table.exists() && table.total() > 0 ? table.format() : UsageFormat.USAGE_BASED;
+        } catch (IOException e) {
+            return UsageFormat.USAGE_BASED;
+        }
     }
 
     private static SettingValues toBody(Settings s) {
         return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showPercentage(), s.showCurrency(), s.showHistoryIcon(), s.showLogIcon(),
                 s.showErrorIcon(), s.showInterval(), s.showDeltaUsed(),
                 s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate(),
-                s.historyZeroLines(), s.historyFailedLines());
+                s.historyZeroLines(), s.historyFailedLines(),
+                s.seatShowResets(), s.seatShowDelta(), s.seatHistoryResets(), s.seatHistoryDelta());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -206,7 +227,11 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "historyDeltaTime"),
                     flag(body, "historyDate"),
                     flag(body, "historyZeroLines"),
-                    flag(body, "historyFailedLines"));
+                    flag(body, "historyFailedLines"),
+                    flag(body, "seatShowResets"),
+                    flag(body, "seatShowDelta"),
+                    flag(body, "seatHistoryResets"),
+                    flag(body, "seatHistoryDelta"));
             settings.apply(given);
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
@@ -270,6 +295,9 @@ final class ApiHandler implements HttpHandler {
             Settings now = settings.current();
             HistoryReader.Table table = HistoryReader.read(
                     files.history(), HISTORY_ROWS, new HistoryReader.Filter(now.historyZeroLines(), now.historyFailedLines()));
+            if (table.format() == UsageFormat.SEAT_BASED) {
+                return seatHistory(table, now);
+            }
             // The currency is the right-most column; the change columns, when they are on, sit between the budget and it.
             List<String> columns = new java.util.ArrayList<>(List.of(
                     now.historyDate() ? "date time" : "time", "used", "limit"));
@@ -285,7 +313,7 @@ final class ApiHandler implements HttpHandler {
                 List<String> row = table.rows().get(i);
                 boolean failed = row.get(4).contains("failed");
                 boolean start = row.get(4).startsWith("start");
-                DeltaBody delta = deltaBody(table.deltas().get(i));
+                DeltaBody delta = deltaBody(table.deltas().get(i), UsageFormat.USAGE_BASED);
                 List<String> cells = new java.util.ArrayList<>(List.of(
                         historyTime(row.get(0), now.historyDate()),
                         failed ? "failed" : row.get(1),
@@ -300,13 +328,80 @@ final class ApiHandler implements HttpHandler {
                 cells.add(Formatting.historyCurrency(row.get(3)));
                 lines.add(new HistoryLine(cells, start, failed, start ? START_TOOLTIP : ""));
             }
+            List<String> kinds = new java.util.ArrayList<>(List.of("time", "amount", "amount"));
+            if (now.historyDeltaUsed()) {
+                kinds.add("delta");
+            }
+            if (now.historyDeltaTime()) {
+                kinds.add("seconds");
+            }
+            kinds.add("currency");
             return new HistoryBody(
-                    files.history().getFileName().toString(), table.exists(), columns, now.historyDate(),
+                    files.history().getFileName().toString(), table.exists(), UsageFormat.USAGE_BASED.text(), columns, kinds, now.historyDate(),
                     historyNote(table), historyNoteHighlighted(table), table.total(), lines);
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
             throw new ApiException(500, "The usage history could not be read.", null);
         }
+    }
+
+    /**
+     * The history of a file in the seat-based format: the two percentages, when their switch is on the times they are set back at
+     * and the changes of the two, and the time since the line before. There is no currency.
+     */
+    private HistoryBody seatHistory(HistoryReader.Table table, Settings now) {
+        List<String> columns = new java.util.ArrayList<>();
+        List<String> kinds = new java.util.ArrayList<>();
+        column(columns, kinds, now.historyDate() ? "date time" : "time", "time");
+        column(columns, kinds, "5h %", "percent");
+        if (now.seatHistoryResets()) {
+            column(columns, kinds, "5h resets", now.historyDate() ? "date" : "clock");
+        }
+        column(columns, kinds, "7d %", "percent");
+        if (now.seatHistoryResets()) {
+            column(columns, kinds, "7d resets", now.historyDate() ? "date" : "day");
+        }
+        if (now.seatHistoryDelta()) {
+            column(columns, kinds, "\u0394 5h", "points");
+            column(columns, kinds, "\u0394 7d", "points");
+        }
+        if (now.historyDeltaTime()) {
+            column(columns, kinds, "\u0394 time", "seconds");
+        }
+        int status = table.statusIndex();
+        List<HistoryLine> lines = new java.util.ArrayList<>();
+        for (int i = 0; i < table.rows().size(); i++) {
+            List<String> row = table.rows().get(i);
+            boolean failed = row.get(status).contains("failed");
+            boolean start = row.get(status).startsWith("start");
+            DeltaBody delta = deltaBody(table.deltas().get(i), UsageFormat.SEAT_BASED);
+            List<String> cells = new java.util.ArrayList<>(List.of(
+                    historyTime(row.get(0), now.historyDate()),
+                    failed ? "failed" : row.get(1)));
+            if (now.seatHistoryResets()) {
+                cells.add(Formatting.resetCell(row.get(2), now.historyDate(), false));
+            }
+            cells.add(row.get(HistoryReader.SEVEN_DAY_INDEX));
+            if (now.seatHistoryResets()) {
+                cells.add(Formatting.resetCell(row.get(4), now.historyDate(), true));
+            }
+            if (now.seatHistoryDelta()) {
+                cells.add(delta.deltaUsedText() == null ? "" : delta.deltaUsedText());
+                cells.add(delta.deltaOtherText() == null ? "" : delta.deltaOtherText());
+            }
+            if (now.historyDeltaTime()) {
+                cells.add(delta.deltaSecondsText() == null ? "" : delta.deltaSecondsText());
+            }
+            lines.add(new HistoryLine(cells, start, failed, start ? START_TOOLTIP : ""));
+        }
+        return new HistoryBody(
+                files.history().getFileName().toString(), table.exists(), UsageFormat.SEAT_BASED.text(), columns, kinds, now.historyDate(),
+                historyNote(table), historyNoteHighlighted(table), table.total(), lines);
+    }
+
+    private static void column(List<String> columns, List<String> kinds, String title, String kind) {
+        columns.add(title);
+        kinds.add(kind);
     }
 
     /** The one line above the table: why there is nothing, or what is left out; {@code null} when everything is shown. */
@@ -366,8 +461,11 @@ final class ApiHandler implements HttpHandler {
         return withDate || !shaped ? raw : raw.substring(11);
     }
 
-    private static DeltaBody deltaBody(HistoryDeltas.Delta delta) {
-        return DeltaBody.of(delta.used() == null ? null : delta.used().doubleValue(), delta.seconds());
+    static DeltaBody deltaBody(HistoryDeltas.Delta delta, UsageFormat format) {
+        Double used = delta.used() == null ? null : delta.used().doubleValue();
+        return format == UsageFormat.SEAT_BASED
+                ? DeltaBody.ofSeat(used, delta.other() == null ? null : delta.other().doubleValue(), delta.seconds())
+                : DeltaBody.of(used, delta.seconds());
     }
 
     private DeltaBody latestChange() {
@@ -415,8 +513,14 @@ final class ApiHandler implements HttpHandler {
                 spend == null
                         ? null
                         : new SpendBody(spend.used(), spend.limit(), spend.currency(), spend.percent(), spend.severity()),
-                // Always empty: a reading is in the usage-based format, and one with plan windows is refused.
-                List.of());
+                // The two limits of a reading in the seat-based format, in the shape the windows have; none in the other.
+                snapshot.limits() == null ? List.of() : List.of(
+                        window("five_hour", snapshot.limits().fiveHour()),
+                        window("seven_day", snapshot.limits().sevenDay())));
+    }
+
+    private static WindowBody window(String name, PlanLimits.Limit limit) {
+        return new WindowBody(name, limit.utilization(), limit.resetsAt());
     }
 
     // ---- /api/refresh
@@ -512,10 +616,15 @@ final class ApiHandler implements HttpHandler {
             boolean historyDeltaTime,
             boolean historyDate,
             boolean historyZeroLines,
-            boolean historyFailedLines) {
+            boolean historyFailedLines,
+            boolean seatShowResets,
+            boolean seatShowDelta,
+            boolean seatHistoryResets,
+            boolean seatHistoryDelta) {
     }
 
-    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits) {
+    /** @param format the format in force, {@code usage-based} or {@code seat-based}, whose tab the settings view opens with */
+    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, String format) {
     }
 
     record RefreshBody(boolean started) {
@@ -524,12 +633,17 @@ final class ApiHandler implements HttpHandler {
     record LogBody(String file, boolean exists, boolean truncated, List<String> lines) {
     }
 
-    /** What changed since the row before: the amount used, and the seconds; either is null if it cannot be worked out. */
+    /**
+     * What changed since the row before: the first figure of the row (the amount used, or the percentage of the five-hour limit),
+     * in the seat-based format the percentage of the weekly limit as well, and the seconds; each is null if it cannot be worked out.
+     */
     record DeltaBody(
             @JsonProperty("delta_used") Double deltaUsed,
             @JsonProperty("delta_time") Long deltaTime,
             @JsonProperty("delta_used_text") String deltaUsedText,
-            @JsonProperty("delta_seconds_text") String deltaSecondsText) {
+            @JsonProperty("delta_seconds_text") String deltaSecondsText,
+            @JsonProperty("delta_other") Double deltaOther,
+            @JsonProperty("delta_other_text") String deltaOtherText) {
 
         static DeltaBody of(Double used, Long seconds) {
             return new DeltaBody(
@@ -537,7 +651,18 @@ final class ApiHandler implements HttpHandler {
                     // A change of nothing says nothing: no text for it, so no cell and no item show it.
                     used == null || Math.abs(used) < 0.005 ? null : Formatting.signedAmount(java.math.BigDecimal.valueOf(used)),
                     // The time is in whole seconds, in the history and in the row, never in minutes.
-                    seconds == null ? null : Formatting.seconds(seconds));
+                    seconds == null ? null : Formatting.seconds(seconds),
+                    null, null);
+        }
+
+        /** The changes of the two percentages, in percentage points with one decimal; one that shows as no change has no text. */
+        static DeltaBody ofSeat(Double fiveHour, Double sevenDay, Long seconds) {
+            return new DeltaBody(
+                    fiveHour, seconds, points(fiveHour), seconds == null ? null : Formatting.seconds(seconds), sevenDay, points(sevenDay));
+        }
+
+        private static String points(Double change) {
+            return change == null || Math.abs(change) < 0.05 ? null : Formatting.signedPoints(java.math.BigDecimal.valueOf(change));
         }
     }
 
@@ -545,9 +670,13 @@ final class ApiHandler implements HttpHandler {
     record HistoryLine(List<String> cells, boolean start, boolean failed, String title) {
     }
 
+    /**
+     * @param format the format of the file, {@code usage-based} or {@code seat-based}
+     * @param kinds what kind of column each of {@code columns} is, for a page to give it its width by
+     */
     record HistoryBody(
-            String file, boolean exists, List<String> columns, boolean wide, String note, boolean noteHighlight, int total,
-            List<HistoryLine> lines) {
+            String file, boolean exists, String format, List<String> columns, List<String> kinds, boolean wide, String note,
+            boolean noteHighlight, int total, List<HistoryLine> lines) {
     }
 
     record ErrorEntryBody(String time, String message) {
@@ -562,11 +691,14 @@ final class ApiHandler implements HttpHandler {
     record SpendBody(Double used, Double limit, String currency, Integer percent, String severity) {
     }
 
+    record WindowBody(String window, double utilization, @JsonProperty("resets_at") String resetsAt) {
+    }
+
     record UsageBody(
             String source,
             @JsonProperty("fetched_at") String fetchedAt,
             SpendBody spend,
-            List<Object> windows) {
+            List<WindowBody> windows) {
     }
 
     record StatusBody(

@@ -390,4 +390,161 @@ class UsageHistoryTest {
 
         assertEquals(null, new UsageHistory(file(), ZoneOffset.UTC).latest().orElseThrow().spend().percent());
     }
+
+    // ---- the seat-based format, and one format to a file
+
+    private static final String SEAT_HEADER =
+            "datetime,five_hour,five_hour_resets,seven_day,seven_day_resets,status,interval,duration_ms";
+
+    private static UsageSnapshot seatReading(Instant at, double fiveHour, double sevenDay) {
+        return UsageSnapshot.seatBased(at, new PlanLimits(
+                new PlanLimits.Limit(fiveHour, "2026-10-08T18:00:00Z"), new PlanLimits.Limit(sevenDay, "2026-10-10T02:00:00+00:00")));
+    }
+
+    /** A history whose clock, and so the name of a file it sets aside, is fixed. */
+    private UsageHistory historyAt(String instant) {
+        return new UsageHistory(file(), ZoneOffset.UTC, java.time.Clock.fixed(Instant.parse(instant), ZoneOffset.UTC));
+    }
+
+    private List<String> filesBeside() throws IOException {
+        try (java.util.stream.Stream<Path> all = Files.list(dir)) {
+            return all.map(p -> p.getFileName().toString()).sorted().toList();
+        }
+    }
+
+    @Test
+    void aSeatBasedReadingWritesTheTwoPercentagesAndWhenEachIsSetBack() throws IOException {
+        new UsageHistory(file(), ZoneOffset.UTC).append(seatReading(AT, 12.345, 80), 60, 412);
+
+        assertEquals(List.of(SEAT_HEADER, "2026-10-08 14:24:53,12.35,2026-10-08 18:00:00,80.00,2026-10-10 02:00:00,start,60,412"), lines());
+    }
+
+    @Test
+    void theResetTimesAreLocalLikeTheTimeOfTheReadingAndEmptyWhenThereIsNone() throws IOException {
+        UsageSnapshot noResets = UsageSnapshot.seatBased(AT, new PlanLimits(
+                new PlanLimits.Limit(1, null), new PlanLimits.Limit(2, "not a time")));
+
+        new UsageHistory(file(), ZoneId.of("Europe/Vienna")).append(seatReading(AT, 12.34, 80), 60, 412);
+        new UsageHistory(file(), ZoneId.of("Europe/Vienna")).append(noResets, 60, 412);
+
+        assertEquals("2026-10-08 16:24:53,12.34,2026-10-08 20:00:00,80.00,2026-10-10 04:00:00,start,60,412", lines().get(1));
+        assertEquals("2026-10-08 16:24:53,1.00,,2.00,,start,60,412", lines().get(2));
+    }
+
+    @Test
+    void aFailedRefreshGoesIntoASeatBasedFileInItsShape() throws IOException {
+        UsageHistory history = new UsageHistory(file(), ZoneOffset.UTC);
+        history.append(seatReading(AT, 12.34, 80), 60, 412);
+
+        history.appendFailure(AT.plusSeconds(60), 60, 5003);
+
+        assertEquals("2026-10-08 14:25:53,,,,,failed,60,5003", lines().get(2));
+    }
+
+    @Test
+    void aFailedRefreshWithNoFileIsWrittenInTheFormatOfTheLastReadingAndElseInTheUsageBasedOne() throws IOException {
+        new UsageHistory(file(), ZoneOffset.UTC).appendFailure(AT, 60, 1);
+        assertEquals(List.of("datetime,used,limit,currency,status,interval,duration_ms", "2026-10-08 14:24:53,,,,start-failed,60,1"), lines());
+
+        Files.delete(file());
+        UsageHistory history = new UsageHistory(file(), ZoneOffset.UTC);
+        history.append(seatReading(AT, 1, 2), 60, 1);
+        Files.delete(file());
+        history.appendFailure(AT.plusSeconds(60), 60, 1);
+
+        assertEquals(List.of(SEAT_HEADER, "2026-10-08 14:25:53,,,,,failed,60,1"), lines());
+    }
+
+    @Test
+    void aReadingOfTheOtherFormatSetsTheFileAsideUnderTheDateAndTheTimeAndBeginsANewOne() throws IOException {
+        new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT, 186.02, 1000.0), 60, 412);
+        List<String> before = lines();
+
+        historyAt("2026-10-10T14:24:53Z").append(seatReading(AT.plusSeconds(60), 12.34, 80), 60, 412);
+
+        assertEquals(List.of("history.2026.10.10-14.24.53.csv", "history.csv"), filesBeside());
+        assertEquals(before, Files.readAllLines(dir.resolve("history.2026.10.10-14.24.53.csv")), "moved whole, nothing changed in it");
+        assertEquals(List.of(SEAT_HEADER, "2026-10-08 14:25:53,12.34,2026-10-08 18:00:00,80.00,2026-10-10 02:00:00,start,60,412"), lines());
+    }
+
+    @Test
+    void itWorksTheOtherWayRoundAndTheNameIsInTheZoneOfTheFile() throws IOException {
+        new UsageHistory(file(), ZoneOffset.UTC).append(seatReading(AT, 12.34, 80), 60, 412);
+
+        new UsageHistory(file(), ZoneId.of("Europe/Vienna"), java.time.Clock.fixed(Instant.parse("2026-10-10T22:30:00Z"), ZoneOffset.UTC))
+                .append(reading(AT.plusSeconds(60), 5.0, 6.0), 60, 412);
+
+        assertEquals(List.of("history.2026.10.11-00.30.00.csv", "history.csv"), filesBeside());
+        assertEquals("datetime,used,limit,currency,status,interval,duration_ms", lines().get(0));
+    }
+
+    @Test
+    void aFileWithAHeaderTheProgramDoesNotKnowIsSetAsideLikeOneOfTheOtherFormat() throws IOException {
+        Files.write(file(), List.of("when,what", "yesterday,something"));
+
+        historyAt("2026-10-10T14:24:53Z").append(reading(AT, 5.0, 6.0), 60, 412);
+
+        assertEquals(List.of("history.2026.10.10-14.24.53.csv", "history.csv"), filesBeside());
+        assertEquals(List.of("when,what", "yesterday,something"), Files.readAllLines(dir.resolve("history.2026.10.10-14.24.53.csv")));
+        assertEquals(2, lines().size(), "a clean file: the header and the row");
+    }
+
+    @Test
+    void aFileWithAHeaderOfTheOtherFormatAndNoRowsIsReplacedAndNothingIsSetAside() throws IOException {
+        Files.writeString(file(), SEAT_HEADER + "\n");
+
+        historyAt("2026-10-10T14:24:53Z").append(reading(AT, 5.0, 6.0), 60, 412);
+
+        assertEquals(List.of("history.csv"), filesBeside());
+        assertEquals(List.of("datetime,used,limit,currency,status,interval,duration_ms", "2026-10-08 14:24:53,5.00,6.00,USD,start,60,412"), lines());
+    }
+
+    @Test
+    void aFileIsNeverSetAsideOntoOneThatIsThereAndTheRowIsNotWritten() throws IOException {
+        new UsageHistory(file(), ZoneOffset.UTC).append(reading(AT, 186.02, 1000.0), 60, 412);
+        Files.writeString(dir.resolve("history.2026.10.10-14.24.53.csv"), "kept\n");
+        List<String> before = lines();
+
+        assertThrows(IOException.class, () -> historyAt("2026-10-10T14:24:53Z").append(seatReading(AT, 1, 2), 60, 412));
+
+        assertEquals("kept\n", Files.readString(dir.resolve("history.2026.10.10-14.24.53.csv")), "not overwritten");
+        assertEquals(before, lines(), "and the history is as it was");
+    }
+
+    @Test
+    void aFailedRefreshAndAReadingWithNothingToReportNeverMoveTheFile() throws IOException {
+        UsageHistory history = historyAt("2026-10-10T14:24:53Z");
+        history.append(seatReading(AT, 12.34, 80), 60, 412);
+
+        history.appendFailure(AT.plusSeconds(60), 60, 1);
+        history.append(new UsageSnapshot(AT.plusSeconds(120), null), 60, 1);
+
+        assertEquals(List.of("history.csv"), filesBeside());
+        assertEquals(3, lines().size());
+    }
+
+    @Test
+    void theSameFormatAddsToTheFileAndSetsNothingAside() throws IOException {
+        UsageHistory history = historyAt("2026-10-10T14:24:53Z");
+
+        history.append(seatReading(AT, 12.34, 80), 60, 412);
+        history.append(seatReading(AT.plusSeconds(60), 12.9, 80.1), 60, 388);
+
+        assertEquals(List.of("history.csv"), filesBeside());
+        assertEquals("2026-10-08 14:25:53,12.90,2026-10-08 18:00:00,80.10,2026-10-10 02:00:00,,60,388", lines().get(2));
+    }
+
+    @Test
+    void theReadingShownAtStartupIsTakenFromASeatBasedFileInThatFormat() throws IOException {
+        UsageHistory history = new UsageHistory(file(), ZoneOffset.UTC);
+        history.append(seatReading(AT, 12.34, 80), 60, 412);
+        history.appendFailure(AT.plusSeconds(60), 60, 1);
+
+        UsageSnapshot latest = new UsageHistory(file(), ZoneOffset.UTC).latest().orElseThrow();
+
+        assertEquals(UsageFormat.SEAT_BASED, latest.format());
+        assertEquals(AT.truncatedTo(java.time.temporal.ChronoUnit.SECONDS), latest.fetchedAt());
+        assertEquals(new PlanLimits.Limit(12.34, "2026-10-08T18:00:00Z"), latest.limits().fiveHour());
+        assertEquals(new PlanLimits.Limit(80.0, "2026-10-10T02:00:00Z"), latest.limits().sevenDay());
+    }
 }

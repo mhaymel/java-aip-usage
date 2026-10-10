@@ -43,7 +43,7 @@ const scrollbarOf = { width: 0 };
 function element(id) {
     const el = {
         id, hidden: HIDDEN_AT_START.has(id), textContent: '', className: '', value: '', title: '', children: [], attrs: {}, listeners: {},
-        focused: false, scrollTop: 0, scrollHeight: 0, rect: id === 'table-probe' ? { width: 0, height: 0 } : { width: 399.2, height: 41.5 },
+        focused: false, style: {}, scrollTop: 0, scrollHeight: 0, rect: id === 'table-probe' ? { width: 0, height: 0 } : { width: 399.2, height: 41.5 },
         setAttribute(k, v) { this.attrs[k] = String(v); },
         removeAttribute(k) { delete this.attrs[k]; },
         addEventListener(type, fn) { this.listeners[type] = fn; },
@@ -146,6 +146,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
+    seatShowResets: true, seatShowDelta: false, seatHistoryResets: true, seatHistoryDelta: false,
 };
 const SETTINGS = {
     settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showInterval: true, timeFormat: 'hh:mm:ss' },
@@ -860,6 +861,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
+        seatShowResets: true, seatShowDelta: false, seatHistoryResets: true, seatHistoryDelta: false,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
     assert.equal(page.el('settings-view').hidden, true, 'Apply closes the view');
@@ -2034,4 +2036,167 @@ test('the row\'s time since the previous reading is the backend\'s seconds', asy
     const page = await load(backendOf({ config: CONFIG, status }));
 
     assert.equal(page.el('delta-time').textContent, '105 s');
+});
+
+// ---- the seat-based format: the row, the history table, the settings tabs
+
+const SEAT_DISPLAY = {
+    time: '14:24', timeTooltip: 'Last update: 8 Oct 2026, 14:24:53', format: 'seat-based', spend: null,
+    seat: {
+        fiveHour: { label: '5h', text: '12.3%', tooltip: 'Five-hour session limit: 12.34% used. Resets 8 Oct 2026, 18:00:00', resetsText: 'in 2 h 5 min' },
+        sevenDay: { label: '7d', text: '80%', tooltip: 'Weekly limit: 80% used', resetsText: null },
+    },
+    placeholder: null, countdown: { text: '42 s', tooltip: 'Seconds until the next refresh (negative when overdue)' }, countdownAlert: null,
+    interval: { text: '60 s', tooltip: 'Time between usage requests' },
+    deltaUsed: { text: '+0.6 / 0.0', tooltip: 'Change of the session limit and of the weekly limit since the previous reading, in percentage points' },
+    deltaTime: null, message: null,
+    show: { percentage: false, currency: false, interval: false, deltaUsed: true, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true },
+};
+const SEAT_STATUS = { refreshing: false, stale: false, display: SEAT_DISPLAY, historyStamp: 's' };
+
+test('a seat-based reading shows the two limits, each with its label, its percentage and the time until it is set back', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEAT_STATUS }));
+
+    assert.equal(page.el('seat').hidden, false);
+    assert.equal(page.el('spend').hidden, true, 'the figures of the other format are not there');
+    assert.equal(page.el('five-hour-label').textContent, '5h');
+    assert.equal(page.el('five-hour').textContent, '12.3%');
+    assert.equal(page.el('five-hour').title, 'Five-hour session limit: 12.34% used. Resets 8 Oct 2026, 18:00:00');
+    assert.equal(page.el('five-hour-resets').textContent, 'in 2 h 5 min');
+    assert.equal(page.el('five-hour-resets').hidden, false);
+    assert.equal(page.el('seven-day-label').textContent, '7d');
+    assert.equal(page.el('seven-day').textContent, '80%');
+    assert.equal(page.el('seven-day-resets').hidden, true, 'no reset text sent: nothing there, and no room taken');
+    assert.equal(page.el('delta-used').textContent, '+0.6 / 0.0');
+    assert.equal(page.el('placeholder').hidden, true);
+});
+
+test('a change of format changes the row at the next reading, with nothing to press', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    assert.equal(page.el('spend').hidden, false);
+    assert.equal(page.el('seat').hidden, true);
+
+    state.status = SEAT_STATUS;
+    await page.firePoll();
+
+    assert.equal(page.el('spend').hidden, true);
+    assert.equal(page.el('seat').hidden, false);
+
+    state.status = SPEND_STATUS;
+    await page.firePoll();
+
+    assert.equal(page.el('spend').hidden, false);
+    assert.equal(page.el('seat').hidden, true);
+});
+
+test('the limits are dimmed with the rest when the figures are old', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: { ...SEAT_STATUS, stale: true } }));
+
+    assert.match(page.el('app').className, /stale/);
+    assert.equal(page.el('seat').hidden, false);
+});
+
+const SEAT_HISTORY = {
+    file: 'java-aip-usage.csv', exists: true, format: 'seat-based',
+    columns: ['time', '5h %', '5h resets', '7d %', '7d resets', '\u0394 time'],
+    kinds: ['time', 'percent', 'clock', 'percent', 'day', 'seconds'],
+    wide: false, note: null, noteHighlight: false, total: 2,
+    lines: [
+        line(['16:25:53', '12.90', '18:00', '80.10', '10-10 02:00', '60 s']),
+        line(['16:24:53', 'failed', '', '', '', ''], { failed: true }),
+    ],
+};
+
+test('the seat-based history is drawn as the backend sent it, with the column widths its kinds give', async () => {
+    const state = { config: CONFIG, status: SEAT_STATUS, history: () => ({ status: 200, body: SEAT_HISTORY }) };
+    const page = await load(backendOf(state));
+
+    await page.click('history-button');
+
+    const rows = page.el('panel-lines').children;
+    assert.equal(rows.length, 3, 'the header and the two lines');
+    assert.deepEqual(rows[0].children.map(c => c.textContent), ['time', '5h %', '5h resets', '7d %', '7d resets', '\u0394 time']);
+    assert.deepEqual(rows[1].children.map(c => c.textContent), ['16:25:53', '12.90', '18:00', '80.10', '10-10 02:00', '60 s']);
+    assert.match(rows[1].className, /\bseat-table\b/);
+    assert.equal(rows[1].style.gridTemplateColumns, 'minmax(8ch, 1fr) 7ch 9ch 7ch 12ch 8ch');
+    assert.equal(rows[0].style.gridTemplateColumns, rows[1].style.gridTemplateColumns, 'the header has the same columns');
+    assert.equal(rows[2].children[1].className, 'failed', 'the failed word is red, in the second cell as always');
+});
+
+test('the usage-based history keeps the column widths of the style sheet: no widths are set on its lines', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('history-button');
+
+    const row = page.el('panel-lines').children[1];
+    assert.doesNotMatch(row.className, /seat-table/);
+    assert.equal(row.style.gridTemplateColumns, undefined);
+});
+
+test('the settings open on the tab of the format in force, which is marked, and the other tab can be shown', async () => {
+    const state = { config: CONFIG, status: SEAT_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, format: 'seat-based' } }) };
+    const page = await load(backendOf(state));
+
+    await page.click('settings-button');
+
+    assert.equal(page.el('tab-seat-panel').hidden, false);
+    assert.equal(page.el('tab-usage-panel').hidden, true);
+    assert.equal(page.el('tab-seat').attrs['aria-selected'], 'true');
+    assert.match(page.el('tab-seat').className, /selected/);
+    assert.match(page.el('tab-seat').className, /in-force/);
+    assert.equal(page.el('tab-seat').title, 'The format of the current readings');
+    assert.doesNotMatch(page.el('tab-usage').className, /in-force|selected/);
+
+    await page.click('tab-usage');
+
+    assert.equal(page.el('tab-usage-panel').hidden, false);
+    assert.equal(page.el('tab-seat-panel').hidden, true);
+    assert.match(page.el('tab-usage').className, /selected/);
+    assert.match(page.el('tab-seat').className, /in-force/, 'the mark stays with the format in force, whichever tab is shown');
+    assert.doesNotMatch(page.el('tab-seat').className, /selected/);
+});
+
+test('with no format said, the settings open on the usage-based tab', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('settings-button');
+
+    assert.equal(page.el('tab-usage-panel').hidden, false);
+    assert.equal(page.el('tab-seat-panel').hidden, true);
+    assert.match(page.el('tab-usage').className, /in-force/);
+});
+
+test('Apply sends the switches of both tabs, whichever is shown', async () => {
+    const state = { config: CONFIG, status: SEAT_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, format: 'seat-based' } }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    page.el('set-seatShowDelta').checked = true;
+    page.el('set-seatHistoryResets').checked = false;
+    await page.click('tab-usage');
+    page.el('set-showCurrency').checked = true;
+
+    await page.click('settings-apply');
+
+    const sent = JSON.parse(settingsPosts(page)[0].body);
+    assert.equal(sent.seatShowDelta, true);
+    assert.equal(sent.seatHistoryResets, false);
+    assert.equal(sent.seatShowResets, true, 'what was not touched keeps what it had');
+    assert.equal(sent.showCurrency, true);
+    assert.equal(Object.keys(sent).length, 20, 'every setting, in one request');
+});
+
+test('Maximum view and Minimum view switch the main-view items of both tabs', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+
+    await page.click('settings-maximum');
+    assert.equal(page.el('set-seatShowResets').checked, true);
+    assert.equal(page.el('set-seatShowDelta').checked, true);
+    assert.equal(page.el('set-showPercentage').checked, true);
+
+    await page.click('settings-minimum');
+    assert.equal(page.el('set-seatShowResets').checked, false);
+    assert.equal(page.el('set-seatShowDelta').checked, false);
+    assert.equal(page.el('set-seatHistoryResets').checked, true, 'the history is left as it is');
 });

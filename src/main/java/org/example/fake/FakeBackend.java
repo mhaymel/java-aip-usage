@@ -3,6 +3,8 @@ package org.example.fake;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
+import org.example.usage.UsageFormat;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -54,32 +56,47 @@ public final class FakeBackend implements AutoCloseable {
     /** Read on each request, written when the scenario is switched while the server runs. */
     private volatile Scenario scenario;
 
-    private FakeBackend(HttpServer server, Scenario scenario, Clock clock) {
+    /** Which of the two formats a usage document is sent in; read on each request, and switched like the scenario. */
+    private volatile UsageFormat format;
+
+    private FakeBackend(HttpServer server, Scenario scenario, UsageFormat format, Clock clock) {
         this.server = server;
         this.scenario = scenario;
+        this.format = format;
         this.clock = clock;
     }
 
-    /** Binds an ephemeral loopback port and starts answering with {@code scenario}. */
+    /** Binds an ephemeral loopback port and starts answering with {@code scenario}, in the usage-based format. */
     public static FakeBackend start(Scenario scenario) throws IOException {
-        return start(scenario, Clock.systemUTC());
+        return start(scenario, UsageFormat.USAGE_BASED, Clock.systemUTC());
+    }
+
+    /** The same, with the usage documents in {@code format}. */
+    public static FakeBackend start(Scenario scenario, UsageFormat format) throws IOException {
+        return start(scenario, format, Clock.systemUTC());
     }
 
     static FakeBackend start(Scenario scenario, Clock clock) throws IOException {
+        return start(scenario, UsageFormat.USAGE_BASED, clock);
+    }
+
+    static FakeBackend start(Scenario scenario, UsageFormat format, Clock clock) throws IOException {
         InetSocketAddress address = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
         HttpServer server = HttpServer.create(address, 0);
         // Virtual threads are daemon threads, so a held request cannot keep the JVM alive,
         // and a slow or hanging answer does not stop the server answering anything else.
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
 
-        FakeBackend backend = new FakeBackend(server, scenario, clock);
+        FakeBackend backend = new FakeBackend(server, scenario, format, clock);
         server.createContext("/", backend::notFound);
         server.createContext(org.example.usage.UsageClient.USAGE_PATH, backend::usage);
         server.createContext("/scenario", backend::switchScenario);
+        server.createContext("/format", backend::switchFormat);
         server.start();
 
         LOG.log(System.Logger.Level.INFO,
-                "Fake backend listening on " + backend.baseUrl() + ", answering " + scenario.optionName());
+                "Fake backend listening on " + backend.baseUrl() + ", answering " + scenario.optionName()
+                        + " in the " + format.text() + " format");
         return backend;
     }
 
@@ -97,6 +114,16 @@ public final class FakeBackend implements AutoCloseable {
     public void scenario(Scenario wanted) {
         this.scenario = wanted;
         LOG.log(System.Logger.Level.INFO, "The fake backend scenario is now " + wanted.optionName());
+    }
+
+    public UsageFormat format() {
+        return format;
+    }
+
+    /** Changes the format of the usage documents from the next request on. */
+    public void format(UsageFormat wanted) {
+        this.format = wanted;
+        LOG.log(System.Logger.Level.INFO, "The fake backend format is now " + wanted.text());
     }
 
     @Override
@@ -121,7 +148,7 @@ public final class FakeBackend implements AutoCloseable {
         }
         Scenario answering = scenario;
         switch (answering) {
-            case NORMAL -> send(exchange, 200, document.next(clock.instant()), 0);
+            case NORMAL -> send(exchange, 200, document.next(clock.instant(), format), 0);
             case HTTP_401 -> send(exchange, 401, UsageDocument.error("authentication_error"), 0);
             case HTTP_403 -> send(exchange, 403, UsageDocument.error("permission_error"), 0);
             case HTTP_429 -> send(exchange, 429, UsageDocument.error("rate_limit_error"), 0);
@@ -131,10 +158,10 @@ public final class FakeBackend implements AutoCloseable {
             case NOT_JSON -> send(exchange, 200, "this is not JSON, it is a sentence", 0);
             case EMPTY -> send(exchange, 200, "", 0);
             case NO_SPEND_NO_WINDOWS -> send(exchange, 200, UsageDocument.neitherSpendNorWindows(), 0);
-            case TRAILING_TEXT -> send(exchange, 200, document.withTrailingText(clock.instant()), 0);
+            case TRAILING_TEXT -> send(exchange, 200, document.withTrailingText(clock.instant(), format), 0);
             case SLOW -> {
                 if (hold(SLOW_ANSWER)) {
-                    send(exchange, 200, document.next(clock.instant()), 0);
+                    send(exchange, 200, document.next(clock.instant(), format), 0);
                 } else {
                     exchange.close();
                 }
@@ -163,6 +190,24 @@ public final class FakeBackend implements AutoCloseable {
             }
             scenario(wanted);
             send(exchange, 200, wanted.optionName(), 0);
+        }
+    }
+
+    /** Switches the format: {@code POST /format} with the name as the body. */
+    private void switchFormat(HttpExchange exchange) throws IOException {
+        try (exchange) {
+            if (!exchange.getRequestMethod().equals("POST")) {
+                send(exchange, 405, "POST a format name", 0);
+                return;
+            }
+            String name = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8).trim();
+            UsageFormat wanted = UsageFormat.ofText(name).orElse(null);
+            if (wanted == null) {
+                send(exchange, 400, "Unknown format \"" + name + "\"; one of " + UsageFormat.names(), 0);
+                return;
+            }
+            format(wanted);
+            send(exchange, 200, wanted.text(), 0);
         }
     }
 

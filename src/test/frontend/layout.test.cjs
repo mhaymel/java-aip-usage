@@ -496,8 +496,9 @@ test('a checkbox and its text, and a label and its controls, are centred on each
 });
 
 test('the history has two new switches, the date and the change columns after them, under the History view heading', () => {
-    const view = html.slice(html.indexOf('<legend>History view</legend>'), html.indexOf('<legend>Log</legend>'));
-    const order = ['set-historyDate', 'set-historyZeroLines', 'set-historyFailedLines', 'set-historyDeltaUsed', 'set-historyDeltaTime'];
+    // What means the same in both formats; the change in the amount used is of one format, and is on that format's tab.
+    const view = html.slice(html.indexOf('<legend>History view</legend>'), html.indexOf('<legend>Format</legend>'));
+    const order = ['set-historyDate', 'set-historyZeroLines', 'set-historyFailedLines', 'set-historyDeltaTime'];
     const positions = order.map(id => view.indexOf('id="' + id + '"'));
     positions.forEach((p, i) => assert.ok(p >= 0, order[i] + ' is in the History view group'));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions);
@@ -521,7 +522,7 @@ test('the currency is the right-most column of the history, with the change colu
 
 test('the four new settings are in the Main view group, with the texts of the requirements', () => {
     const main = html.slice(html.indexOf('<legend>Main view</legend>'), html.indexOf('<legend>History view</legend>'));
-    for (const [id, text] of [['set-showCurrency', 'Currency symbol'], ['set-showHistoryIcon', 'History icon'], ['set-showLogIcon', 'Log icon'], ['set-showErrorIcon', 'Error log icon']]) {
+    for (const [id, text] of [['set-showHistoryIcon', 'History icon'], ['set-showLogIcon', 'Log icon'], ['set-showErrorIcon', 'Error log icon']]) {
         assert.ok(main.includes('<input id="' + id + '" type="checkbox"> ' + text + '</label>'), id);
     }
 });
@@ -567,4 +568,44 @@ test('an optional item of the row that is empty keeps its room and is not seen',
     for (const rule of ['.delta-used', '.delta-time', '.delta-interval']) {
         assert.match(ruleOf(rule), /min-width:\s*[0-9.]+ch/, rule + ' has a width of its own, which it keeps empty');
     }
+});
+
+// ---- the seat-based format
+
+test('the settings have a tab for each format, between the history group and the log group, each with what exists in that format only', () => {
+    const formats = html.slice(html.indexOf('<legend>Format</legend>'), html.indexOf('<legend>Log</legend>'));
+    assert.ok(html.indexOf('<legend>History view</legend>') < html.indexOf('<legend>Format</legend>'));
+    assert.ok(formats.indexOf('id="tab-usage"') < formats.indexOf('id="tab-seat"'), 'the usage-based tab first');
+    assert.match(formats, />Usage-based<\/button>/);
+    assert.match(formats, />Seat-based<\/button>/);
+
+    const usage = formats.slice(formats.indexOf('id="tab-usage-panel"'), formats.indexOf('id="tab-seat-panel"'));
+    const seat = formats.slice(formats.indexOf('id="tab-seat-panel"'));
+    for (const [id, text] of [['set-showPercentage', 'Percentage spent'], ['set-showCurrency', 'Currency symbol'],
+        ['set-showDeltaUsed', 'Change in the amount used'], ['set-historyDeltaUsed', '\u0394 used']]) {
+        assert.ok(usage.includes('<input id="' + id + '" type="checkbox"> ' + text + '</label>'), id + ' is on the usage-based tab');
+    }
+    for (const [id, text] of [['set-seatShowResets', 'Reset times'], ['set-seatShowDelta', 'Change in the percentages'],
+        ['set-seatHistoryResets', 'Reset times'], ['set-seatHistoryDelta', '\u0394 5h and \u0394 7d']]) {
+        assert.ok(seat.includes('<input id="' + id + '" type="checkbox"> ' + text + '</label>'), id + ' is on the seat-based tab');
+    }
+    assert.match(html, /<div id="tab-seat-panel" role="tabpanel" hidden>/, 'the seat-based tab is closed until the page says which is in force');
+});
+
+test('the two limits of the seat-based row sit where the amounts are, heavy, with a muted reset time, and have no colour of their own', () => {
+    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
+    assert.ok(strip.indexOf('id="spend"') < strip.indexOf('id="seat"') && strip.indexOf('id="seat"') < strip.indexOf('id="refresh"'));
+    assert.ok(strip.indexOf('id="five-hour"') < strip.indexOf('id="seven-day"'), 'the session limit first');
+    assert.ok(weightOf('.limit-value') >= 800);
+    assert.match(ruleOf('.limit-reset'), /color:\s*var\(--muted\)/);
+    assert.doesNotMatch(ruleOf('.limit-value'), /color/, 'the format sends no severity, and none is invented');
+    assert.doesNotMatch(css, /\.seat[^{]*\.sev-|\.sev-[a-z]+ \.limit/);
+    assert.match(css, /\.stale \.spend,\n\.stale \.seat \{\s*opacity:\s*0\.6/);
+});
+
+test('the lines of the seat-based table are a grid whose columns the page sets, right-aligned after the time', () => {
+    assert.match(ruleOf('.panel-lines .seat-table'), /display:\s*grid/);
+    assert.doesNotMatch(ruleOf('.panel-lines .seat-table'), /grid-template-columns/, 'the widths come with the lines');
+    assert.match(ruleOf('.panel-lines .seat-table'), /min-width:\s*max-content/);
+    assert.match(ruleOf('.panel-lines .seat-table > :not(:first-child)'), /text-align:\s*right/);
 });

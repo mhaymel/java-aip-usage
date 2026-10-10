@@ -27,6 +27,28 @@ public final class HistoryReader {
     static final int FIELDS = 7;
 
     /**
+     * The fields of a row of a file in the seat-based format: the time, the percentage of the five-hour limit and when it is
+     * set back, the same two of the weekly limit, then the status, the interval and the duration.
+     */
+    static final int SEAT_FIELDS = 8;
+
+    /** Where a seat-based row has the percentage of the weekly limit; that of the five-hour limit is the second field in both formats. */
+    public static final int SEVEN_DAY_INDEX = 3;
+
+    /** The second title of the header of a file in the seat-based format, which is what tells it from the other. */
+    static final String SEAT_SECOND_COLUMN = "five_hour";
+
+    /** Where a row has its status, which depends on the format of the file. */
+    public static int statusIndex(UsageFormat format) {
+        return format == UsageFormat.SEAT_BASED ? 5 : 4;
+    }
+
+    /** How many fields a row has, the status, the interval and the duration included. */
+    static int fields(UsageFormat format) {
+        return format == UsageFormat.SEAT_BASED ? SEAT_FIELDS : FIELDS;
+    }
+
+    /**
      * @param exists whether there is a history file at all
      * @param total how many rows the file has
      * @param rows the newest rows, latest first, as many as were asked for; each has the four columns and
@@ -41,7 +63,12 @@ public final class HistoryReader {
      */
     public record Table(
             boolean exists, int total, List<List<String>> rows, List<HistoryDeltas.Delta> deltas,
-            int hiddenZero, int hiddenFailed, int visible) {
+            int hiddenZero, int hiddenFailed, int visible, UsageFormat format) {
+
+        /** Where the rows of this table have their status. */
+        public int statusIndex() {
+            return HistoryReader.statusIndex(format);
+        }
 
         public List<String> columns() {
             return COLUMNS;
@@ -72,34 +99,49 @@ public final class HistoryReader {
      */
     public static Table read(Path file, int limit, Filter filter) throws IOException {
         if (!Files.isRegularFile(file)) {
-            return new Table(false, 0, List.of(), List.of(), 0, 0, 0);
+            return new Table(false, 0, List.of(), List.of(), 0, 0, 0, UsageFormat.USAGE_BASED);
         }
+        List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        // A file holds one format, which its header tells; a file with no header is of the usage-based format, as the oldest are.
+        UsageFormat format = UsageFormat.USAGE_BASED;
+        for (String line : lines) {
+            List<String> titles = List.of(line.split(",", -1));
+            if (titles.get(0).equals(COLUMNS.get(0))) {
+                if (titles.size() > 1 && titles.get(1).strip().equals(SEAT_SECOND_COLUMN)) {
+                    format = UsageFormat.SEAT_BASED;
+                }
+                break;
+            }
+        }
+        int width = fields(format);
+        int status = statusIndex(format);
+        // Fewer columns are a row from an older file, which had no value for the others; the seat-based file has no older form.
+        int least = format == UsageFormat.SEAT_BASED ? SEAT_FIELDS : COLUMNS.size() - 1;
         List<List<String>> rows = new ArrayList<>();
-        for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+        for (String line : lines) {
             List<String> fields = List.of(line.split(",", -1));
             boolean header = fields.get(0).equals(COLUMNS.get(0));
-            // Fewer columns are a row from an older file, which had no value for the others.
-            boolean complete = fields.size() >= COLUMNS.size() - 1 && fields.size() <= FIELDS;
+            boolean complete = fields.size() >= least && fields.size() <= width;
             if (complete && !header && !fields.get(0).isBlank()) {
                 List<String> row = new ArrayList<>(fields);
-                while (row.size() < FIELDS) {
+                while (row.size() < width) {
                     row.add("");
                 }
                 rows.add(List.copyOf(row));
             }
         }
         // What a zero usage line is is decided on the whole file, against the row directly before each row, before anything is hidden.
-        List<HistoryDeltas.Delta> against = HistoryDeltas.compute(rows);
+        List<HistoryDeltas.Delta> against = HistoryDeltas.compute(rows, format);
         boolean[] visible = new boolean[rows.size()];
         int hiddenZero = 0;
         int hiddenFailed = 0;
         List<Integer> order = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
-            boolean failed = rows.get(i).get(4).contains("failed");
+            boolean failed = rows.get(i).get(status).contains("failed");
             // A failed startup line (start-failed) is a failed line, checked first. A startup line that read the usage has no change, and is handled like the
             // lines that show none: a zero usage line.
-            boolean startup = rows.get(i).get(4).startsWith("start");
-            boolean zero = !failed && (startup || (against.get(i).used() != null && against.get(i).used().signum() == 0));
+            boolean startup = rows.get(i).get(status).startsWith("start");
+            boolean zero = !failed && (startup || against.get(i).isZero(format));
             if (failed && !filter.showFailed()) {
                 hiddenFailed++;
             } else if (zero && !filter.showZero()) {
@@ -110,13 +152,13 @@ public final class HistoryReader {
             }
         }
         // The differences of what is shown are of each row to the previous one shown in its run, so they are worked out before sorting.
-        List<HistoryDeltas.Delta> all = HistoryDeltas.computeVisible(rows, visible);
+        List<HistoryDeltas.Delta> all = HistoryDeltas.computeVisible(rows, visible, format);
         // Newest first; of two with the same time, the one written later.
         order.sort(Comparator.<Integer, String>comparing(i -> rows.get(i).get(0)).thenComparing(Comparator.naturalOrder()).reversed());
         List<Integer> shown = order.subList(0, Math.min(limit, order.size()));
         return new Table(true, rows.size(),
                 shown.stream().map(rows::get).toList(),
                 shown.stream().map(all::get).toList(),
-                hiddenZero, hiddenFailed, order.size());
+                hiddenZero, hiddenFailed, order.size(), format);
     }
 }

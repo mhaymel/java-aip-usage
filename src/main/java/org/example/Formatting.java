@@ -5,6 +5,7 @@ import org.example.settings.TimeFormat;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -46,6 +47,54 @@ final class Formatting {
     /** The full local date and time, as in the tooltip on the time, which is the one place a date appears. */
     static String dateTime(Instant at, ZoneId zone) {
         return DATE_TIME.format(at.atZone(zone));
+    }
+
+    /** {@code 5 s}, {@code 3 min}, {@code 2 h 5 min}, {@code 1 d 4 h}: a span of time, cut and never rounded, coarse on purpose. */
+    static String span(Duration span) {
+        long seconds = Math.max(0, span.toSeconds());
+        if (seconds < 60) {
+            return seconds + " s";
+        }
+        long minutes = seconds / 60;
+        if (minutes < 60) {
+            return minutes + " min";
+        }
+        long hours = minutes / 60;
+        if (hours < 24) {
+            return hours + " h" + (minutes % 60 != 0 ? " " + (minutes % 60) + " min" : "");
+        }
+        long days = hours / 24;
+        return days + " d" + (hours % 24 != 0 ? " " + (hours % 24) + " h" : "");
+    }
+
+    /** The utilization of a limit: one decimal, upwards at half, without a {@code .0}: 12.34 reads {@code 12.3%}, 80 reads {@code 80%}. */
+    static String percent(double value) {
+        return plain(BigDecimal.valueOf(value).setScale(1, java.math.RoundingMode.HALF_UP)) + "%";
+    }
+
+    /** A number with no trailing zeros and no exponent: 80.0 reads {@code 80}, 12.340 reads {@code 12.34}. */
+    static String plain(BigDecimal value) {
+        return value.signum() == 0 ? "0" : value.stripTrailingZeros().toPlainString();
+    }
+
+    /** A change of a percentage, in percentage points, with one decimal and always its sign: {@code +0.6}, {@code -45.0}, {@code 0.0}. */
+    static String signedPoints(BigDecimal change) {
+        BigDecimal rounded = change.setScale(1, java.math.RoundingMode.HALF_UP);
+        String text = rounded.abs().toPlainString();
+        return rounded.signum() > 0 ? "+" + text : rounded.signum() < 0 ? "-" + text : text;
+    }
+
+    /**
+     * When a limit is set back, as a cell of the history shows it, from the local date and time the file has: the time of day
+     * ({@code 18:00}), with the month and the day before it when the day is wanted ({@code 10-10 02:00}), or whole when the date is.
+     * Anything of another shape is shown as it is.
+     */
+    static String resetCell(String raw, boolean withDate, boolean withDay) {
+        boolean shaped = raw.length() >= 19 && raw.charAt(10) == ' ';
+        if (!shaped || withDate) {
+            return raw;
+        }
+        return withDay ? raw.substring(5, 16) : raw.substring(11, 16);
     }
 
     /** The time since the previous reading, in whole seconds with the unit and never in minutes: {@code 63 s}, {@code 3600 s}. */

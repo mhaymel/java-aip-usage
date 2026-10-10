@@ -59,10 +59,15 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "historyDeltaTime": false,
     "historyDate": false,
     "historyZeroLines": true,
-    "historyFailedLines": true
+    "historyFailedLines": true,
+    "seatShowResets": true,
+    "seatShowDelta": false,
+    "seatHistoryResets": true,
+    "seatHistoryDelta": false
   },
   "defaults": { "...": "the same keys, with the defaults" },
-  "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } }
+  "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } },
+  "format": "usage-based"
 }
 ```
 
@@ -72,6 +77,13 @@ waits longer after HTTP 429s, that longer wait in whole seconds rounded up. Appl
 wait as the configured interval. `defaults` and `GET /api/config` are not changed by a back-off.
 The same keys are in `settings.json`, which
 is created with the defaults if it is missing.
+
+The four `seat...` keys are the switches of the seat-based format: the reset times and the change of the two
+percentages in the row, and the same two in the history. They take effect only while that format is the one in
+force, as `showPercentage`, `showCurrency`, `showDeltaUsed` and `historyDeltaUsed` do only in the usage-based one.
+`format` is not a setting: it is the format in force, `usage-based` or `seat-based`, which is that of the latest
+reading; with no reading yet, that of the history file; and with neither, `usage-based`. A settings view opens
+the tab of that format.
 
 ## `POST /api/settings`
 
@@ -140,10 +152,14 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
     },
     "windows": []
   },
-  "change": { "delta_used": 0.05, "delta_time": 60, "delta_used_text": "+0.05", "delta_seconds_text": "60 s" },
+  "change": {
+    "delta_used": 0.05, "delta_time": 60, "delta_used_text": "+0.05", "delta_seconds_text": "60 s",
+    "delta_other": null, "delta_other_text": null
+  },
   "display": {
     "time": "14:00",
     "timeTooltip": "Last update: 8 Oct 2026, 14:00:00",
+    "format": "usage-based",
     "spend": {
       "percentText": "19%",
       "percentTooltip": "19% of the budget spent. Severity: normal",
@@ -154,6 +170,7 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
       "severityText": "normal",
       "severityKind": "normal"
     },
+    "seat": null,
     "placeholder": null,
     "countdown": { "text": "42 s", "tooltip": "Seconds until the next refresh (negative when overdue)" },
     "countdownAlert": null,
@@ -178,6 +195,21 @@ Every member of `display` is always there, as `null` when it has nothing to say.
 says whether it is shown. An amount that is missing is `—`. The forms of all these
 texts are in the requirements (How the figures are written).
 
+- `display.format` is the format of the reading, `usage-based` or `seat-based`, or `null` when there is no reading
+  or it reports nothing. In the seat-based format `display.spend` is `null` and `display.seat` holds the two limits:
+
+  ```json
+  "seat": {
+    "fiveHour": { "label": "5h", "text": "12.3%", "tooltip": "Five-hour session limit: 12.34% used. Resets 8 Oct 2026, 18:00:00", "resetsText": "in 2 h 5 min" },
+    "sevenDay": { "label": "7d", "text": "80%", "tooltip": "Weekly limit: 80% used. Resets 10 Oct 2026, 02:00:00", "resetsText": "in 1 d 4 h" }
+  }
+  ```
+
+  `resetsText` is `null` when the setting `seatShowResets` is off, and `reset unknown` or `reset due` when there is
+  no time to count to. In that format `deltaUsed` is the change of both percentages in one text, `+0.6 / +0.1`,
+  `show.deltaUsed` follows `seatShowDelta`, and `change` has the change of the weekly limit as `delta_other` and
+  `delta_other_text` beside that of the session limit in `delta_used` and `delta_used_text` (percentage points, one
+  decimal, `null` for a change that shows as none).
 - `display`: what the window shows, finished: the frontend does no calculation or formatting of readings.
   `time` (the local time of the last reading, `14:24` or `14:24:53` by the `timeFormat` setting) and `timeTooltip`
   (`Last update: 8 Oct 2026, 14:24:53`); `spend` (`percentText`, `percentTooltip`, `used`, `limit`, `usedTooltip`,
@@ -211,18 +243,16 @@ texts are in the requirements (How the figures are written).
   `/api/config`.
 - `usage`: the most recent *successful* reading, or `null` before the first one.
   - `fetched_at`: when the backend received it (RFC 3339, UTC).
-  - `spend`: the spend of the account; `null` for an account that reports no usage, which
-    is a valid answer. Its members may each be `null`.
-  - `windows`: always an empty list. It is there so that the reading keeps the shape
-    `java-aip usage --format json` prints. A reading is in the usage-based format: a response
-    in the seat-based format, the one that carries plan windows, never becomes a reading (see
-    below), so there is nothing to put here, and `display` has no member for a window at all.
+  - `spend`: the spend of a reading in the usage-based format; `null` in the seat-based one, and for an
+    account that reports no usage, which is a valid answer. Its members may each be `null`.
+  - `windows`: the two limits of a reading in the seat-based format, `five_hour` and then `seven_day`,
+    each as `{"window": "five_hour", "utilization": 12.34, "resets_at": "2026-10-06T18:00:00Z"}`:
+    `utilization` is a percentage and can exceed 100, and `resets_at` is as Anthropic sent it, or `null`.
+    An empty list in the usage-based format. Other plan windows of a response are never sent, and neither
+    is the spend of a seat-based response.
 - `error`: `null` after a successful refresh. After a failed one it is
   `{"message": "...", "at": "2026-10-08T12:01:00Z"}`, written to be shown to the
   user. It never contains a credential or any part of the response body.
-  A response in the seat-based format is refused, with spend beside its plan windows or without. It is a failed
-  refresh like any other, with this message, and nothing of the response is sent to a client:
-  `This account answers in the seat-based format (plan limits), which this version does not support yet; only the usage-based format (spend) is.`
 - `stale`: `true` when `usage` is present *and* the latest refresh failed, so the
   reading may be out of date. The next success clears `error` and `stale`.
 
@@ -239,7 +269,7 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.26", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.27", "..."]
 }
 ```
 
@@ -263,6 +293,8 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
 {
   "file": "java-aip-usage.csv",
   "exists": true,
+  "format": "usage-based",
+  "kinds": ["time", "amount", "amount", "delta", "seconds", "currency"],
   "columns": ["time", "used", "limit", "\u0394 used", "\u0394 time", "Cur."],
   "wide": false,
   "note": "Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.",
@@ -290,6 +322,22 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
   lines hidden and the older lines beyond the newest 1,000 that are not shown (counts with a comma for thousands).
 - `noteHighlight`: `true` when the note says that lines are left out (the one that starts `Showing`), which the window shows in blue; `false` for the notes about there being no history, and `false` when there is no note.
 - `wide`: whether the times have the date, so the first column is wider.
+- `format`: the format of the file, which holds one and never both. `kinds` says what kind each column is, in the
+  order of `columns`, for a client to give its columns their widths by: `time`, `amount`, `delta`, `seconds` and
+  `currency` in the usage-based format; `time`, `percent`, `clock` (a time of day), `day` (month, day and time),
+  `date` (a full date and time), `points` and `seconds` in the seat-based one.
+- **A file in the seat-based format** has other columns: the time, `5h %`, `7d %`, when the setting
+  `seatHistoryResets` is on `5h resets` after the first and `7d resets` after the second, when `seatHistoryDelta` is
+  on `\u0394 5h` and `\u0394 7d`, and when `historyDeltaTime` is on `\u0394 time`. There is no currency. For example
+
+  ```json
+  { "cells": ["16:25:53", "12.90", "18:00", "80.10", "10-10 02:00", "+0.6", "+0.1", "60 s"], "start": false, "failed": false, "title": "" }
+  ```
+
+  The percentages are the file's own text; a reset is the time of day for the five-hour limit and the month, the day
+  and the time for the weekly one, and the full date and time for both when the date setting is on; a failed line has
+  `failed` in the second cell, as in the other format. Hidden lines, the note and the order are as described above,
+  a zero usage line being one in which neither percentage changed.
 - `total`: how many rows the file has; `exists`: `false`, with no lines, when there is no history yet.
 - `500` with `{"error": "The usage history could not be read."}` if the file cannot be read.
 

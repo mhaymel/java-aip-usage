@@ -35,42 +35,74 @@ class UsageParserTest {
     }
 
     @Test
-    void aResponseInTheSeatBasedFormatIsRefused() throws IOException {
-        UsageParseException refused = assertThrows(
-                UsageParseException.class, () -> parser.parse(fixture("usage-windows.json"), FETCHED_AT));
+    void aResponseWithPlanWindowsIsAReadingInTheSeatBasedFormat() throws IOException {
+        UsageSnapshot snapshot = parser.parse(fixture("usage-windows.json"), FETCHED_AT);
 
-        assertEquals(
-                "This account answers in the seat-based format (plan limits), which this version does not"
-                        + " support yet; only the usage-based format (spend) is.",
-                refused.getMessage());
+        assertEquals(UsageFormat.SEAT_BASED, snapshot.format());
+        assertNull(snapshot.spend());
+        assertEquals(new PlanLimits.Limit(12.34, "2026-10-06T18:00:00Z"), snapshot.limits().fiveHour());
+        assertEquals(new PlanLimits.Limit(80.0, "2026-10-10T00:00:00Z"), snapshot.limits().sevenDay());
     }
 
     @Test
-    void spendBesideAPlanWindowIsRefusedLikeTheWindowsAlone() {
+    void theUsageBasedFormatIsToldFromItsNullWindowKeysAndItsExtraUsage() throws IOException {
+        assertEquals(UsageFormat.USAGE_BASED, parser.parse(fixture("usage-credits.json"), FETCHED_AT).format());
+        assertNull(parser.parse(fixture("usage-empty.json"), FETCHED_AT).format(), "a reading that reports nothing has no format");
+    }
+
+    @Test
+    void planWindowsWithSpendBesideThemAreSeatBasedAndTheSpendIsIgnored() {
         String body = """
                 {"five_hour": {"utilization": 12.5, "resets_at": "2026-10-06T18:00:00Z"},
+                 "seven_day": {"utilization": 40, "resets_at": null},
                  "spend": {"enabled": true,
                   "used": {"amount_minor": 18602, "currency": "USD", "exponent": 2},
                   "limit": {"amount_minor": 100000, "currency": "USD", "exponent": 2}}}
                 """;
 
-        UsageParseException refused = assertThrows(UsageParseException.class, () -> parser.parse(body, FETCHED_AT));
+        UsageSnapshot snapshot = parser.parse(body, FETCHED_AT);
 
-        assertEquals(UsageParser.SEAT_BASED_REFUSED, refused.getMessage());
+        assertEquals(UsageFormat.SEAT_BASED, snapshot.format());
+        assertNull(snapshot.spend(), "not shown, not written");
+        assertEquals(12.5, snapshot.limits().fiveHour().utilization());
+        assertNull(snapshot.limits().sevenDay().resetsAt(), "a missing reset time is no fault");
     }
 
     @Test
-    void oneWindowIsEnoughEvenAtExactlyZeroOrWithNoResetTime() {
-        for (String window : List.of(
-                "{\"utilization\": 0, \"resets_at\": \"2026-10-10T00:00:00Z\"}",
-                "{\"utilization\": 3.5, \"resets_at\": null}",
-                "{\"utilization\": 7.5}")) {
-            String body = "{\"spend\": {\"enabled\": false}, \"seven_day_opus\": " + window + "}";
+    void aSpendThatCouldNotBeReadDoesNotFailASeatBasedReadingSinceItIsIgnored() {
+        String body = """
+                {"five_hour": {"utilization": 1}, "seven_day": {"utilization": 2}, "spend": {"enabled": true}}
+                """;
 
-            UsageParseException refused =
-                    assertThrows(UsageParseException.class, () -> parser.parse(body, FETCHED_AT), window);
+        assertEquals(UsageFormat.SEAT_BASED, parser.parse(body, FETCHED_AT).format());
+    }
 
-            assertEquals(UsageParser.SEAT_BASED_REFUSED, refused.getMessage(), window);
+    @Test
+    void onlyTheFiveHourAndTheSevenDayWindowAreUsedAndEveryOtherIsPassedOver() {
+        String body = """
+                {"five_hour": {"utilization": 0, "resets_at": null}, "seven_day": {"utilization": 150.5},
+                 "seven_day_opus": {"utilization": 77}, "cedar_ember": {"utilization": 3.5, "resets_at": null}}
+                """;
+
+        PlanLimits limits = parser.parse(body, FETCHED_AT).limits();
+
+        assertEquals(new PlanLimits.Limit(0, null), limits.fiveHour(), "exactly zero is a reading");
+        assertEquals(new PlanLimits.Limit(150.5, null), limits.sevenDay(), "over 100 is kept as it is");
+    }
+
+    @Test
+    void aSeatBasedResponseThatLacksOneOfTheTwoLimitsIsRefused() {
+        for (String body : List.of(
+                "{\"five_hour\": {\"utilization\": 7.5}}",
+                "{\"seven_day\": {\"utilization\": 7.5}, \"five_hour\": null}",
+                "{\"seven_day_opus\": {\"utilization\": 7.5}}",
+                "{\"five_hour\": {\"utilization\": 1}, \"seven_day\": {\"utilization\": \"high\"}}")) {
+            UsageParseException refused = assertThrows(UsageParseException.class, () -> parser.parse(body, FETCHED_AT), body);
+
+            assertEquals(
+                    "The usage response is in the seat-based format but lacks \"five_hour\" or \"seven_day\";"
+                            + " its format may have changed.",
+                    refused.getMessage(), body);
         }
     }
 
@@ -134,10 +166,10 @@ class UsageParserTest {
 
     @Test
     void windowsWithoutASpendObjectAreTheSeatBasedFormatAndNotSomeOtherDocument() {
-        UsageParseException refused = assertThrows(
-                UsageParseException.class, () -> parser.parse("{\"five_hour\": {\"utilization\": 7.5}}", FETCHED_AT));
+        UsageSnapshot snapshot = parser.parse(
+                "{\"five_hour\": {\"utilization\": 7.5}, \"seven_day\": {\"utilization\": 1}}", FETCHED_AT);
 
-        assertEquals(UsageParser.SEAT_BASED_REFUSED, refused.getMessage());
+        assertEquals(UsageFormat.SEAT_BASED, snapshot.format());
     }
 
     @ParameterizedTest

@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.26). What these mechanisms make the
+How the requirements are met today (version 0.27). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1314,13 +1314,56 @@ reading and is not refused.
 
 ### 39. Both formats: the seat-based one supported, one format to a history file, a tab for each in the settings
 
-**Status: planned, not built, and not yet planned in detail.** Requirement: Supporting the seat-based format, which holds what is
-decided (the program tells the two formats apart from the response; plan windows with spend beside them are seat-based and the spend is
-ignored; only `five_hour` and `seven_day` are used; a history file holds one format, and a file of the other is moved to
-`java-aip-usage.YYYY.MM.DD-HH.mm.ss.csv`, with two log lines; the percentages have no colour) and what is still a proposal (the
-columns of the seat-based file, the row, the history table, the settings with a tab for each format, a fake backend that sends
-either). It undoes the refusal of phase 38 and brings back, in another shape, some of what that phase deleted. The steps are to be
-written here once the proposals are confirmed. It is to be built on the made-up response of `usage-windows.json`; no real one is waited for.
+**Status: done (version 0.27); not seen in the window, and built on a made-up response.** Requirement: The seat-based format (and
+Source data, Display requirements, Command line, Fake backend). It undoes the refusal of phase 38 and brings back, in another shape,
+some of what that phase deleted: a reading can hold limits again, though two named ones and not a list of windows.
+
+- **The model.** `UsageFormat` (`usage-based`, `seat-based`, with the text the log, the command line and the API write);
+  `PlanLimits` with its `Limit` (a utilization and the reset time as sent); and `UsageSnapshot`, which now holds a spend or the
+  limits, never both, and says its `format()`, `null` for a reading that reports nothing. The two-argument constructor stays for the
+  usage-based reading, and a seat-based one is made with `UsageSnapshot.seatBased`: two two-argument constructors would be ambiguous
+  for a `null`.
+- **The parser.** `hasPlanWindows` decides the format, as it decided the refusal. A seat-based response is read from `five_hour` and
+  `seven_day` alone and refused with `SEAT_BASED_INCOMPLETE` if either is missing; its `spend` is not read at all, so a spend
+  that could not be read cannot fail a reading in which it is ignored.
+- **The history file (`UsageHistory`).** `content()` reads what the file holds from its first line: empty, a format, or a header
+  that is neither's. `makeRoomFor` then leaves it (upgrading an old usage-based header), empties it (a header and no rows), or sets it
+  aside with `setAside`, a move to `<name>.<yyyy.MM.dd-HH.mm.ss>.csv` that never replaces a file, with the two log lines. The time
+  of the name comes from a `Clock`, a constructor parameter so that a test knows the name. A failed row is written in the shape of
+  the file, or of `lastFormat` when there is none. `latest()` restores a reading of either format.
+- **Reading it back.** `HistoryReader` tells the format from the header and gives `Table.format()`; a seat-based row has eight
+  fields and its status in the sixth (`statusIndex`). `HistoryDeltas.Delta` has a second figure, `other`, for the weekly limit, and
+  `isZero(format)` says what a zero usage line is in each format. The existing one-format entry points stay as overloads.
+- **The display.** `Formatting` has `percent`, `span`, `signedPoints` and `resetCell` (the first two came back from phase 38).
+  `StatusDisplay` sends `format` and a `seat` block with two `LimitView`s, and puts the change of both percentages into the one
+  `deltaUsed` item, whose `show` flag follows the switch of the format in force, so the page needed no new flag. `ApiHandler`
+  builds the seat-based history in `seatHistory`, with `kinds` naming what each column is, sends the two limits as
+  `usage.windows`, and says the format in force with the settings (`formatInForce`).
+- **Settings.** Four switches, `seatShowResets`, `seatShowDelta`, `seatHistoryResets` and `seatHistoryDelta`, at the end of the
+  record, with the sixteen-argument constructor kept so that the many positional calls of the tests stand; `withSeat` sets them.
+- **The fake backend.** `--fake-format` in `LaunchOptions` (an old seven-argument constructor kept), `FakeBackend.start(scenario,
+  format)`, `POST /format`, and `UsageDocument.nextSeatBased`, whose limits climb and are set back when their reset time is reached.
+- **The page.** A `seat` group in the strip beside `spend`, filled by `renderLimit`. The seat-based table has columns that come and
+  go with three switches, so its lines get their column widths inline, from `view.js`'s map of the backend's `kinds`, and the class
+  `seat-table`; the usage-based table keeps the `cols-N` rules of the style sheet. The settings have a `Format` group with two tab
+  buttons and two panels; the four switches that exist in the usage-based format only moved from `Main view` and `History view` onto
+  its tab. `showTab` shows one and marks the one in force.
+- **Tests.** Parser: both formats told apart, spend ignored beside windows, the two limits only, the refusal of an incomplete
+  response. History: the seat-based row and its local reset times, a failed row in each shape, the file set aside both ways round and
+  for an unknown header, a header-only file replaced, never onto a file that is there, nothing moved by a failure or an empty reading,
+  the reading restored at startup. Reader and deltas: the format from the header, eight fields, both changes, the zero usage line.
+  Display, formatting, options, fake backend (the limits climb, are set back, the format switched while running), settings store.
+  `ApiTest`: a seat-based reading end to end, the seat-based history with its switches, and a change of format through the running
+  application. Page: the row, the change of format at a poll, the table with its widths, the tabs, Apply with both tabs, Maximum and
+  Minimum view. The tests of the refusal of phase 38 became tests of the reading.
+- **Docs.** The requirements (the section is no longer a proposal), `api.md`, the README, the fixtures README.
+
+*Assumed, easy to change:* a percentage that did not change is `0.0` in the row's pair and an empty cell in the history; a reset
+time that cannot be read is none; the widths of the seat-based columns; Maximum and Minimum view act on both tabs; a failed row for
+a file with an unknown header keeps the usage-based shape.
+
+**Not done.** No response of a real seat-based account has been seen. The window has not been looked at with either the seat-based
+row or the tabs, and the widths of the seat-based table are untried by eye.
 
 ## Validation
 

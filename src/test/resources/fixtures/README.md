@@ -5,8 +5,8 @@ Responses of `https://api.anthropic.com/api/oauth/usage`, copied from the
 
 | File | Shape |
 | --- | --- |
-| `usage-credits.json` | The **usage-based format**, the one the application supports. Real response of a usage-based seat, amounts neutralised: plan windows all `null`, balance in `spend`. |
-| `usage-windows.json` | The **seat-based format**, which the application refuses: this is the fixture of the refusal. Synthetic Pro/Max seat: `spend.enabled` false, windows populated. |
+| `usage-credits.json` | The **usage-based format**. Real response of a usage-based seat, amounts neutralised: plan windows all `null`, balance in `spend`. |
+| `usage-windows.json` | The **seat-based format**, of which this made-up response is the only example the application was built on. Synthetic Pro/Max seat: `spend.enabled` false, windows populated. |
 | `usage-empty.json` | Synthetic: neither spend nor windows. |
 
 Each carries detail the parser must get right: placeholder keys the real

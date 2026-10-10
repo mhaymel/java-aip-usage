@@ -6,10 +6,10 @@ shows it in a compact JavaFX WebView window, refreshed on a timer.
 
 The endpoint answers in one of two formats, depending on the subscription the
 account has. The **usage-based format** carries spend (`used`, `limit`,
-`currency`, `percent`, `severity`) and is the one this version supports. The
-**seat-based format**, that of Pro, Max and other plans with a session and a
-weekly limit, carries plan windows and is not supported yet: the window says so
-instead of showing figures. When a refresh fails the last good figures stay on screen,
+`currency`, `percent`, `severity`). The **seat-based format**, that of Pro, Max
+and other plans with a session and a weekly limit, carries the percentage used of
+each limit and when it is set back. The program tells them apart itself and shows
+whichever it is sent. When a refresh fails the last good figures stay on screen,
 dimmed, with the error underneath.
 
 ## The window
@@ -33,8 +33,8 @@ repos.
 
 > **Status:** first version complete. It has run end to end on macOS against a
 > usage-based account: startup, scheduled and manual refresh, saving a setting,
-> a missing Claude Code CLI, and clean shutdown. An account on a Pro, Max or other
-> seat-based plan is not supported yet. See [Known limitations](#known-limitations).
+> a missing Claude Code CLI, and clean shutdown. The seat-based format, that of a Pro
+> or Max account, is built on a made-up response and has not met a real account. See [Known limitations](#known-limitations).
 
 ## Prerequisites
 
@@ -94,8 +94,18 @@ while the application runs; the log line
 curl -X POST --data "http-500" http://127.0.0.1:<port>/scenario
 ```
 
+`--fake-format seat-based` makes it answer as a Pro or Max account does, and the
+format can be changed while it runs as well, which sets the usage history aside and
+begins a new one, since a history file holds one format:
+
+```sh
+./gradlew run --args="--fake-backend --fake-format seat-based"
+curl -X POST --data "usage-based" http://127.0.0.1:<port>/format
+```
+
 The scenario names, `--anthropic-url` and `--fake-token` are described in the
-requirements ([Fake backend](docs/requirements.md#fake-backend) and Command line),
+requirements ([Fake backend](docs/requirements.md#fake-backend),
+[The seat-based format](docs/requirements.md#the-seat-based-format) and Command line),
 and `--help` lists every option.
 
 Or start `org.example.Main` from IntelliJ (▶ in the gutter next to `main`). It needs no
@@ -145,9 +155,9 @@ What the program deliberately does not do is in the requirements
 has not been verified:
 
 - **macOS only.** Windows and Linux are untested.
-- **Only the usage-based format has met a real account.** The refusal of the
-  seat-based format is tested with a made-up response; no real Pro or Max
-  account has been tried.
+- **Only the usage-based format has met a real account.** The seat-based format
+  is built on, and tested with, a made-up response; no real Pro or Max account
+  has been tried, and a real response may differ from it.
 - **The rate limit is an inference.** The usage endpoint seems to accept about one
   request a minute over the long run, after a burst of about ten, and restarting the
   application repeatedly can draw HTTP 429 sooner, since each start fetches at once.

@@ -294,7 +294,7 @@ class ApiTest {
     private static String allSettings(int interval, boolean logResponse, String timeFormat) {
         return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
                 + ", \"showPercentage\": true, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
-                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true}";
+                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"seatShowResets\": true, \"seatShowDelta\": false, \"seatHistoryResets\": true, \"seatHistoryDelta\": false}";
     }
 
     @Test
@@ -306,7 +306,10 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(16, body.get("settings").size());
+        assertEquals(20, body.get("settings").size());
+        assertTrue(body.at("/settings/seatShowResets").asBoolean());
+        assertFalse(body.at("/settings/seatShowDelta").asBoolean());
+        assertEquals("usage-based", body.get("format").asText(), "with no reading and no history, the usage-based format");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -418,32 +421,96 @@ class ApiTest {
         assertEquals(0, usage.get("windows").size());
     }
 
+    /** A reading in the seat-based format, as the parser makes it from a response with plan windows. */
+    private static final UsageSnapshot SEAT = UsageSnapshot.seatBased(FETCHED_AT, new org.example.usage.PlanLimits(
+            new org.example.usage.PlanLimits.Limit(12.34, "2026-10-08T14:00:00Z"),
+            new org.example.usage.PlanLimits.Limit(80.0, "2026-10-10T00:00:00Z")));
+
+    private List<String> filesOfTheRun() throws IOException {
+        try (java.util.stream.Stream<Path> all = Files.list(dir)) {
+            return all.map(p -> p.getFileName().toString()).filter(name -> name.endsWith(".csv")).sorted().toList();
+        }
+    }
+
     @Test
-    void aResponseInTheSeatBasedFormatIsAFailedRefreshLikeAnyOther() throws Exception {
+    void aSeatBasedReadingIsShownRecordedAndSentInItsOwnShape() throws Exception {
         FakeFetch fetch = new FakeFetch();
+        fetch.answer = () -> SEAT;
         AppRuntime app = start(fetch);
         await(() -> app.service().state().snapshot() != null);
-        // The account now answers with plan windows, which the parser refuses.
-        String body = Files.readString(Path.of("src/test/resources/fixtures/usage-windows.json"));
-        fetch.answer = () -> new org.example.usage.UsageParser().parse(body, FETCHED_AT);
-        post(app, "/api/refresh", "{}");
-        await(() -> app.service().state().error() != null);
 
         JsonNode status = json(get(app, "/api/status"));
 
-        String refusal = "This account answers in the seat-based format (plan limits), which this version does not"
-                + " support yet; only the usage-based format (spend) is.";
-        assertEquals(refusal, status.at("/error/message").asText());
-        assertTrue(status.get("stale").asBoolean(), "the reading that was there is old now, and dimmed");
-        assertEquals(186.02, status.at("/usage/spend/used").asDouble(), "and still on show");
-        assertEquals(0, status.at("/usage/windows").size(), "no window is ever sent");
-        assertFalse(status.get("display").has("windows"), "nor has the window anything to draw one from");
-        assertEquals("stale", status.at("/display/message/kind").asText());
-        assertTrue(status.at("/display/message/text").asText().endsWith(": " + refusal));
-        assertTrue(status.at("/display/countdownAlert").isNull(), "it is no 429: nothing is slowed down");
-        assertEquals(refusal, json(get(app, "/api/errors")).at("/entries/0/message").asText());
-        List<String> rows = history(app);
-        assertTrue(rows.getLast().contains(",failed,"), "a failed row in the history: " + rows);
+        assertTrue(status.at("/usage/spend").isNull());
+        assertEquals(2, status.at("/usage/windows").size());
+        assertEquals("five_hour", status.at("/usage/windows/0/window").asText());
+        assertEquals(12.34, status.at("/usage/windows/0/utilization").asDouble());
+        assertEquals("2026-10-08T14:00:00Z", status.at("/usage/windows/0/resets_at").asText());
+        assertEquals("seven_day", status.at("/usage/windows/1/window").asText());
+        assertEquals("seat-based", status.at("/display/format").asText());
+        assertTrue(status.at("/display/spend").isNull());
+        assertEquals("5h", status.at("/display/seat/fiveHour/label").asText());
+        assertEquals("12.3%", status.at("/display/seat/fiveHour/text").asText());
+        assertEquals("7d", status.at("/display/seat/sevenDay/label").asText());
+        assertEquals("80%", status.at("/display/seat/sevenDay/text").asText());
+        assertTrue(status.at("/display/placeholder").isNull());
+        assertEquals(List.of(
+                "datetime,five_hour,five_hour_resets,seven_day,seven_day_resets,status,interval,duration_ms"), history(app).subList(0, 1));
+        assertTrue(history(app).get(1).matches("\\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d:\\d\\d,12\\.34,.{19},80\\.00,.{19},start,60,\\d+"), history(app).get(1));
+        assertEquals("seat-based", json(get(app, "/api/settings")).get("format").asText(), "the tab the settings open with");
+    }
+
+    @Test
+    void theHistoryOfASeatBasedFileHasItsOwnColumnsAndItsSwitches() throws Exception {
+        writeHistory("datetime,five_hour,five_hour_resets,seven_day,seven_day_resets,status,interval,duration_ms",
+                "2026-10-08 14:00:00,12.34,2026-10-08 18:00:00,80.00,2026-10-10 02:00:00,start,60,400",
+                "2026-10-08 14:01:03,12.94,2026-10-08 18:00:00,80.00,2026-10-10 02:00:00,,60,400",
+                "2026-10-08 14:02:03,,,,,failed,60,400");
+        FakeFetch none = new FakeFetch();
+        none.answer = () -> NO_USAGE;
+        AppRuntime app = start(none);
+
+        JsonNode plain = json(get(app, "/api/history"));
+
+        assertEquals("seat-based", plain.get("format").asText());
+        assertEquals(List.of("time", "5h %", "5h resets", "7d %", "7d resets"), titles(plain));
+        assertEquals("[\"time\",\"percent\",\"clock\",\"percent\",\"day\"]", plain.get("kinds").toString());
+        assertEquals("[\"14:02:03\",\"failed\",\"\",\"\",\"\"]", plain.at("/lines/0/cells").toString());
+        assertTrue(plain.at("/lines/0/failed").asBoolean());
+        assertEquals("[\"14:01:03\",\"12.94\",\"18:00\",\"80.00\",\"10-10 02:00\"]", plain.at("/lines/1/cells").toString());
+        assertTrue(plain.at("/lines/2/start").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm")
+                .replace("\"seatHistoryResets\": true", "\"seatHistoryResets\": false")
+                .replace("\"seatHistoryDelta\": false", "\"seatHistoryDelta\": true"));
+        JsonNode changes = json(get(app, "/api/history"));
+
+        assertEquals(List.of("time", "5h %", "7d %", "\u0394 5h", "\u0394 7d", "\u0394 time"), titles(changes));
+        assertEquals("[\"14:01:03\",\"12.94\",\"80.00\",\"+0.6\",\"\",\"63 s\"]", changes.at("/lines/1/cells").toString(),
+                "a percentage that did not change has an empty cell");
+        assertEquals("seat-based", json(get(app, "/api/settings")).get("format").asText(), "with no reading, the format of the file");
+    }
+
+    @Test
+    void aChangeOfFormatSetsTheHistoryAsideAndBeginsANewOne() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        AppRuntime app = start(fetch);
+        await(() -> history(app).size() == 2);
+        assertEquals("usage-based", json(get(app, "/api/status")).at("/display/format").asText());
+
+        fetch.answer = () -> SEAT;
+        post(app, "/api/refresh", "{}");
+        await(() -> app.service().state().snapshot().limits() != null);
+
+        List<String> files = filesOfTheRun();
+        assertEquals(2, files.size(), files.toString());
+        assertTrue(files.get(0).matches("java-aip-usage\\.\\d{4}\\.\\d\\d\\.\\d\\d-\\d\\d\\.\\d\\d\\.\\d\\d\\.csv"), files.get(0));
+        assertEquals("datetime,used,limit,currency,status,interval,duration_ms", Files.readAllLines(dir.resolve(files.get(0))).get(0));
+        assertEquals(2, history(app).size(), "the new file has its header and the reading");
+        assertTrue(history(app).get(0).startsWith("datetime,five_hour,"));
+        JsonNode status = json(get(app, "/api/status"));
+        assertEquals("seat-based", status.at("/display/format").asText());
+        assertTrue(status.get("change").isNull() || status.at("/change/delta_used").isNull(), "the first line of the new file has no change");
     }
 
     @Test
@@ -765,7 +832,8 @@ class ApiTest {
         await(() -> history(app).size() >= 2);
         post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showPercentage\": false, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": false,"
                 + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
-                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true}");
+                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true,"
+                + " \"seatShowResets\": true, \"seatShowDelta\": false, \"seatHistoryResets\": true, \"seatHistoryDelta\": false}");
         fail.set(false);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);

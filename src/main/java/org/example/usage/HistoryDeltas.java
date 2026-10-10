@@ -26,12 +26,25 @@ public final class HistoryDeltas {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
 
     /**
-     * @param used the change in the amount used, or {@code null} if it cannot be worked out
+     * @param used the change in the first figure of a row, or {@code null} if it cannot be worked out: the amount used in the
+     *     usage-based format, the percentage of the five-hour session limit in the seat-based one
+     * @param other the change in the percentage of the weekly limit, in the seat-based format; always {@code null} in the other
      * @param seconds the whole seconds since the previous row, or {@code null}
      */
-    public record Delta(BigDecimal used, Long seconds) {
+    public record Delta(BigDecimal used, BigDecimal other, Long seconds) {
 
-        public static final Delta NONE = new Delta(null, null);
+        public static final Delta NONE = new Delta(null, null, null);
+
+        /** A delta of the usage-based format, which has one figure. */
+        public Delta(BigDecimal used, Long seconds) {
+            this(used, null, seconds);
+        }
+
+        /** Whether the figures of the row are the same as those of the row before: a change of exactly zero in each. */
+        public boolean isZero(UsageFormat format) {
+            boolean first = used != null && used.signum() == 0;
+            return format == UsageFormat.SEAT_BASED ? first && other != null && other.signum() == 0 : first;
+        }
     }
 
     private HistoryDeltas() {
@@ -42,9 +55,14 @@ public final class HistoryDeltas {
      * @return one delta for each row, in the same order
      */
     public static List<Delta> compute(List<List<String>> rows) {
+        return compute(rows, UsageFormat.USAGE_BASED);
+    }
+
+    /** @param format the format of the file the rows are of, which says where their figures and their status are */
+    public static List<Delta> compute(List<List<String>> rows, UsageFormat format) {
         List<Delta> deltas = new ArrayList<>(rows.size());
         for (int i = 0; i < rows.size(); i++) {
-            deltas.add(i == 0 || beginsRun(rows.get(i)) ? Delta.NONE : between(rows.get(i - 1), rows.get(i)));
+            deltas.add(i == 0 || beginsRun(rows.get(i), format) ? Delta.NONE : between(rows.get(i - 1), rows.get(i), format));
         }
         return deltas;
     }
@@ -59,36 +77,44 @@ public final class HistoryDeltas {
      * @return one delta for each row, in the same order
      */
     public static List<Delta> computeVisible(List<List<String>> rows, boolean[] visible) {
+        return computeVisible(rows, visible, UsageFormat.USAGE_BASED);
+    }
+
+    public static List<Delta> computeVisible(List<List<String>> rows, boolean[] visible, UsageFormat format) {
         List<Delta> deltas = new ArrayList<>(rows.size());
         int previous = -1;
         for (int i = 0; i < rows.size(); i++) {
-            if (beginsRun(rows.get(i))) {
+            if (beginsRun(rows.get(i), format)) {
                 previous = -1;
             }
             if (!visible[i]) {
                 deltas.add(Delta.NONE);
                 continue;
             }
-            deltas.add(previous < 0 ? Delta.NONE : between(rows.get(previous), rows.get(i)));
+            deltas.add(previous < 0 ? Delta.NONE : between(rows.get(previous), rows.get(i), format));
             previous = i;
         }
         return deltas;
     }
 
-    private static boolean beginsRun(List<String> row) {
-        return row.get(4).startsWith("start");
+    private static boolean beginsRun(List<String> row, UsageFormat format) {
+        return row.get(HistoryReader.statusIndex(format)).startsWith("start");
     }
 
-    private static Delta between(List<String> before, List<String> row) {
-        return new Delta(used(before, row), seconds(before, row));
+    private static Delta between(List<String> before, List<String> row, UsageFormat format) {
+        return new Delta(
+                change(before, row, 1),
+                format == UsageFormat.SEAT_BASED ? change(before, row, HistoryReader.SEVEN_DAY_INDEX) : null,
+                seconds(before, row));
     }
 
-    private static BigDecimal used(List<String> before, List<String> row) {
+    /** The figure in that field of the row, less that of the row before. */
+    private static BigDecimal change(List<String> before, List<String> row, int field) {
         try {
-            if (before.get(1).isBlank() || row.get(1).isBlank()) {
+            if (before.get(field).isBlank() || row.get(field).isBlank()) {
                 return null;
             }
-            return new BigDecimal(row.get(1)).subtract(new BigDecimal(before.get(1)));
+            return new BigDecimal(row.get(field)).subtract(new BigDecimal(before.get(field)));
         } catch (NumberFormatException e) {
             return null;
         }
