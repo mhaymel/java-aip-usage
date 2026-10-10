@@ -41,7 +41,7 @@ subscriptions.
 | Name | Whose it is | What it carries | In this version |
 | --- | --- | --- | --- |
 | **usage-based format** | an account on a usage-based plan, where usage is billed as it is used, up to a spend limit | `spend` populated, `windows` empty | supported |
-| **seat-based format** | an account on a plan with a usage allowance, such as Pro, Max and the seat-based Team and Enterprise plans, which have a five-hour session limit and a weekly limit | `spend` is `null`, `windows` populated | **not supported** |
+| **seat-based format** | an account on a plan with a usage allowance, such as Pro, Max and the seat-based Team and Enterprise plans, which have a five-hour session limit and a weekly limit | `spend` is `null`, `windows` populated | **not supported**; to be supported as [Supporting the seat-based format](#supporting-the-seat-based-format) says |
 
 The names are this project's. Anthropic has no name for the two shapes of the response, so
 they are named after its own words for the two kinds of plan, "usage-based" and
@@ -62,10 +62,9 @@ key that is `null`, as the usage-based format has them, is no plan window and is
 over. Nothing of a refused response is shown, kept or written: no window, no utilization,
 no reset time.
 
-Nothing in the program shows a plan window, and nothing in this document says how one would be
-shown: no place in the row, no form for its figures, no test. How the seat-based format is to
-be displayed is to be decided, and written here, when it is supported, against a real account
-that answers in it.
+Nothing in the program shows a plan window in this version. How the seat-based format is to be
+supported, told from the other, recorded and shown is specified, as far as it is decided, in
+[Supporting the seat-based format](#supporting-the-seat-based-format), which is not yet built.
 
 For the usage-based format, the reading contains spend details and an empty `windows` array:
 
@@ -861,6 +860,253 @@ Every reading the application gets is kept, so the usage can be looked at afterw
   line that ends `,1` gets `start` and every other an empty status. The new file is written beside the old one
   as `java-aip-usage.csv.tmp`, and none is left behind. If the upgrade fails, the row of that refresh is not
   written. A row is added to a file whose header is none of the known ones without a header being added.
+
+## Supporting the seat-based format
+
+**This section is specified and not yet built.** Version 0.26 refuses the seat-based format, as
+Source data says, and everything else in this document describes that version. What follows is what
+the program is to do once both formats are supported. The parts headed *Proposal* are proposals: they
+were asked for, they are not decided, and they are to be confirmed or changed before they are built.
+When this section is built, the refusal and the passages that rest on it are replaced by it.
+
+### Both formats, told apart by the response
+
+- The program supports the usage-based format and the seat-based format, and it tells them apart
+  itself, from the structure of each response. There is no setting, no option and no question to the
+  person for it, and the operating system plays no part.
+- **How a response is told.** After the checks of a response that cannot be used (see The usage
+  request), the response is **seat-based** if it carries at least one plan window, that is, a
+  top-level object with a numeric `utilization` other than `extra_usage`; otherwise it is
+  **usage-based**. A window key that is `null` is no plan window, so the `null` keys of a usage-based
+  response do not make it seat-based.
+- **Plan windows and spend together are seat-based, and the spend is ignored.** An account on a
+  seat-based plan that has usage credits switched on can send both. One plan window is enough: the
+  response is seat-based, and its `spend` is neither shown nor written anywhere.
+- **Of the plan windows, two are used: `five_hour` and `seven_day`.** They are the session limit and
+  the weekly limit. Every other window a response carries, `seven_day_opus`, `seven_day_sonnet` and
+  any that is added later, is passed over: not shown, not written, not counted.
+- **A seat-based response must carry both.** One that is seat-based, because it carries some plan
+  window, and lacks `five_hour` or `seven_day`, or has one of them without a numeric `utilization`, is
+  a failed refresh: `The usage response is in the seat-based format but lacks "five_hour" or
+  "seven_day"; its format may have changed.` Half a reading is never shown. A `resets_at` that is
+  missing is not a fault: the limit is shown with no reset time.
+- **A reading with nothing to report has no format.** A response with no plan window and no enabled
+  `spend` is an account that reports no usage. It changes nothing about which format the program
+  takes the account to have, writes nothing, and moves no file.
+- **The format of a failed refresh is unknown**, since there is no response to tell it from. A failed
+  refresh never changes the format and never moves a file; its row goes into the history file as it
+  is (see below).
+- **A seat-based reading** therefore holds, besides the time it was received: for each of the two
+  windows its `utilization`, a percentage that can be over 100, and its `resets_at`, which can be
+  missing.
+
+### One format in one history file
+
+- `java-aip-usage.csv` holds one format, never both. Which one it holds is told by its header.
+- **When a reading arrives**, the program compares the format of the reading with the format of the
+  file.
+  - The same format: the row is added, as always.
+  - No file, or a file with nothing in it: the header of the reading's format is written, and the row.
+  - A file that has a header and no rows: it is replaced by one with the header of the reading's
+    format, and the row is added. Nothing is kept, since there is nothing to keep.
+  - **Another format, and rows in the file**: the file is set aside and a new one is begun, as
+    follows.
+- **Setting the file aside.** `java-aip-usage.csv` is moved, in one step where the file system can,
+  to `java-aip-usage.YYYY.MM.DD-HH.mm.ss.csv` beside it, named with the local date and time of the
+  move, for example `java-aip-usage.2026.10.10-14.24.53.csv`. A new `java-aip-usage.csv` is then
+  begun with the header of the reading's format, and the reading is its first row. The time is in the
+  name, and not the date alone, so that a second change on the same day cannot meet a file that is
+  already there; nothing is ever overwritten, merged or deleted. If the name is taken all the same,
+  the move is not made, the row is not written, and the failure is logged like any history that
+  cannot be written (the refresh still counts as a success).
+- **Two lines are logged**, at the information level: `The usage format changed: usage-based ==>
+  seat-based` (or `seat-based ==> usage-based`), and `The usage history so far was moved to <the full
+  path of the new file>`. Nothing in the window says so; the path is logged only, as the path of the
+  history is.
+- **The files set aside are the person's.** The program never reads them again, never shows them, and
+  never removes them. They are kept out of version control like the history itself.
+- **A failed refresh writes its row into the file as it is**, in that file's format, with the fields
+  of a reading empty. With no file yet, the row is written under the header of the format of the last
+  reading of this run, and under the usage-based header if there has been none.
+- **The reading shown at startup** (see Messages and states) is taken from `java-aip-usage.csv` in
+  whichever format it holds, and shown in that format's row.
+- **The first check of a run** is the same check as any other: if the program was last run with one
+  subscription and is now logged in with another, the first reading sets the file aside.
+
+### Proposal: the file of the seat-based format
+
+The file is as like the usage-based one as it can be: the same first column, the same last three
+columns, the same rules for the time, the numbers, the header and the status. What differs is the
+middle: there is no amount and no budget, but two percentages, each with the time at which it is set
+back.
+
+```
+datetime,five_hour,five_hour_resets,seven_day,seven_day_resets,status,interval,duration_ms
+2026-10-08 16:24:53,12.34,2026-10-08 18:00:00,80.00,2026-10-10 02:00:00,start,60,412
+2026-10-08 16:25:53,12.90,2026-10-08 18:00:00,80.10,2026-10-10 02:00:00,,60,388
+2026-10-08 16:26:53,,,,,failed,60,5003
+```
+
+| Column | What it is |
+| --- | --- |
+| `datetime` | the time of the reading, local, `yyyy-MM-dd HH:mm:ss`, exactly as in the usage-based file |
+| `five_hour` | the utilization of the five-hour session limit, in percent: a plain number with two decimals and a dot, no `%` sign; it can be over 100 |
+| `five_hour_resets` | when that limit is set back: the local date and time, `yyyy-MM-dd HH:mm:ss`, the same form as `datetime` and for the same reason, that Excel reads it as a date and time; empty when the response gave none or one that cannot be read |
+| `seven_day` | the utilization of the weekly limit, as `five_hour` |
+| `seven_day_resets` | when the weekly limit is set back, as `five_hour_resets` |
+| `status`, `interval`, `duration_ms` | exactly as in the usage-based file |
+
+- The header tells the format: a file whose header begins `datetime,five_hour,` is seat-based, and one
+  whose header begins `datetime,used,limit` is usage-based, the three older headers of that format
+  included (see Usage history).
+- A reading always has both percentages, since a response without both is refused; a reset time that
+  the response did not give is an empty field. A row of a failed refresh has the four fields empty,
+  like the three of a failed row in the usage-based file.
+- There is no `currency` column and no `limit` column: the format has neither.
+- Everything else Usage history says holds for this file as well: added to and never overwritten, the
+  header once, UTF-8 with a line feed after every line, rounding upwards at half, `start`, `failed`
+  and `start-failed`, a reading with nothing to report writing nothing.
+
+- **A file whose header is neither of the two is set aside like a file of the other format**, whatever
+  the format of the reading: it is moved to a name with the date and time, the two lines are logged,
+  the first of them as `The usage format changed: unknown ==> seat-based` (or `unknown ==>
+  usage-based`), and a new file is begun. Nothing is lost that way, and the new file is certain to
+  hold one format. (This replaces the rule of today, under which such a file is left as it is and
+  added to.)
+
+### Proposal: the main view for the seat-based format
+
+The row keeps its shape: the time first, then the figures, the refresh button, the countdown, the
+optional items and the buttons. Only the figures are different.
+
+```
+14:24  5h 12.3% in 2 h 5 min   7d 80% in 1 d 4 h   ⟳ 42 s   ▤ ▦ ⚠ ⚙
+```
+
+1. the time of the last refresh, as now;
+2. the session limit: the label `5h`, its utilization, and, when its switch is on (on by default), the
+   time remaining until it is set back, in muted gray. It is the time remaining and not a time of day,
+   because the weekly limit is days away and a time of day alone would mislead; the exact date and
+   time is in the tooltip;
+3. the weekly limit: the label `7d`, its utilization, and the time until it is set back, likewise;
+4. the refresh button and the countdown, as now;
+5. the interval, when its switch is on, as now;
+6. the change since the previous reading, when its switches are on: the change of the two
+   percentages, in percentage points with their signs, `+0.6 / +0.1`, and the time since the previous
+   reading in whole seconds, as now;
+7. the log, history, error log and settings buttons, as now.
+
+- **The percentages have no colour of their own.** The seat-based format sends no severity, and the
+  program does not invent one: both are in the colour of the text, in the heavy weight the amounts
+  have. Nothing turns amber or red as a limit comes near.
+- **How the figures are written.** A utilization has one decimal, rounded to the nearer and upwards at
+  half, without a `.0`, and `%`: 12.34 is `12.3%`, 80 is `80%`, and one over 100 is shown as it is.
+  The time until a limit is set back is `in ` and a span that is cut, never rounded: under a minute
+  `N s`, under an hour `N min`, under a day `H h` with ` M min` unless the minutes are 0, from a day on
+  `D d` with ` H h` unless the hours are 0. A limit with no reset time says `reset unknown`, and one
+  whose reset time has come says `reset due`. A change of a percentage has one decimal and always its
+  sign; a change of exactly zero is left empty, as for the amount.
+- **Tooltips.** On the session limit: `Five-hour session limit: 12.34% used. Resets 8 Oct 2026,
+  18:00:00`; on the weekly limit: `Weekly limit: 80% used. Resets 10 Oct 2026, 02:00:00`; without the
+  second sentence when there is no reset time. On the change: `Change of the session limit and of the
+  weekly limit since the previous reading, in percentage points`.
+- **A change of format changes the row at the next reading**, with nothing to press: the figures of
+  the other format go and those of the new one come, and the window follows the new width.
+- Everything else of the row is as it is: the message line, the dimming of old figures, the red
+  countdown of a 429, `Loading…`, `No data` and `No usage reported`.
+
+### Proposal: the history view for the seat-based format
+
+The panel is the same panel, with the same size rules, the same note line, the same green startup
+line and red `failed`. The table has the columns of the seat-based file.
+
+```
+time        5h %   5h resets    7d %    7d resets   Δ 5h   Δ 7d   Δ time
+16:26:53   13.50       18:00   80.20  10-10 02:00   +0.6   +0.1     60 s
+16:25:53   12.90       18:00   80.10  10-10 02:00   +0.6   +0.1     60 s
+16:24:53   12.34       18:00   80.00  10-10 02:00
+```
+
+- The columns are `time` (or `date time`, by the date setting), `5h %`, `5h resets`, `7d %` and
+  `7d resets`, and, when their switch is on, `Δ 5h`, `Δ 7d` and `Δ time`. There is no currency column.
+  The time is at the left and every other column at the right, as now.
+- The percentages are the file's own text, two decimals, without a `%` sign in the cells, since the
+  title says it.
+- `5h resets` is the time of day, `18:00`, because that limit is set back within hours. `7d resets`
+  is the month, the day and the time of day, `10-10 02:00`, because that one is days away and a time
+  of day alone would mislead. With the date setting on, both are the full date and time. The two
+  reset columns have one switch between them (on by default).
+- `Δ 5h` and `Δ 7d` are the changes of the two percentages against the line before that is shown, in
+  the same run, in percentage points with one decimal and their sign; they have one switch between
+  them (off by default). When a limit is set back its change is negative, and is shown as it is.
+  `Δ time` is as now.
+- **A zero usage line** is one in which neither percentage changed against the row directly before it
+  in the same run; the startup lines count as such, as now. A failed line is as now.
+- The backend sends the lines finished, as now: the page draws them and decides nothing.
+
+### Proposal: the settings view, with a tab for each format
+
+What means the same in both formats is set once; what exists in one format only is on a tab of that
+format. A person therefore never sees a switch for a figure their account does not have, and never
+has to set the same thing twice.
+
+- **Set once, always shown**, as now: `Request` (the interval); in `Main view` the three icons, the
+  interval item, the time since the previous reading and the time format; in `History view` the date,
+  the zero usage lines, the failed lines and `Δ time`; and `Log`.
+- **Two tabs, `Usage-based` and `Seat-based`**, between them. One is shown at a time, and pressing the
+  other shows the other.
+
+  | Tab | Main view | History view |
+  | --- | --- | --- |
+  | `Usage-based` | `Percentage spent` (off), `Currency symbol` (off), `Change in the amount used` (off) | `Δ used` (off) |
+  | `Seat-based` | `Reset times` (on), `Change in the percentages` (off) | `Reset times` (on), `Δ 5h and Δ 7d` (off) |
+
+- **The tab shown when the view is opened is that of the format in force**: the format of the latest
+  reading; with no reading yet, the format of the history file; and with neither, `Usage-based`. The
+  tab of the format in force is marked, so that it can be told which one the row is using.
+- **Apply applies both tabs**, with the shared settings, in one request; the tab that is not shown
+  keeps what it had. Restore defaults and Cancel act on both as well. `Maximum view` and `Minimum
+  view` switch the shared main-view items and those of both tabs.
+- The settings of a tab take effect only while its format is the one in force; those of the other tab
+  are kept for when it is.
+- The new settings, with the keys they would have in `settings.json`: `seatShowResets` (on),
+  `seatShowDelta` (off), `seatHistoryResets` (on) and `seatHistoryDelta` (off). The existing keys keep
+  their names and their meaning, so a settings file of today is read as it is.
+- The window is as tall as the settings need, as now, so it follows the tab that is shown.
+
+### Proposal: the fake backend sends either format
+
+The fake backend sends only the usage-based format today because the other was not supported. Once it
+is, a run against the fake backend should be able to show it, and to show a change from one to the
+other, since that is the one thing that cannot be made to happen with a real account at will.
+
+- `--fake-format <name>`, `usage-based` (the default) or `seat-based`, says which format its normal
+  answer is in; it needs `--fake-backend`, like `--fake-scenario`.
+- The format can be changed while the application runs, the way the scenario can, with a `POST
+  /format` to the fake backend's address, so that one run can be taken through the change and the
+  setting aside of the history file.
+- Its seat-based answer is, key for key, what a seat-based account sends: `five_hour` and `seven_day`
+  with a `utilization` that climbs a little with each reading and a `resets_at` that is a fixed time
+  ahead and is set back when it is reached; a further window that must be passed over; and a `spend`
+  that is not enabled.
+
+### Decided, and still open
+
+Decided by the person, and written into the parts above: plan windows with spend beside them are
+seat-based and the spend is ignored; only `five_hour` and `seven_day` are used; a file set aside is
+named with the date and the time; the percentages have no colour; a history file with a header the
+program does not know is set aside as well; the labels are `5h` and `7d`, in the row and in the
+titles of the history; the reset in the row is the time remaining; and a seat-based response that
+lacks one of the two limits is a failed refresh.
+
+It is to be built on the made-up response of `src/test/resources/fixtures/usage-windows.json`: no
+response of a real Pro or Max account has been seen, and none is waited for. What a real one shows to
+be different is to be corrected when it is seen, and its response kept as a fixture then.
+
+Still proposals, to be confirmed as a whole or changed: the columns of the seat-based file; the items
+of the row, their order and their tooltips; the columns of the history and the forms of the two reset
+times in it; the settings with their two tabs, their four new switches and their defaults; and the
+fake backend that sends either format.
 
 ## Details of the behaviour
 

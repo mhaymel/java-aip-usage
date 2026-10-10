@@ -1312,6 +1312,16 @@ fake backend's document is the real usage-based response, key for key; and that 
 keys of a usage-based response do not count; and that an account that reports nothing at all (`No usage reported`) stays a valid
 reading and is not refused.
 
+### 39. Both formats: the seat-based one supported, one format to a history file, a tab for each in the settings
+
+**Status: planned, not built, and not yet planned in detail.** Requirement: Supporting the seat-based format, which holds what is
+decided (the program tells the two formats apart from the response; plan windows with spend beside them are seat-based and the spend is
+ignored; only `five_hour` and `seven_day` are used; a history file holds one format, and a file of the other is moved to
+`java-aip-usage.YYYY.MM.DD-HH.mm.ss.csv`, with two log lines; the percentages have no colour) and what is still a proposal (the
+columns of the seat-based file, the row, the history table, the settings with a tab for each format, a fake backend that sends
+either). It undoes the refusal of phase 38 and brings back, in another shape, some of what that phase deleted. The steps are to be
+written here once the proposals are confirmed. It is to be built on the made-up response of `usage-windows.json`; no real one is waited for.
+
 ## Validation
 
 What is tested, what stays outside the automated suite and what a person checks by
