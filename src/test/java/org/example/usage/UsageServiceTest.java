@@ -591,7 +591,9 @@ class UsageServiceTest {
         // One 429 doubles the 1.5 s interval: 3 s.
         assertEquals(3, service.effectiveIntervalSeconds());
         await(() -> service.state().error() == null && service.state().snapshot() != null);
-        await(() -> service.effectiveIntervalSeconds() < 3 || fetch.callTimesMillis.size() >= 4);
+        // The hold eases by an eighth at each success: 3 s, 2.6 s, 2.3 s. The fourth call comes 4.9 s after the second, which
+        // the usual wait of 5 s allowed by a twelfth of a second, so that this failed now and then; it has room now.
+        await(Duration.ofSeconds(15), () -> service.effectiveIntervalSeconds() < 3 || fetch.callTimesMillis.size() >= 4);
         assertTrue(service.effectiveIntervalSeconds() <= 3, "never more than the hold");
         assertTrue(service.effectiveIntervalSeconds() >= 2, "and never less than the configured one rounded up");
     }
@@ -923,10 +925,14 @@ class UsageServiceTest {
     }
 
     private static void await(BooleanSupplier condition) {
-        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        await(Duration.ofSeconds(5), condition);
+    }
+
+    private static void await(Duration atMost, BooleanSupplier condition) {
+        long deadline = System.nanoTime() + atMost.toNanos();
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) {
-                throw new AssertionError("condition not reached within 5 s");
+                throw new AssertionError("condition not reached within " + atMost.toSeconds() + " s");
             }
             try {
                 Thread.sleep(5);

@@ -96,8 +96,8 @@ class TitleBarWindowTest {
 
         // The button of Main view: a small icon in the line of the heading, which switches every element on, and all off when all are on.
         assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/8 .*"), "some elements are on, and the button is in the middle of its heading:\n" + all);
-        assertTrue(line(all, "settings-all").contains("/13 end"), "one press: all thirteen on:\n" + all);
-        assertTrue(line(all, "settings-narrow").contains("/0 end"), "another: all off:\n" + all);
+        assertTrue(line(all, "settings-all").contains("/13 note:"), "one press: all thirteen on:\n" + all);
+        assertTrue(line(all, "settings-narrow").contains("/0 note:"), "another: all off:\n" + all);
 
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.
         assertTrue(line(all, "log").contains(" logControls:true "), all);

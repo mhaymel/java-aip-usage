@@ -1427,6 +1427,11 @@ every panel; with no panel a least width while a message is shown; the elements 
 **Not checked by a test.** The log, the history and the error log with a message and a narrow row, in a real window: the
 rule is the one of the settings. How it looks.
 
+*Found on the way, in the tests only:* `UsageServiceTest.afterARateLimitTheEffectiveIntervalIsTheLongerWaitAndItEasesBack`
+failed about one run in six. It waited 5 seconds for something that comes after 4.9: the hold eases by an eighth at each
+success, so the fourth call is 2.6 and 2.3 seconds after the second. The program is as it was; that wait is 15 seconds
+now. And the on-request window test looked for the end of the probe's line where the probe has since added to it.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.37). What these mechanisms make the
