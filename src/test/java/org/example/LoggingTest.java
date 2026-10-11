@@ -128,4 +128,36 @@ class LoggingTest {
         }
         assertEquals(List.of(), Files.list(dir).toList());
     }
+
+    @Test
+    void aDebugLineOfTheProgramIsWrittenWithFineAsItsLevelAndOneOfAnythingElseIsNot() throws Exception {
+        Path file = dir.resolve("app.log");
+        java.util.logging.Logger other = java.util.logging.Logger.getLogger("com.example.other.LoggingTest");
+        try (Logging logging = Logging.install(file)) {
+            LOG.log(System.Logger.Level.DEBUG, "a debug line of the program");
+            LOG.log(System.Logger.Level.TRACE, "a trace line of the program");
+            other.fine("a debug line of a library");
+            other.info("an information line of a library");
+        }
+
+        List<String> lines = Files.readAllLines(file);
+        assertTrue(lines.stream().anyMatch(line -> line.matches("\\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d:\\d\\d FINE    \\[LoggingTest] a debug line of the program")),
+                "in the form of every line, with FINE where the level is: " + lines);
+        assertFalse(lines.stream().anyMatch(line -> line.contains("a trace line")), "debug, and nothing finer: " + lines);
+        assertFalse(lines.stream().anyMatch(line -> line.contains("a debug line of a library")), "only the program's own: " + lines);
+        assertTrue(lines.stream().anyMatch(line -> line.contains("an information line of a library")), lines.toString());
+        assertEquals(org.example.settings.LogLevel.DEBUG, org.example.settings.LogLevel.ofLogWord("FINE"), "which the log panel shows with Debug only");
+    }
+
+    @Test
+    void theLevelOfTheProgramsLoggersIsWhatItWasWhenLoggingIsClosed() throws Exception {
+        java.util.logging.Logger own = java.util.logging.Logger.getLogger(Logging.OWN_LOGGERS);
+        java.util.logging.Level before = own.getLevel();
+
+        try (Logging logging = Logging.install(dir.resolve("app.log"))) {
+            assertEquals(java.util.logging.Level.FINE, own.getLevel());
+        }
+
+        assertEquals(before, own.getLevel());
+    }
 }

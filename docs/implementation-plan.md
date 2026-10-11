@@ -1219,7 +1219,7 @@ gives the row a reading with no change, which is the same path.
 
 - **The levels.** `LogLevel`, in the settings package: error, warning, info, debug, with the word each has in the file
   (`SEVERE` for an error and `FINE` for a debug line, as `java.util.logging` writes them). The root logger is at
-  information, so a debug line is not written today.
+  information, so a debug line was not written then (it is since phase 56).
 - **Settings.** `logLevel` and `logDate` in `Settings` (`withLog`) and in `settings.json`, after the debug settings
   and before the two heights. `POST /api/settings` keeps them as they are, as it keeps the debug settings.
 - **The backend filters.** `LogTail.read` takes a level: it reads the last 512 kilobytes as before, keeps the entries the
@@ -1333,14 +1333,19 @@ as it did, and a drag over several screens.
 
 ### 56. Debug lines
 
-**Status: specified, not built (version 0.44).**
+**Status: built (version 0.44).** Requirement: Debug lines in the log.
 
-- **`Logging`** sets the root level to information; it is lowered so that debug lines reach the file and the console. Lines
-  of other libraries at that level would come with them, so the level is lowered for the program's own loggers only.
-- **The three lines**: `Window fitted to` and the two of the title bar in `UsageApp`, and `The <panel> window height is
-  now` in `IntervalSettings`, are written at debug.
-- **Tests.** `LoggingTest` for a debug line in the file; `LogTailTest` has the level already; the tests that look for
-  the three lines among the information lines (the on-request window tests read the title bar's from the log).
+- **`Logging`** leaves the root logger at information and sets the logger `org.example`, which is above all of the
+  program's own, to `FINE`; it holds that logger, since the logging system keeps one only while somebody does, and gives
+  it its old level back when it is closed. The two handlers took every level already.
+- **The three lines** are written at debug: `Window fitted to` and the two of the title bar in `UsageApp`, and `The
+  <panel> window height is now` in `IntervalSettings`.
+- **Tests.** `LoggingTest`: a debug line of the program is in the file with `FINE`, a trace line is not, a debug line of
+  another package is not, and the level is put back. That the log panel shows `FINE` with `Debug` only is in
+  `LogTailTest` since phase 52. No test looked for the three lines among the information lines.
+
+**Not checked by a test.** The three lines in the log of a real run: the on-request probe starts the window class without
+the program's logging, so its log is the console's.
 
 ### 57. The format error
 

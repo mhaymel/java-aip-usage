@@ -535,7 +535,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
     there. A window that stays on top still does afterwards.
   - Its tooltip is `Shows the title bar of the window. Off, the window is the row alone; the title bar comes back for as long as
     a panel is open, so open one to move or close the window.` The log says `The window has its title bar` and `The window has
-    no title bar` when it changes.
+    no title bar` when it changes, as debug lines.
 - **The window on top.** At startup the window comes to the front, above all other windows. The setting `Stay on top`, in the
   group `Window`, off by default and saved under the key `stayOnTop`, says what happens after that: on, the window stays above
   every other window for as long as the program runs; off, it was brought to the front at startup only and can be covered
@@ -607,9 +607,8 @@ The log is shown the way the usage history is: inside the main window, not in a 
   nothing to do with debug mode.
 - **After a change of the level or of the date the log stands at the top**, at its newest line, whatever it was
   scrolled to before.
-- **`Debug` is in the list although the program writes no debug lines today.** It writes at three levels, error,
-  warning and information, so for now `Debug` shows what `Info` shows. The level is there so that a debug line, once
-  the program writes one, can be shown and can be left out; it is not shown with `Info`, which is the default.
+- **`Debug` shows the debug lines of the program as well** (see Debug lines in the log), which `Info`, the default,
+  leaves out. Before version 0.44 the program wrote none, and `Debug` showed what `Info` shows.
 - **The level of a line is the word after its date and time.** The file is written through the logging of Java, which
   calls an error `SEVERE` and a debug line `FINE`: `SEVERE` and `ERROR` are errors, `WARNING` and `WARN` warnings,
   `INFO` and `CONFIG` information, and every other word, should the file ever hold one, is shown with `Debug` only.
@@ -1126,6 +1125,28 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   was is not remembered for the next start: the program starts where it always does. (Remembering the position was
   considered and decided against.)
 
+### Debug lines in the log
+
+- **The program writes debug lines** (since version 0.44). They are written to the log file and to the console in every run, with
+  `--debug` and without it, whatever level the log panel shows.
+- **The log panel shows them with `Debug` only**, so with the default, `Info`, they are not seen. `Debug` now shows
+  more than `Info` does.
+- **Three lines are debug lines**, which were written at the information level; their wording is unchanged:
+
+  | Line | Written when |
+  | --- | --- |
+  | `Window fitted to <width>x<height>`, with what follows it | the window is sized to the page |
+  | `The <panel> window height is now <N> px` | the height of the history or of the log is remembered |
+  | `The window has its title bar` and `The window has no title bar` | the title bar comes or goes |
+
+- **Every other line keeps its level**, the two lines of each refresh, `GET ... -> HTTP 200 in ... ms` and `Usage
+  refresh succeeded`, among them: they are information.
+- **Which lines are debug lines** is said here, line by line; a line that is not in the table is not one.
+- A debug line has `FINE` as the word for its level in the file, which is how the logging of Java writes it.
+- **Only the program's own debug lines are written.** What the runtime and the libraries would write at that level is
+  not: their lines are written from the information level up, as before.
+- Nothing finer than a debug line is written.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1218,30 +1239,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## Debug lines, the format error, and select all
+## The format error, and select all
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.43; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.44; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 56 to 58).
-
-### Debug lines in the log
-
-- **The program writes debug lines.** They are written to the log file and to the console in every run, with
-  `--debug` and without it, whatever level the log panel shows.
-- **The log panel shows them with `Debug` only**, so with the default, `Info`, they are not seen. `Debug` now shows
-  more than `Info` does.
-- **Three lines are debug lines**, which were written at the information level; their wording is unchanged:
-
-  | Line | Written when |
-  | --- | --- |
-  | `Window fitted to <width>x<height>`, with what follows it | the window is sized to the page |
-  | `The <panel> window height is now <N> px` | the height of the history or of the log is remembered |
-  | `The window has its title bar` and `The window has no title bar` | the title bar comes or goes |
-
-- **Every other line keeps its level**, the two lines of each refresh, `GET ... -> HTTP 200 in ... ms` and `Usage
-  refresh succeeded`, among them: they are information.
-- **Which lines are debug lines** is said here, line by line; a line that is not in the table is not one.
-- A debug line has `FINE` as the word for its level in the file, which is how the logging of Java writes it.
+when it is built (see the implementation plan, phases 57 and 58).
 
 ### An error in the log when the response has a format the program cannot process
 
@@ -1431,7 +1433,7 @@ These are things the program does that the sections above do not say, written do
   after the request's own line and before the status is judged, so it is written for a failed status as for a good one; when there was no answer at all there is nothing to write. The setting is asked for each response, so switching it takes effect with the next one, without a restart.
 - **The window's status polls are not logged.** They arrive every second, so a line for each would bury everything the log is kept for. The same holds for the window's reads of the log, the history and the error log panels, and for the page and its files: nothing the window asks for is logged, unless it goes wrong. What is logged is what the application does of its own accord, and what a person asked for: a manual refresh is logged, since there is one of those and not sixty a minute, as `Manual refresh requested`, and only when it started a request; a press that starts nothing writes nothing.
 - **What a request of the window writes when it goes wrong**, each at the warning level: `Could not read the log: <reason>` and `Could not read the usage history: <reason>` when a panel's file cannot be read, once for each request that failed, the reason going to the log only and never into the answer; `Could not read the usage history for the change: <reason>` when the file cannot be read for the status, at every poll for as long as it lasts, since a read that failed is tried again; `No such frontend resource: /web/<path>` for a file of the page that does not exist; and `API request failed: <path>` with the stack trace for a fault of the program inside a request.
-- A change of settings is logged with all the values, a change of the interval also as `Usage fetch interval is now N s`, and a new remembered height as `The history window height is now N px`. Applying settings that change nothing writes and logs nothing.
+- A change of settings is logged with all the values, a change of the interval also as `Usage fetch interval is now N s`, and a new remembered height as `The history window height is now N px`, which is a debug line. Applying settings that change nothing writes and logs nothing.
 - Two programs started at the same time in one directory write to the same history and settings files; running several at once is not something the program is built for (what happens to the log file then is up to the logging system, and has not been checked).
 - **What is written, and where.** Lines of the information level and above are written, and nothing finer. The console is the standard error output, not the standard output. The file is UTF-8. The levels are written as
   `INFO`, `WARNING` and `SEVERE`; what this document calls logged "as an error" is a `SEVERE` line. `[Name]` is the last part of the name of the part of the program that wrote the line, for example `[UsageApp]` or
@@ -1456,7 +1458,7 @@ These are things the program does that the sections above do not say, written do
   that cannot be stored the warning `Could not save the height of the <history or log> to <path>: <reason>`.
 - **The lines of the files and the window.** `Showing the newest reading in the usage history until the first refresh is done`, when a reading was taken from the history at startup. `Could not add the reading to <file>:
   <reason>`, a warning, for a history row that cannot be written. `Settings are stored in <path>`, the line that gives the path of the settings file. `Frontend served at http://127.0.0.1:<port>/`, and `Frontend loaded` when
-  the page has loaded. Each time the program gives the window a new size: `Window fitted to <w>x<h> (window <W>x<H>)`, the size of the content and then of the window with its title bar, with ` (resizable: height)` or
+  the page has loaded. Each time the program gives the window a new size, as a debug line: `Window fitted to <w>x<h> (window <W>x<H>)`, the size of the content and then of the window with its title bar, with ` (resizable: height)` or
   ` (resizable: both)` between them when it may be dragged. If the page cannot be asked for its size, the warning `Could not ask the page for its size: <reason>`, once in a run and not at every try.
 - **The order of the lines at startup**: `Logging to`, the start line, the settings path, the lines of the settings, in debug mode
   `Debug mode (--debug)`, the history path, the lines about the fake backend, the base URL and the token (see Non-functional

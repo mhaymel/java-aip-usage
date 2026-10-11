@@ -236,7 +236,7 @@ public class UsageApp extends Application {
         decorationWidth = Double.NaN;
         decorationHeight = Double.NaN;
         appliedSize = Optional.empty();
-        LOG.log(Level.INFO, wanted ? "The window has its title bar" : "The window has no title bar");
+        LOG.log(Level.DEBUG, wanted ? "The window has its title bar" : "The window has no title bar");
     }
 
     /**
@@ -328,7 +328,7 @@ public class UsageApp extends Application {
         } finally {
             applying = false;
         }
-        LOG.log(Level.INFO, "Window fitted to " + size.width() + "x" + contentHeight + (size.resizable() ? " (resizable: " + size.resize().name().toLowerCase() + ")" : "")
+        LOG.log(Level.DEBUG, "Window fitted to " + size.width() + "x" + contentHeight + (size.resizable() ? " (resizable: " + size.resize().name().toLowerCase() + ")" : "")
                 + " (window " + Math.round(stage.getWidth()) + "x" + Math.round(stage.getHeight()) + ")");
     }
 

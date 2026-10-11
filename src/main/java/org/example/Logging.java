@@ -37,6 +37,17 @@ final class Logging implements AutoCloseable {
 
     private final Level previousLevel = root.getLevel();
 
+    /**
+     * The logger above all of this program's own. It is held here because the logging system keeps a logger only for as
+     * long as somebody else does, and a level that was set on one it let go of would be lost.
+     */
+    private final Logger own = Logger.getLogger(OWN_LOGGERS);
+
+    private final Level previousOwnLevel = own.getLevel();
+
+    /** The name every logger of this program begins with: that of its package. */
+    static final String OWN_LOGGERS = "org.example";
+
     private Logging() {
     }
 
@@ -54,6 +65,9 @@ final class Logging implements AutoCloseable {
             root.removeHandler(handler);
         }
         root.setLevel(Level.INFO);
+        // The program's own debug lines are written as well, in every run; the log panel shows them when its level is
+        // Debug. The lines of everything else, the libraries and the runtime, stay at information and above.
+        logging.own.setLevel(Level.FINE);
 
         Formatter formatter = new LineFormatter();
         ConsoleHandler console = new ConsoleHandler();
@@ -118,6 +132,7 @@ final class Logging implements AutoCloseable {
             root.addHandler(handler);
         }
         root.setLevel(previousLevel);
+        own.setLevel(previousOwnLevel);
     }
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT);

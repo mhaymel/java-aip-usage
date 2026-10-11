@@ -81,7 +81,7 @@ public final class IntervalSettings {
             return;
         }
         heights = updated;
-        LOG.log(System.Logger.Level.INFO, "The " + panel + " window height is now " + pixels + " px");
+        LOG.log(System.Logger.Level.DEBUG, "The " + panel + " window height is now " + pixels + " px");
     }
 
     /** Every setting as in force: what the file holds, but with the usage interval the run is using. */
