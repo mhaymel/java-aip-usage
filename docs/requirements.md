@@ -1444,6 +1444,95 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
+## The wait after a 429 with the automatic interval, no selecting, the no-spend text on hover, and the About view
+
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.53; where
+this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
+when it is built (see the implementation plan, phases 66 to 69).
+
+### With the automatic interval, the search follows a longer wait the server names
+
+- **The fault.** With `Automatic` on, Anthropic answered a 429 with `retry-after 300`. The search worked out 156
+  seconds and said so in the log, the row showed that as its interval, and the next try came after 5 minutes, as the
+  message said: the one wait the server named was honoured and the search kept its own figure. Two figures for one
+  wait, and `Next try in 5 min` beside `Automatic interval: 156 s`, read as a fault.
+- **The search takes the wait the server names.** After a 429 the search makes its step as before, and when the server
+  names a wait that is longer than the interval it then has, **the interval becomes that wait**. So the log, the
+  element `Interval` of the row, the countdown and `Next try in ...` all say the same.
+- **Never more than 300 seconds.** A wait of the server above 300 seconds makes the interval 300; that one wait is
+  still as long as the server says, within the limit there is for it, since the server asked for it.
+- **The bounds stay sound**: the lower bound is the interval that was refused, as before, and when the server's wait
+  is above the upper bound the upper bound is 300 again.
+- **It comes down again by itself**: the next answers that are no 429 halve the way to the lower bound, as always.
+- **The log** says the interval the search has after that, `Automatic interval: 300 s (between <lower> s and 300 s)`,
+  and `Rate limited; next try in 5 min` then agrees with it.
+- With `Automatic` off nothing changes: the back-off honours `retry-after` as it did.
+
+### Nothing in the window can be selected
+
+- **No text of the window can be selected**, by dragging, by a double or triple click, or by a key for selecting
+  everything. Before, a drag or a double click selected text as in a web page, and the row, a message line or a whole
+  list stood in the blue of a selection (see `docs/img_4.png`, `docs/img_5.png` and `docs/img_6.png`).
+- **That holds for everything**: the row and its message lines, the lines of the log, the usage history and the error
+  log and their headers, the settings and the debug settings, and the About view.
+- **So nothing can be copied out of the window.** The text of the settings could be selected and copied until now, and
+  so could the lines of the lists; that is given up. The log and the history are files, and the About view says where
+  they are.
+- **The field of the interval is the one exception**: what is typed in it can be selected and replaced, as in any
+  field to type in.
+- Nothing else changes: a click on a button, the tooltips, and dragging the window that has no title bar.
+
+### The text of an answer with no spend is shown while the mouse is on a gray box
+
+- **The line that says an answer came and has no spend is not always there.** It is shown below the row **while the
+  mouse pointer is over one of the gray boxes** of the amounts, the percentage, the amount used or the budget, and it
+  goes when the pointer leaves them.
+- **It is the line there was**: the same two texts, in the muted gray, below the row, and the window is taller by it
+  while it is shown, as for the line of an HTTP 429 over the countdown.
+- **Only in that state**: a reading with no spend. A gray box at the start, and one with no data, has no such line; the
+  failure with no data has its own red line, which is always there.
+- **The tooltips of the boxes are as they were**, `Credits used: no usage reported`.
+- **The log is as it was**: the text in the place of `Usage refresh succeeded`, as a warning when it begins.
+- **The least width a message line gives the window** holds for this line while it is shown.
+
+### The About view
+
+- **The program has an About view**, which says what the program is and shows its logo larger than an icon can.
+- **It is opened from the settings.** The row of buttons of the settings view, `Apply`, `Restore defaults` and
+  `Cancel`, has a fourth button with the text `About`, at the right end of the row and set apart from the three. Its
+  tooltip is `About this program`. There is no button for it in the row of the window, and no window of its own.
+- **It is shown in the place of the settings form**, in the panel area below the row: the groups of the settings and
+  their three buttons are not shown while it is, and the window is as tall as the row and the About view need and as
+  wide as it was with the settings.
+- **What it shows**, from the top:
+  - the **logo**, the gauge of the program's icon, **96 pixels** wide and tall, drawn from the largest file of the icon;
+  - the **name**, `aip usage`, and under it the **version**, as the title bar has it: `v0.57`;
+  - **where the files are**, each with its full path: `Settings`, `Log` and `Usage history`. The history is the file
+    in use, so in debug mode with the fake backend it is the file of the invented readings;
+  - **Java and system**: `Java` with the version of the runtime, `JavaFX` with its version, and `System` with the
+    name and the version of the operating system;
+  - **`Debug mode`**: `off`; or `on` when the program was started with `--debug`; or `on, the fake backend is in
+    use` while it is.
+- **The lines are a table of two columns**, the name of a thing at the left in the muted gray and what it is at the
+  right, in the type of the settings view. The logo, the name and the version are centred above it.
+- **The text cannot be selected**, like everything in the window (see Nothing in the window can be selected); the
+  paths are there to be read. A path that is longer than the view is wide is broken over lines; it never makes the
+  window wider.
+- **It has one button, `Back`**, which shows the settings form again.
+- **The settings are kept as they were.** Pressing `About` saves nothing and loses nothing: what was changed in the form
+  and not saved is still in it after `Back`, the preview in the row stays as it was, and `Apply`, `Restore defaults`
+  and `Cancel` do then what they always do.
+- **A button of the row pressed while About is shown** does what it does from the settings: the settings are saved, as
+  they stand in the form, and the gear closes the view, or the other panel is shown. So the About view is left by
+  `Back` or by a button of the row, and there is no way out of it that loses the changes but `Back` and then `Cancel`.
+- **Opening the settings shows the form, not About**, each time.
+- **While it is shown the window has its title bar**, as with the settings, of which it is a part.
+- **The figures are read when the view is opened**, so the path of the history and the line of debug mode say what
+  holds at that moment. If they cannot be read, the logo, the name and the version are shown and a red line says
+  `The details could not be read: <reason>`.
+- **The paths are given to the window alone.** The requests for the log and the history still say nothing of where a
+  file is; the About view is where the program says it, to the person in front of it.
+
 ## Details of the behaviour
 
 These are things the program does that the sections above do not say, written down so that the requirements are the whole of it.

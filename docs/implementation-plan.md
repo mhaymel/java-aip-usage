@@ -1557,6 +1557,55 @@ the search goes down to 11 seconds and stays.
 
 The requirements have no section "specified, not yet built" any more.
 
+### 66 to 69. The wait after a 429, no selecting, the no-spend text on hover, the About view
+
+Requirement: The wait after a 429 with the automatic interval, no selecting, the no-spend text on hover, and the About view.
+*Decided by the person:* the search follows the wait the server names; nothing at all can be selected; the no-spend line is
+shown below the row while the mouse is on a gray box; the three fixes first, a version each, then the About view.
+
+| Phase | Version | Piece |
+| --- | --- | --- |
+| 66 | 0.54 | With the automatic interval, the search follows a longer wait the server names |
+| 67 | 0.55 | Nothing in the window can be selected |
+| 68 | 0.56 | The no-spend text is shown while the mouse is on a gray box |
+| 69 | 0.57 | The About view |
+
+### 66. The search follows the server's wait
+
+**Status: specified, not built (version 0.54).** `IntervalSearch.rateLimited` takes the wait the server named and, when it is
+longer than the step gave, makes it the interval, at most 300 seconds, with the upper bound at 300 when it was below;
+`UsageService.settleSearch` hands it over and keeps the one longer wait on the schedule only for a wait above 300. Tests in
+`IntervalSearchTest` and `UsageServiceTest`, the case of the log among them: refused at 11 seconds with `retry-after 300`.
+
+### 67. Nothing can be selected
+
+**Status: specified, not built (version 0.55).** `user-select: none` for the page, and `text` for the field of the interval
+alone; the rule that made the settings selectable goes. A key that selects everything is passed over. Tests in
+`layout.test.cjs`; the on-request window test drags across the row and a list and reads the selection, which must be empty.
+
+### 68. The no-spend text on hover
+
+**Status: specified, not built (version 0.56).** The backend still gives the text, as a line of its own kind and no longer
+as the message that is always shown; the page shows it while the mouse is on a gray box of the amounts, as it shows the
+line of a 429 while the mouse is on the countdown. Tests in `StatusDisplayTest` and `app.test.cjs`.
+
+### 69. The About view
+
+**Status: specified, not built (version 0.57).** Requirement: The About view. *Decided by the person:* it is opened by a button
+`About` in the button row of the settings; it shows where the files are, Java and the system, and debug mode, with a logo of
+96 pixels; the settings are kept and `Back` returns to them.
+
+- **A request of its own**, `GET /api/about`: the version, the three paths, the versions of Java, JavaFX and the system,
+  and the two facts of debug mode. The paths are absolute, which no other request gives; the server listens on the
+  loopback address only.
+- **The logo** is the icon of 256 pixels, which the local server serves to the page beside its other files, drawn at 96.
+- **The page.** A part of the settings view that is shown in the place of the form; `openPanel` stays `settings`, so the
+  title bar, the saving by a button of the row and the size of the window are those of the settings, and the form keeps
+  its values because it is only hidden.
+- **Tests.** `ApiTest` for the request, with and without debug mode and the fake backend; `app.test.cjs` for opening,
+  `Back` with unsaved changes kept, a button of the row saving, a request that fails; `layout.test.cjs` for the button
+  and the view; the on-request window test for the logo's size and the window's width.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.37). What these mechanisms make the
