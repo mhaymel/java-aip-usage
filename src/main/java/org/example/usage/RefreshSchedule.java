@@ -60,6 +60,10 @@ final class RefreshSchedule {
         return running;
     }
 
+    boolean isRunning() {
+        return running;
+    }
+
     /**
      * Asks for a request now, ahead of schedule.
      *

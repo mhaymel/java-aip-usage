@@ -38,7 +38,7 @@ repos.
   use the bundled `./gradlew`.
 - **The Claude Code CLI, installed and logged in**, with `claude` on the `PATH`
   of the shell you start this from. The OAuth token is taken from it, which takes
-  about a second at startup. `--fake-backend` (below) runs without it.
+  about a second at startup. Debug mode with the fake backend (below) runs without it.
 - **Direct network access to `api.anthropic.com`.**
 
 The first version targets macOS. What the application does when one of these is
@@ -62,36 +62,41 @@ project root for `./gradlew run`.
 Options go after `--args`:
 
 ```sh
-./gradlew run --args="--usage-interval 10 --poll-interval 2"
+./gradlew run --args="--debug"
 ./gradlew run --args="--help"
 ```
 
 ### Running without Anthropic
 
-One option runs the whole application against a fake Anthropic backend it starts
+Debug mode can run the whole application against a fake Anthropic backend it starts
 itself, so it needs no account, nobody logged in and no network, and spends nothing
 on the real endpoint:
 
 ```sh
-./gradlew run --args="--fake-backend"
+./gradlew run --args="--debug"
 ```
 
-The readings are invented, and the rows land in the usage history of whatever
-directory you start it from — start it somewhere else if you would rather not mix
-them with your real ones.
+In debug mode the row has a yellow debug button at its right end. It opens the debug
+settings: `Fake backend` switches the fake backend on and off while the program runs,
+the list beside it says what it answers, and `Placeholder token` sends a placeholder
+to the real endpoint instead of a real token. They are saved in `settings.json`, so
+the next start with `--debug` begins as the last one ended; a start without `--debug`
+ignores them and always uses the real endpoint with a real token.
 
-`--fake-scenario <name>` says what it should answer, and the scenario can be changed
-while the application runs; the log line
+While the fake backend is in use the window has a red border that fades in and out:
+the figures are invented. They are written to a history file of their own,
+`java-aip-usage.fake.csv`, and never among your real readings.
+
+The scenario can also be changed from outside while the application runs; the log line
 `Fake backend listening on http://127.0.0.1:<port>` gives the port:
 
 ```sh
-./gradlew run --args="--fake-backend --fake-scenario http-429-retry-after"
 curl -X POST --data "http-500" http://127.0.0.1:<port>/scenario
 ```
 
-The scenario names, `--anthropic-url` and `--fake-token` are described in the
-requirements ([Fake backend](docs/requirements.md#fake-backend) and Command line),
-and `--help` lists every option.
+The scenario names and `--anthropic-url` are described in the requirements
+([Debug mode](docs/requirements.md#debug-mode), [Fake backend](docs/requirements.md#fake-backend)
+and Command line), and `--help` lists every option.
 
 Or start `org.example.Main` from IntelliJ (▶ in the gutter next to `main`). It needs no
 VM options or module path. Set the run configuration's working directory to the
@@ -125,8 +130,8 @@ shell that has it and try again.
 ## Configuration
 
 Settings are changed in the window, behind the gear, and saved in `settings.json`.
-A few things are command-line options for one run only, given after `--args` as
-above. What each setting and option does, which wins over which, and what is saved
+The command line has three options, `--debug`, `--anthropic-url <url>` and `--help`,
+given after `--args` as above. What each setting and option does and what is saved
 are specified in the requirements
 ([Refresh behavior](docs/requirements.md#refresh-behavior), Settings and Command line).
 

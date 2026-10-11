@@ -46,8 +46,9 @@ public final class IntervalSettings {
     }
 
     /**
-     * @param cliUsage the {@code --usage-interval} override, if given; already validated
-     * @param cliPoll the {@code --poll-interval} value, if given; already validated
+     * @param cliUsage an interval that is used for this run in place of the file's and is never saved, if given; the command
+     *     line had an option for it once and has none now, so the application gives none
+     * @param cliPoll how often the window asks for the latest state, if not the default; likewise no longer given
      */
     public static IntervalSettings load(SettingsStore store, OptionalInt cliUsage, OptionalInt cliPoll) {
         Settings saved = store.load();

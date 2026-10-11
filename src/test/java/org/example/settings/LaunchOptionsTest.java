@@ -1,6 +1,5 @@
 package org.example.settings;
 
-import org.example.fake.Scenario;
 import org.example.settings.LaunchOptions.InvalidOptionsException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -9,7 +8,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,253 +20,106 @@ class LaunchOptionsTest {
         return LaunchOptions.parse(List.of(args));
     }
 
+    private static String refusal(String... args) {
+        return assertThrows(InvalidOptionsException.class, () -> parse(args)).getMessage();
+    }
+
     @Test
     void noArgumentsLeaveEverythingToTheSettings() {
         assertEquals(LaunchOptions.none(), parse());
-    }
-
-    @Test
-    void readsBothIntervalsInEitherForm() {
-        LaunchOptions spaced = parse("--usage-interval", "10", "--poll-interval", "2");
-        LaunchOptions joined = parse("--usage-interval=10", "--poll-interval=2");
-
-        assertEquals(OptionalInt.of(10), spaced.usageInterval());
-        assertEquals(OptionalInt.of(2), spaced.pollInterval());
-        assertEquals(spaced, joined);
-    }
-
-    @Test
-    void eitherOptionMayBeGivenAlone() {
-        assertEquals(OptionalInt.of(10), parse("--usage-interval", "10").usageInterval());
-        assertEquals(OptionalInt.empty(), parse("--usage-interval", "10").pollInterval());
-        assertEquals(OptionalInt.of(2), parse("--poll-interval=2").pollInterval());
-        assertEquals(OptionalInt.empty(), parse("--poll-interval=2").usageInterval());
-    }
-
-    @Test
-    void acceptsTheBoundaries() {
-        assertEquals(OptionalInt.of(5), parse("--usage-interval=5").usageInterval());
-        assertEquals(OptionalInt.of(3600), parse("--usage-interval=3600").usageInterval());
-        assertEquals(OptionalInt.of(1), parse("--poll-interval=1").pollInterval());
-        assertEquals(OptionalInt.of(60), parse("--poll-interval=60").pollInterval());
-    }
-
-    @Test
-    void helpIsRecognised() {
-        assertTrue(parse("--help").help());
-        assertTrue(parse("-h").help());
+        assertFalse(parse().debug(), "not in debug mode unless asked");
+        assertEquals(Optional.empty(), parse().baseUrl());
         assertFalse(parse().help());
     }
 
+    // ---- --debug
+
+    @Test
+    void debugTurnsDebugModeOnAndTakesNoValue() {
+        assertTrue(parse("--debug").debug());
+        assertEquals(LaunchOptions.debugMode(), parse("--debug"));
+        assertEquals("--debug takes no value.", refusal("--debug=true"));
+        assertEquals("--debug was given more than once.", refusal("--debug", "--debug"));
+    }
+
+    @Test
+    void debugAndTheUrlGoTogetherInEitherOrder() {
+        LaunchOptions one = parse("--debug", "--anthropic-url", "http://127.0.0.1:8080");
+        LaunchOptions other = parse("--anthropic-url=http://127.0.0.1:8080", "--debug");
+
+        assertEquals(one, other);
+        assertTrue(one.debug());
+        assertEquals(Optional.of(URI.create("http://127.0.0.1:8080")), one.baseUrl());
+    }
+
+    // ---- the options that are gone
+
     @ParameterizedTest
-    @ValueSource(strings = {"4", "3601", "0", "-5", "abc", "", "1.5", "1e3", "99999999999999999999"})
-    void rejectsABadUsageInterval(String value) {
-        InvalidOptionsException e = assertThrows(
-                InvalidOptionsException.class, () -> parse("--usage-interval", value));
-
-        assertTrue(e.getMessage().startsWith("--usage-interval must be"), e.getMessage());
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"0", "61", "-1", "x", ""})
-    void rejectsABadPollInterval(String value) {
-        InvalidOptionsException e = assertThrows(
-                InvalidOptionsException.class, () -> parse("--poll-interval=" + value));
-
-        assertTrue(e.getMessage().startsWith("--poll-interval must be"), e.getMessage());
+    @ValueSource(strings = {"--fake-backend", "--fake-token", "--fake-scenario", "--usage-interval", "--poll-interval"})
+    void theOptionsThatWereRemovedAreUnknownNow(String option) {
+        assertEquals("Unknown option: " + option, refusal(option));
+        assertEquals("Unknown option: " + option + "=1", refusal(option + "=1"));
     }
 
     @Test
-    void rejectsAMissingValue() {
-        assertTrue(assertThrows(InvalidOptionsException.class, () -> parse("--usage-interval"))
-                .getMessage().contains("needs a value"));
-    }
-
-    @Test
-    void rejectsUnknownOptionsAndStrayArguments() {
-        assertThrows(InvalidOptionsException.class, () -> parse("--interval", "10"));
-        assertThrows(InvalidOptionsException.class, () -> parse("10"));
-        assertThrows(InvalidOptionsException.class, () -> parse("--usage-intervals=10"));
-    }
-
-    @Test
-    void rejectsARepeatedOption() {
-        assertThrows(InvalidOptionsException.class, () -> parse("--usage-interval=10", "--usage-interval=20"));
-        assertThrows(InvalidOptionsException.class, () -> parse("--poll-interval=1", "--poll-interval", "2"));
-    }
-
-    @Test
-    void theUsageTextStatesTheRangesAndDefaults() {
-        assertTrue(LaunchOptions.USAGE.contains("5-3600"), LaunchOptions.USAGE);
-        assertTrue(LaunchOptions.USAGE.contains("default 60"), LaunchOptions.USAGE);
-        assertTrue(LaunchOptions.USAGE.contains("1-60"), LaunchOptions.USAGE);
-        assertTrue(LaunchOptions.USAGE.contains("default 1)"), LaunchOptions.USAGE);
-    }
-
-    @Test
-    void theUsageTextSaysWhichIntervalIsSavedAndWhichIsNot() {
-        assertTrue(LaunchOptions.USAGE.contains("saved to settings.json"), LaunchOptions.USAGE);
-        assertTrue(LaunchOptions.USAGE.contains("never saved"), LaunchOptions.USAGE);
+    void anUnknownOptionIsRefusedAsItWasWritten() {
+        assertEquals("Unknown option: --nope", refusal("--nope"));
+        assertEquals("Unknown option: --nope=1", refusal("--nope=1"));
+        assertEquals("Unknown option: 60", refusal("60"));
     }
 
     // ---- --anthropic-url
 
     @Test
     void readsTheBaseUrlInEitherForm() {
-        URI expected = URI.create("http://127.0.0.1:8080");
-
-        assertEquals(Optional.of(expected), parse("--anthropic-url", "http://127.0.0.1:8080").baseUrl());
-        assertEquals(Optional.of(expected), parse("--anthropic-url=http://127.0.0.1:8080").baseUrl());
-        assertEquals(Optional.empty(), parse().baseUrl());
+        assertEquals(Optional.of(URI.create("http://127.0.0.1:8080")), parse("--anthropic-url", "http://127.0.0.1:8080").baseUrl());
+        assertEquals(Optional.of(URI.create("http://127.0.0.1:8080")), parse("--anthropic-url=http://127.0.0.1:8080").baseUrl());
+        assertEquals(Optional.of(URI.create("https://example.test")), parse("--anthropic-url", "  https://example.test  ").baseUrl(), "trimmed");
     }
 
     @Test
-    void dropsOneTrailingSlashSoThePathCannotBeDoubled() {
-        assertEquals(
-                Optional.of(URI.create("http://127.0.0.1:8080")),
-                parse("--anthropic-url=http://127.0.0.1:8080/").baseUrl());
+    void aTrailingSlashIsDroppedAndAPathPrefixKept() {
+        assertEquals(Optional.of(URI.create("http://127.0.0.1:8080")), parse("--anthropic-url", "http://127.0.0.1:8080/").baseUrl());
+        assertEquals(Optional.of(URI.create("http://127.0.0.1:8080/proxy")), parse("--anthropic-url", "http://127.0.0.1:8080/proxy").baseUrl());
+        assertEquals(Optional.of(URI.create("http://127.0.0.1:8080/proxy")), parse("--anthropic-url", "http://127.0.0.1:8080/proxy/").baseUrl());
     }
 
-    /** A proxy is often reached under a path, and that path is a prefix of the endpoint's. */
     @Test
-    void keepsAPathAsAPrefix() {
-        assertEquals(
-                Optional.of(URI.create("https://proxy.example/anthropic")),
-                parse("--anthropic-url=https://proxy.example/anthropic").baseUrl());
+    void theSchemeMayBeInAnyCaseAndAnyHostIsAllowed() {
+        assertEquals(Optional.of(URI.create("HTTP://127.0.0.1:8080")), parse("--anthropic-url", "HTTP://127.0.0.1:8080").baseUrl());
+        assertEquals(Optional.of(URI.create("https://usage.example.org")), parse("--anthropic-url", "https://usage.example.org").baseUrl());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"http://127.0.0.1:8080", "https://api.anthropic.com", "HTTP://127.0.0.1:8080",
-            "http://localhost", "https://somewhere.far.away:8443/under/a/path"})
-    void acceptsAnyHostAndEitherScheme(String url) {
-        assertEquals(Optional.of(url.endsWith("/") ? url.substring(0, url.length() - 1) : url),
-                parse("--anthropic-url=" + url).baseUrl().map(URI::toString));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"127.0.0.1:8080", "/api/oauth/usage", "ftp://host", "file:///tmp/x", "http://",
-            "http://host?query=1", "http://host#fragment", "not a url at all", "://host"})
-    void rejectsAUrlItCannotFetchFrom(String url) {
-        InvalidOptionsException e = assertThrows(
-                InvalidOptionsException.class, () -> parse("--anthropic-url=" + url));
-
-        assertTrue(e.getMessage().startsWith("--anthropic-url must be an absolute http or https URL"), e.getMessage());
+    @ValueSource(strings = {"127.0.0.1:8080", "/just/a/path", "ftp://example.test", "http://", "http://example.test?x=1", "http://example.test#top", "not a url"})
+    void aUrlThatIsNotAnAbsoluteHttpOneIsRefused(String url) {
+        assertEquals("--anthropic-url must be an absolute http or https URL, not \"" + url + "\".", refusal("--anthropic-url", url));
     }
 
     @Test
-    void rejectsABaseUrlThatIsMissingOrEmptyOrRepeated() {
-        assertEquals("--anthropic-url needs a URL.",
-                assertThrows(InvalidOptionsException.class, () -> parse("--anthropic-url")).getMessage());
-        assertEquals("--anthropic-url needs a URL.",
-                assertThrows(InvalidOptionsException.class, () -> parse("--anthropic-url=")).getMessage());
-        assertThrows(InvalidOptionsException.class,
-                () -> parse("--anthropic-url=http://a", "--anthropic-url=http://b"));
+    void theUrlNeedsAValueAndIsGivenOnce() {
+        assertEquals("--anthropic-url needs a URL.", refusal("--anthropic-url"));
+        assertEquals("--anthropic-url needs a URL.", refusal("--anthropic-url="));
+        assertEquals("--anthropic-url needs a URL.", refusal("--anthropic-url", "   "));
+        assertEquals("--anthropic-url was given more than once.", refusal("--anthropic-url", "http://a.test", "--anthropic-url", "http://b.test"));
     }
 
-    // ---- --fake-token and --fake-backend
+    // ---- help
 
     @Test
-    void readsTheTwoFlagsThatTakeNoValue() {
-        assertTrue(parse("--fake-token").fakeToken());
-        assertTrue(parse("--fake-backend").fakeBackend());
-        assertFalse(parse().fakeToken());
-        assertFalse(parse().fakeBackend());
+    void helpIsAskedForInEitherForm() {
+        assertTrue(parse("-h").help());
+        assertTrue(parse("--help").help());
+        assertTrue(parse("--debug", "--help").help(), "beside other options too");
     }
 
     @Test
-    void eitherFlagMeansNoRealTokenIsObtained() {
-        assertTrue(parse("--fake-token").placeholderToken());
-        assertTrue(parse("--fake-backend").placeholderToken(), "the fake backend ignores the token");
-        assertTrue(parse("--fake-backend", "--fake-token").placeholderToken(), "both say the same thing");
-        assertFalse(parse().placeholderToken());
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"--fake-token", "--fake-backend"})
-    void rejectsAValueGivenToAFlag(String option) {
-        assertEquals(option + " takes no value.",
-                assertThrows(InvalidOptionsException.class, () -> parse(option + "=1")).getMessage());
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"--fake-token", "--fake-backend"})
-    void rejectsARepeatedFlag(String option) {
-        assertThrows(InvalidOptionsException.class, () -> parse(option, option));
-    }
-
-    /** Each says where usage comes from, so accepting both would mean silently picking one. */
-    @Test
-    void refusesTheTwoOptionsThatBothSayWhereUsageComesFrom() {
-        String expected = "--fake-backend and --anthropic-url cannot both be given: each says where usage comes from.";
-
-        assertEquals(expected, assertThrows(InvalidOptionsException.class,
-                () -> parse("--fake-backend", "--anthropic-url=http://127.0.0.1:1")).getMessage());
-        assertEquals(expected, assertThrows(InvalidOptionsException.class,
-                () -> parse("--anthropic-url=http://127.0.0.1:1", "--fake-backend")).getMessage());
-    }
-
-    // ---- --fake-scenario
-
-    @Test
-    void readsAScenarioByName() {
-        assertEquals(
-                Optional.of(Scenario.HTTP_429),
-                parse("--fake-backend", "--fake-scenario", "http-429").fakeScenario());
-        assertEquals(
-                Optional.of(Scenario.NOT_JSON),
-                parse("--fake-backend", "--fake-scenario=NOT-JSON").fakeScenario());
-        assertEquals(Optional.empty(), parse("--fake-backend").fakeScenario());
-    }
-
-    /**
-     * Refused rather than ignored: a forgotten --fake-backend would otherwise leave the run
-     * quietly fetching real usage while the person believed it was fake.
-     */
-    @Test
-    void refusesAScenarioWithNoBackendToServeIt() {
-        assertEquals("--fake-scenario needs --fake-backend.",
-                assertThrows(InvalidOptionsException.class, () -> parse("--fake-scenario=normal")).getMessage());
-    }
-
-    @Test
-    void refusesAScenarioItDoesNotKnowAndNamesTheOnesItDoes() {
-        InvalidOptionsException e = assertThrows(InvalidOptionsException.class,
-                () -> parse("--fake-backend", "--fake-scenario=explode"));
-
-        assertTrue(e.getMessage().startsWith("--fake-scenario must be one of "), e.getMessage());
-        for (Scenario scenario : Scenario.values()) {
-            assertTrue(e.getMessage().contains(scenario.optionName()), scenario + " missing from: " + e.getMessage());
+    void theUsageTextNamesTheOptionsThereAreAndNoneThatIsGone() {
+        for (String option : List.of("--debug", "--anthropic-url <url>", "-h, --help", "https://api.anthropic.com")) {
+            assertTrue(LaunchOptions.USAGE.contains(option), option);
         }
-        assertTrue(e.getMessage().endsWith("not \"explode\"."), e.getMessage());
-    }
-
-    @Test
-    void rejectsAScenarioThatIsMissingOrEmptyOrRepeated() {
-        assertEquals("--fake-scenario needs a name.",
-                assertThrows(InvalidOptionsException.class, () -> parse("--fake-backend", "--fake-scenario"))
-                        .getMessage());
-        assertEquals("--fake-scenario needs a name.",
-                assertThrows(InvalidOptionsException.class, () -> parse("--fake-backend", "--fake-scenario="))
-                        .getMessage());
-        assertThrows(InvalidOptionsException.class,
-                () -> parse("--fake-backend", "--fake-scenario=normal", "--fake-scenario=empty"));
-    }
-
-    // ---- the usage text
-
-    @Test
-    void theUsageTextNamesTheNewOptionsAndTheDefaultUrl() {
-        assertTrue(LaunchOptions.USAGE.contains("--anthropic-url"), LaunchOptions.USAGE);
-        assertTrue(LaunchOptions.USAGE.contains("--fake-token"), LaunchOptions.USAGE);
-        assertTrue(LaunchOptions.USAGE.contains("--fake-backend"), LaunchOptions.USAGE);
-        assertTrue(LaunchOptions.USAGE.contains("--fake-scenario"), LaunchOptions.USAGE);
-        assertTrue(LaunchOptions.USAGE.contains("https://api.anthropic.com"), LaunchOptions.USAGE);
-    }
-
-    @Test
-    void theUsageTextListsEveryScenario() {
-        for (Scenario scenario : Scenario.values()) {
-            assertTrue(LaunchOptions.USAGE.contains(scenario.optionName()), scenario + " missing from the usage text");
+        for (String gone : List.of("--fake-backend", "--fake-token", "--fake-scenario", "--usage-interval", "--poll-interval")) {
+            assertFalse(LaunchOptions.USAGE.contains(gone), gone);
         }
     }
 }

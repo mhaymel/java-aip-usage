@@ -62,6 +62,14 @@
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
         </button>
+        <button id="debug-button" class="icon tiny debug" type="button" aria-label="Debug mode: show the debug settings"
+                title="Debug mode: show the debug settings" aria-expanded="false" hidden>
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <ellipse cx="8" cy="9.4" rx="3.2" ry="4"/>
+                <path d="M5.6 5.6a2.4 2.4 0 0 1 4.8 0M8 5.6v7.8M4.8 8.2H1.8M14.2 8.2h-3M5 11.4l-2.6 1.6M11 11.4l2.6 1.6M5.4 6.2L3.4 4M10.6 6.2l2-2.2"/>
+            </svg>
+        </button>
         </span>
     </div>
 
@@ -130,6 +138,23 @@
                 <button id="settings-apply" type="button">Apply</button>
                 <button id="settings-restore" type="button" title="Fill in the defaults; Apply makes them take effect">Restore defaults</button>
                 <button id="settings-cancel" type="button" title="Close without changing anything">Cancel</button>
+            </p>
+        </div>
+        <div id="debug-view" class="settings" hidden>
+            <p id="debug-error" class="panel-error" role="alert" hidden></p>
+            <div id="debug-form">
+                <fieldset>
+                    <legend>Debug mode</legend>
+                    <span class="line">
+                        <label title="Usage comes from a fake backend inside this program, not from Anthropic: the figures are invented, and no token is obtained. It takes effect when it is saved, and is started at the next start in debug mode as well."><input id="debug-fakeBackend" type="checkbox"> Fake backend</label>
+                        <select id="debug-fakeScenario" aria-label="What the fake backend answers" title="What the fake backend answers: a usage document, or one of the ways a request can go wrong."></select>
+                    </span>
+                    <label title="Sends a placeholder instead of a real token to the real endpoint, so that no login is needed; Anthropic will refuse it."><input id="debug-fakeToken" type="checkbox"> Placeholder token</label>
+                </fieldset>
+            </div>
+            <p id="debug-buttons" class="buttons">
+                <button id="debug-apply" type="button">Apply</button>
+                <button id="debug-cancel" type="button" title="Close without changing anything">Cancel</button>
             </p>
         </div>
     </div>

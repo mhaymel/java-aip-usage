@@ -75,7 +75,7 @@ Every setting as the backend has it, read afresh each time the settings view is 
 ```
 
 `timeFormat` is `"hh:mm"` or `"hh:mm:ss"`. The interval is one number, whole seconds within `limits` (5 to 3600), which the settings view takes in a single entry field; there is no
-list of values, so an interval set on the command line or in the file is shown as it is. `settings.usageIntervalSeconds` (and the status' `display.interval`) is the interval in force: the configured one, or, while the application
+list of values, so an interval the file holds is shown as it is. `settings.usageIntervalSeconds` (and the status' `display.interval`) is the interval in force: the configured one, or, while the application
 waits longer after HTTP 429s, that longer wait in whole seconds rounded up. Applying values saves what is sent, so applying while backing off saves the longer
 wait as the configured interval. `defaults` and `GET /api/config` are not changed by a back-off.
 The same keys are in `settings.json`, which
@@ -88,7 +88,7 @@ unknown `timeFormat` or an interval outside `limits` is a `400` and nothing is c
 are not settings are ignored. A `null` counts as a missing key.
 
 - `200`: applied and saved, effective at once; the body is the same as `GET /api/settings`. The interval
-  replaces any command-line override for the rest of the run.
+  is in force for the rest of the run and the next.
 - `400`: the first fault found, the interval being checked first and then the other keys in the order above:
   `The usage interval must be a whole number of seconds from 5 to 3600.` (also for an interval that is not a
   whole JSON number), `The setting X is missing.`, `The setting X must be true or false.`,
@@ -99,6 +99,29 @@ are not settings are ignored. A `null` counts as a missing key.
   passes), or there is none: `Send Content-Type: application/json.`
 - `500`: the values are valid but could not be saved: `The settings could not be saved: <reason>`. Nothing is changed.
 
+
+## `GET /api/debug` and `POST /api/debug`
+
+The debug settings, in debug mode only: without `--debug` both answer `404` `No such endpoint.`, so a run that is not in
+debug mode has no way to them. They are not among the settings of `/api/settings`, which neither gives nor takes them and
+leaves them as they are.
+
+```json
+{
+  "settings": { "fakeBackend": false, "fakeScenario": "normal", "fakeToken": false },
+  "scenarios": ["normal", "http-401", "http-403", "http-429", "http-429-retry-after", "http-500", "not-json", "empty", "no-spend-no-windows", "trailing-text", "slow", "hang"]
+}
+```
+
+- `fakeBackend`: usage comes from the fake backend the program starts itself. `fakeScenario`: what that backend answers, one of
+  `scenarios`. `fakeToken`: a placeholder bearer is sent to the real endpoint instead of a real token.
+- `POST` takes an object with the three keys. `200`: saved in `settings.json` and in force at once; the body is that of `GET`.
+  Where usage comes from is opened anew: a fake backend is started or stopped, a usage request under way is given up, the reading
+  on show is replaced by the newest of the new source's own history or by none, and a refresh follows.
+- `400`: `The setting X is missing.`, `The setting X must be true or false.`, or
+  `The setting fakeScenario must be one of <the names>.`; nothing is changed.
+- `500`: `The debug settings could not be applied: <reason>` when the new source cannot be opened, or
+  `The settings could not be saved: <reason>`; nothing is changed, and the source in use stays.
 
 ## `GET /api/config`
 
@@ -111,7 +134,8 @@ The frontend asks for this once at startup, and then polls `/api/status` every
   "pollIntervalSeconds": 1,
   "limits": {
     "usageIntervalSeconds": { "min": 5, "max": 3600 }
-  }
+  },
+  "debug": false
 }
 ```
 
@@ -119,11 +143,12 @@ The frontend asks for this once at startup, and then polls `/api/status` every
   Default 60. It is changed, with the other settings, through `POST /api/settings`;
   this endpoint changes nothing.
 - `pollIntervalSeconds`: how often the frontend asks the backend for the latest
-  state. Default 1. It is read-only: it is set on the command line, for one run, and
-  is never saved or changed through this API. It has no entry under `limits` for that
+  state. Always 1. It is read-only: nothing sets it, saves it or changes it. It has no entry under `limits` for that
   reason.
+- `debug`: whether the program was started with `--debug`. The window then shows its debug button; without it there are no
+  debug settings to ask for (`/api/debug` is a `404`).
 
-The usage interval is the configured one: a command-line option, else the saved setting, else the default (see the requirements, Refresh behavior), until the
+The usage interval is the configured one: the saved setting, else the default (see the requirements, Refresh behavior), until the
 frontend changes it. It is not the longer wait of a back-off after HTTP 429s; `GET /api/settings` and the status' `display.interval` have that one.
 
 ## `GET /api/status`
@@ -202,7 +227,7 @@ texts are in the requirements (How the figures are written).
   `deltaTime`, `time`, `used`, `limit`, `refresh`, `countdown` and `duration` the settings switch on, and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
   the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language (the cells of the history are the exception: they are the file's own text, `1000.00`).
-- `historyStamp`: a text that changes whenever a row is added to the history file, a row of a failed refresh as well as a reading: the file's size in bytes, a `-`, and its time of last change in milliseconds.
+- `historyStamp`: a text that changes whenever a row is added to the history file in use (invented readings have a file of their own, `java-aip-usage.fake.csv`), a row of a failed refresh as well as a reading: the file's size in bytes, a `-`, and its time of last change in milliseconds.
   It is empty when there is no file, when what is there is not an ordinary file, and when the size or the time cannot be read. A client that
   shows the history reads it again when the stamp is not the one it read, and should treat the text as opaque.
 - `change`: what changed between the newest reading (the newest history row that has amounts) and the row
@@ -211,6 +236,8 @@ texts are in the requirements (How the figures are written).
   two rows, with the finished texts `delta_used_text` (`+0.05`, `null` for a change of zero) and `delta_seconds_text` (`63 s`, in seconds, never minutes, as the
   history has it, with the space the row's `deltaTime` does not have; there is no short minutes form). Either is `null` when it cannot be worked out: the first row of a run has neither, a failed row
   before it leaves no `delta_used`. See the requirements, Changes between readings.
+- `fake`: `true` while the fake backend is in use, so that the figures are invented; the window then has its red border. Always
+  `false` in a run that is not in debug mode.
 - `refreshing`: a fetch is running now.
 - `nextRefreshInSeconds`: whole seconds until the next *scheduled* refresh, to the
   nearest second, worked out by the backend; a frontend shows it and does no counting
@@ -249,7 +276,7 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.36", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.37", "..."]
 }
 ```
 

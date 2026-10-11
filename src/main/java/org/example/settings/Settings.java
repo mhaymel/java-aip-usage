@@ -1,5 +1,7 @@
 package org.example.settings;
 
+import org.example.fake.Scenario;
+
 /**
  * Every setting the user can change, as the settings file and the settings API hold them.
  *
@@ -27,6 +29,9 @@ package org.example.settings;
  * @param showDuration whether the time the latest usage request took is in the row
  * @param stayOnTop whether the window stays above every other window
  * @param showTitleBar whether the window has its title bar while no panel is open; with a panel open it always has
+ * @param fakeBackend a debug setting: usage comes from the fake backend the program starts itself
+ * @param fakeScenario a debug setting: what that backend answers
+ * @param fakeToken a debug setting: a placeholder bearer is sent rather than a real token being obtained
  */
 public record Settings(
         int usageIntervalSeconds,
@@ -52,7 +57,10 @@ public record Settings(
         boolean showCountdown,
         boolean showDuration,
         boolean stayOnTop,
-        boolean showTitleBar) {
+        boolean showTitleBar,
+        boolean fakeBackend,
+        Scenario fakeScenario,
+        boolean fakeToken) {
 
     /** The settings with the five elements of the row that were always there, all shown, and the request duration not, the window not kept on top and with its title bar, as they are by default. */
     public Settings(
@@ -62,7 +70,7 @@ public record Settings(
             boolean historyFailedLines) {
         this(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines,
-                historyFailedLines, true, true, true, true, true, false, false, true);
+                historyFailedLines, true, true, true, true, true, false, false, true, false, Scenario.NORMAL, false);
     }
 
     public static Settings defaults() {
@@ -73,67 +81,74 @@ public record Settings(
     public Settings withShowPercentage(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, on, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken);
     }
 
     public Settings withShowCurrency(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, on, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken);
     }
 
     public Settings withShowHistoryIcon(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, on, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken);
     }
 
     public Settings withShowLogIcon(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, on, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken);
     }
 
     public Settings withShowErrorIcon(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, on, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken);
     }
 
     public Settings withLogResponse(boolean on) {
         return new Settings(usageIntervalSeconds, on, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken);
     }
 
     public Settings withUsageIntervalSeconds(int seconds) {
         return new Settings(seconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken);
     }
 
     /** These settings with the five elements of the row that are shown by default switched as given. */
     public Settings withRowElements(boolean time, boolean used, boolean limit, boolean refresh, boolean countdown) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                time, used, limit, refresh, countdown, showDuration, stayOnTop, showTitleBar);
+                time, used, limit, refresh, countdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken);
     }
 
     public Settings withShowDuration(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, on, stayOnTop, showTitleBar);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, on, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken);
     }
 
     public Settings withStayOnTop(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, on, showTitleBar);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, on, showTitleBar, fakeBackend, fakeScenario, fakeToken);
     }
 
     public Settings withShowTitleBar(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, on);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, on, fakeBackend, fakeScenario, fakeToken);
+    }
+
+    /** These settings with the three debug settings as given; they count only in a run that is in debug mode. */
+    public Settings withDebug(boolean backend, Scenario scenario, boolean token) {
+        return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
+                showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, backend, scenario, token);
     }
 }

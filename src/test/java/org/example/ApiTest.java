@@ -109,17 +109,16 @@ class ApiTest {
         return start(fetch, LaunchOptions.none());
     }
 
+    /** With the usage interval the settings file would hold; the command line no longer has one. */
+    private AppRuntime start(FakeFetch fetch, int usageSeconds) throws IOException {
+        new SettingsStore(dir.resolve("settings.json")).save(org.example.settings.Settings.defaults().withUsageIntervalSeconds(usageSeconds));
+        return start(fetch);
+    }
+
     private AppRuntime start(FakeFetch fetch, LaunchOptions options) throws IOException {
         AppRuntime runtime = AppRuntime.start(AppFiles.in(dir), options, fetch);
         runtimes.add(runtime);
         return runtime;
-    }
-
-    private static LaunchOptions cli(Integer usage, Integer poll) {
-        return new LaunchOptions(
-                usage == null ? OptionalInt.empty() : OptionalInt.of(usage),
-                poll == null ? OptionalInt.empty() : OptionalInt.of(poll),
-                Optional.empty(), false, false, Optional.empty(), false);
     }
 
     // ---- /api/config: the effective intervals, requested by the UI at startup
@@ -142,16 +141,6 @@ class ApiTest {
 
         assertTrue(config.get("pollIntervalSeconds").isInt(), "the page needs it to know how often to poll");
         assertTrue(config.at("/limits/pollIntervalSeconds").isMissingNode(), "nothing to validate: " + config);
-    }
-
-    @Test
-    void startupConfigReflectsTheCommandLineOverrides() throws Exception {
-        AppRuntime app = start(new FakeFetch(), cli(10, 4));
-
-        JsonNode config = json(get(app, "/api/config"));
-
-        assertEquals(10, config.get("usageIntervalSeconds").asInt());
-        assertEquals(4, config.get("pollIntervalSeconds").asInt());
     }
 
     @Test
@@ -188,32 +177,20 @@ class ApiTest {
     }
 
     @Test
-    void aFrontendValueReplacesTheCommandLineOverrideForTheRestOfTheRun() throws Exception {
-        AppRuntime app = start(new FakeFetch(), cli(10, 4));
-
-        post(app, "/api/settings", allSettings(75, false, "hh:mm"));
-
-        JsonNode config = json(get(app, "/api/config"));
-        assertEquals(75, config.get("usageIntervalSeconds").asInt());
-        assertEquals(4, config.get("pollIntervalSeconds").asInt(), "the update interval is still the command-line one");
-        assertEquals(Duration.ofSeconds(75), app.service().interval());
-    }
-
-    @Test
-    void aChangeSurvivesARestartButACommandLineUpdateIntervalDoesNot() throws Exception {
-        AppRuntime first = start(new FakeFetch(), cli(null, 9));
+    void aChangeSurvivesARestart() throws Exception {
+        AppRuntime first = start(new FakeFetch());
         post(first, "/api/settings", allSettings(200, false, "hh:mm"));
         first.close();
 
         JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
 
         assertEquals(200, config.get("usageIntervalSeconds").asInt());
-        assertEquals(1, config.get("pollIntervalSeconds").asInt());
+        assertEquals(1, config.get("pollIntervalSeconds").asInt(), "the window asks once a second, and nothing changes that");
     }
 
     @Test
     void theSavedFileNeverHoldsTheUpdateInterval() throws Exception {
-        AppRuntime app = start(new FakeFetch(), cli(null, 9));
+        AppRuntime app = start(new FakeFetch());
 
         post(app, "/api/settings", allSettings(200, false, "hh:mm"));
 
@@ -306,7 +283,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(24, body.get("settings").size());
+        assertEquals(24, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -379,6 +356,188 @@ class ApiTest {
 
         assertFalse(json(get(app, "/api/settings")).at("/settings/showTitleBar").asBoolean());
         assertFalse(app.settings().current().showTitleBar(), "which is where the window reads it");
+    }
+
+    // ---- debug mode: the debug settings, and where usage comes from
+
+    private static final String FAKE_ON = "{\"fakeBackend\": true, \"fakeScenario\": \"normal\", \"fakeToken\": false}";
+
+    private static final String FAKE_OFF = "{\"fakeBackend\": false, \"fakeScenario\": \"normal\", \"fakeToken\": false}";
+
+    @Test
+    void withoutDebugModeThereAreNoDebugSettingsToAskFor() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        assertFalse(json(get(app, "/api/config")).get("debug").asBoolean());
+        assertEquals(404, get(app, "/api/debug").statusCode());
+        assertEquals(404, post(app, "/api/debug", FAKE_ON).statusCode());
+        assertFalse(json(get(app, "/api/status")).get("fake").asBoolean());
+        assertFalse(json(get(app, "/api/settings")).get("settings").has("fakeBackend"), "nor are they among the settings");
+    }
+
+    @Test
+    void withoutDebugModeTheDebugSettingsOfTheFileCountForNothing() throws Exception {
+        new SettingsStore(dir.resolve("settings.json")).save(
+                org.example.settings.Settings.defaults().withDebug(true, org.example.fake.Scenario.HTTP_500, true));
+        FakeFetch fetch = new FakeFetch();
+        AppRuntime app = start(fetch);
+        await(() -> fetch.calls.get() >= 1);
+        await(() -> !history(app).isEmpty());
+
+        assertFalse(json(get(app, "/api/status")).get("fake").asBoolean(), "a run without --debug is never fake");
+        assertTrue(Files.exists(dir.resolve("java-aip-usage.csv")), "its readings are real ones");
+        assertFalse(Files.exists(dir.resolve("java-aip-usage.fake.csv")));
+        assertTrue(new SettingsStore(dir.resolve("settings.json")).load().fakeBackend(), "and the file keeps what it had");
+    }
+
+    @Test
+    void inDebugModeTheDebugSettingsAreGivenWithTheScenariosThereAre() throws Exception {
+        AppRuntime app = start(new FakeFetch(), LaunchOptions.debugMode());
+
+        assertTrue(json(get(app, "/api/config")).get("debug").asBoolean());
+        JsonNode body = json(get(app, "/api/debug"));
+        assertFalse(body.at("/settings/fakeBackend").asBoolean(), "off by default");
+        assertEquals("normal", body.at("/settings/fakeScenario").asText());
+        assertFalse(body.at("/settings/fakeToken").asBoolean());
+        assertEquals(org.example.fake.Scenario.values().length, body.get("scenarios").size());
+        assertEquals("normal", body.at("/scenarios/0").asText());
+    }
+
+    @Test
+    void theFakeBackendIsSwitchedOnAndOffWhileTheProgramRunsAndIsSaved() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        AppRuntime app = start(fetch, LaunchOptions.debugMode());
+        await(() -> app.service().state().snapshot() != null);
+        assertFalse(json(get(app, "/api/status")).get("fake").asBoolean());
+        int before = fetch.calls.get();
+
+        HttpResponse<String> on = post(app, "/api/debug", FAKE_ON);
+
+        assertEquals(200, on.statusCode());
+        assertTrue(json(on).at("/settings/fakeBackend").asBoolean());
+        assertTrue(json(get(app, "/api/status")).get("fake").asBoolean(), "at once");
+        await(() -> fetch.calls.get() > before);
+        assertTrue(new SettingsStore(dir.resolve("settings.json")).load().fakeBackend(), "and for the next start in debug mode");
+
+        assertEquals(200, post(app, "/api/debug", FAKE_OFF).statusCode());
+        assertFalse(json(get(app, "/api/status")).get("fake").asBoolean());
+        assertFalse(new SettingsStore(dir.resolve("settings.json")).load().fakeBackend());
+    }
+
+    @Test
+    void inventedReadingsHaveAHistoryFileOfTheirOwnAndTheRealOneIsNotTouched() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        AppRuntime app = start(fetch, LaunchOptions.debugMode());
+        Path real = dir.resolve("java-aip-usage.csv");
+        Path fake = dir.resolve("java-aip-usage.fake.csv");
+        await(() -> Files.exists(real) && lines(real) >= 2);
+        long realRows = lines(real);
+        assertFalse(Files.exists(fake));
+
+        post(app, "/api/debug", FAKE_ON);
+        await(() -> Files.exists(fake) && lines(fake) >= 2);
+        post(app, "/api/refresh", "{}");
+        await(() -> lines(fake) >= 3);
+
+        assertEquals(realRows, lines(real), "nothing invented among the real readings");
+        assertEquals("java-aip-usage.fake.csv", json(get(app, "/api/history")).get("file").asText(), "the panel shows the file in use");
+        assertEquals(lines(fake) - 1, json(get(app, "/api/history")).get("total").asInt());
+
+        post(app, "/api/debug", FAKE_OFF);
+        long fakeRows = lines(fake);
+        await(() -> lines(real) > realRows);
+        assertEquals(fakeRows, lines(fake), "and nothing real among the invented ones");
+        assertEquals("java-aip-usage.csv", json(get(app, "/api/history")).get("file").asText());
+    }
+
+    @Test
+    void theReadingOfTheOtherSourceGoesWithItAndTheNewestOfTheNewSourcesOwnHistoryIsShown() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        AppRuntime app = start(fetch, LaunchOptions.debugMode());
+        await(() -> app.service().state().snapshot() != null);
+        // Held, so that what the status shows right after the switch is what the service was given, not a new reading.
+        fetch.hold = new CountDownLatch(1);
+
+        post(app, "/api/debug", FAKE_ON);
+
+        assertTrue(json(get(app, "/api/status")).get("usage").isNull(), "the real reading is not shown as an invented one");
+        assertTrue(json(get(app, "/api/status")).at("/display/loading").asBoolean(), "the row begins again");
+        fetch.hold.countDown();
+    }
+
+    @Test
+    void aStartInDebugModeWithTheFakeBackendSavedUsesItFromTheFirstRequest() throws Exception {
+        new SettingsStore(dir.resolve("settings.json")).save(
+                org.example.settings.Settings.defaults().withDebug(true, org.example.fake.Scenario.NORMAL, false));
+        AppRuntime app = start(new FakeFetch(), LaunchOptions.debugMode());
+        await(() -> Files.exists(dir.resolve("java-aip-usage.fake.csv")));
+
+        assertTrue(json(get(app, "/api/status")).get("fake").asBoolean());
+        assertFalse(Files.exists(dir.resolve("java-aip-usage.csv")));
+    }
+
+    @Test
+    void theDebugSettingsAreCheckedLikeTheOthersAndTheOrdinarySettingsLeaveThemAlone() throws Exception {
+        AppRuntime app = start(new FakeFetch(), LaunchOptions.debugMode());
+
+        assertEquals("The setting fakeBackend is missing.", json(post(app, "/api/debug", "{\"fakeScenario\": \"normal\", \"fakeToken\": false}")).get("error").asText());
+        assertEquals("The setting fakeScenario is missing.", json(post(app, "/api/debug", "{\"fakeBackend\": true, \"fakeToken\": false}")).get("error").asText());
+        HttpResponse<String> unknown = post(app, "/api/debug", "{\"fakeBackend\": true, \"fakeScenario\": \"nope\", \"fakeToken\": false}");
+        assertEquals(400, unknown.statusCode());
+        assertTrue(json(unknown).get("error").asText().startsWith("The setting fakeScenario must be one of normal, "), unknown.body());
+        assertFalse(json(get(app, "/api/status")).get("fake").asBoolean(), "nothing was changed by any of them");
+
+        post(app, "/api/debug", "{\"fakeBackend\": true, \"fakeScenario\": \"http-429\", \"fakeToken\": true}");
+        post(app, "/api/settings", allSettings(120, false, "hh:mm"));
+
+        org.example.settings.Settings saved = new SettingsStore(dir.resolve("settings.json")).load();
+        assertEquals(120, saved.usageIntervalSeconds());
+        assertTrue(saved.fakeBackend(), "the settings view does not know the debug settings, and does not reset them");
+        assertEquals(org.example.fake.Scenario.HTTP_429, saved.fakeScenario());
+        assertTrue(saved.fakeToken());
+    }
+
+    @Test
+    void aSourceThatCannotBeOpenedChangesNothing() throws Exception {
+        FakeFetch fetch = new FakeFetch();
+        UsageSources.Factory failing = (fakeBackend, scenario, fakeToken) -> {
+            if (fakeBackend) {
+                throw new IOException("no port to listen on");
+            }
+            return new UsageSources.Source(fetch, false, Optional.empty(), null);
+        };
+        AppRuntime app = AppRuntime.start(AppFiles.in(dir), LaunchOptions.debugMode(), failing, new org.example.usage.ResponseLog());
+        runtimes.add(app);
+
+        HttpResponse<String> response = post(app, "/api/debug", FAKE_ON);
+
+        assertEquals(500, response.statusCode());
+        assertEquals("The debug settings could not be applied: no port to listen on", json(response).get("error").asText());
+        assertFalse(json(get(app, "/api/status")).get("fake").asBoolean());
+        assertFalse(new SettingsStore(dir.resolve("settings.json")).load().fakeBackend(), "and nothing was saved");
+    }
+
+    @Test
+    void theSourceThatIsLeftIsClosedAndSoIsTheLastOneAtTheEnd() throws Exception {
+        List<String> closed = new java.util.concurrent.CopyOnWriteArrayList<>();
+        FakeFetch fetch = new FakeFetch();
+        UsageSources.Factory counting = (fakeBackend, scenario, fakeToken) ->
+                new UsageSources.Source(fetch, fakeBackend, Optional.empty(), () -> closed.add(fakeBackend ? "fake" : "real"));
+        AppRuntime app = AppRuntime.start(AppFiles.in(dir), LaunchOptions.debugMode(), counting, new org.example.usage.ResponseLog());
+
+        post(app, "/api/debug", FAKE_ON);
+        assertEquals(List.of("real"), closed);
+
+        app.close();
+        assertEquals(List.of("real", "fake"), closed);
+    }
+
+    private static long lines(Path file) {
+        try {
+            return Files.readAllLines(file).size();
+        } catch (IOException e) {
+            return 0;
+        }
     }
 
     @Test
@@ -510,7 +669,7 @@ class ApiTest {
 
     @Test
     void theCountdownFollowsTheConfiguredInterval() throws Exception {
-        AppRuntime app = start(new FakeFetch(), cli(90, null));
+        AppRuntime app = start(new FakeFetch(), 90);
         await(() -> app.service().state().snapshot() != null);
 
         long left = json(get(app, "/api/status")).get("nextRefreshInSeconds").asLong();
@@ -938,7 +1097,7 @@ class ApiTest {
         fetch.answer = () -> {
             throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429);
         };
-        AppRuntime app = start(fetch, cli(60, null));
+        AppRuntime app = start(fetch);
         await(() -> app.service().state().rateLimited());
 
         JsonNode settings = json(get(app, "/api/settings"));
@@ -956,7 +1115,7 @@ class ApiTest {
         fetch.answer = () -> {
             throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429);
         };
-        AppRuntime app = start(fetch, cli(60, null));
+        AppRuntime app = start(fetch);
         await(() -> app.service().state().rateLimited());
         int shown = json(get(app, "/api/settings")).at("/settings/usageIntervalSeconds").asInt();
 

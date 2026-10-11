@@ -6,6 +6,8 @@
     --bad: #cf222e;
     /* The button of the open panel: a vivid green, easier to see than the severity green. */
     --active: #00b341;
+    /* The debug button, which is there in debug mode only. */
+    --debug: #d4a017;
     /* A note that tells the person something about what they are looking at. */
     --info: #0969da;
     /* The background of the log's start line of a run. */
@@ -17,6 +19,7 @@
         --ok: #3fb950;
         --bad: #f85149;
         --active: #3ddc6b;
+        --debug: #f2cc60;
         --info: #58a6ff;
         --mark: #30363d;
     }
@@ -75,6 +78,21 @@ body {
  * While a panel is shown the window is taller than the page's own content and the person can
  * drag its height, so the app fills the window and the panel takes what the row leaves.
  */
+/*
+ * While the fake backend is in use the figures are invented, and the window says so where it cannot be overlooked: a
+ * solid red border all the way round, which changes slowly from red to the background and back, for as long as that lasts.
+ */
+#app.fake {
+    box-sizing: border-box;
+    border: 3px solid var(--bad);
+    animation: fake-border 4s linear infinite;
+}
+
+@keyframes fake-border {
+    0%, 100% { border-color: var(--bad); }
+    50% { border-color: Canvas; }
+}
+
 #app.open {
     display: flex;
     flex-direction: column;
@@ -265,7 +283,8 @@ body {
 }
 
 /* The form is as wide as its content at least, and as the window when that is wider; the window is measured to it (see contentSize). */
-#settings-form {
+#settings-form,
+#debug-form {
     width: max-content;
     min-width: 100%;
     box-sizing: border-box;
@@ -546,6 +565,12 @@ body {
  * heavier lines. 24 px is the refresh button's size, so the row keeps its height. The margin takes back the 4 px it
  * grew by, so that the row is no wider either and nothing beside it moves: opening a panel does not change the window.
  */
+/* The debug button is yellow, whether its view is shown or not: it is the sign of debug mode. */
+.icon.debug,
+.icon.debug.active {
+    color: var(--debug);
+}
+
 .icon.active {
     width: 24px;
     height: 24px;

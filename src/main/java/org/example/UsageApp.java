@@ -65,9 +65,6 @@ public class UsageApp extends Application {
     /** Whether the page last said that a panel is open, which is when the window has its title bar whatever the setting says. */
     private boolean panelOpen;
 
-    /** Only ever set by {@code --fake-backend}; null on every other run. */
-    private FakeBackend fakeBackend;
-
     /** Releases the runtime once, whether the window was closed or the process was told to stop. */
     private final RunOnce cleanup = new RunOnce(this::release);
 
@@ -111,22 +108,7 @@ public class UsageApp extends Application {
         LaunchOptions options = LaunchOptions.parse(getParameters().getRaw());
         try {
             ResponseLog responseLog = new ResponseLog();
-            // Started before the fetcher, which needs the address it chose.
-            if (options.fakeBackend()) {
-                fakeBackend = FakeBackend.start(options.fakeScenario().orElse(Scenario.NORMAL));
-            }
-            URI base = fakeBackend != null
-                    ? fakeBackend.baseUrl()
-                    : options.baseUrl().orElse(UsageClient.DEFAULT_BASE_URL);
-            TokenProvider tokens = options.placeholderToken()
-                    ? new PlaceholderTokenProvider()
-                    : ClaudeTokenProvider.create();
-            runtime = AppRuntime.start(
-                    AppFiles.inWorkingDirectory(),
-                    options,
-                    new UsageFetcher(tokens, UsageClient.create(UsageClient.usageUri(base), responseLog)),
-                    responseLog,
-                    Optional.of(base));
+            runtime = AppRuntime.start(AppFiles.inWorkingDirectory(), options, sources(options, responseLog), responseLog);
         } catch (Exception e) {
             LOG.log(Level.ERROR, "Could not start", e);
             throw e;
@@ -152,6 +134,26 @@ public class UsageApp extends Application {
         stage.show();
         bringToFront();
         keepFitting(webView);
+    }
+
+    /**
+     * Opens a source of usage as the debug settings say: the fake backend, started here and stopped when the source is
+     * left, which needs no token; or the real endpoint, at Anthropic's address or the one the command line names, with a
+     * real token or, when the debug settings ask for it, a placeholder.
+     */
+    private static UsageSources.Factory sources(LaunchOptions options, ResponseLog responseLog) {
+        return (fakeBackend, scenario, fakeToken) -> {
+            if (fakeBackend) {
+                FakeBackend backend = FakeBackend.start(scenario);
+                return new UsageSources.Source(
+                        new UsageFetcher(new PlaceholderTokenProvider(), UsageClient.create(UsageClient.usageUri(backend.baseUrl()), responseLog)),
+                        true, Optional.of(backend.baseUrl()), backend);
+            }
+            URI base = options.baseUrl().orElse(UsageClient.DEFAULT_BASE_URL);
+            TokenProvider tokens = fakeToken ? new PlaceholderTokenProvider() : ClaudeTokenProvider.create();
+            return new UsageSources.Source(
+                    new UsageFetcher(tokens, UsageClient.create(UsageClient.usageUri(base), responseLog)), false, Optional.of(base), null);
+        };
     }
 
     /** Notices when the person drags the height of an open history or log, so that it can be remembered. */
@@ -267,8 +269,10 @@ public class UsageApp extends Application {
         }
         rememberedPanel = remembered ? size.panel() : null;
         heightSettled.stop();
-        double width = size.width() + decorationWidth;
-        double height = contentHeight + decorationHeight;
+        // Rounded up: a frame is not always a whole number of pixels wide, and a window a fraction too narrow shows a pixel
+        // less of the page than it asked for, which is a pixel of the red border when there is one.
+        double width = Math.ceil(size.width() + decorationWidth);
+        double height = Math.ceil(contentHeight + decorationHeight);
         if (size.resize() == WindowFit.Resize.NONE) {
             // The content as it is with nothing open: what the person may shrink an open one back to.
             closedWidth = size.width();
@@ -366,17 +370,15 @@ public class UsageApp extends Application {
     }
 
     /**
-     * Stops the refresh service, the web server and the fake backend if one was started,
+     * Stops the refresh service, the web server and the fake backend if one is in use,
      * logging that it does. Run once, by {@link #stop()} or by {@link #shutDown()},
      * whichever comes first, so a run that ends either way leaves nothing listening.
      */
     private void release() {
         LOG.log(Level.INFO, "Shutting down");
         if (runtime != null) {
+            // The runtime closes what the usage came from as well, a fake backend among it.
             runtime.close();
-        }
-        if (fakeBackend != null) {
-            fakeBackend.close();
         }
     }
 

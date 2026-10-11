@@ -52,6 +52,9 @@ public final class UsageService implements AutoCloseable {
 
     private boolean closed;
 
+    /** Counts the restarts: a request that was begun before the latest one has an answer nobody wants any more. */
+    private long generation;
+
     public UsageService(Supplier<UsageSnapshot> fetcher, Duration interval) {
         this(fetcher, interval, DEFAULT_MAX_BACKOFF);
     }
@@ -74,6 +77,36 @@ public final class UsageService implements AutoCloseable {
                 throw new IllegalStateException("already started or closed");
             }
             state = new UsageState(earlier, null, null, false);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Begins again for another source of usage, while the service runs: the reading on show came from the old source, so
+     * it is replaced by the one given, or by none; a request under way is given up and its answer thrown away; and a
+     * request to the new source begins at once.
+     *
+     * @param earlier the newest reading of the new source's own history, or {@code null}
+     */
+    public void restart(UsageSnapshot earlier) {
+        lock.lock();
+        try {
+            if (closed) {
+                return;
+            }
+            generation++;
+            state = earlier == null ? UsageState.initial() : new UsageState(earlier, null, null, false);
+            if (thread == null) {
+                return;
+            }
+            if (schedule.isRunning()) {
+                // Wakes a request that is blocked on the network or on the CLI; run asks for the next one when it is back.
+                thread.interrupt();
+            } else {
+                schedule.request();
+                changed.signalAll();
+            }
         } finally {
             lock.unlock();
         }
@@ -197,6 +230,7 @@ public final class UsageService implements AutoCloseable {
                 }
                 schedule.begin(now);
                 state = state.startedRefresh();
+                long begun = generation;
                 lock.unlock();
                 Outcome outcome;
                 try {
@@ -204,6 +238,14 @@ public final class UsageService implements AutoCloseable {
                 } finally {
                     lock.lock();
                     schedule.finish();
+                }
+                if (begun != generation && !closed) {
+                    // The source was changed while this request was under way: its answer is of the old one. The
+                    // interruption that gave it up is spent, and the request to the new source is due now.
+                    Thread.interrupted();
+                    state = new UsageState(state.snapshot(), state.error(), state.errorAt(), false, state.rateLimited());
+                    schedule.request();
+                    continue;
                 }
                 outcome = settleBackoff(outcome);
                 if (outcome.error() != null && !closed) {

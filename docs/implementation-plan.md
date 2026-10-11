@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.36). What these mechanisms make the
+How the requirements are met today (version 0.37). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1391,11 +1391,11 @@ last:
 | 46 | 0.34 | The request duration, a thirteenth element (done) |
 | 47 | 0.35 | The window to the front at startup, and `Stay on top` (done) |
 | 48 | 0.36 | The title bar, on and off while the program runs (done) |
-| 49 | 0.37 | Debug mode: `--debug`, the debug view, the fake backend switched at runtime, the red border |
+| 49 | 0.37 | Debug mode: `--debug`, the debug view, the fake backend switched at runtime, the red border (done) |
 
-Each phase ends the same way: both suites green, the passages of the requirements it makes true moved out of the section
-"specified, not yet built" into the description of the program, `api.md` where the API changed, the version, a commit. The
-section is gone from the requirements when phase 49 is done.
+Each phase ended the same way: both suites green, the passages of the requirements it made true moved out of the section
+"specified, not yet built" into the description of the program, `api.md` where the API changed, the version, a commit. With
+phase 49 done nothing in the requirements is specified and not built.
 
 ### 45. The settings view: two buttons less, a least width, and leaving saves
 
@@ -1530,45 +1530,65 @@ through an exchange was not looked at.
 
 ### 49. Debug mode
 
-**Status: specified, not built (version 0.37).** Requirement: Debug mode.
+**Status: done (version 0.37); the border and the debug view are for a person to judge.** Requirement: Debug mode, Command line,
+Fake backend, Authentication.
 
-- **The command line.** `LaunchOptions`: `--debug` (no value), and `--fake-backend`, `--fake-scenario`, `--fake-token`,
-  `--usage-interval` and `--poll-interval` removed, with their messages, the usage text and their tests. `--anthropic-url`, `-h`
-  and `--help` stay. With the two interval options gone, `IntervalSettings.load` takes no overrides, the poll interval is the
-  constant 1 second, which `/api/config` still reports to the page as `pollIntervalSeconds`.
-- **The debug settings.** `fakeBackend` (off), `fakeScenario` (`normal`) and `fakeToken` (off) in `Settings` and the file. They
-  have an endpoint of their own, `GET` and `POST /api/debug`, which answers 404 when the program is not in debug mode, so the
-  ordinary settings view never sends them and a normal run cannot reach them. `/api/config` says `debug: true` or `false`.
-- **Where usage comes from, at runtime.** Today `UsageApp.start` builds one fetcher from the options and hands it to
-  `AppRuntime.start` for good. It becomes a `UsageSource` that `AppRuntime` owns and can replace: made from the debug settings
-  (the fake backend started and its address used, or the base URL; the placeholder token or `ClaudeTokenProvider`), and made
-  again when the debug settings change, the old fake backend stopped. `UsageService` asks the runtime for the fetcher at each
-  refresh rather than holding one. Without `--debug` the three settings are read and not used.
-- **A history file of its own.** `AppFiles` names `java-aip-usage.fake.csv` beside `java-aip-usage.csv`. `UsageHistory`,
-  `HistoryReader` and `LatestChangeCache` are each made for one file, so the runtime holds a pair of them and uses that of the
-  source in force: `recording` writes to it, `ApiHandler` reads the history, the change and the stamp from it, and the reading
-  restored at startup comes from it. A change of source logs `Usage history is written to <the file>`, drops the reading that
-  is shown, and refreshes.
-- **The page.** A `debug-button` after the settings button, yellow, a bug, hidden unless `/api/config` says debug; a
-  `debug-view` in the panel area built like the settings view, with the three controls, `Apply` and `Cancel`; `PANELS.debug`,
-  so that it is one panel among the others, saves on leaving as phase 45 made the settings do, and is named in the size answer
-  for phase 48.
-- **The red border.** The status says `fake: true` while the fake backend is in use. `#app` then has a 3 pixel border whose
-  colour a CSS animation takes from `var(--bad)` to the background and back in 4 seconds, and `contentSize` is larger by the
-  border on each side.
-- **The log.** The lines that say where the readings come from are written at startup and at each change of source; they name
-  the debug settings and no longer the options.
-- **Tests.** `LaunchOptionsTest` rewritten for the three options that are left; `SettingsStoreTest`; `ApiTest`: `/api/debug`
-  refused without `--debug`, the fake backend switched on and off through the running application with the readings following,
-  the two history files kept apart, a start without `--debug` fetching from the fetcher it was given whatever the file says;
-  `FakeBackendTest` as it is; `app.test.cjs`: the button only in debug mode, the view, saving on leaving, the border class with
-  the status; `layout.test.cjs`: the border rule and its animation.
-- **Docs.** The requirements (Command line, Fake backend, Authentication where they name the options), `api.md`, and the
-  README, whose section on running against the fake backend is rewritten for `--debug`.
+- **The command line.** `LaunchOptions` is `--debug`, `--anthropic-url` and help. `--fake-backend`, `--fake-scenario`,
+  `--fake-token`, `--usage-interval` and `--poll-interval` are gone with their messages, and are unknown options now.
+- **The debug settings.** `fakeBackend`, `fakeScenario` and `fakeToken` at the end of `Settings` and of the file, the scenario
+  by its name; a name the program does not know is logged and passed over. They have `GET` and `POST /api/debug`, a `404`
+  without `--debug`; `/api/settings` neither gives nor takes them, and what it applies keeps the three as they are.
+  `/api/config` says `debug`, the status says `fake`.
+- **Where usage comes from.** `UsageSources` is what the API asks: debug or not, fake or not, the history file in use, the
+  latest duration, and `applyDebug`. `AppRuntime` implements it. It is given a `Factory` that opens a `Source` (a fetcher,
+  whether it is the fake backend, the base URL for the log, and what to close with it); `UsageApp` supplies the real one, which
+  starts a `FakeBackend` or builds the client for the base URL with a real or a placeholder token. Without `--debug` the factory
+  is asked once, for the real source with a real token. The fetcher-taking `start` methods stay for the tests, as a factory that
+  hands the same fetcher to every source.
+- **Switching.** `applyDebug` opens the new source first, so that one that cannot be opened changes nothing; saves the settings;
+  then makes the new source the one in use, closes the old, forgets the duration, logs where usage now comes from, and calls
+  `UsageService.restart` with the newest reading of the new source's own history.
+- **`UsageService.restart`.** Counts a generation, replaces the reading, and asks for a request now. A request under way is
+  interrupted, as at shutdown; when it returns, `run` sees that the generation is not the one it began with, throws the answer
+  away without logging or recording it as a failure, clears the interruption and asks for the request to the new source.
+  `AppRuntime.fetchAndRecord` writes a row only when the source it asked is still the one in use.
+- **Two history files.** `AppFiles.fakeHistory()` is `java-aip-usage.fake.csv` beside the other. The runtime holds a
+  `UsageHistory` for each; `ApiHandler` reads the history, the change and the stamp from `sources.history()`, so the panel
+  and the change items follow the source. `LatestChangeCache` already keys on the file.
+- **The page.** `debug-button` after the gear, shown when `/api/config` says debug, yellow by the class `debug`, which
+  `labelButtons` keeps. `debug-view` in the panel area, filled by `loadDebug`, the scenarios made into options from what the
+  backend names. The settings and the debug settings are both `FORMS`: `togglePanel` saves whichever is open when it is left
+  by a button of the row, `leaveForm` is the old `leaveSettings`, and `formWidth` measures either. The size answer of the debug
+  view ends `,debug`, so the host gives it the title bar.
+- **The red border.** `#app.fake`: three pixels of `var(--bad)`, `box-sizing: border-box`, and an animation of the border
+  colour to `Canvas` and back in four seconds. The class follows `fake` of the status. `contentSize` adds six pixels to the
+  width and the height of the row while it is there.
+- **A pixel found by the real window.** With a title bar the window's content came out a pixel narrower than the page asked
+  for, because a frame is not a whole number of pixels wide at every display scale; nobody had seen it, but it cut a pixel off
+  the red border. `resize` rounds the window's size up now.
+- **Tests.** `LaunchOptionsTest` rewritten. `SettingsStoreTest`: the three settings, the scenario by name, an unknown one.
+  `UsageServiceTest`: a restart shows the reading it is given and fetches at once, begins with none, gives up a request under
+  way without a failure, and the service goes on. `ApiTest`: no debug settings without `--debug` and the file's ignored; the
+  settings and the scenarios in debug mode; the fake backend on and off, saved; the two history files kept apart, and the panel
+  showing the one in use; the reading of the other source not kept; a start with the fake backend saved; the checks of the three
+  keys; the ordinary settings leaving them alone; a source that cannot be opened; the source that is left closed. The tests of
+  the interval options are deleted or rewritten for the settings file. `app.test.cjs` and `layout.test.cjs`: the button, the
+  view, Apply and Cancel, saving on leaving both ways between the two views, a failed save, the border class and the larger size.
+- **Seen in a real window.** `UsageAppProbe` now starts the application with `--debug`, the fake backend saved as on, and an
+  address nothing listens at. `TitleBarWindowTest` checks, from what the real page reports: the border three pixels wide and the
+  figures of the fake backend at the start; the debug button; the debug view named and with the title bar; with the fake
+  backend switched off in the view, no border and no figures, the debug button still there; switched on again by leaving the
+  view through its own button, the border and the figures back; the invented readings in their own file and nothing but failed
+  rows in the real one; the page loaded once through all of it. It passes.
+- **Docs.** The requirements (Debug mode is the description now; Command line rewritten; Fake backend, Authentication, Refresh
+  behavior and the log's lines where they named the options), `api.md` (`/api/debug`, `debug`, `fake`), the README.
 
-*Risk:* the most work of the five, and the only one that changes how the program is wired. The switch of source while a
-request is in flight needs care: the request under way finishes or is interrupted as at shutdown, and its result is not
-written to the other file.
+*Left as it was:* `IntervalSettings` can still be given an interval that overrides the file's for a run. Nothing gives it one
+any more; the tests of that mechanism still pass, and it was not taken out.
+
+**Not checked by a test.** How the border looks as it fades, and whether it is hard to overlook; the yellow of the button on
+both themes; the debug view. What happens with a real account when the fake backend is switched off was not tried: the probe
+used an address nothing listens at.
 
 ## Validation
 

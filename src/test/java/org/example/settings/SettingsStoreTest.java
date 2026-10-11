@@ -127,6 +127,34 @@ class SettingsStoreTest {
     }
 
     @Test
+    void theDebugSettingsAreOffByDefaultAndComeBackAsSaved() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        Settings defaults = Settings.defaults();
+        assertFalse(defaults.fakeBackend());
+        assertEquals(org.example.fake.Scenario.NORMAL, defaults.fakeScenario());
+        assertFalse(defaults.fakeToken());
+
+        store.save(defaults.withDebug(true, org.example.fake.Scenario.HTTP_429, true));
+
+        Settings loaded = store.load();
+        assertTrue(loaded.fakeBackend());
+        assertEquals(org.example.fake.Scenario.HTTP_429, loaded.fakeScenario());
+        assertTrue(loaded.fakeToken());
+        assertTrue(Files.readString(file()).contains("\"fakeScenario\" : \"http-429\""), "the scenario by its name: " + Files.readString(file()));
+    }
+
+    @Test
+    void aScenarioTheProgramDoesNotKnowIsPassedOverAndTheRestOfTheFileIsRead() throws IOException {
+        Files.writeString(file(), "{\"usageIntervalSeconds\": 90, \"fakeBackend\": true, \"fakeScenario\": \"nope\"}");
+
+        Settings loaded = new SettingsStore(file()).load();
+
+        assertEquals(org.example.fake.Scenario.NORMAL, loaded.fakeScenario());
+        assertTrue(loaded.fakeBackend());
+        assertEquals(90, loaded.usageIntervalSeconds());
+    }
+
+    @Test
     void aFileFromBeforeTheFiveSwitchesHasThemAllOn() throws IOException {
         Files.writeString(file(), "{\"usageIntervalSeconds\": 90, \"showPercentage\": true}");
 
@@ -148,14 +176,14 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFileHoldsTheTwentyFourSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
+    void theFileHoldsTheTwentySevenSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
         JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar",
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken",
                         "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());

@@ -15,8 +15,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A stand-in for the Anthropic usage endpoint, inside this program. Started by
- * {@code --fake-backend}, it lets the application run with no account, nobody logged
+ * A stand-in for the Anthropic usage endpoint, inside this program. Started when the debug
+ * settings switch it on, in debug mode, it lets the application run with no account, nobody logged
  * in and nothing spent on the real endpoint, and it answers badly on request so that
  * the failure paths can be seen without waiting for the real endpoint to misbehave.
  *

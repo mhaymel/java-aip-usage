@@ -66,19 +66,19 @@ final class ApiHandler implements HttpHandler {
 
     private final AppFiles files;
 
-    private final java.util.function.LongSupplier latestDurationMillis;
+    private final UsageSources sources;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
     /** The status is polled every second; the history is read again only when its file has changed. */
     private final LatestChangeCache latestChangeCache = new LatestChangeCache();
 
-    /** @param latestDurationMillis how long the latest usage request that has ended took, or a negative number when none has */
-    ApiHandler(UsageService service, IntervalSettings settings, AppFiles files, java.util.function.LongSupplier latestDurationMillis) {
+    /** @param sources where usage comes from at the moment, which in debug mode the debug settings change */
+    ApiHandler(UsageService service, IntervalSettings settings, AppFiles files, UsageSources sources) {
         this.service = service;
         this.settings = settings;
         this.files = files;
-        this.latestDurationMillis = latestDurationMillis;
+        this.sources = sources;
     }
 
     @Override
@@ -106,6 +106,19 @@ final class ApiHandler implements HttpHandler {
                     throw new ApiException(405, "Use GET.", "GET");
                 }
                 send(exchange, 200, config());
+            }
+            case "/api/debug" -> {
+                // The debug settings are there in debug mode only; without it there is no such thing to ask for.
+                if (!sources.debug()) {
+                    throw new ApiException(404, "No such endpoint.", null);
+                }
+                if (method.equals("GET")) {
+                    send(exchange, 200, debugBody());
+                } else if (method.equals("POST")) {
+                    updateDebug(exchange);
+                } else {
+                    throw new ApiException(405, "Use GET or POST.", "GET, POST");
+                }
             }
             case "/api/settings" -> {
                 if (method.equals("GET")) {
@@ -157,7 +170,40 @@ final class ApiHandler implements HttpHandler {
         return new ConfigBody(
                 settings.usageSeconds(),
                 settings.pollSeconds(),
-                new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())));
+                new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())),
+                sources.debug());
+    }
+
+    // ---- /api/debug: the debug settings, in debug mode only
+
+    private DebugBody debugBody() {
+        Settings now = settings.current();
+        return new DebugBody(
+                new DebugValues(now.fakeBackend(), now.fakeScenario().optionName(), now.fakeToken()),
+                java.util.Arrays.stream(org.example.fake.Scenario.values()).map(org.example.fake.Scenario::optionName).toList());
+    }
+
+    /** All three must be given. They are saved and take effect at once: the source of usage is opened anew and a refresh follows. */
+    private void updateDebug(HttpExchange exchange) throws IOException {
+        requireJson(exchange);
+        JsonNode body = readJson(exchange);
+        try {
+            boolean fakeBackend = flag(body, "fakeBackend");
+            JsonNode name = body.get("fakeScenario");
+            if (name == null || name.isNull()) {
+                throw new InvalidSettingException("The setting fakeScenario is missing.");
+            }
+            org.example.fake.Scenario scenario =
+                    (name.isTextual() ? org.example.fake.Scenario.ofOptionName(name.textValue()) : java.util.Optional.<org.example.fake.Scenario>empty())
+                            .orElseThrow(() -> new InvalidSettingException(
+                                    "The setting fakeScenario must be one of " + org.example.fake.Scenario.names() + "."));
+            sources.applyDebug(fakeBackend, scenario, flag(body, "fakeToken"));
+        } catch (InvalidSettingException e) {
+            throw new ApiException(400, e.getMessage(), null);
+        } catch (SettingsException e) {
+            throw new ApiException(500, e.getMessage(), null);
+        }
+        send(exchange, 200, debugBody());
     }
 
     // ---- /api/settings
@@ -219,8 +265,11 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showCountdown"),
                     flag(body, "showDuration"),
                     flag(body, "stayOnTop"),
-                    flag(body, "showTitleBar"));
-            settings.apply(given);
+                    flag(body, "showTitleBar"),
+                    false, org.example.fake.Scenario.NORMAL, false);
+            // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone.
+            Settings kept = settings.current();
+            settings.apply(given.withDebug(kept.fakeBackend(), kept.fakeScenario(), kept.fakeToken()));
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
         } catch (SettingsException e) {
@@ -282,7 +331,7 @@ final class ApiHandler implements HttpHandler {
         try {
             Settings now = settings.current();
             HistoryReader.Table table = HistoryReader.read(
-                    files.history(), HISTORY_ROWS, new HistoryReader.Filter(now.historyZeroLines(), now.historyFailedLines()));
+                    sources.history(), HISTORY_ROWS, new HistoryReader.Filter(now.historyZeroLines(), now.historyFailedLines()));
             // The currency is the right-most column; the change columns, when they are on, sit between the budget and it.
             List<String> columns = new java.util.ArrayList<>(List.of(
                     now.historyDate() ? "date time" : "time", "used", "limit"));
@@ -314,7 +363,7 @@ final class ApiHandler implements HttpHandler {
                 lines.add(new HistoryLine(cells, start, failed, start ? START_TOOLTIP : ""));
             }
             return new HistoryBody(
-                    files.history().getFileName().toString(), table.exists(), columns, now.historyDate(),
+                    sources.history().getFileName().toString(), table.exists(), columns, now.historyDate(),
                     historyNote(table), historyNoteHighlighted(table), table.total(), lines);
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
@@ -385,7 +434,7 @@ final class ApiHandler implements HttpHandler {
 
     private DeltaBody latestChange() {
         try {
-            return latestChangeCache.get(files.history());
+            return latestChangeCache.get(sources.history());
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Could not read the usage history for the change: " + e.getMessage());
             return null;
@@ -393,7 +442,7 @@ final class ApiHandler implements HttpHandler {
     }
 
     private OptionalLong duration() {
-        long millis = latestDurationMillis.getAsLong();
+        long millis = sources.latestDurationMillis();
         return millis < 0 ? OptionalLong.empty() : OptionalLong.of(millis);
     }
 
@@ -409,7 +458,8 @@ final class ApiHandler implements HttpHandler {
                 snapshot == null ? null : usage(snapshot),
                 change,
                 StatusDisplay.build(state, countdown, change, duration(), shown(), Instant.now(), ZoneId.systemDefault()),
-                historyStamp());
+                historyStamp(),
+                sources.fake());
     }
 
     /**
@@ -417,7 +467,7 @@ final class ApiHandler implements HttpHandler {
      * again. It is the file's size and time, which is all that is needed to tell that the file is not the same; it is empty when there is no file.
      */
     private String historyStamp() {
-        Path history = files.history();
+        Path history = sources.history();
         try {
             return Files.isRegularFile(history) ? Files.size(history) + "-" + Files.getLastModifiedTime(history).toMillis() : "";
         } catch (IOException e) {
@@ -511,7 +561,13 @@ final class ApiHandler implements HttpHandler {
     record Limits(Range usageIntervalSeconds) {
     }
 
-    record ConfigBody(int usageIntervalSeconds, int pollIntervalSeconds, Limits limits) {
+    record ConfigBody(int usageIntervalSeconds, int pollIntervalSeconds, Limits limits, boolean debug) {
+    }
+
+    record DebugValues(boolean fakeBackend, String fakeScenario, boolean fakeToken) {
+    }
+
+    record DebugBody(DebugValues settings, List<String> scenarios) {
     }
 
     record SettingValues(
@@ -597,6 +653,6 @@ final class ApiHandler implements HttpHandler {
 
     record StatusBody(
             boolean refreshing, boolean stale, Long nextRefreshInSeconds, ErrorBody error, UsageBody usage, DeltaBody change,
-            StatusDisplay.View display, String historyStamp) {
+            StatusDisplay.View display, String historyStamp, boolean fake) {
     }
 }

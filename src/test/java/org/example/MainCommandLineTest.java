@@ -32,7 +32,8 @@ class MainCommandLineTest {
 
         assertEquals(0, result.exitCode(), result.output());
         assertTrue(result.output().contains("Usage: java-aip-usage"), result.output());
-        assertTrue(result.output().contains("5-3600"), result.output());
+        assertTrue(result.output().contains("--debug"), result.output());
+        assertTrue(result.output().contains("--anthropic-url <url>"), result.output());
     }
 
     @Test
@@ -42,10 +43,10 @@ class MainCommandLineTest {
 
     @Test
     void aBadOptionIsReportedWithTheUsageAndExitCodeTwo() throws Exception {
-        Result result = run("--usage-interval", "2");
+        Result result = run("--anthropic-url", "not-a-url");
 
         assertEquals(2, result.exitCode(), result.output());
-        assertTrue(result.output().contains("--usage-interval must be from 5 to 3600 seconds."), result.output());
+        assertTrue(result.output().contains("--anthropic-url must be an absolute http or https URL, not \"not-a-url\"."), result.output());
         assertTrue(result.output().contains("Usage: java-aip-usage"), result.output());
     }
 
@@ -73,10 +74,10 @@ class MainCommandLineTest {
 
     @Test
     void aBadOptionIsReportedAlsoWhenStartedFromThePlainClasspath() throws Exception {
-        Result result = runOnClasspath("--usage-interval", "2");
+        Result result = runOnClasspath("--fake-backend");
 
         assertEquals(2, result.exitCode(), result.output());
-        assertTrue(result.output().contains("--usage-interval must be from 5 to 3600 seconds."), result.output());
+        assertTrue(result.output().contains("Unknown option: --fake-backend"), result.output());
     }
 
     private static Result runOnClasspath(String... args) throws IOException, InterruptedException {

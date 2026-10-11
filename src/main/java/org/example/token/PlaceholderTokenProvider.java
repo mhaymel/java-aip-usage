@@ -1,8 +1,8 @@
 package org.example.token;
 
 /**
- * Stands in for the token flow when a run asks for no real token
- * ({@code --fake-token}, or {@code --fake-backend}, which implies it). Obtains
+ * Stands in for the token flow when the debug settings ask for no real token
+ * (the placeholder token, or the fake backend, which implies it). Obtains
  * nothing and cannot fail: there is no {@code claude} to start, nobody to be
  * logged in, and no account to have.
  *

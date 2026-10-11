@@ -103,6 +103,69 @@ class UsageServiceTest {
         }
     }
 
+    // ---- beginning again for another source
+
+    @Test
+    void aRestartShowsTheReadingItIsGivenAndFetchesAtOnce() {
+        Gate fetcher = new Gate();
+        UsageService service = start(fetcher, HOUR);
+        await(() -> service.state().snapshot() != null);
+        CountDownLatch held = fetcher.holdNextCall();
+
+        service.restart(snapshot(99));
+
+        assertEquals(snapshot(99), service.state().snapshot(), "the reading of the new source's own history, at once");
+        await(() -> fetcher.calls.get() == 2);
+        held.countDown();
+        await(() -> snapshot(2).equals(service.state().snapshot()));
+        assertNull(service.state().error());
+    }
+
+    @Test
+    void aRestartWithNoReadingBeginsWithNone() {
+        Gate fetcher = new Gate();
+        UsageService service = start(fetcher, HOUR);
+        await(() -> service.state().snapshot() != null);
+        fetcher.holdNextCall();
+
+        service.restart(null);
+
+        assertNull(service.state().snapshot());
+        assertNull(service.state().error());
+    }
+
+    @Test
+    void aRequestUnderWayAtARestartIsGivenUpAndItsAnswerThrownAway() {
+        Gate fetcher = new Gate();
+        fetcher.holdNextCall();
+        UsageService service = start(fetcher, HOUR);
+        await(() -> fetcher.inFlight.get() == 1);
+
+        // The request to the old source is blocked. The restart interrupts it, and the next request is not held.
+        fetcher.hold = null;
+        service.restart(null);
+
+        await(() -> fetcher.interrupted.get());
+        await(() -> fetcher.calls.get() == 2);
+        await(() -> snapshot(2).equals(service.state().snapshot()));
+        assertNull(service.state().error(), "the request that was given up is not a failed refresh");
+        assertTrue(service.errors().newestFirst().isEmpty(), "and is not in the error log");
+        assertEquals(1, fetcher.maxInFlight.get(), "never two requests at once");
+    }
+
+    @Test
+    void theServiceGoesOnRefreshingAfterARestart() {
+        Gate fetcher = new Gate();
+        UsageService service = start(fetcher, HOUR);
+        await(() -> fetcher.calls.get() == 1);
+
+        service.restart(null);
+        await(() -> fetcher.calls.get() == 2);
+        assertTrue(service.refreshNow());
+
+        await(() -> fetcher.calls.get() == 3);
+    }
+
     @Test
     void fetchesImmediatelyAtStartAndPublishesTheReading() {
         Gate fetcher = new Gate();

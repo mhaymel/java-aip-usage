@@ -215,11 +215,18 @@
         $(id).title = item ? item.tooltip : skeleton ? tooltip : '';
     }
 
+    /** Whether the backend says that the fake backend is in use, so that the figures are invented. */
+    function fakeInUse() {
+        return Boolean(lastStatus && lastStatus.fake);
+    }
+
     function applyAppClass() {
         // The log and the history fill the window; the settings do not, so that the page's own height is the content's.
         $('app').className = (lastStale ? 'stale' : '')
             + (openPanel === 'log' || openPanel === 'history' || openPanel === 'errors' ? ' open' : '')
-            + (openPanel === 'settings' ? ' fit' : '');
+            + (FORMS[openPanel] ? ' fit' : '')
+            // The readings are invented while the fake backend is in use: the red border says so.
+            + (fakeInUse() ? ' fake' : '');
     }
 
     // ---- the settings view: a form the backend fills in each time it is opened
@@ -350,14 +357,15 @@
         if (settingsShown === null || !(await saveSettings())) {
             return;
         }
-        leaveSettings(null, true);
+        leaveForm(null, true);
     }
 
     /**
-     * Leaves the settings for the named panel, or for what they replaced when none is named. After a save the row keeps what was
-     * previewed until the poll brings it back as applied, so that it does not flick to the old state; without one the row is the backend's again.
+     * Leaves the settings, or the debug settings, for the named panel, or for what they replaced when none is named. After a save the
+     * row keeps what was previewed until the poll brings it back as applied, so that it does not flick to the old state; without one
+     * the row is the backend's again.
      */
-    function leaveSettings(name, saved) {
+    function leaveForm(name, saved) {
         var applied = saved ? preview : null;
         var back = name || returnTo;
         returnTo = null;
@@ -380,9 +388,89 @@
     /** Cancel: closes the view and changes nothing; it asks nothing, since nothing was sent. It is the one way to leave without saving. */
     function cancelSettings() {
         if (openPanel === 'settings') {
-            leaveSettings(null, false);
+            leaveForm(null, false);
         }
     }
+
+    // ---- the debug settings view, in debug mode only: a form like the settings, with its own endpoint
+
+    /** The debug settings as the backend gave them when the view was opened or last saved; null when they could not be read. */
+    var debugShown = null;
+
+    function readDebugForm() {
+        return {
+            fakeBackend: Boolean($('debug-fakeBackend').checked),
+            fakeScenario: $('debug-fakeScenario').value,
+            fakeToken: Boolean($('debug-fakeToken').checked)
+        };
+    }
+
+    async function loadDebug() {
+        setNote('debug-error', '');
+        try {
+            var body = await request('/api/debug');
+            debugShown = body.settings;
+            // The scenarios are the backend's to name; the list is made from what it sends.
+            $('debug-fakeScenario').replaceChildren.apply($('debug-fakeScenario'), body.scenarios.map(function (name) {
+                var option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                return option;
+            }));
+            $('debug-fakeBackend').checked = Boolean(body.settings.fakeBackend);
+            $('debug-fakeScenario').value = body.settings.fakeScenario;
+            $('debug-fakeToken').checked = Boolean(body.settings.fakeToken);
+            show('debug-form', true);
+        } catch (e) {
+            debugShown = null;
+            show('debug-form', false);
+            setNote('debug-error', 'The debug settings could not be read: ' + e.message);
+        }
+        if (debugShown !== null) {
+            $('debug-apply').removeAttribute('disabled');
+        } else {
+            $('debug-apply').setAttribute('disabled', '');
+        }
+    }
+
+    function debugChanged() {
+        if (debugShown === null) {
+            return false;
+        }
+        var form = readDebugForm();
+        return Object.keys(form).some(function (key) { return form[key] !== debugShown[key]; });
+    }
+
+    /** Sends the debug settings; the backend saves them and they take effect at once. False, with the reason in red, when it could not. */
+    async function saveDebug() {
+        try {
+            var body = await postJson('/api/debug', readDebugForm());
+            debugShown = body.settings;
+            return true;
+        } catch (e) {
+            setNote('debug-error', e.message);
+            return false;
+        }
+    }
+
+    async function applyDebug() {
+        if (debugShown === null || !(await saveDebug())) {
+            return;
+        }
+        leaveForm(null, true);
+    }
+
+    function cancelDebug() {
+        if (openPanel === 'debug') {
+            leaveForm(null, false);
+        }
+    }
+
+    // The views that are forms: leaving one by a button of the row saves it first, when anything in it was changed.
+    var FORMS = {
+        settings: { changed: settingsChanged, save: saveSettings },
+        debug: { changed: debugChanged, save: saveDebug }
+    };
 
     // ---- the panel below the strip: the usage history or the log, one at a time
 
@@ -399,6 +487,13 @@
             button: 'settings-button',
             show: 'Show the settings',
             hide: 'Hide the settings'
+        },
+        debug: {
+            button: 'debug-button',
+            show: 'Debug mode: show the debug settings',
+            hide: 'Debug mode: hide the debug settings',
+            // Yellow, shown or not: the sign of debug mode.
+            extra: ' debug'
         },
         errors: {
             button: 'errors-button',
@@ -432,7 +527,7 @@
      * changed, and what the person has scrolled to stays where it is, though lines come in above it.
      */
     async function loadPanel() {
-        if (panelLoading || !openPanel || openPanel === 'settings') {
+        if (panelLoading || !openPanel || FORMS[openPanel]) {
             return;
         }
         var name = openPanel;
@@ -558,7 +653,7 @@
             button.setAttribute('aria-label', label);
             button.setAttribute('aria-expanded', String(openPanel === name));
             // The button of the panel that is shown is green; closing it, or showing another, gives it back its colour.
-            button.className = 'icon tiny' + (openPanel === name ? ' active' : '');
+            button.className = 'icon tiny' + (spec.extra || '') + (openPanel === name ? ' active' : '');
         });
     }
 
@@ -567,21 +662,22 @@
      * what it replaced: leaving them by Apply, Cancel or the gear shows that again, freshly loaded so that it has the new settings.
      * Another panel's button while the settings are shown shows that one, and what the settings replaced is forgotten.
      *
-     * Leaving the settings by a button of the row, the gear or another panel's, saves them first, as Apply does, when anything in
-     * them was changed. If that fails the settings stay, with the reason, and the other panel is not shown.
+     * Leaving the settings, or the debug settings, by a button of the row, their own or another panel's, saves them first, as
+     * Apply does, when anything in them was changed. If that fails they stay, with the reason, and the other panel is not shown.
      */
     async function togglePanel(name) {
-        if (openPanel === 'settings') {
-            var changed = settingsChanged();
-            if (changed && !(await saveSettings())) {
+        var form = FORMS[openPanel];
+        if (form) {
+            var changed = form.changed();
+            if (changed && !(await form.save())) {
                 return;
             }
-            leaveSettings(name === 'settings' ? null : name, changed);
+            leaveForm(name === openPanel ? null : name, changed);
             return;
         }
-        if (name === 'settings') {
+        if (FORMS[name]) {
             returnTo = openPanel;
-            showPanelNamed('settings');
+            showPanelNamed(name);
             return;
         }
         returnTo = null;
@@ -605,6 +701,13 @@
         show('panel', panelIsOpen());
         // The settings are a form in the same place, not lines; the others are lines.
         show('settings-view', openPanel === 'settings');
+        show('debug-view', openPanel === 'debug');
+        if (openPanel === 'debug') {
+            show('panel-lines', false);
+            loadDebug();
+        } else {
+            debugShown = null;
+        }
         if (openPanel === 'settings') {
             show('panel-lines', false);
             loadSettings();
@@ -633,12 +736,17 @@
      */
     window.contentSize = function () {
         var box = $('top').getBoundingClientRect();
-        var width = Math.ceil(box.width);
-        var height = Math.ceil(box.height);
+        // The red border of the fake backend is round everything: the window is larger by it, so that nothing is covered.
+        var edge = fakeInUse() ? 6 : 0;
+        var width = Math.ceil(box.width) + edge;
+        var height = Math.ceil(box.height) + edge;
+        if (openPanel === 'debug') {
+            return Math.max(width, formWidth('debug-form', 'debug-buttons')) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,debug';
+        }
         if (openPanel === 'settings') {
             // As tall as the row, its message lines and the settings need, whole, and never narrower than the settings need
             // for every text to be on one line and the buttons in one row; the flag says it is not resizable, and the name that a panel is open.
-            return Math.max(width, settingsWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,settings';
+            return Math.max(width, formWidth('settings-form', 'settings-buttons')) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,settings';
         }
         // The last field names the panel, so that the host remembers the height of the history and of the log.
         if (openPanel === 'log') {
@@ -656,15 +764,15 @@
     };
 
     /**
-     * How wide the window has to be for the settings: the form at the width of its own content, and the buttons of the view, each
+     * How wide the window has to be for the settings, or the debug settings: the form at the width of its own content, and the buttons of the view, each
      * with the room there is at its left again at its right. The form is as wide as the window when the window is the wider, so it
      * is let go of that for the moment of the measuring, and the answer does not depend on how wide the window happens to be.
      */
-    function settingsWidth() {
+    function formWidth(formId, buttonsId) {
         var left = $('app').getBoundingClientRect().left || 0;
-        var form = $('settings-form');
+        var form = $(formId);
         form.style.minWidth = '0';
-        var widths = [form, $('settings-buttons')].map(function (element) {
+        var widths = [form, $(buttonsId)].map(function (element) {
             var box = element.getBoundingClientRect();
             return box.width + 2 * Math.max(0, (box.left || 0) - left);
         });
@@ -700,6 +808,11 @@
         }
         show('connection', false);
         scrollbarWidth = measureScrollbar();
+        // The debug button is there in debug mode, always, and never otherwise.
+        show('debug-button', Boolean(config.debug));
+        $('debug-button').addEventListener('click', function () { togglePanel('debug'); });
+        $('debug-apply').addEventListener('click', applyDebug);
+        $('debug-cancel').addEventListener('click', cancelDebug);
 
         $('log-button').addEventListener('click', function () { togglePanel('log'); });
         $('history-button').addEventListener('click', function () { togglePanel('history'); });

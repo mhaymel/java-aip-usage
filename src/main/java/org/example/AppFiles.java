@@ -15,12 +15,20 @@ record AppFiles(Path settings, Path history, Path log) {
 
     static final String HISTORY_NAME = "java-aip-usage.csv";
 
+    /** The history of the readings the fake backend invented, which are never written among the real ones. */
+    static final String FAKE_HISTORY_NAME = "java-aip-usage.fake.csv";
+
     /** The usual places: next to {@code gradlew}, in the directory the program was started from. */
     static AppFiles inWorkingDirectory() {
         return new AppFiles(
                 Path.of(SETTINGS_NAME).toAbsolutePath(),
                 Path.of(HISTORY_NAME).toAbsolutePath(),
                 Path.of(Logging.LOG_FILE_NAME).toAbsolutePath());
+    }
+
+    /** Beside the history of real readings. */
+    Path fakeHistory() {
+        return history.resolveSibling(FAKE_HISTORY_NAME);
     }
 
     /** All three in one directory, under their usual names; for tests. */

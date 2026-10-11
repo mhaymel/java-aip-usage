@@ -496,8 +496,8 @@ test('nothing in the settings wraps: every text on one line and the three button
         assert.doesNotMatch(ruleOf(rule), /flex-wrap:\s*wrap/, rule);
     }
     assert.match(ruleOf('.settings .buttons'), /width:\s*max-content/, 'measured at its own width');
-    assert.match(ruleOf('#settings-form'), /width:\s*max-content/);
-    assert.match(ruleOf('#settings-form'), /min-width:\s*100%/, 'and as wide as the window when that is wider');
+    assert.match(ruleOf('#settings-form,\n#debug-form'), /width:\s*max-content/);
+    assert.match(ruleOf('#settings-form,\n#debug-form'), /min-width:\s*100%/, 'and as wide as the window when that is wider');
     const buttons = html.slice(html.indexOf('<p id="settings-buttons" class="buttons">'), html.indexOf('</p>', html.indexOf('id="settings-buttons"')));
     assert.deepEqual([...buttons.matchAll(/id="(settings-[a-z]+)"/g)].map(m => m[1]), ['settings-buttons', 'settings-apply', 'settings-restore', 'settings-cancel']);
     assert.match(ruleOf('.settings .panel-error'), /white-space:\s*normal/, 'a message may break');
@@ -659,4 +659,39 @@ test('an optional item of the row that is empty keeps its room and is not seen',
     for (const rule of ['.delta-used', '.delta-time', '.delta-interval']) {
         assert.match(ruleOf(rule), /min-width:\s*[0-9.]+ch/, rule + ' has a width of its own, which it keeps empty');
     }
+});
+
+// ---- debug mode
+
+test('the debug button is the last thing in the row, after the gear, hidden until the page knows it is debug mode, and yellow', () => {
+    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
+    assert.ok(strip.indexOf('id="settings-button"') < strip.indexOf('id="debug-button"'));
+    const button = strip.slice(strip.indexOf('<button id="debug-button"'));
+    assert.match(button, /^<button id="debug-button" class="icon tiny debug"[^>]*\shidden>/);
+    assert.match(button, /<svg/, 'an icon, not a word');
+    assert.match(ruleOf('.icon.debug,\n.icon.debug.active'), /color:\s*var\(--debug\)/, 'yellow, shown or not');
+    assert.deepEqual([...css.matchAll(/--debug:\s*(#[0-9a-f]{6})/g)].map(m => m[1]), ['#d4a017', '#f2cc60'], 'a yellow for each theme');
+});
+
+test('the debug settings are a view like the settings, with Apply and Cancel and no Restore defaults', () => {
+    const view = html.slice(html.indexOf('<div id="debug-view"'), html.indexOf('<!-- Measured'));
+    assert.match(view, /^<div id="debug-view" class="settings" hidden>/);
+    assert.ok(html.indexOf('id="panel"') < html.indexOf('id="debug-view"') && html.indexOf('id="settings-view"') < html.indexOf('id="debug-view"'), 'in the panel area, after the settings');
+    for (const id of ['debug-fakeBackend', 'debug-fakeToken']) {
+        assert.match(view, new RegExp('<label title="[^"]{40,}"><input id="' + id + '" type="checkbox">'), id);
+    }
+    assert.match(view, /<select id="debug-fakeScenario"[^>]*><\/select>/, 'the scenarios are the backend\'s to name');
+    assert.deepEqual([...view.matchAll(/<button id="(debug-[a-z]+)"/g)].map(m => m[1]), ['debug-apply', 'debug-cancel']);
+    const line = view.match(/<span class="line">([\s\S]*?)<\/span>/)[1];
+    assert.ok(line.indexOf('debug-fakeBackend') < line.indexOf('debug-fakeScenario'), 'the scenario is beside the switch of the fake backend');
+});
+
+test('the mark of the fake backend is a solid red border, three pixels, that fades to the background and back in four seconds', () => {
+    const rule = ruleOf('#app.fake');
+    assert.match(rule, /border:\s*3px solid var\(--bad\)/);
+    assert.match(rule, /animation:\s*fake-border 4s linear infinite/);
+    assert.match(rule, /box-sizing:\s*border-box/, 'so that a panel that fills the window keeps inside it');
+    const frames = css.slice(css.indexOf('@keyframes fake-border'), css.indexOf('#app.open'));
+    assert.match(frames, /0%, 100% \{ border-color: var\(--bad\); \}/);
+    assert.match(frames, /50% \{ border-color: Canvas; \}/, 'the background of the window, where the border is not seen');
 });

@@ -6,9 +6,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * What the fake backend answers. The names here are the ones {@code --fake-scenario}
- * takes, so this enum is the only list of them: the command line validates against it
- * and names its members in the message it prints for a name it does not know, and the
+ * What the fake backend answers. The names here are the ones the debug settings
+ * take, so this enum is the only list of them: the settings are validated against it,
+ * its members are named in the message for a name the program does not know, and the
  * server reads it to decide what to send. A scenario added here is usable at once and
  * cannot be missing from the message.
  */

@@ -132,6 +132,10 @@ function backendOf(state) {
         if (call.url === '/api/settings' && call.method === 'POST') {
             return state.postSettings ? state.postSettings(JSON.parse(call.body)) : { status: 200, body: { ...SETTINGS, settings: JSON.parse(call.body) } };
         }
+        if (call.url === '/api/debug' && call.method === 'GET') return state.debug ? state.debug() : { status: 200, body: DEBUG };
+        if (call.url === '/api/debug' && call.method === 'POST') {
+            return state.postDebug ? state.postDebug(JSON.parse(call.body)) : { status: 200, body: { ...DEBUG, settings: JSON.parse(call.body) } };
+        }
         if (call.url === '/api/status') return { status: 200, body: withDisplay(state.status) };
         if (call.url === '/api/refresh') return { status: 202, body: { started: true } };
         if (call.url === '/api/log') return state.log ? state.log() : { status: 200, body: LOG };
@@ -152,6 +156,13 @@ const SETTINGS = {
     defaults: DEFAULT_SETTINGS,
     limits: { usageIntervalSeconds: { min: 5, max: 3600 } },
 };
+
+// The debug settings as the backend gives them in debug mode, with the scenarios it knows.
+const DEBUG = {
+    settings: { fakeBackend: false, fakeScenario: 'normal', fakeToken: false },
+    scenarios: ['normal', 'http-401', 'http-429', 'slow'],
+};
+const DEBUG_CONFIG = { ...CONFIG, debug: true };
 
 const ERRORS = {
     entries: [
@@ -2292,4 +2303,140 @@ test('the row\'s time since the previous reading is the backend\'s seconds', asy
     const page = await load(backendOf({ config: CONFIG, status }));
 
     assert.equal(page.el('delta-time').textContent, '105s');
+});
+
+// ---- debug mode: a yellow button, a view of its own, and a red border while the fake backend is in use
+
+const debugPosts = page => page.calls.filter(c => c.method === 'POST' && c.url === '/api/debug');
+
+test('the debug button is there in debug mode and never otherwise', async () => {
+    const plain = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    assert.equal(plain.el('debug-button').hidden, true);
+    assert.equal(plain.calls.filter(c => c.url === '/api/debug').length, 0, 'and nothing is asked about debug settings');
+
+    const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
+    assert.equal(page.el('debug-button').hidden, false);
+});
+
+test('the debug button shows the debug settings, as the backend has them, with the scenarios it names', async () => {
+    const state = { config: DEBUG_CONFIG, status: SPEND_STATUS, debug: () => ({ status: 200, body: { ...DEBUG, settings: { fakeBackend: true, fakeScenario: 'http-429', fakeToken: false } } }) };
+    const page = await load(backendOf(state));
+
+    await page.click('debug-button');
+
+    assert.equal(page.el('debug-view').hidden, false);
+    assert.equal(page.el('settings-view').hidden, true);
+    assert.equal(page.el('panel').hidden, false);
+    assert.equal(page.el('debug-fakeBackend').checked, true);
+    assert.equal(page.el('debug-fakeScenario').value, 'http-429');
+    assert.deepEqual(page.el('debug-fakeScenario').children.map(o => o.value), DEBUG.scenarios);
+    assert.equal(page.el('debug-fakeToken').checked, false);
+    assert.equal(page.el('debug-button').title, 'Debug mode: hide the debug settings');
+    assert.match(page.el('debug-button').className, /\bdebug\b/, 'yellow');
+    assert.match(page.el('debug-button').className, /\bactive\b/);
+    assert.ok(page.window.contentSize().endsWith(',3,debug'), page.window.contentSize());
+});
+
+test('Apply in the debug settings sends the three of them and closes the view; Cancel sends nothing', async () => {
+    const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
+    await page.click('debug-button');
+    page.el('debug-fakeBackend').checked = true;
+    page.el('debug-fakeScenario').value = 'slow';
+
+    await page.click('debug-apply');
+
+    assert.deepEqual(JSON.parse(debugPosts(page)[0].body), { fakeBackend: true, fakeScenario: 'slow', fakeToken: false });
+    assert.equal(page.el('debug-view').hidden, true);
+    assert.equal(page.el('panel').hidden, true);
+
+    await page.click('debug-button');
+    page.el('debug-fakeToken').checked = true;
+    await page.click('debug-cancel');
+    assert.equal(debugPosts(page).length, 1, 'Cancel sent nothing');
+    assert.equal(page.el('debug-view').hidden, true);
+});
+
+test('leaving the debug settings by a button of the row saves them, and sends nothing when nothing was changed', async () => {
+    for (const button of ['debug-button', 'settings-button', 'log-button']) {
+        const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
+        await page.click('debug-button');
+        await page.click(button);
+        assert.equal(debugPosts(page).length, 0, button + ': nothing changed, nothing sent');
+        assert.equal(page.el('debug-view').hidden, true, button);
+
+        const changed = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
+        await changed.click('debug-button');
+        changed.el('debug-fakeBackend').checked = true;
+        await changed.click(button);
+        assert.equal(debugPosts(changed).length, 1, button + ': saved on leaving');
+        assert.equal(JSON.parse(debugPosts(changed)[0].body).fakeBackend, true);
+        assert.equal(changed.el('debug-view').hidden, true, button);
+    }
+});
+
+test('the gear pressed in the debug settings shows the settings, and the debug button pressed in the settings saves them', async () => {
+    const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
+    await page.click('debug-button');
+    await page.click('settings-button');
+    assert.equal(page.el('settings-view').hidden, false);
+    assert.equal(page.el('debug-view').hidden, true);
+
+    page.el('set-logResponse').checked = true;
+    await page.click('debug-button');
+
+    assert.equal(settingsPosts(page).length, 1, 'the settings were saved on the way');
+    assert.equal(page.el('debug-view').hidden, false);
+    assert.equal(page.el('settings-view').hidden, true);
+});
+
+test('debug settings that cannot be saved keep the view open with the reason, and the other panel shut', async () => {
+    const refusing = { config: DEBUG_CONFIG, status: SPEND_STATUS, postDebug: () => ({ status: 500, body: { error: 'The debug settings could not be applied: no port.' } }) };
+    const page = await load(backendOf(refusing));
+    await page.click('debug-button');
+    page.el('debug-fakeBackend').checked = true;
+
+    await page.click('history-button');
+
+    assert.equal(page.el('debug-view').hidden, false);
+    assert.equal(page.el('debug-error').textContent, 'The debug settings could not be applied: no port.');
+    assert.equal(page.el('history-button').title, 'Show the usage history');
+});
+
+test('debug settings that cannot be read say so and have no form', async () => {
+    const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS, debug: () => ({ status: 500, body: { error: 'Internal error; see the log.' } }) }));
+
+    await page.click('debug-button');
+
+    assert.equal(page.el('debug-form').hidden, true);
+    assert.match(page.el('debug-error').textContent, /^The debug settings could not be read: /);
+    assert.equal(page.el('debug-apply').attrs.disabled, '');
+});
+
+test('while the fake backend is in use the window has its red border, and is larger by it', async () => {
+    const state = { config: DEBUG_CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    assert.doesNotMatch(page.el('app').className, /\bfake\b/);
+    assert.equal(page.window.contentSize(), '400,42,0');
+
+    state.status = { ...SPEND_STATUS, fake: true };
+    await page.firePoll();
+
+    assert.match(page.el('app').className, /\bfake\b/);
+    assert.equal(page.window.contentSize(), '406,48,0', '3 pixels of border on every side');
+
+    state.status = SPEND_STATUS;
+    await page.firePoll();
+    assert.doesNotMatch(page.el('app').className, /\bfake\b/, 'and it goes when the fake backend is switched off');
+    assert.equal(page.window.contentSize(), '400,42,0');
+});
+
+test('the border stays while a panel is open and while the figures are old', async () => {
+    const stale = { ...SPEND_STATUS, fake: true, stale: true, error: { message: 'Anthropic returned HTTP 500.', at: NOW } };
+    const page = await load(backendOf({ config: DEBUG_CONFIG, status: stale }));
+    assert.match(page.el('app').className, /stale/);
+    assert.match(page.el('app').className, /\bfake\b/);
+
+    await page.click('history-button');
+    assert.match(page.el('app').className, /open/);
+    assert.match(page.el('app').className, /\bfake\b/);
 });

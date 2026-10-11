@@ -86,7 +86,8 @@ class TitleBarWindowTest {
             assertTrue(line(all, open).contains("titleBar:true"), open + ": a panel is open, so the title bar is there:\n" + all);
             assertTrue(line(all, open).contains("," + open + " "), open + ": and the page names it:\n" + all);
         }
-        assertEquals(8, all.lines().filter(l -> l.contains(" windows:1 ")).count(), "one window at every step:\n" + all);
+        assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" windows:1 ")).count(),
+                "one window at every step:\n" + all);
         assertTrue(!all.contains("PROBE failed"), all);
         // The row has its size again after each panel, in the window that has no frame.
         String row = line(all, "start").replaceAll(".* content:", "");
@@ -94,6 +95,54 @@ class TitleBarWindowTest {
             assertEquals(row, line(all, bare).replaceAll(".* content:", ""), bare + ":\n" + all);
         }
         assertTrue(all.contains("PROBE the program ended after the window was closed"), all);
+        assertEquals(0, exit, all);
+    }
+
+    /**
+     * Debug mode in the application itself: the yellow button, the red border while the fake backend is in use, the debug
+     * settings as a panel, and the fake backend switched off and on again while the program runs.
+     */
+    @Test
+    @Timeout(90)
+    void inDebugModeTheFakeBackendIsSwitchedWhileTheProgramRunsAndTheBorderFollowsIt() throws Exception {
+        List<String> output = new ArrayList<>();
+        int exit = runProbe(UsageAppProbe.class, output);
+        String all = String.join("\n", output.stream().filter(line -> line.startsWith("PROBE")).toList());
+        System.out.println(all);
+        // The probe starts the window class itself, which logs to the console; the file is set up by the program's own entry point.
+        String log = String.join("\n", output);
+
+        // Started with the fake backend on: the border, the invented figures, the debug button.
+        assertTrue(line(all, "start").contains(" app:[fake] "), all);
+        assertTrue(line(all, "start").contains(" border:3px "), "a border of three pixels:\n" + all);
+        assertTrue(line(all, "start").contains(" debugButton:true "), all);
+        assertTrue(line(all, "start").matches(".* used:\\[\\d+\\.\\d\\d\\] .*"), "the figures of the fake backend:\n" + all);
+        assertTrue(all.lines().filter(l -> l.contains("=titleBar:")).allMatch(l -> l.contains(" overflow:0")), "the border never pushes the page past the window:\n" + all);
+
+        // The debug settings are a panel: named, and with the title bar.
+        assertTrue(line(all, "debug").contains(",3,debug "), all);
+        assertTrue(line(all, "debug").contains("titleBar:true"), all);
+
+        // Switched off: no border, and the invented figures are gone with their source.
+        assertTrue(line(all, "fake-off-settled").contains(" border:0px "), "the border goes with the fake backend:\n" + all);
+        assertTrue(line(all, "fake-off-settled").contains(" app:[] "), all);
+        assertTrue(line(all, "fake-off-settled").contains(" used:[] "), "nothing invented is shown as real:\n" + all);
+        assertTrue(line(all, "fake-off-settled").contains(" debugButton:true "), "the debug button is the one sign of debug mode then:\n" + all);
+
+        // Switched on again, by leaving the debug settings through their own button, which saves them.
+        assertTrue(line(all, "fake-on-settled").contains(" border:3px "), all);
+        assertTrue(line(all, "fake-on-settled").matches(".* used:\\[\\d+\\.\\d\\d\\] .*"), all);
+
+        // The readings went to the file of their own, and the log says each change.
+        assertTrue(java.nio.file.Files.exists(dir.resolve("java-aip-usage.fake.csv")), "the invented readings have their file");
+        assertTrue(!java.nio.file.Files.exists(dir.resolve("java-aip-usage.csv"))
+                        || java.nio.file.Files.readAllLines(dir.resolve("java-aip-usage.csv")).stream().skip(1).allMatch(row -> row.contains("failed,")),
+                "and the real history holds nothing but the failed queries of the address nothing listens at");
+        assertTrue(log.contains("Debug mode (--debug)"), log);
+        assertTrue(log.contains("The fake backend is in use: these readings are invented"), log);
+        assertTrue(log.contains("Usage is fetched from http://127.0.0.1:9"), log);
+        assertEquals(1, log.lines().filter(l -> l.contains("Frontend loaded")).count(), "the page was loaded once through all of it");
+        assertTrue(!all.contains("PROBE failed"), all);
         assertEquals(0, exit, all);
     }
 

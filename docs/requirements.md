@@ -15,8 +15,8 @@ The application fetches usage data from the Anthropic OAuth usage endpoint:
 The part before the path, `https://api.anthropic.com`, is the base URL, and it is
 configurable: a command-line option (`--anthropic-url <url>`, see Command line)
 points the application at another server. The default is Anthropic's own, so a run
-that says nothing about it behaves as it always has. A run can instead fetch from
-the application's own fake backend (`--fake-backend`, see Fake backend), which needs
+that says nothing about it behaves as it always has. In debug mode a run can instead fetch from
+the application's own fake backend (see Debug mode and Fake backend), which needs
 no URL because the application knows where it put it.
 The path is always `/api/oauth/usage` and is appended to whatever
 base URL is in force; it is never configurable, because what the application
@@ -63,9 +63,10 @@ The client must obtain an OAuth access token before it can fetch usage data.
 - **What is kept after each outcome.** A failure that is not a 401, whatever it is (another status, the network, a response that cannot be read), keeps the token for the next refresh and is not tried again within the refresh. On a 401 the rejected token is dropped before a fresh one is asked for, so that it is never sent again: if getting the fresh one fails, the refresh fails with the message of the token flow and the next refresh starts the flow anew. If the retry is rejected with a 401 as well, no token is kept, and every later refresh runs the token flow until one is accepted. If the retry fails in any other way, that failure is reported as it is and the fresh token is kept; a 429 answered to the retry starts the back-off as usual.
 - If the user is not logged in or the token is unavailable, the application should show a clear user-facing message instead of failing silently. The same goes when `claude` cannot be found on the `PATH` (the message says what to do, including that a changed `PATH` needs a restart) and when it is found but cannot be run.
 - If `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is set, `claude` would send that credential instead of its OAuth login token, so the application does not capture one: it shows a message naming the variable, never its value, and asks for it to be unset and the application restarted.
-- The whole token flow can be left out of a run with `--fake-token` (see Command line). The application then obtains no token and sends a fixed placeholder bearer instead, `placeholder-no-real-token-was-obtained`, so it starts with no Claude Code installed, nobody logged in, and no paid account. Obtaining it cannot fail. The placeholder is deliberately not shaped like a credential, so the masking of the log (see The log) has nothing to hide in a fake run and its lines stay readable, and so that nobody can mistake it for a key that leaked. It exists for running against a server that does not look at the token, and for not spending real requests on the usage endpoint while developing. A run that uses it is said so in the log, so that a reading taken this way cannot be mistaken for a real one.
-- `--fake-backend` leaves the token flow out by itself, because the fake backend ignores the token: the two options need not both be given, and giving both is no mistake either, since they then ask for the same thing.
-- `--fake-token` and `--anthropic-url` are independent. A placeholder bearer sent to the real endpoint is rejected, which is the ordinary HTTP 401 path and not a special case; a real token is used against a custom URL, which is what pointing the application at a proxy in front of the real endpoint needs. Neither combination is refused.
+- In debug mode the whole token flow can be left out with the debug setting `Placeholder token` (see Debug mode). The application then obtains no token and sends a fixed placeholder bearer instead, `placeholder-no-real-token-was-obtained`, so it runs with no Claude Code installed, nobody logged in, and no paid account. Obtaining it cannot fail. The placeholder is deliberately not shaped like a credential, so the masking of the log (see The log) has nothing to hide in such a run and its lines stay readable, and so that nobody can mistake it for a key that leaked. It exists for running against a server that does not look at the token, and for not spending real requests on the usage endpoint while developing. A run that uses it is said so in the log, so that a reading taken this way cannot be mistaken for a real one.
+- The fake backend leaves the token flow out by itself, because it ignores the token: with it in use no token is obtained, whatever the setting of the placeholder token says.
+- The placeholder token and `--anthropic-url` are independent. A placeholder bearer sent to the real endpoint is rejected, which is the ordinary HTTP 401 path and not a special case; a real token is used against a custom URL, which is what pointing the application at a proxy in front of the real endpoint needs. Neither combination is refused.
+- Without `--debug` a real token is always obtained: the debug settings count for nothing then.
 
 Example token output:
 
@@ -78,8 +79,8 @@ Example token output:
 ## Refresh behavior
 
 - Fetch usage immediately when the application starts, then repeat at the configured interval.
-- The default backend usage-fetch interval is 60 seconds. Configure it in seconds through both a command-line option (`--usage-interval <seconds>`) and the settings view (see Settings); the command line, the settings file and the settings view accept values from 5 through 3600 seconds, the settings view in a single entry field. The default is a minute because the usage endpoint appears to accept about one request a minute over the long run: a faster pace, such as 30 seconds, is allowed but draws HTTP 429 after roughly ten minutes.
-- Save a usage-fetch interval changed in the frontend to the settings file (see Settings). A committed valid frontend value is sent to the backend and replaces any CLI override for the remainder of the run.
+- The default backend usage-fetch interval is 60 seconds. Configure it in seconds in the settings view (see Settings), and nowhere else: there is no command-line option for it. The settings file and the settings view accept values from 5 through 3600 seconds, the settings view in a single entry field. The default is a minute because the usage endpoint appears to accept about one request a minute over the long run: a faster pace, such as 30 seconds, is allowed but draws HTTP 429 after roughly ten minutes.
+- Save a usage-fetch interval changed in the frontend to the settings file (see Settings). A committed valid frontend value is sent to the backend and is in force at once.
 - Changing the backend usage-fetch interval does not cancel a request already in progress. Apply the new interval to the next scheduled request, measuring the interval from when the current/most recent request was triggered. If the new interval has already elapsed, start the next request as soon as no request is running; otherwise wait until the interval elapses. Changing the interval does not otherwise trigger an extra immediate request.
 - If a refresh fails, keep the last successful data visible, mark it as stale, and show the error. Resume normal display after the next successful refresh.
 - If Anthropic answers HTTP 429 (rate limited), the application slows down instead of
@@ -122,7 +123,7 @@ Example token output:
   status, in whole seconds and possibly negative, as described under Compact window.
   The frontend does not work it out.
 - The backend alone fetches usage from Anthropic on this interval. UI status polling must not trigger an Anthropic request.
-- The UI-to-backend status polling interval, how often the window asks the backend for the latest state, is not a setting. It is 1 second by default and can be overridden for one run with a command-line option (`--poll-interval <seconds>`), which accepts values from 1 through 60 seconds. It has no frontend control, is never changed while the application runs, and is never saved: it is forgotten when the application stops, and a value left in an older settings file is ignored.
+- The UI-to-backend status polling interval, how often the window asks the backend for the latest state, is not a setting. It is 1 second, always: it has no command-line option, no frontend control, is never changed while the application runs, and is never saved, and a value left in an older settings file is ignored.
 - When the UI starts, it must request the effective intervals from the backend, and it uses the polling interval to poll the backend for the latest available state. It shows the usage-fetch interval, and every other setting, when the settings view is opened, and it asks the backend for the values each time the view is opened, not only at startup. If the backend's values have changed in the meantime, for instance because another client changed them, the view shows the new values. If the backend cannot be reached at that moment, the view says so and shows no values, since the frontend keeps none of its own.
 - Provide a UI action to fetch usage immediately. It must call the backend, which starts an Anthropic usage request without waiting for the next scheduled refresh and returns immediately. Do not run overlapping usage requests; if a refresh is already in progress, return immediately without starting another one. Keep the manual-refresh action enabled; extra clicks while a request is in progress do not start additional requests.
 - Closing the application window must terminate the program and stop its backend server, scheduled tasks, and other background resources.
@@ -498,7 +499,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
 
 - A value typed in the interval box that is not a whole number from 5 to 3600 keeps the view open
   and shows a brief message in red when Apply is pressed; the backend refuses it, as before. The current value,
-  whatever it is (set on the command line, or in an old settings file), is what the field shows. The field has
+  whatever it is (also one from an old settings file), is what the field shows. The field has
   its unit, `s`, beside it, and there is no list of values to pick from.
 - **The texts of the view.** The section that holds the interval is headed `Request` (not `Usage requests`), and the interval's
   label reads `Interval`, and so does the checkbox for the row's item;
@@ -543,7 +544,6 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   front when the program starts.` The log says `The window stays on top` and `The window no longer stays on top` when it changes.
 - Turning on logging of the response makes the application write, for each response, the JSON it was
   sent, pretty printed over several lines, in the log (see Non-functional requirements).
-- The command line still overrides the interval for the run, as before, until a value is applied here.
 
 **The log panel**
 
@@ -802,7 +802,7 @@ Every reading the application gets is kept, so the usage can be looked at afterw
 - `interval` is the time between usage requests that was set when the request was made, in whole seconds.
   `duration_ms` is how long the query took, from the start of the refresh to the answer or the failure, which **includes getting the token** (a
   run of `claude`, up to 30 seconds) and the one retry after an HTTP 401, in whole milliseconds, so the first row of a run is usually the longest.
-  The `interval` is the interval the application was using, the configured one or the one from the command line, not the longer wait of a back-off. Both are on every row, failed ones included, and plain numbers.
+  The `interval` is the interval the application was using, the configured one, not the longer wait of a back-off. Both are on every row, failed ones included, and plain numbers.
 - A failed query's row has `datetime` of the time of the failure, since there is no `fetched_at`, and
   empty `used`, `limit` and `currency`. What went wrong is in the log, not in the file.
 
@@ -975,20 +975,16 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ## Debug mode
 
-**Specified, not yet built.** The sections above and below still describe the program as it is; where
-this section differs from them, it is what the program is to do, and they are to be brought into line
-when it is built. Every decision taken for it is written here as a requirement; nothing in it is left as an assumption.
-
-### Debug mode
+What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
+backend switched while the program runs, and the mark that says its figures are invented.
 
 - **One command-line option, `--debug`, starts the program in debug mode.** It takes no value. Without it the program
   is not in debug mode, and nothing of what follows is shown or can be reached.
-- **The options `--fake-backend`, `--fake-scenario` and `--fake-token` are removed.** What they did is set in the debug
-  settings view instead.
-- **`--usage-interval` and `--poll-interval` are removed as well.** The time between usage requests is set in the
-  settings view and nowhere else, and the window asks the application for its state once a second, which was the
-  default of `--poll-interval` and is no longer to be changed. The interval that `settings.json` holds is the one in
-  force from the start, as it is today when no option is given.
+- **There are no options `--fake-backend`, `--fake-scenario` and `--fake-token`** (there were, before version 0.37). What
+  they did is set in the debug settings view instead.
+- **There are no options `--usage-interval` and `--poll-interval` either.** The time between usage requests is set in the
+  settings view and nowhere else, and the window asks the application for its state once a second, which is not to be
+  changed. The interval that `settings.json` holds is the one in force from the start.
 - **What is left of the command line** is `--debug`, `--anthropic-url <url>`, and `-h` and `--help`.
 - **Without `--debug` the debug settings count for nothing.** A start without it fetches from Anthropic, or from the
   URL `--anthropic-url` names, with a real token, whatever `settings.json` says of the fake backend, the scenario and
@@ -998,7 +994,8 @@ when it is built. Every decision taken for it is written here as a requirement; 
 - **A debug button** is in the row at the right of the settings button, the last thing in the row, only in debug mode.
   It is an icon and it is **yellow**. Its tooltip says that the program is in debug mode. It is not one of the elements
   that can be hidden: in debug mode it is always there, like the gear, and without debug mode it is never there.
-- **The debug button's icon is a bug**, and its tooltip is `Debug mode: show the debug settings`, and `Debug mode: hide
+- **The debug button's icon is a bug**, its yellow is `#d4a017` on the light theme and `#f2cc60` on the dark one, whether its view
+  is shown or not, and its tooltip is `Debug mode: show the debug settings`, and `Debug mode: hide
   the debug settings` while the view is shown.
 - **Leaving the debug settings view saves it**, as leaving the settings view does (see Settings): by its own button or by
   the button of another panel; `Cancel` is the one way to leave it without saving, a save that fails keeps it open, and a view
@@ -1008,7 +1005,11 @@ when it is built. Every decision taken for it is written here as a requirement; 
   whatever the setting `Title bar` says (see Settings).
 - **A click on it shows the debug settings view**, which is like the settings view: below the row, in the same place,
   with `Apply` and `Cancel` and no `Restore defaults`, one view at a time, and the button again closes it.
-- **The debug settings**, all kept in `settings.json` with the others:
+- **The debug view, exactly.** One group, headed `Debug mode`: a checkbox `Fake backend` with a dropdown beside it, in the same
+  line, that names the scenarios the backend knows; and a checkbox `Placeholder token`. Each has a tooltip that says what it
+  does. The view is as wide as its texts need, like the settings, and the window as tall as the row and the view.
+- **The debug settings**, all kept in `settings.json` with the others, under the keys `fakeBackend`, `fakeScenario` (the name
+  of the scenario) and `fakeToken`:
 
   | Setting | Values | Default |
   | --- | --- | --- |
@@ -1021,7 +1022,17 @@ when it is built. Every decision taken for it is written here as a requirement; 
   saved, so it also says **whether the fake backend is started at startup** the next time the program is started in
   debug mode.
 - **The debug view applies at once.** A change of the fake backend, the scenario or the placeholder token takes effect
-  when the view is saved, followed by a refresh, without a restart.
+  when the view is saved, followed by a refresh, without a restart. A usage request that is under way at that moment is given
+  up: its answer is of the source that was left, so it is neither shown nor written to any history, and it is no failed refresh.
+- **The reading of the other source is not kept on show.** When the source changes, the row shows the newest reading of the
+  new source's own history, or, when that has none, begins again as at startup, with its gray boxes, until the refresh has an
+  answer. A real reading is never shown beside the red border, and an invented one never without it.
+- **When the new source cannot be opened**, the fake backend cannot be started or a token provider refuses, nothing is
+  changed: the debug settings are not saved, the source in use stays, and the view stays open with
+  `The debug settings could not be applied: <reason>` in red.
+- **The ordinary settings do not know the debug settings.** They are not in the settings view, not in what it reads and not in
+  what it sends, and saving the settings leaves them as they are. They have a request of their own, which answers that
+  there is no such thing when the program is not in debug mode (see `docs/api.md`).
 - **The fake backend leaves out the token flow**, as it always has: with it on no token is obtained, whatever the
   switch of the placeholder token says, and the base URL is not used.
 - **Invented readings have a history file of their own.** While the fake backend is in use, readings and failed
@@ -1031,7 +1042,8 @@ when it is built. Every decision taken for it is written here as a requirement; 
   file, so a real reading is never compared with an invented one. When the fake backend is switched on or off the
   program changes to the other file with the refresh that follows, and an open history panel shows the other file. The
   reading shown at startup comes from the file of the source in force. The file is logged at startup and at each
-  change, in the form of the line there is, `Usage history is written to <the file>`.
+  change, in the form of the line there is, `Usage history is written to <the file>`. The first row a run writes to
+  either file is marked as a start, each file for itself.
 - **A very visible mark while the fake backend is in use**, hard to overlook: **the window has a solid red border**,
   all the way round its content, which **slowly changes from red to the usual colour and back**, again and again. The
   usual colour is that of the window's background, so at one end of the change the border is not seen and at the other
@@ -1042,7 +1054,8 @@ when it is built. Every decision taken for it is written here as a requirement; 
 - **The border, exactly.** It is 3 pixels wide and in the red of errors, `#cf222e` on the light theme and `#f85149` on
   the dark one. One change from red to the background and back takes 4 seconds, at an even pace. It is drawn by the
   page, so it is inside the frame of the system; it is there with the title bar hidden as well, and round an open
-  panel too. The window is larger by the border, so nothing in the row is covered.
+  panel too. The window is larger by the border, so nothing in the row is covered. It is there while the figures are old
+  as well, and is not dimmed with them.
 
 ## Details of the behaviour
 
@@ -1050,61 +1063,56 @@ These are things the program does that the sections above do not say, written do
 
 **Command line**
 
-- `-h` and `--help` print the usage text and the program ends without opening a window. The options that take a value are `--usage-interval <seconds>`, `--poll-interval <seconds>`, `--anthropic-url <url>` and
-  `--fake-scenario <name>`, each also as `--name=<value>`; `--fake-token` and `--fake-backend` take none. Values are trimmed. A mistake prints one of these messages and then the usage text on the error output,
-  and the program ends with exit code 2 before anything is logged or shown:
-  `Unknown option: X`, `<option> needs a value in seconds.`, `<option> was given more than once.`, `<option> must be a whole number of seconds, not "x".`, `<option> must be from 5 to 3600 seconds.`
-  (1 to 60 for the poll interval), `--anthropic-url needs a URL.`, `--anthropic-url must be an absolute http or https URL, not "x".`, `<option> takes no value.` for a value given to one of the two that take none,
-  `--fake-backend and --anthropic-url cannot both be given: each says where usage comes from.`, `--fake-scenario needs a name.`, `--fake-scenario needs --fake-backend.`, and
-  `--fake-scenario must be one of <the names>, not "x".`
-- A command-line interval is never saved on its own: `settings.json` keeps what the person last applied.
-- `--anthropic-url <url>` replaces the base URL of the usage endpoint for the run. It is accepted when it is an absolute URL whose scheme is `http` or `https` and which has a host; any host is allowed, this machine
-  or any other, and no warning is given, because the person naming the URL is the one deciding where the token may go. A trailing slash is ignored, so `http://127.0.0.1:8080` and `http://127.0.0.1:8080/` are the same.
-  A path is kept as a prefix, so `http://127.0.0.1:8080/proxy` is fetched as `http://127.0.0.1:8080/proxy/api/oauth/usage`, which is what a proxy under a path needs. A URL with a query or a fragment is a mistake and
-  draws the message above, since neither has a meaning here. The default is `https://api.anthropic.com`.
-- `--fake-token` leaves out the token flow for the run, as Authentication says. A value given to it (`--fake-token=1`) is the mistake named above.
-- `--fake-backend` fetches from the application's own fake backend for the run, as Fake backend says, and leaves out the token flow with it. `--fake-scenario <name>` chooses what that backend answers; it is
-  meaningless without `--fake-backend` and is refused rather than ignored, so a run never quietly fetches real usage because the option that was meant to make it fake was forgotten.
-- None of the four is ever saved, as `--poll-interval` is not, and none has a setting or a window control: they belong to one run and are forgotten when the program stops.
-- **Help.** The usage text goes to the standard output, the program ends with exit code 0, and it ends before the log is set up: no log file is created or added to and nothing is logged. A mistake wins over help: the whole
-  command line is read before help is acted on, so `--help --bogus` prints the mistake and the usage text on the error output and ends with exit code 2. `-h` and `--help` may be given more than once, and anywhere among the
-  other options, without that being a mistake. `--help=x` is not help: it is `Unknown option: --help=x`.
-- **What is an option.** The names are matched exactly and with their case; there are no abbreviations. Anything that is not one of them is an unknown option, a bare argument included (`10` draws `Unknown option: 10`), and
-  the message gives the whole argument as typed, with its `=value` if it had one. The options may come in any order: `--fake-scenario slow --fake-backend` is as good as the other way round.
-- **Where the value comes from.** In the two-argument form the value is the next argument whatever it is, even one that looks like an option: `--usage-interval --help` draws `--usage-interval must be a whole number of
-  seconds, not "--help".` and shows no help. `needs a value` is said only when the option is the last argument. An empty value after `=` is, for an interval, `<option> must be a whole number of seconds, not "".`; for the URL,
-  `--anthropic-url needs a URL.`; for the scenario, `--fake-scenario needs a name.`; a value of blanks alone is the same.
-- **What an interval value may be.** After trimming it is read as a whole decimal number, so a leading `+` and leading zeros are accepted (`+10`, `010`). `1.5`, `1e3`, a word, and a number too large to hold draw the
-  `whole number` message; a whole number outside the range, zero and the negative ones included, draws the range message. The `whole number` message gives the value as typed; the URL and scenario messages give it trimmed.
-- **One mistake is reported, the first.** The arguments are checked from left to right and the first mistake ends it. For an option with a value the order is: no value, given more than once, a bad value. For `--fake-token` and
-  `--fake-backend`, `takes no value` comes before `given more than once`. The two rules about options together are checked last, when the whole line has been read: `--fake-backend` with `--anthropic-url` first, then
-  `--fake-scenario` without `--fake-backend`.
-- **The URL, more exactly.** The scheme is read without regard to case, so `HTTP://127.0.0.1:8080` is accepted, and kept as typed. One trailing slash is dropped, not several.
-- **The scenario names** are `normal`, `http-401`, `http-403`, `http-429`, `http-429-retry-after`, `http-500`, `not-json`, `empty`, `no-spend-no-windows`, `trailing-text`, `slow` and `hang` (see Fake backend for what each
-  answers). A name is read without regard to case and trimmed, so `NOT-JSON` is `not-json`. `<the names>` in the message above is this list in this order, separated by a comma and a space.
-- **The usage text** is this, word for word. The ranges, the defaults, the default URL, the default scenario and the list of scenarios in it are the ones the program checks against, so the text cannot say one thing and the
-  program do another:
+- The options are `--debug`, `--anthropic-url <url>`, and `-h` and `--help`. There are no others: the time between usage
+  requests is set in the settings view, and what the fake backend, its scenario and the placeholder token were options for is in the
+  debug settings (see Debug mode).
+- `--debug` starts the program in debug mode. It takes no value.
+- `--anthropic-url <url>`, also as `--anthropic-url=<url>`, replaces the base URL of the usage endpoint for the run. The value is
+  trimmed. It is accepted when it is an absolute URL whose scheme is `http` or `https` and which has a host; any host is allowed, this
+  machine or any other, and no warning is given, because the person naming the URL is the one deciding where the token may go. A
+  trailing slash is ignored, so `http://127.0.0.1:8080` and `http://127.0.0.1:8080/` are the same. A path is kept as a prefix, so
+  `http://127.0.0.1:8080/proxy` is fetched as `http://127.0.0.1:8080/proxy/api/oauth/usage`, which is what a proxy under a path
+  needs. A URL with a query or a fragment is a mistake, since neither has a meaning here. The default is
+  `https://api.anthropic.com`. It is never saved and has no setting or window control: it belongs to one run. While the fake
+  backend is in use the URL is not used.
+- **A mistake** prints one of these messages and then the usage text on the error output, and the program ends with exit code 2
+  before anything is logged or shown: `Unknown option: X`, `--debug takes no value.`, `<option> was given more than once.`,
+  `--anthropic-url needs a URL.`, and `--anthropic-url must be an absolute http or https URL, not "x".`
+- **The options that are gone** are unknown options like any other word: `--fake-backend`, `--fake-scenario`, `--fake-token`,
+  `--usage-interval` and `--poll-interval` each draw `Unknown option: <as typed>`.
+- **Help.** `-h` and `--help` print the usage text and the program ends without opening a window. The text goes to the standard
+  output, the program ends with exit code 0, and it ends before the log is set up: no log file is created or added to and nothing is
+  logged. A mistake wins over help: the whole command line is read before help is acted on, so `--help --bogus` prints the mistake
+  and the usage text on the error output and ends with exit code 2. `-h` and `--help` may be given more than once, and anywhere among
+  the other options, without that being a mistake. `--help=x` is not help: it is `Unknown option: --help=x`.
+- **What is an option.** The names are matched exactly and with their case; there are no abbreviations. Anything that is not one of
+  them is an unknown option, a bare argument included (`10` draws `Unknown option: 10`), and the message gives the whole argument as
+  typed, with its `=value` if it had one. The options may come in any order.
+- **Where the value comes from.** In the two-argument form the value is the next argument whatever it is, even one that looks like an
+  option. `needs a URL` is said when the option is the last argument, when the value after `=` is empty, and when it is blanks alone.
+- **One mistake is reported, the first.** The arguments are checked from left to right and the first mistake ends it. For
+  `--anthropic-url` the order is: no value, given more than once, a bad value. For `--debug`, `takes no value` comes before
+  `given more than once`.
+- **The URL, more exactly.** The scheme is read without regard to case, so `HTTP://127.0.0.1:8080` is accepted, and kept as typed. One
+  trailing slash is dropped, not several. The message of a bad URL gives it trimmed.
+- **The scenario names** of the fake backend, which the debug settings offer, are `normal`, `http-401`, `http-403`, `http-429`,
+  `http-429-retry-after`, `http-500`, `not-json`, `empty`, `no-spend-no-windows`, `trailing-text`, `slow` and `hang` (see Fake
+  backend for what each answers).
+- **The usage text** is this, word for word. The default URL in it is the one the program uses, so the text cannot say one thing and
+  the program do another:
 
   ```
-  Usage: java-aip-usage [--usage-interval <seconds>] [--poll-interval <seconds>]
-                        [--anthropic-url <url>] [--fake-token]
-                        [--fake-backend [--fake-scenario <name>]]
+  Usage: java-aip-usage [--debug] [--anthropic-url <url>]
 
-    --usage-interval <seconds>  how often usage is fetched from Anthropic (5-3600, default 60)
-    --poll-interval <seconds>   how often the window asks for the latest state (1-60, default 1)
+    --debug                     debug mode: a debug button in the window, whose settings say whether
+                                usage comes from a fake backend inside this program, what it answers,
+                                and whether a placeholder token is sent
     --anthropic-url <url>       where to fetch usage from, without the path (default https://api.anthropic.com)
-    --fake-token                send a placeholder token instead of obtaining a real one
-    --fake-backend              fetch from a fake backend inside this program, not from Anthropic
-    --fake-scenario <name>      what the fake backend answers (default normal):
-                                normal, http-401, http-403, http-429, http-429-retry-after, http-500, not-json, empty, no-spend-no-windows, trailing-text, slow, hang
     -h, --help                  show this help
 
-  A usage interval chosen in the window is saved to settings.json and replaces --usage-interval
-  for the rest of the run. --poll-interval applies to this run only and is never saved, and so
-  do --anthropic-url, --fake-token, --fake-backend and --fake-scenario.
-
-  --fake-backend needs nothing of Anthropic: no account, no login, no network. It implies
-  --fake-token, because it ignores the token, and cannot be combined with --anthropic-url.
+  The debug settings are kept in settings.json like the others, and count only in debug mode: a
+  run without --debug fetches from Anthropic, or from the URL given, with a real token. Everything
+  else, the time between usage requests among it, is set in the window.
   ```
 
 **The usage request**
@@ -1231,9 +1239,12 @@ These are things the program does that the sections above do not say, written do
   <reason>`, a warning, for a history row that cannot be written. `Settings are stored in <path>`, the line that gives the path of the settings file. `Frontend served at http://127.0.0.1:<port>/`, and `Frontend loaded` when
   the page has loaded. Each time the program gives the window a new size: `Window fitted to <w>x<h> (window <W>x<H>)`, the size of the content and then of the window with its title bar, with ` (resizable: height)` or
   ` (resizable: both)` between them when it may be dragged. If the page cannot be asked for its size, the warning `Could not ask the page for its size: <reason>`, once in a run and not at every try.
-- **The order of the lines at startup**: `Logging to`, the start line, the history path, the settings path, the lines about the fake backend, the base URL and the token (see Non-functional requirements), the lines of the
-  settings, the line about the reading taken from the history, `Frontend served at`, and then the first refresh. One line is out of that order in a run with `--fake-backend`: the fake backend is started first, so its own
-  `Fake backend listening on http://127.0.0.1:<port>, answering <scenario>` comes straight after the start line, before the history path.
+- **The order of the lines at startup**: `Logging to`, the start line, the settings path, the lines of the settings, in debug mode
+  `Debug mode (--debug)`, the history path, the lines about the fake backend, the base URL and the token (see Non-functional
+  requirements), the line about the reading taken from the history, `Frontend served at`, and then the first refresh. The history
+  path comes after the settings because, in debug mode, the settings say which of the two history files is in use. One line is out of
+  that order in a run that starts with the fake backend: the fake backend is started when the source is opened, so its own
+  `Fake backend listening on http://127.0.0.1:<port>, answering <scenario>` comes before `Debug mode (--debug)`.
 
 **The local server**
 
@@ -1293,7 +1304,7 @@ These are things the program does that the sections above do not say, written do
 - The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.
-- The window title is `aip usage v0.36`; the program is called `java-aip-usage v0.36` in the log.
+- The window title is `aip usage v0.37`; the program is called `java-aip-usage v0.37` in the log.
 - **The program asks the page for its size about every 150 milliseconds** and gives the window a new size when the answer is a new one, so the window follows its content within a moment. The page measures its own content, never the window, so that giving the window that size does not change the answer; the same size is not set twice. The page says nothing but its size, what may be dragged and which panel is open, and the program tells the page nothing.
 - **What may be dragged.** With no panel, and with the settings, nothing. With the history, the height only, the width staying what the page asked for. With the log and the error log, the height and the width. Neither can be dragged below the size the window has with no panel open, which is the size the page last asked for with none; until there has been one, the size the panel opened at is the least.
 - **An answer of the page that is not a size is passed over**: one that is not text, one with a width or a height of 0 or of more than five digits, a panel name other than `history`, `log`, `errors`, `settings` and `debug`. A change of what may be dragged, or of the panel, with the same numbers, counts as a new size.
@@ -1314,7 +1325,7 @@ These are things the program does that the sections above do not say, written do
   The time format's two choices read `hh:mm` and `hh:mm:ss`. The interval field is 5 characters wide, right-aligned, with `s` after it. When Apply is pressed the window checks that the field is a whole number
   (`The interval must be a whole number of seconds.`) and sends nothing otherwise; whether it is within 5 to 3600 is for the backend. Nothing else is bound to the keyboard: there is no Enter to apply and no Escape to cancel; the panels' lines can be reached with Tab, and the buttons say
   whether their panel is open to a screen reader.
-- **The panels:** while a panel is on show it is read again when its content changes. The log and the error log are read at every poll of the status that was answered, so every second unless `--poll-interval` says otherwise, and not at all while contact is lost; the history whenever a row has been added to its file, a row of a failed refresh as well as a reading (the status carries a stamp of the file, `historyStamp`, which changes when a row is added; it is empty when there is no file). If nothing has changed the lines are left alone; when new lines come in above, what the person
+- **The panels:** while a panel is on show it is read again when its content changes. The log and the error log are read at every poll of the status that was answered, so every second, and not at all while contact is lost; the history whenever a row has been added to its file, a row of a failed refresh as well as a reading (the status carries a stamp of the file, `historyStamp`, which changes when a row is added; it is empty when there is no file). If nothing has changed the lines are left alone; when new lines come in above, what the person
   is reading does not move, and a panel scrolled to the top stays at the top. If a read fails the old lines stay and a red line says `The usage history could not be read: <reason>` (`The log could not be read: ...`, `The error log could not be read: ...`). A panel with nothing to list shows only its note. The notes of the log are `There is no log file yet.`, `The log is empty.`
   and `Showing the newest N lines of the log.`; those of the history are written by the program, as above.
 - Text the program sends is put on the page as text, never as HTML, the tooltips included.
@@ -1367,13 +1378,13 @@ These are things the program does that the sections above do not say, written do
 
 The application carries a fake Anthropic backend of its own, so that it can be run and
 watched without a paid Anthropic account, without Claude Code installed or logged in, and
-without spending real requests on the usage endpoint. One option turns it on; nothing else
-is needed and nothing else has to be started.
+without spending real requests on the usage endpoint. It is switched on in the debug settings (see Debug
+mode); nothing else is needed and nothing else has to be started.
 
-- `--fake-backend` (see Command line) makes the application start a fake usage server inside
-  its own process and fetch from it for the rest of the run. There is no second program and no
-  second command: the fake backend is part of the application and is reached only through this
-  option.
+- The debug setting `Fake backend` makes the application start a fake usage server inside its own
+  process and fetch from it, until the setting is switched off again, when the server is stopped. A
+  server is started anew each time, on a new port. There is no second program and no second command:
+  the fake backend is part of the application and is reached only in debug mode.
 - It is a real HTTP server on the loopback interface, on a port the operating system chooses,
   and the application fetches from it over HTTP exactly as it fetches from Anthropic. It is not a
   substitute for the usage client fitted in place of it: the connection, the status, the headers,
@@ -1383,10 +1394,10 @@ is needed and nothing else has to be started.
   else. Any other path is HTTP 404 with no body, a path beneath the usage path such as
   `/api/oauth/usage/extra` included, and any other method on the usage path is HTTP 405 with no body. It
   never looks at the bearer token and never reaches the network.
-- Because it ignores the token, `--fake-backend` also leaves out the token flow, exactly as
-  `--fake-token` does, and does not have to be given with it (see Authentication).
-- `--fake-backend` and `--anthropic-url` contradict each other, since each says where usage comes
-  from. Giving both is a mistake and is refused on the command line (see Command line).
+- Because it ignores the token, the fake backend also leaves out the token flow, exactly as the
+  placeholder token does, whose setting need not be on with it (see Authentication).
+- With `--anthropic-url` given as well, the URL is simply not used while the fake backend is in use,
+  and is used again when it is switched off.
 - Its normal answer is a plausible usage document: a `spend` object that is enabled, among the keys a
   real response carries beside it. The figures move a little on each request, so
   that the row, the history and the differences between readings all have something to show rather
@@ -1398,8 +1409,8 @@ is needed and nothing else has to be started.
   body with trailing text; and an answer that is slow or never comes, past the 20 second request limit
   of The usage request. (Both take the connection at once, so neither goes past the 10 second connect
   limit; no scenario does.)
-- The scenario is chosen with `--fake-scenario <name>`, the normal answer by default, and can be
-  changed while the application runs so that one run can be taken through several of them. How it is
+- The scenario is chosen in the debug settings, the normal answer by default, and can also be
+  changed while the application runs without them so that one run can be taken through several of them. How it is
   changed is an implementation decision, provided it is on the loopback interface, is not part of the
   application's own local API, and cannot be reached from the page the application serves. **The log
   says where it listens**, so that a person can find it and change the scenario of a run that is
@@ -1473,8 +1484,7 @@ What the sections above require is to be held up by tests, and the few things no
 looked at by a person. This section says which is which, so that "it works" means something.
 
 - **The behaviour that can be tested is tested.** The parsing of the usage response and of every
-  malformed body, from fixtures of real responses; the precedence of the command line over the settings
-  file over the default; the refresh schedule, including an interval changed while a request is in flight
+  malformed body, from fixtures of real responses; the settings file over the default; the refresh schedule, including an interval changed while a request is in flight
   and a due time that has already passed; the back-off after an HTTP 429 and its easing; and the move
   between fresh, stale and failed state.
 - **No automated test needs an account.** Everything that talks HTTP talks to a server on loopback: the
@@ -1486,7 +1496,7 @@ looked at by a person. This section says which is which, so that "it works" mean
 - **The rules about requests are tested as rules**: that polling the status triggers no Anthropic request,
   that a manual refresh returns at once and starts at most one request and never a second while one runs,
   that the update interval can be neither changed nor saved from the window, and that an applied usage
-  interval replaces a command-line one for the rest of the run.
+  interval is in force at once and survives a restart.
 - **The log is tested for what it must say and for what it must never say**: the lifecycle lines in their
   order, each refresh and its outcome, and the HTTP diagnostics, in the console and in the file; and the
   absence of every credential, header and response body, checked by planting credential-shaped text in a
@@ -1568,20 +1578,21 @@ These repos are intended as a source of knowledge and reusable implementation id
 - Use Java 25 with Gradle toolchain support.
 - Use the bundled Gradle wrapper rather than a manual local install.
 - **Nothing has to be installed by hand to build it.** The toolchain is declared, so Gradle fetches the JDK 25 it needs when the machine has none, and the wrapper fetches the one Gradle version the project declares, so every machine builds it with the same one. A clone and `./gradlew` are the whole of the setup; the only thing the build expects of the machine is a network and, for the frontend tests, `node` on the `PATH`.
-- `./gradlew build` compiles the sources and runs the tests, and `./gradlew run` opens the window. The options of Command line are given to the `run` task after `--args`, for example `./gradlew run --args="--usage-interval 10"`, so every option of the program can be used without a packaged launcher.
+- `./gradlew build` compiles the sources and runs the tests, and `./gradlew run` opens the window. The options of Command line are given to the `run` task after `--args`, for example `./gradlew run --args="--debug"`, so every option of the program can be used without a packaged launcher.
 - Provide a `./gradlew run` task and keep the solution easy to run from the IDE. A distributable macOS app bundle is out of scope for the first version.
-- The fake backend (see Fake backend) is part of the application and needs no task, no second entry point and no second command of its own: `./gradlew run --args="--fake-backend"`, or the same option in an IDE run configuration, is the whole of it. It is in the shipped artefact, reachable only through its option.
+- The fake backend (see Fake backend) is part of the application and needs no task, no second entry point and no second command of its own: `./gradlew run --args="--debug"`, or the same option in an IDE run configuration, and the switch in the debug settings are the whole of it. It is in the shipped artefact, reachable only in debug mode.
 - Prefer simple, testable interaction boundaries between token acquisition, usage fetching, and rendering.
 - **A poll is cheap.** The window asks for the status every second for as long as the application runs, so that answer costs no more work than it has to: the figures it carries are the ones the refresh already worked out, and the history file is read again only when it has changed (its size or its time), not once a second. A panel that is open is read again on the same terms: the history when its file has changed, the log and the error log on the poll, and the lines on the page are replaced only when they differ from what is already there, so that what a person is reading does not move for an answer that says nothing new.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
-  (`Starting java-aip-usage v0.36`), and then a line that says which file the usage history CSV is written to, as a full path, for example
+  (`Starting java-aip-usage v0.37`), and, after the lines of the settings, a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).
-  After the settings path comes a line naming the base URL usage is fetched from, `Usage is fetched from https://api.anthropic.com`, on every run and not only a configured one, so that the log of any run says where
-  its readings came from; for a run with `--fake-backend` it names the address the fake backend was given, preceded by a line of its own, `The fake backend is in use: these readings are invented (--fake-backend,
-  scenario <name>, format <name>)`. When no token is obtained, a line follows: `No token is obtained: a placeholder is sent instead (--fake-token)`, and `(--fake-backend)` in its place when that is what left the token out.
+  After the history path comes a line naming the base URL usage is fetched from, `Usage is fetched from https://api.anthropic.com`, on every run and not only a configured one, so that the log of any run says where
+  its readings came from; while the fake backend is in use it names the address the fake backend was given, preceded by a line of its own, `The fake backend is in use: these readings are invented (debug settings,
+  scenario <name>)`. When no token is obtained, a line follows: `No token is obtained: a placeholder is sent instead (debug settings, the placeholder token)`, and `(debug settings, the fake backend)` when that is what left the token out.
+  The same lines, from the history path on, are written again each time the debug settings change where usage comes from.
   A change of scenario while the application runs is logged too, as `The fake backend scenario is now <name>`. These lines come after the one the log panel marks, so the marking is unaffected.
 - The settings file, `settings.json` in the same directory as the usage history file, holds all the
   settings, and the two remembered heights (see Remembered heights), stored as JSON, and nothing else. If there is none at startup a new one is created with the
@@ -1600,8 +1611,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - **How the settings file is read.** No value is turned into another: the interval and the heights must be whole JSON numbers (`"45"`, `45.5` and `true` are refused), a switch must be `true` or `false` (`"yes"` is
   refused), and the time format exactly the text `hh:mm` or `hh:mm:ss`. A key whose value is `null` is a key the file lacks: it has its default and nothing is logged. An empty file, and one that holds a list, are files that
   are not a JSON object. A file added to by hand keeps its extra keys until the next save.
-- **Applying settings that are the file's own.** Whether anything is written and logged is judged against what the file holds, not against what the run is using: applying the file's values while an interval from the
-  command line is in force writes and logs nothing, and still puts the applied interval in the place of the command line's for the rest of the run.
+- **Applying settings that are the file's own** writes and logs nothing.
 - Each line of the log begins with its time in the same form as the usage history file: the local date and time to the second, `yyyy-MM-dd HH:mm:ss`, for example `2026-10-08 16:24:53`, so the log, the history and the window agree on the clock.
 - The log records startup and shutdown, each refresh and how it ended, token acquisition and rejection, settings changes, and for each request to Anthropic its status, duration, size and `request-id`. It never records a token or a header. It records no part of a response body, except that, while the setting to log the response is on, it writes the JSON of each response, pretty printed over several lines, after one entry line that says whose it is. That text is masked like everything else, so anything shaped like a credential in it is hidden before it is written, as a last line of defence. The setting is off by default.
 - Every failed refresh is also written to the log, once when it happens, at the warning level, as `Usage refresh failed: <the message>` (the message without its `Refresh failed at HH:mm` wrapper), an HTTP 429 included although it has no message line. The window's own `Lost contact with the application` message is the window's only and is not logged.

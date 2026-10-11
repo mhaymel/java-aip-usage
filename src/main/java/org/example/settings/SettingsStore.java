@@ -62,6 +62,12 @@ public final class SettingsStore {
 
     static final String SHOW_TITLE_BAR_KEY = "showTitleBar";
 
+    static final String FAKE_BACKEND_KEY = "fakeBackend";
+
+    static final String FAKE_SCENARIO_KEY = "fakeScenario";
+
+    static final String FAKE_TOKEN_KEY = "fakeToken";
+
     static final String HISTORY_DELTA_USED_KEY = "historyDeltaUsed";
 
     static final String HISTORY_DELTA_TIME_KEY = "historyDeltaTime";
@@ -143,7 +149,10 @@ public final class SettingsStore {
                 flag(root, SHOW_COUNTDOWN_KEY, defaults.showCountdown()),
                 flag(root, SHOW_DURATION_KEY, defaults.showDuration()),
                 flag(root, STAY_ON_TOP_KEY, defaults.stayOnTop()),
-                flag(root, SHOW_TITLE_BAR_KEY, defaults.showTitleBar()));
+                flag(root, SHOW_TITLE_BAR_KEY, defaults.showTitleBar()),
+                flag(root, FAKE_BACKEND_KEY, defaults.fakeBackend()),
+                scenario(root, defaults.fakeScenario()),
+                flag(root, FAKE_TOKEN_KEY, defaults.fakeToken()));
     }
 
     /**
@@ -210,6 +219,22 @@ public final class SettingsStore {
             }
         }
         write(load(), heights);
+    }
+
+    /** The scenario of the fake backend, by its name; a name that is none of them is logged and passed over. */
+    private org.example.fake.Scenario scenario(JsonNode root, org.example.fake.Scenario fallback) {
+        JsonNode node = root.get(FAKE_SCENARIO_KEY);
+        if (node == null || node.isNull()) {
+            return fallback;
+        }
+        java.util.Optional<org.example.fake.Scenario> named =
+                node.isTextual() ? org.example.fake.Scenario.ofOptionName(node.textValue()) : java.util.Optional.empty();
+        if (named.isEmpty()) {
+            LOG.log(System.Logger.Level.WARNING,
+                    "Ignoring " + FAKE_SCENARIO_KEY + " in " + file + ": it must be one of " + org.example.fake.Scenario.names());
+            return fallback;
+        }
+        return named.get();
     }
 
     private int interval(JsonNode root, int fallback) {
@@ -284,6 +309,9 @@ public final class SettingsStore {
         root.put(SHOW_DURATION_KEY, settings.showDuration());
         root.put(STAY_ON_TOP_KEY, settings.stayOnTop());
         root.put(SHOW_TITLE_BAR_KEY, settings.showTitleBar());
+        root.put(FAKE_BACKEND_KEY, settings.fakeBackend());
+        root.put(FAKE_SCENARIO_KEY, settings.fakeScenario().optionName());
+        root.put(FAKE_TOKEN_KEY, settings.fakeToken());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
 
