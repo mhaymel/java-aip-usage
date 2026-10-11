@@ -294,7 +294,7 @@ class ApiTest {
     private static String allSettings(int interval, boolean logResponse, String timeFormat) {
         return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
                 + ", \"showPercentage\": true, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
-                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true, \"showDuration\": false}";
+                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true, \"showDuration\": false, \"stayOnTop\": false}";
     }
 
     @Test
@@ -306,7 +306,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(22, body.get("settings").size());
+        assertEquals(23, body.get("settings").size());
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -354,6 +354,19 @@ class ApiTest {
         long written = Long.parseLong(millis);
         String expected = written < 1000 ? written + "ms" : (written / 1000) + "s" + String.format("%03d", written % 1000) + "ms";
         assertEquals(expected, json(get(app, "/api/status")).at("/display/duration/text").asText());
+    }
+
+    @Test
+    void stayOnTopIsASettingOffByDefaultThatIsAppliedAndGivenBack() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        assertFalse(json(get(app, "/api/settings")).at("/settings/stayOnTop").asBoolean());
+        assertFalse(app.settings().current().stayOnTop());
+
+        String on = allSettings(60, false, "hh:mm").replace("\"stayOnTop\": false", "\"stayOnTop\": true");
+        assertEquals(200, post(app, "/api/settings", on).statusCode());
+
+        assertTrue(json(get(app, "/api/settings")).at("/settings/stayOnTop").asBoolean());
+        assertTrue(app.settings().current().stayOnTop(), "which is where the window reads it");
     }
 
     @Test
@@ -790,7 +803,7 @@ class ApiTest {
         await(() -> history(app).size() >= 2);
         post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showPercentage\": false, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": false,"
                 + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
-                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true, \"showDuration\": false}");
+                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true, \"showDuration\": false, \"stayOnTop\": false}");
         fail.set(false);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);

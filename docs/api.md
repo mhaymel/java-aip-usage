@@ -65,7 +65,8 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "showLimit": true,
     "showRefresh": true,
     "showCountdown": true,
-    "showDuration": false
+    "showDuration": false,
+    "stayOnTop": false
   },
   "defaults": { "...": "the same keys, with the defaults" },
   "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } }
@@ -247,7 +248,7 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.34", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.35", "..."]
 }
 ```
 

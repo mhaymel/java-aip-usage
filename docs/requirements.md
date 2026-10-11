@@ -487,6 +487,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Show the change in the amount used in the row | on, off | off |
   | Show the time since the previous reading in the row | on, off | off |
   | Show the request duration in the row | on, off | off |
+  | Keep the window above every other window (`Stay on top`) | on, off | off |
   | Time format in the row | hours and minutes, or hours, minutes and seconds | hours and minutes |
   | Show the date in the history, as well as the time | on, off | off |
   | Show the zero usage lines in the history | on, off | on |
@@ -511,7 +512,13 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
 - **Every control is wide enough for its own value**, the arrow of a dropdown included: the value is never
   covered by the arrow, nor cut off.
 - **The text of the view can be selected and copied.**
-- The view is arranged in sections: `Request`, `Main view`, `History view` and `Log`.
+- The view is arranged in sections: `Request`, `Main view`, `Window`, `History view` and `Log`.
+- **The window on top.** At startup the window comes to the front, above all other windows. The setting `Stay on top`, in the
+  group `Window`, off by default and saved under the key `stayOnTop`, says what happens after that: on, the window stays above
+  every other window for as long as the program runs; off, it was brought to the front at startup only and can be covered
+  afterwards as usual. The setting is not previewed: it takes effect when the settings are saved, within a moment, without a
+  restart. Its tooltip is `Keeps the window above every other window for as long as the program runs. Off, it only comes to the
+  front when the program starts.` The log says `The window stays on top` and `The window no longer stays on top` when it changes.
 - Turning on logging of the response makes the application write, for each response, the JSON it was
   sent, pretty printed over several lines, in the log (see Non-functional requirements).
 - The command line still overrides the interval for the run, as before, until a value is applied here.
@@ -944,7 +951,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - Before the page has its first answer from the application it does not know which elements are switched on, so for that moment
   it shows only the refresh button and the panel buttons.
 
-## Debug mode, the title bar, the window on top, and the request duration
+## Debug mode and the title bar
 
 **Specified, not yet built.** The sections above and below still describe the program as it is; where
 this section differs from them, it is what the program is to do, and they are to be brought into line
@@ -1017,9 +1024,8 @@ when it is built. Every decision taken for it is written here as a requirement; 
 
 - **A setting, `Title bar`, shows or hides the title bar of the window.** It is in the settings view, **on by default**,
   and saved in `settings.json` like every setting, under the key `showTitleBar`.
-- **The settings view has a new group, `Window`**, after `Main view` and before `History view`, with two checkboxes,
-  `Title bar` and `Stay on top`, in that order. Neither is previewed in the row: they take effect when the view is
-  saved.
+- **Its checkbox, `Title bar`, is in the group `Window` of the settings view**, before `Stay on top`. It is not previewed
+  in the row: it takes effect when the view is saved.
 - **It works while the program runs**, not at the next start: the title bar comes when a panel is opened and goes
   when it is closed, and follows the setting when it is saved. That the window flickers for a moment as it changes is
   accepted.
@@ -1037,14 +1043,6 @@ when it is built. Every decision taken for it is written here as a requirement; 
   resized by dragging, which a window with no frame does not allow: to move or close a window with no title bar, the
   settings button, or the button of any panel, is pressed. When the panel is closed the title bar is shown or hidden as
   configured. Only the row by itself is ever without a title bar.
-
-### The window on top
-
-- **At startup the window comes to the front**, above all other windows. Today it opens behind them.
-- **A setting, `Stay on top`**, in the group `Window` of the settings view, **off by default**, and saved in `settings.json`
-  under the key `stayOnTop`: on, the window stays above every
-  other window for as long as the program runs; off, it is brought to the front at startup only and can be covered
-  afterwards as usual.
 
 ## Details of the behaviour
 
@@ -1247,7 +1245,7 @@ These are things the program does that the sections above do not say, written do
 - The settings are strict: every one of them must be in a `POST /api/settings`, else 400 `The setting X is missing.`; a flag must be true or false (`The setting X must be true or false.`); the time format `hh:mm` or `hh:mm:ss`; and the interval a whole number
   within 5 to 3600 (`The usage interval must be a whole number of seconds from 5 to 3600.`). A file that cannot be written is 500 `The settings could not be saved: <reason>`, and nothing changes.
 - **The settings are checked in a fixed order and the first fault is the one reported**: the interval first, then the switches in the order of the settings table, with the time format between `showDeltaTime` and
-  `historyDeltaUsed`, and `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown` and `showDuration` last, in that order. An interval that is not a whole JSON number (`30.5`, `"30"`, `true`, a number too large) draws the same message as one out of range. A `null` counts as missing, for every key. The message for the time
+  `historyDeltaUsed`, and `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration` and `stayOnTop` last, in that order. An interval that is not a whole JSON number (`30.5`, `"30"`, `true`, a number too large) draws the same message as one out of range. A `null` counts as missing, for every key. The message for the time
   format is `The setting timeFormat must be "hh:mm" or "hh:mm:ss".`, also when it is not a text. A key that is not a setting is ignored. An interval out of range refuses the whole set before anything is written, so no other
   value of that request is kept. A set that was applied is answered with the settings as they now are, in the shape `GET /api/settings` has, which is what the view shows next.
 - **The order of the checks on a request**: the path (404), then the method (405), then the `Content-Type` (415), then the size (413), then whether it is JSON (400), then the settings themselves. So a `POST` of the wrong type
@@ -1295,7 +1293,7 @@ These are things the program does that the sections above do not say, written do
 - The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.
-- The window title is `aip usage v0.34`; the program is called `java-aip-usage v0.34` in the log.
+- The window title is `aip usage v0.35`; the program is called `java-aip-usage v0.35` in the log.
 - **The program asks the page for its size about every 150 milliseconds** and gives the window a new size when the answer is a new one, so the window follows its content within a moment. The page measures its own content, never the window, so that giving the window that size does not change the answer; the same size is not set twice. The page says nothing but its size, what may be dragged and which panel is open, and the program tells the page nothing.
 - **What may be dragged.** With no panel, and with the settings, nothing. With the history, the height only, the width staying what the page asked for. With the log and the error log, the height and the width. Neither can be dragged below the size the window has with no panel open, which is the size the page last asked for with none; until there has been one, the size the panel opened at is the least.
 - **An answer of the page that is not a size is passed over**: one that is not text, one with a width or a height of 0 or of more than five digits, a panel name other than `history`, `log` and `errors`. A change of what may be dragged, or of the panel, with the same numbers, counts as a new size.
@@ -1342,7 +1340,7 @@ These are things the program does that the sections above do not say, written do
 - **What the application's refusal reads as.** The reason a red line gives is the `error` text of the answer when it has one, else `The application answered HTTP <status>.` With the answers the panels' files give, the line reads `The usage history could not be read: The usage history could not be read.`, and the
   same for the log.
 - **The settings view, exactly.** The groups and their order: `Request`, with `Interval`, the field and `s`; `Main view`, with the thirteen checkboxes of The elements of the row in the order of the row, the time format dropdown beside `Time` and `Currency symbol` beside `Amount used`, 12 pixels from it;
-  `History view`, with `Date`, `Zero usage lines`, `Failed lines`, `Δ used`, `Δ time`; and `Log`, with `Log the response`. The text is bold, 12 pixels on a line of 1.45, in the system's own interface font, not condensed. Each group is a box with a thin gray border
+  `Window`, with `Stay on top`; `History view`, with `Date`, `Zero usage lines`, `Failed lines`, `Δ used`, `Δ time`; and `Log`, with `Log the response`. The text is bold, 12 pixels on a line of 1.45, in the system's own interface font, not condensed. Each group is a box with a thin gray border
   and its heading set in the border; each setting has a line of its own, the control 4 pixels from its text. The buttons are 6 pixels apart, with a gray border that takes the colour of the text under the pointer or with the focus; a disabled one is at half strength. `Apply` has no tooltip. The dropdown is at
   least 12 characters wide. The red line of the view is at its top, above the groups; it stays until the view is opened again, whatever is typed or pressed meanwhile. When the settings cannot be read it says `The settings could not be read: <reason>` and the groups are not shown at all, not shown empty; Cancel
   still works. A refusal of the backend is shown in its own words. The check of the interval field is: blanks at its ends aside, digits and nothing else, so ` 60 ` and `0060` are taken, the latter as 60, and `-5`, `5.0`, `1e3`, `60s` and an empty field are not. Apply sends all sixteen settings in one request.
@@ -1577,7 +1575,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - **A poll is cheap.** The window asks for the status every second for as long as the application runs, so that answer costs no more work than it has to: the figures it carries are the ones the refresh already worked out, and the history file is read again only when it has changed (its size or its time), not once a second. A panel that is open is read again on the same terms: the history when its file has changed, the log and the error log on the poll, and the lines on the page are replaced only when they differ from what is already there, so that what a person is reading does not move for an answer that says nothing new.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
-  (`Starting java-aip-usage v0.34`), and then a line that says which file the usage history CSV is written to, as a full path, for example
+  (`Starting java-aip-usage v0.35`), and then a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).
@@ -1593,7 +1591,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, and the two heights
   `historyHeight` and `logHeight`. Where this document says "in the project root, beside `gradlew`", the files are in the working directory the program was
   started from, which is the project root for `./gradlew run` and for an IDE run configuration set as the notes say.
 - **The settings file as written.** One JSON object, printed over several lines, with the keys always in the order above, the two heights last and always there, as `0` when none is remembered. Every save writes the whole file

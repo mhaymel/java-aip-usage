@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.34). What these mechanisms make the
+How the requirements are met today (version 0.35). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1379,7 +1379,8 @@ loaded the page and fitted the window, which is all that was seen.
 
 ### 45 to 49. Debug mode, the title bar, the window on top, the request duration: how they are built
 
-Requirement: Debug mode, the title bar, the window on top, and the request duration. That section is five pieces that do not
+Requirement: Debug mode and the title bar, a section that was named for all five when it was written and loses a piece with each
+phase. It is five pieces that do not
 depend on one another. *Decided by the person:* they are built **one at a time, each a phase and a version of its own**, tested
 and committed by itself, so that each can be looked at in the window before the next is begun. Smallest first, the two with risk
 last:
@@ -1388,7 +1389,7 @@ last:
 | --- | --- | --- |
 | 45 | 0.33 | The settings view: no `Maximum view` and `Minimum view`, a least width, leaving saves (done) |
 | 46 | 0.34 | The request duration, a thirteenth element (done) |
-| 47 | 0.35 | The window to the front at startup, and `Stay on top` |
+| 47 | 0.35 | The window to the front at startup, and `Stay on top` (done) |
 | 48 | 0.36 | The title bar, on and off while the program runs |
 | 49 | 0.37 | Debug mode: `--debug`, the debug view, the fake backend switched at runtime, the red border |
 
@@ -1462,20 +1463,24 @@ for as long as it shows.
 
 ### 47. The window to the front at startup, and `Stay on top`
 
-**Status: specified, not built (version 0.35).** Requirement: The window on top.
+**Status: done (version 0.35).** Requirement: Settings (The window on top).
 
-- **To the front at startup.** After `stage.show()` in `UsageApp.start`: `stage.toFront()` and `stage.requestFocus()`. On Windows
-  a program that was not started by the person's last click is often not let to the front; if that is what is seen,
-  `setAlwaysOnTop(true)` followed by `false` a moment later is what gets it there.
-- **The setting.** `stayOnTop`, off by default, in `Settings`, the file and the API, with a checkbox `Stay on top` in a new
-  group `Window` of the settings view, after `Main view`, not previewed.
-- **The host follows the setting.** `UsageApp` has the runtime, so it reads `runtime.settings().current().stayOnTop()` at
-  startup and is told of a change through `IntervalSettings.onChange`, on the JavaFX thread (`Platform.runLater`), where it
-  calls `stage.setAlwaysOnTop`.
-- **Tests.** The setting through store and API. The window itself is not in the automated suite; `PanelWindowTest`, which opens
-  real windows when asked, gets a case for `isAlwaysOnTop` after a change of the setting.
-
-*Risk:* small, but only the window shows whether it really comes to the front on Windows.
+- **To the front at startup.** `UsageApp.bringToFront`, after `stage.show()`: the window is put on top, asked to the front and
+  given the focus, and 400 milliseconds later left to the setting again. A window that is on top is in front, which asking alone
+  does not always achieve on Windows.
+- **The setting.** `stayOnTop`, off by default, at the end of `Settings`, the file and the settings API, required in a `POST`
+  and checked last. A checkbox `Stay on top` in a new group `Window` of the settings view, after `Main view`; it is in
+  `SETTING_FLAGS` and not in `MAIN_FLAGS`, so it is saved with the others and not previewed.
+- **The host follows the setting.** `followStayOnTop` runs on the tick that fits the window, every 150 milliseconds: it reads
+  `runtime.settings().current().stayOnTop()` and sets the stage when the two differ, with a line in the log. The plan had it
+  listen through `IntervalSettings.onChange`; that holds one listener, which the logging of the response has, and a setting
+  that changes a few times in a run is as well read as listened for.
+- **Tests.** `SettingsStoreTest` (off by default, saved and read back, the key in the file); `ApiTest` (applied, given back,
+  and in `settings().current()`, where the window reads it); `app.test.cjs` (sent with the others, no `change` listener);
+  `layout.test.cjs` (the group `Window` between `Main view` and `History view`, the checkbox with its tooltip).
+- **Seen in a real window.** The installed program was started in a folder of its own and asked through the system: at startup
+  its window was the foreground window and not on top; with the setting applied it was on top within a second; with the setting
+  off again it was not. That check was done by hand with a script and is not in the suite.
 
 ### 48. The title bar, on and off while the program runs
 

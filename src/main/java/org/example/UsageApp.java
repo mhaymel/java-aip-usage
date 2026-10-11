@@ -89,6 +89,9 @@ public class UsageApp extends Application {
 
     private boolean fitFailureReported;
 
+    /** True for the moment at startup in which the window is held on top to bring it to the front; the setting waits for it. */
+    private boolean raising;
+
     @Override
     public void start(Stage stage) throws Exception {
         LOG.log(Level.INFO, "Starting java-aip-usage v" + AppInfo.VERSION);
@@ -136,12 +139,47 @@ public class UsageApp extends Application {
             }
         });
         stage.show();
+        bringToFront(stage);
         keepFitting(webView, stage);
+    }
+
+    /**
+     * Brings the window to the front at startup. A program is not always let to the front by asking, on Windows in
+     * particular when it was not started by the person's last click, but a window that is on top is in front: so it is
+     * put on top for a moment and then left to the setting again.
+     */
+    private void bringToFront(Stage stage) {
+        raising = true;
+        stage.setAlwaysOnTop(true);
+        stage.toFront();
+        stage.requestFocus();
+        PauseTransition settled = new PauseTransition(Duration.millis(400));
+        settled.setOnFinished(event -> {
+            raising = false;
+            followStayOnTop(stage);
+        });
+        settled.play();
+    }
+
+    /** Keeps the window above the others for as long as the setting says so, and lets it go when it no longer does. */
+    private void followStayOnTop(Stage stage) {
+        if (raising || runtime == null) {
+            return;
+        }
+        boolean wanted = runtime.settings().current().stayOnTop();
+        if (stage.isAlwaysOnTop() != wanted) {
+            stage.setAlwaysOnTop(wanted);
+            LOG.log(Level.INFO, wanted ? "The window stays on top" : "The window no longer stays on top");
+        }
     }
 
     /** Keeps the window the size the page asks for, as messages and the config fields come and go. */
     private void keepFitting(WebView webView, Stage stage) {
-        fitTimer = new Timeline(new KeyFrame(FIT_INTERVAL, event -> fit(webView, stage)));
+        // The same tick follows the setting that keeps the window on top: it is read, not listened for, since it changes rarely.
+        fitTimer = new Timeline(new KeyFrame(FIT_INTERVAL, event -> {
+            fit(webView, stage);
+            followStayOnTop(stage);
+        }));
         fitTimer.setCycleCount(Animation.INDEFINITE);
         fitTimer.play();
     }

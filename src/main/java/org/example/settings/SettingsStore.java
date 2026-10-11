@@ -58,6 +58,8 @@ public final class SettingsStore {
 
     static final String SHOW_DURATION_KEY = "showDuration";
 
+    static final String STAY_ON_TOP_KEY = "stayOnTop";
+
     static final String HISTORY_DELTA_USED_KEY = "historyDeltaUsed";
 
     static final String HISTORY_DELTA_TIME_KEY = "historyDeltaTime";
@@ -137,7 +139,8 @@ public final class SettingsStore {
                 flag(root, SHOW_LIMIT_KEY, defaults.showLimit()),
                 flag(root, SHOW_REFRESH_KEY, defaults.showRefresh()),
                 flag(root, SHOW_COUNTDOWN_KEY, defaults.showCountdown()),
-                flag(root, SHOW_DURATION_KEY, defaults.showDuration()));
+                flag(root, SHOW_DURATION_KEY, defaults.showDuration()),
+                flag(root, STAY_ON_TOP_KEY, defaults.stayOnTop()));
     }
 
     /**
@@ -276,6 +279,7 @@ public final class SettingsStore {
         root.put(SHOW_REFRESH_KEY, settings.showRefresh());
         root.put(SHOW_COUNTDOWN_KEY, settings.showCountdown());
         root.put(SHOW_DURATION_KEY, settings.showDuration());
+        root.put(STAY_ON_TOP_KEY, settings.stayOnTop());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
 
