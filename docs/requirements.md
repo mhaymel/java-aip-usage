@@ -1254,6 +1254,21 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The tooltips are drawn by the window, not by the page**: the page says their text, and the size is a style of the
   window. Their typeface, their colours and their frame are the system's, as before.
 
+### An icon of the program's own
+
+- **The window has an icon of the program's own** (since version 0.51) in the place of the one Java gives every program: in the title bar
+  and in the taskbar, and wherever else the system shows the icon of a window.
+- **It is a gauge**: a half circle with a needle, in the green of the figures, `#1a7f37` with the lighter `#3fb950` for
+  the needle, on a dark rounded square, `#0d1117`. The needle points to the upper right, at about two thirds.
+- **It is given in several sizes**, 16, 32, 48 and 256 pixels, each drawn for its size and not scaled from another, so
+  that it is clear in the title bar as in a large view.
+- **Every window of the program has it**: the one with the title bar and the one without, which are exchanged for each
+  other.
+- The icon is a file of the program, drawn once and kept with its sources; it is not downloaded.
+- **The gauge, exactly.** The arc is the upper half of a ring with round ends, and the needle goes from a round hub at
+  the middle of the ring's foot; the corners of the square are rounded by a fifth of its side and see-through beyond
+  that. In the small sizes the lines are thicker in proportion, so that they are seen.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1346,23 +1361,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## The program's icon, the zoom of the lists, and the automatic interval
+## The zoom of the lists, and the automatic interval
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.50; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.51; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 63 to 65).
-
-### An icon of the program's own
-
-- **The window has an icon of the program's own** in the place of the one Java gives every program: in the title bar
-  and in the taskbar, and wherever else the system shows the icon of a window.
-- **It is a gauge**: a half circle with a needle, in the green of the figures, `#1a7f37` with the lighter `#3fb950` for
-  the needle, on a dark rounded square, `#0d1117`. The needle points to the upper right, at about two thirds.
-- **It is given in several sizes**, 16, 32, 48 and 256 pixels, each drawn for its size and not scaled from another, so
-  that it is clear in the title bar as in a large view.
-- **Every window of the program has it**: the one with the title bar and the one without, which are exchanged for each
-  other.
-- The icon is a file of the program, drawn once and kept with its sources; it is not downloaded.
+when it is built (see the implementation plan, phases 64 and 65).
 
 ### A zoom for the lists: the log, the usage history and the error log
 

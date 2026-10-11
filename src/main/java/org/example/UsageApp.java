@@ -126,6 +126,9 @@ public class UsageApp extends Application {
 
         this.stage = stage;
         stage.setTitle(AppInfo.windowTitle());
+        // The program's own icon, in the place of the one Java gives every program. A window that takes this one's place,
+        // for the title bar, is given the same icons (see StageSwap).
+        stage.getIcons().setAll(AppIcons.load());
         if (!runtime.settings().current().showTitleBar()) {
             // The row alone, as configured; the style of a window is fixed before it is first shown.
             stage.initStyle(StageStyle.UNDECORATED);

@@ -112,6 +112,21 @@ public final class UsageAppProbe {
             onFx(() -> page().getEngine().executeScript("document.getElementById('" + button + "').click()"));
         }
         Thread.sleep(1500);
+        // The title bar is switched off in this probe, so the window has it exactly while the page shows a panel. On a
+        // machine that is busy the exchange of the window can take longer than the wait above: it is given some more.
+        for (int waited = 0; waited < 10; waited++) {
+            boolean[] settled = new boolean[1];
+            onFx(() -> settled[0] = StageSwap.hasTitleBar(window())
+                    == Boolean.TRUE.equals(page().getEngine().executeScript("!document.getElementById('panel').hidden")));
+            if (settled[0]) {
+                break;
+            }
+            Thread.sleep(500);
+        }
+        if (button != null) {
+            // And a moment for the size, which the window is given after the exchange.
+            Thread.sleep(300);
+        }
         onFx(() -> {
             List<Window> showing = Window.getWindows().stream().filter(Window::isShowing).toList();
             System.out.println("PROBE " + name + "=titleBar:" + StageSwap.hasTitleBar(window())
@@ -164,6 +179,8 @@ public final class UsageAppProbe {
                     + " of:[" + page().getEngine().executeScript(
                             "(function () { var o = document.getElementById('of'), c = getComputedStyle(o), u = document.getElementById('used').getBoundingClientRect(), b = o.getBoundingClientRect();"
                                     + " return o.textContent + '|' + c.fontSize + '|' + c.fontWeight + '|' + c.color + '|' + Math.round(Math.abs(u.bottom - b.bottom)); })()") + "]"
+                    // The icons of the window: their sizes.
+                    + " icons:" + window().getIcons().stream().map(icon -> String.valueOf((int) icon.getWidth())).collect(java.util.stream.Collectors.joining("/"))
                     + " end");
             System.out.flush();
         });
@@ -208,42 +225,45 @@ public final class UsageAppProbe {
      * text and the size of its font. The tooltip is a window of its own, so it is looked for among the windows.
      */
     private static void hover(String name, String id) throws InterruptedException {
-        onFx(() -> {
-            WebView view = page();
-            Object at = view.getEngine().executeScript(
-                    "(function () { var b = document.getElementById('" + id + "').getBoundingClientRect();"
-                            + " return Math.round(b.left + b.width / 2) + ',' + Math.round(b.top + b.height / 2); })()");
-            double x = Double.parseDouble(at.toString().split(",")[0]);
-            double y = Double.parseDouble(at.toString().split(",")[1]);
-            javafx.geometry.Point2D screen = view.localToScreen(x, y);
-            fire(view, javafx.scene.input.MouseEvent.MOUSE_ENTERED, x - 1, y, screen.getX() - 1, screen.getY(), false);
-            fire(view, javafx.scene.input.MouseEvent.MOUSE_MOVED, x - 1, y, screen.getX() - 1, screen.getY(), false);
-            fire(view, javafx.scene.input.MouseEvent.MOUSE_MOVED, x, y, screen.getX(), screen.getY(), false);
-        });
-        Thread.sleep(400);
-        onFx(() -> {
-            WebView view = page();
-            javafx.geometry.Point2D screen = view.localToScreen(5, 5);
-            // A second move, once the page has said its tooltip, as a mouse that is still settling makes.
-            Object at = view.getEngine().executeScript(
-                    "(function () { var b = document.getElementById('" + id + "').getBoundingClientRect();"
-                            + " return Math.round(b.left + b.width / 2 + 1) + ',' + Math.round(b.top + b.height / 2); })()");
-            double x = Double.parseDouble(at.toString().split(",")[0]);
-            double y = Double.parseDouble(at.toString().split(",")[1]);
-            fire(view, javafx.scene.input.MouseEvent.MOUSE_MOVED, x, y, screen.getX() + x - 5, screen.getY() + y - 5, false);
-        });
-        Thread.sleep(2500);
-        onFx(() -> {
-            String shown = Window.getWindows().stream()
+        String[] shown = {"none"};
+        // The mouse of the test is not the system's, and a tooltip does not always come for it at the first try: it is
+        // moved off and on again a few times before the answer is that none came.
+        for (int attempt = 1; attempt <= 5 && shown[0].equals("none"); attempt++) {
+            for (int step = 0; step < 3; step++) {
+                int nudge = step;
+                onFx(() -> {
+                    WebView view = page();
+                    Object at = view.getEngine().executeScript(
+                            "(function () { var b = document.getElementById('" + id + "').getBoundingClientRect();"
+                                    + " return Math.round(b.left + b.width / 2) + ',' + Math.round(b.top + b.height / 2); })()");
+                    double x = Double.parseDouble(at.toString().split(",")[0]) + nudge - 1;
+                    double y = Double.parseDouble(at.toString().split(",")[1]);
+                    javafx.geometry.Point2D screen = view.localToScreen(x, y);
+                    if (nudge == 0) {
+                        fire(view, javafx.scene.input.MouseEvent.MOUSE_ENTERED, x, y, screen.getX(), screen.getY(), false);
+                    }
+                    fire(view, javafx.scene.input.MouseEvent.MOUSE_MOVED, x, y, screen.getX(), screen.getY(), false);
+                });
+                Thread.sleep(300);
+            }
+            Thread.sleep(2000);
+            onFx(() -> shown[0] = Window.getWindows().stream()
                     .filter(window -> window instanceof javafx.scene.control.Tooltip && window.isShowing())
                     .map(window -> (javafx.scene.control.Tooltip) window)
                     .map(tip -> tip.getText() + "|" + tip.getFont().getSize())
-                    .findFirst().orElse("none");
-            System.out.println("PROBE " + name + "=shown:[" + shown + "] sheets:" + page().getScene().getStylesheets().size());
+                    .findFirst().orElse("none"));
+            // Off the page again, and the tooltip away, so that nothing of it is left for the steps that follow.
+            onFx(() -> {
+                fire(page(), javafx.scene.input.MouseEvent.MOUSE_EXITED, -5, -5, 0, 0, false);
+                Window.getWindows().stream().filter(window -> window instanceof javafx.scene.control.Tooltip).toList()
+                        .forEach(Window::hide);
+            });
+            Thread.sleep(400);
+        }
+        onFx(() -> {
+            System.out.println("PROBE " + name + "=shown:[" + shown[0] + "] sheets:" + page().getScene().getStylesheets().size());
             System.out.flush();
-            fire(page(), javafx.scene.input.MouseEvent.MOUSE_EXITED, -5, -5, 0, 0, false);
         });
-        Thread.sleep(300);
     }
 
     private static void fire(WebView view, javafx.event.EventType<javafx.scene.input.MouseEvent> type, double x, double y,

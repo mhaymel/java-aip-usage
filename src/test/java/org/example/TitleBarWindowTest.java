@@ -34,7 +34,7 @@ class TitleBarWindowTest {
     Path dir;
 
     @Test
-    @Timeout(90)
+    @Timeout(240)
     void theTitleBarGoesAndComesBackAndThePageDoesNotNotice() throws Exception {
         List<String> output = new ArrayList<>();
         int exit = runProbe(TitleBarProbe.class, output);
@@ -71,7 +71,7 @@ class TitleBarWindowTest {
      * any panel is open, and loses it again when the panel is closed.
      */
     @Test
-    @Timeout(90)
+    @Timeout(240)
     void withTheTitleBarOffTheWindowHasItOnlyWhileAPanelIsOpen() throws Exception {
         List<String> output = new ArrayList<>();
         int exit = runProbe(UsageAppProbe.class, output);
@@ -98,6 +98,11 @@ class TitleBarWindowTest {
         assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/8 .*"), "some elements are on, and the button is in the middle of its heading:\n" + all);
         assertTrue(line(all, "settings-all").contains("/13 note:"), "one press: all thirteen on:\n" + all);
         assertTrue(line(all, "settings-narrow").contains("/0 note:"), "another: all off:\n" + all);
+
+        // The window has the program's icon in its four sizes, with the title bar and without, in each window that took the place of another.
+        assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" icons:16/32/48/256 end")).count(),
+                "the icon at every step:\n" + all);
+        assertTrue(line(all, "start").contains("titleBar:false") && line(all, "history").contains("titleBar:true"), "both kinds of window were among them:\n" + all);
 
         // The tooltip of the amount used comes when the mouse rests on it, and is 14 pixels.
         assertEquals("PROBE tooltip=shown:[Credits used, in USD|14.0] sheets:1", line(all, "tooltip"), all);
@@ -132,7 +137,7 @@ class TitleBarWindowTest {
      * settings as a panel, and the fake backend switched off and on again while the program runs.
      */
     @Test
-    @Timeout(90)
+    @Timeout(240)
     void inDebugModeTheFakeBackendIsSwitchedWhileTheProgramRunsAndTheBorderFollowsIt() throws Exception {
         List<String> output = new ArrayList<>();
         int exit = runProbe(UsageAppProbe.class, output);
@@ -249,7 +254,8 @@ class TitleBarWindowTest {
                 .redirectOutput(dir.resolve("probe-output.txt").toFile())
                 .start();
         process.getOutputStream().close();
-        boolean ended = process.waitFor(60, TimeUnit.SECONDS);
+        // The probe of the application takes about a minute, with its steps and their waits.
+        boolean ended = process.waitFor(180, TimeUnit.SECONDS);
         if (!ended) {
             process.destroyForcibly();
             process.waitFor(5, TimeUnit.SECONDS);

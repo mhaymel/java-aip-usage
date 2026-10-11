@@ -1478,8 +1478,25 @@ looks.
 
 ### 63. The program's icon
 
-**Status: specified, not built (version 0.51).** Four PNG files in the resources, drawn by a script kept with the sources;
-`Stage.getIcons` for the first window and in `StageSwap` for each window after it.
+**Status: built (version 0.51).** Requirement: An icon of the program's own.
+
+- **The files.** `icons/icon-16.png`, `-32`, `-48` and `-256` in the resources, drawn by `src/main/icons/draw-icon.cjs`,
+  which needs only Node: it works out each pixel from the shapes, with a grid of samples for smooth edges, and writes the
+  PNG by hand. It is run again only when the icon is to look different; the build does not run it.
+- **The window.** `AppIcons.load()` reads the four, and `UsageApp.start` gives them to the first window. `StageSwap`
+  already gave a new window the icons of the one it replaces, which had none until now.
+- **Tests.** `AppIconsTest`: the four sizes, each file a square of its size with see-through corners, the dark ground,
+  the hub and the arc where they belong, and the needle to the upper right and not to the left. In a real window (the
+  on-request test) the window has icons of 16, 32, 48 and 256 pixels at every step, with the title bar and without.
+
+**Not checked by a test.** That the title bar and the taskbar show it: the test reads the icons the window was given, not
+the screen. How it looks at 16 pixels.
+
+*In the on-request window test, found on the way:* the tooltip of phase 62 did not always come at the first try for the
+mouse of the test, which is not the system's, so the probe tries up to five times and puts the tooltip away afterwards.
+And a step of the probe looked at the window a fixed second and a half after a button was pressed, which on a busy
+machine was sometimes before the title bar had come: it waits now until the window has the title bar when the page shows
+a panel, and the test allows the probe three minutes where it allowed one.
 
 ### 64. The zoom of the lists
 
