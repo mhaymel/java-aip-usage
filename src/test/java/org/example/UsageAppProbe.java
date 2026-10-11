@@ -103,7 +103,7 @@ public final class UsageAppProbe {
                     + " border:" + page().getEngine().executeScript("getComputedStyle(document.getElementById('app')).borderTopWidth")
                     + " debugButton:" + page().getEngine().executeScript("!document.getElementById('debug-button').hidden")
                     + " used:[" + page().getEngine().executeScript(
-                            "document.getElementById('spend').hidden ? '' : document.getElementById('used').textContent") + "]"
+                            "document.getElementById('spend').hidden ? '' : document.getElementById('used').textContent.replace(/\\u00a0/g, '')") + "]"
                     + " overflow:" + page().getEngine().executeScript(
                             "Math.max(0, Math.ceil(document.getElementById('app').getBoundingClientRect().right - window.innerWidth))")
                     // How far the right edge of the app, where its border is, is from the right edge of the window, and how far
@@ -122,6 +122,11 @@ public final class UsageAppProbe {
                             "(function () { var rows = document.querySelectorAll('#panel-lines .row'), info = 0;"
                                     + " Array.prototype.forEach.call(rows, function (r) { if (/ INFO /.test(r.textContent)) { info++; } });"
                                     + " return rows.length + '/' + info + '/' + (rows.length ? rows[0].textContent.slice(0, 11) : ''); })()")
+                    // The amount used: its classes, the width of its border and its colour, its tooltip, and what the row has as text.
+                    + " usedBox:[" + page().getEngine().executeScript(
+                            "(function () { var u = document.getElementById('used'), c = getComputedStyle(u);"
+                                    + " return u.className + '|' + c.borderTopWidth + '|' + c.borderTopColor + '|' + u.title + '|'"
+                                    + " + document.querySelector('.strip').textContent.replace(/\\u00a0/g, '').replace(/\\s+/g, ' ').trim(); })()") + "]"
                     + " end");
             System.out.flush();
         });

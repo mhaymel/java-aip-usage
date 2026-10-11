@@ -262,3 +262,8 @@ test('a log with lines and none of the level says so, in the colour of the notes
     assert.deepEqual(none.rows, []);
     assert.equal(view.describeLog({ exists: true, truncated: false, hidden: false, lines: [] }).note, 'The log is empty.');
 });
+
+test('the two states with no amounts are passed on as the word for them, which the row shows as tooltips of its gray boxes', () => {
+    assert.equal(view.describeStatus({ display: { ...DISPLAY, spend: null, placeholder: 'No usage reported' } }).placeholder, 'No usage reported');
+    assert.equal(view.describeStatus({ display: { ...DISPLAY, spend: null, placeholder: null } }).placeholder, null);
+});

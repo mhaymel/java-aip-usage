@@ -143,28 +143,34 @@
         show('refresh', on(s.refresh));
         $('refresh').className = 'icon' + (v.refreshing ? ' busy' : '');
 
+        // With no usage reported, and with no reading at all, the row has no word for it: the figures that are switched on and
+        // have no value are gray boxes, as at the start, and their tooltips say which of the two it is.
+        var why = v.placeholder ? ': ' + v.placeholder.charAt(0).toLowerCase() + v.placeholder.slice(1) : '';
+        var boxes = loading || Boolean(v.placeholder);
+
         var timeText = variants ? (preview.timeFormat === 'hh:mm:ss' ? variants.timeLong : variants.timeShort) : v.time;
-        figure('time', 'time', on(s.time) && (loading || Boolean(timeText)), timeText, v.timeTooltip || 'Last update', loading);
+        figure('time', 'time', on(s.time) && (boxes || Boolean(timeText)), timeText, timeText ? v.timeTooltip || 'Last update' : 'Last update' + why,
+            boxes && !timeText);
 
         var spend = v.spend;
-        var percentShown = Boolean(s.percentage) && (loading || Boolean(spend && spend.percentText));
-        var usedShown = on(s.used) && (loading || Boolean(spend));
-        var limitShown = on(s.limit) && (loading || Boolean(spend));
+        var spendBoxes = boxes && !spend;
+        var percentShown = Boolean(s.percentage) && (spendBoxes || Boolean(spend && spend.percentText));
+        var usedShown = on(s.used) && (spendBoxes || Boolean(spend));
+        var limitShown = on(s.limit) && (spendBoxes || Boolean(spend));
         show('spend', percentShown || usedShown || limitShown);
-        figure('percent', 'percent', percentShown, spend && spend.percentText, spend ? spend.percentTooltip : 'Share of the budget spent', loading);
-        figure('used', 'used', usedShown, spend && amount(spend.used, variants, 'used', s.currency), spend ? spend.usedTooltip : 'Credits used', loading);
-        figure('limit', 'limit', limitShown, spend && amount(spend.limit, variants, 'limit', s.currency), spend ? spend.limitTooltip : 'Credit budget', loading);
+        // Boxes are not dimmed with the old figures, and the dimming is the whole group's.
+        $('spend').className = 'spend' + (spendBoxes ? ' boxes' : '');
+        figure('percent', 'percent', percentShown, spend && spend.percentText, spend ? spend.percentTooltip : 'Share of the budget spent' + why, spendBoxes);
+        figure('used', 'used', usedShown, spend && amount(spend.used, variants, 'used', s.currency), spend ? spend.usedTooltip : 'Credits used' + why, spendBoxes);
+        figure('limit', 'limit', limitShown, spend && amount(spend.limit, variants, 'limit', s.currency), spend ? spend.limitTooltip : 'Credit budget' + why, spendBoxes);
         show('slash', usedShown && limitShown);
-
-        show('placeholder', Boolean(v.placeholder));
-        $('placeholder').textContent = v.placeholder || '';
 
         // While the server asks us to slow down (HTTP 429) the countdown is red and, hovered, says why in bold red.
         figure('countdown', 'countdown' + (v.countdownAlert ? ' alert' : ''), on(s.countdown) && (loading || Boolean(v.countdown)),
             v.countdown && v.countdown.text, v.countdown ? v.countdown.tooltip : 'Seconds until the next refresh (negative when overdue)',
             loading && !v.countdown);
         setNote('alert-note', hoveringCountdown && v.countdownAlert ? v.countdownAlert : '');
-        renderOptional('interval', s.interval, v.interval, false, '');
+        renderOptional('interval', s.interval, v.interval, 'Time between usage requests');
         renderButtons(s);
         renderOptional('delta-used', s.deltaUsed, v.deltaUsed, 'Change in the amount used since the previous reading');
         renderOptional('delta-time', s.deltaTime, v.deltaTime, 'Time since the previous reading');
@@ -179,8 +185,8 @@
     }
 
     /**
-     * A figure of the row: there or not, with its text and tooltip. Before the first reading it is a gray box instead, with the
-     * tooltip that needs no value, so that the row has its shape from the start.
+     * A figure of the row: there or not, with its text and tooltip. Before the first reading, with no usage reported and with no
+     * reading at all it is a gray box instead, with the tooltip that needs no value, so that the row always has its shape.
      */
     function figure(id, className, visible, text, tooltip, skeleton) {
         show(id, visible);

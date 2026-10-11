@@ -146,7 +146,8 @@ has not been verified:
 
 - **macOS only.** Windows and Linux are untested.
 - **Only spend is shown.** The session and weekly limits of a Pro or Max plan
-  are not read; such an account shows the spend it reports, or `No usage reported`.
+  are not read; such an account shows the spend it reports, or gray boxes in the place of the
+  amounts, whose tooltips say `no usage reported`.
 - **The rate limit is an inference.** The usage endpoint seems to accept about one
   request a minute over the long run, after a burst of about ten, and restarting the
   application repeatedly can draw HTTP 429 sooner, since each start fetches at once.

@@ -231,7 +231,7 @@ test('a spend reading shows the time, spent and budget, and percent, and no clas
     assert.equal(page.el('limit').textContent, '1,000.00');
     assert.equal(page.el('percent').textContent, '19%');
     assert.doesNotMatch(page.el('spend').className, /sev-/, 'the green is the style sheet\'s, the same for every severity');
-    assert.equal(page.el('placeholder').hidden, true);
+    assert.doesNotMatch(page.el('spend').className, /boxes/);
     assert.equal(page.el('note').hidden, true);
     assert.equal(page.el('app').className, '');
 });
@@ -326,11 +326,40 @@ test('the countdown goes away again if the backend stops sending one', async () 
     assert.equal(page.el('countdown').hidden, true);
 });
 
-test('a reading with no usage shows the countdown too, and no amounts', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: NO_USAGE_STATUS }));
+test('a reading with no usage shows the countdown and its time, and gray boxes for the amounts that are switched on, with no word', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(withDisplay(NO_USAGE_STATUS), { percentage: true }) }));
 
     assert.equal(page.el('countdown').textContent, '17s');
-    assert.equal(page.el('spend').hidden, true);
+    assert.equal(page.el('time').textContent, '14:24:53', 'the reading was taken, so it has its time');
+    assert.doesNotMatch(page.el('time').className, /skeleton/);
+    assert.equal(page.el('spend').hidden, false);
+    assert.match(page.el('spend').className, /\bboxes\b/, 'so that the group is not dimmed with old figures');
+    const tooltips = { percent: 'Share of the budget spent', used: 'Credits used', limit: 'Credit budget' };
+    for (const [id, tooltip] of Object.entries(tooltips)) {
+        assert.equal(page.el(id).hidden, false, id);
+        assert.match(page.el(id).className, /\bskeleton\b/, id + ' is a gray box');
+        assert.equal(page.el(id).textContent.trim(), '', id);
+        assert.equal(page.el(id).title, tooltip + ': no usage reported', 'the tooltip says why it is a box');
+    }
+    assert.equal(page.el('slash').hidden, false, 'between the two boxes as between the two figures');
+    assert.doesNotMatch(INDEX_HTML, /id="placeholder"/, 'the row has no place for the words any more');
+});
+
+test('with no usage an amount that is switched off has no box, and the figures are back with a reading that has usage', async () => {
+    const state = { config: CONFIG, status: withShow(withDisplay(NO_USAGE_STATUS), { used: false }) };
+    const page = await load(backendOf(state));
+    assert.equal(page.el('used').hidden, true);
+    assert.equal(page.el('percent').hidden, true, 'off by default');
+    assert.match(page.el('limit').className, /skeleton/);
+    assert.equal(page.el('slash').hidden, true);
+
+    state.status = SPEND_STATUS;
+    await page.firePoll();
+
+    assert.equal(page.el('used').textContent, '186.02');
+    assert.doesNotMatch(page.el('used').className, /skeleton/);
+    assert.doesNotMatch(page.el('spend').className, /boxes/);
+    assert.equal(page.el('used').title.indexOf('no usage'), -1);
 });
 
 test('a stale reading stays in the row, looks stale, and gets a message line', async () => {
@@ -350,12 +379,15 @@ test('an error before any reading is shown, such as Claude Code not being found'
     const status = { refreshing: false, stale: false, usage: null, error: { message: 'Claude Code could not be found on the PATH.', at: '2026-10-08T14:17:11Z' } };
     const page = await load(backendOf({ config: CONFIG, status }));
 
-    assert.equal(page.el('placeholder').hidden, false);
-    assert.equal(page.el('placeholder').textContent, 'No data');
+    // No word in the row: gray boxes, the time among them, and the message line says what went wrong.
+    for (const [id, tooltip] of Object.entries({ time: 'Last update', used: 'Credits used', limit: 'Credit budget' })) {
+        assert.equal(page.el(id).hidden, false, id);
+        assert.match(page.el(id).className, /\bskeleton\b/, id);
+        assert.equal(page.el(id).title, tooltip + ': no data', id);
+    }
     assert.equal(page.el('note').textContent, 'Refresh failed at 14:17:11: Claude Code could not be found on the PATH.');
     assert.equal(page.el('note').className, 'note note-error');
-    assert.equal(page.el('spend').hidden, true);
-    assert.equal(page.el('time').hidden, true);
+    assert.equal(page.el('spend').hidden, false);
 });
 
 test('the message line goes away again after a successful refresh', async () => {
@@ -2238,7 +2270,7 @@ test('before the first reading each element that is switched on is a gray box wi
         assert.equal(page.el(id).title, tooltip, id);
         assert.equal(page.el(id).textContent.trim(), '', id + ' has no text');
     }
-    assert.equal(page.el('placeholder').hidden, true, 'no Loading word');
+    assert.doesNotMatch(page.el('time').title, /:/, 'at the start the tooltip is the element\'s own, with no reason after it');
     assert.doesNotMatch(page.el('interval').className, /skeleton/, 'the interval is known from the settings');
     assert.equal(page.el('refresh').hidden, false);
 });

@@ -1265,15 +1265,27 @@ of the button is a ticked box, always the same. Built **one at a time, in the or
 
 ### 53. Gray boxes for no usage and no data, and the green border
 
-**Status: specified, not built (version 0.41).**
+**Status: built (version 0.41).** Requirement: Gray boxes in the place of `No usage reported` and `No data`.
 
-- **The backend.** `StatusDisplay` gives `No usage reported` and `No data` as `placeholder`; it gives the state as a
-  word instead, which the page turns into boxes and their tooltips.
-- **The page.** `figure` draws the box for the time and the amounts in the two states; the element `placeholder` and its
-  rule go if nothing else uses them.
-- **The border.** `.skeleton` has its gray by `opacity`, which would fade a border with it: the gray becomes a colour with
-  its own strength, and the border is `var(--ok)` at full strength, with `box-sizing: border-box`.
-- **Tests.** `StatusDisplayTest`, `app.test.cjs`, `layout.test.cjs`; the tests that read the two texts are turned round.
+- **The backend is as it was.** `StatusDisplay` still gives the two as `placeholder`, which is now the reason and no longer
+  a text of the row.
+- **The page.** `render` draws the box for the time and the amounts that have no value in the two states, as it does at the
+  start, and puts the reason after the element's tooltip. The element `placeholder` and its rule are gone. The group of
+  the amounts has the class `boxes` while it holds boxes, so that it is not dimmed.
+- **The border.** `.skeleton` had its gray by `opacity`, which would fade a border with it: the gray is `rgba(138, 143,
+  152, 0.33)` now, the border `1px solid var(--ok)`, with `box-sizing: border-box`. `.stale .skeleton` and
+  `.stale .spend.boxes` are at full strength.
+- **Found on the way:** the interval was drawn through `renderOptional` with the arguments of before phase 51; it has its
+  tooltip now.
+- **Tests.** `app.test.cjs`: the boxes, their tooltips and the slash with no usage; an amount that is switched off; the
+  figures back; no data with the time as a box. `layout.test.cjs`: the gray, the border, no `placeholder`, the rule
+  against dimming.
+- **In a real window** (the on-request test): with nothing listening at the address the amount used is a box with a
+  border of 1 pixel in the green, its tooltip is `Credits used: no data`, and the row has no word; a figure has no
+  border. It passes.
+
+**Not checked in a real window.** `No usage reported`: the fake backend has no scenario for a reading without usage, so
+that state was seen by the page test only. How the green border looks on the gray.
 
 ### 54. A border round the window that has no title bar
 

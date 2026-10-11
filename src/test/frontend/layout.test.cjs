@@ -603,16 +603,20 @@ test('the settings have a group Window, after Main view and before History view,
     assert.ok(group.indexOf('set-showTitleBar') < group.indexOf('set-stayOnTop'), 'the title bar first');
 });
 
-test('the gray box of an element with no value yet is light, rounded and has a width of its own', () => {
+test('the gray box of an element with no value is light, rounded, has a thin green border and a width of its own', () => {
     const rule = ruleOf('.skeleton');
-    assert.match(rule, /background:\s*var\(--muted\)/);
-    assert.match(rule, /opacity:\s*0\.33/);
+    assert.match(rule, /background:\s*rgba\(138, 143, 152, 0\.33\)/, 'the muted gray, #8a8f98, at a third of its strength');
+    assert.match(css, /--muted:\s*#8a8f98/, 'which is that gray');
+    assert.doesNotMatch(rule, /opacity/, 'the strength is the gray\'s own, or the border would be as faint');
+    assert.match(rule, /border:\s*1px solid var\(--ok\)/, 'the green of the figures, one pixel');
+    assert.match(rule, /box-sizing:\s*border-box/, 'inside the box, which is as wide and as tall as it was');
+    assert.doesNotMatch(css, /\.placeholder\s*{/, 'the words No data and No usage reported have no style left');
     assert.match(rule, /border-radius:\s*\d+px/);
     assert.match(rule, /color:\s*transparent/);
     for (const id of ['time', 'percent', 'used', 'limit']) {
         assert.match(css, new RegExp('#' + id + '\\.skeleton\\s*{\\s*min-width:\\s*[0-9.]+ch'), id);
     }
-    assert.match(html, /<span id="placeholder" class="placeholder" hidden><\/span>/, 'and the page starts with no word');
+    assert.doesNotMatch(html, /id="placeholder"/, 'and the row has no place for a word, at the start or after');
 });
 
 test('the highlighted note is blue, in a colour of its own for each theme, and comes after the plain note rule', () => {
@@ -680,7 +684,7 @@ test('an optional item of the row with no value is a gray box of the item\'s own
     for (const rule of ['.delta-used', '.delta-time', '.delta-duration', '.delta-interval']) {
         assert.match(ruleOf(rule), /min-width:\s*[0-9.]+ch/, rule + ' has a width of its own, which its gray box has too');
     }
-    assert.match(ruleOf('.stale .skeleton'), /opacity:\s*0\.33/, 'the strength of the box, not that of the old figures');
+    assert.match(ruleOf('.stale .skeleton,\n.stale .spend.boxes'), /opacity:\s*1\b/, 'the box and its border at their own strength, not that of the old figures');
     assert.ok(css.indexOf('.stale .skeleton') > css.indexOf('.stale .delta-duration'), 'after the rule that dims, so that it wins');
     assert.match(html, /0\.00 when it has not changed\./, 'the tooltip of the checkbox says what an unchanged amount shows');
 });

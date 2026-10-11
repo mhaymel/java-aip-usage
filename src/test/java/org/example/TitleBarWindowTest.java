@@ -99,9 +99,9 @@ class TitleBarWindowTest {
                 "one window at every step:\n" + all);
         assertTrue(!all.contains("PROBE failed"), all);
         // The row has its size again after each panel, in the window that has no frame.
-        String row = line(all, "start").replaceAll(".* content:", "");
+        String row = line(all, "start").replaceAll(".* content:(\\S+) .*", "$1");
         for (String bare : List.of("settings-left", "history-closed", "errors-closed")) {
-            assertEquals(row, line(all, bare).replaceAll(".* content:", ""), bare + ":\n" + all);
+            assertEquals(row, line(all, bare).replaceAll(".* content:(\\S+) .*", "$1"), bare + ":\n" + all);
         }
         assertTrue(all.contains("PROBE the program ended after the window was closed"), all);
         assertEquals(0, exit, all);
@@ -143,6 +143,14 @@ class TitleBarWindowTest {
         assertTrue(line(all, "fake-off-settled").contains(" border:0px "), "the border goes with the fake backend:\n" + all);
         assertTrue(line(all, "fake-off-settled").contains(" app:[] "), all);
         assertTrue(line(all, "fake-off-settled").contains(" used:[] "), "nothing invented is shown as real:\n" + all);
+        // Nothing listens at the address, so there is no reading at all: gray boxes with a thin green border and their tooltip,
+        // and no word in the row.
+        String noData = line(all, "fake-off-settled");
+        assertTrue(noData.contains(" usedBox:[used skeleton|1px|rgb(26, 127, 55)|Credits used: no data|")
+                        || noData.contains(" usedBox:[used skeleton|1px|rgb(63, 185, 80)|Credits used: no data|"),
+                "the amount used is a gray box, with a green border of one pixel:\n" + all);
+        assertTrue(!noData.contains("No data"), "and the row does not say it in words:\n" + all);
+        assertTrue(line(all, "start").contains(" usedBox:[used|0px|"), "a figure has no such border:\n" + all);
         assertTrue(line(all, "fake-off-settled").contains(" debugButton:true "), "the debug button is the one sign of debug mode then:\n" + all);
 
         // Switched on again, by leaving the debug settings through their own button, which saves them.

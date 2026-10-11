@@ -386,8 +386,8 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   word in the tooltip.
 - **The message line** is `Refresh failed at <time>: <message>`, the time as the time format setting says, with or
   without seconds.
-- **`No usage reported`** comes with the time of that reading and its tooltip, since there is a reading;
-  `No data` comes with no time.
+- **A reading with no usage** has the time of that reading and its tooltip, since there is a reading; with no reading
+  at all the time is a gray box (see Gray boxes in the place of `No usage reported` and `No data`).
 - **The change shown in the row** is that of the newest row of the history that has a `used` or a `limit`. There is
   none while the program has no reading, even when the history has rows.
 
@@ -828,8 +828,8 @@ they happen, so that a person can see what went wrong and when without opening t
   amounts, so a failed row is passed over. If there is no history, or no row has amounts, nothing is shown in
   advance.
 - Before the first reading the row has a gray box for each element that is switched on and has no value yet (see The elements of the
-  row), and no word. If the first refresh failed it says
-  `No data`, and if the account reports no usage at all it says `No usage reported`.
+  row), and no word. If the first refresh failed, and if the account reports no usage at all, it has gray boxes as well, and
+  their tooltips say which of the two it is.
 - If the window cannot reach the application, it says so in red (`Lost contact with the
   application. Still trying.`), keeps trying, and shows what it last had.
 - The window also resizes to fit when a setting adds or removes an item of the row, as the settings view
@@ -1025,7 +1025,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - When the program starts, and until the first reading or the first failure is there, **each element that is switched on
   and has no value yet is shown as a light gray filled rectangle** with rounded corners, about as wide as the element usually is
   and as tall as its text. There is no word: the row does not say `Loading…`.
-- The gray is the muted gray, `#8a8f98`, at a third of its strength, on both themes; the corners are rounded by 3 pixels.
+- The gray is the muted gray, `#8a8f98`, at a third of its strength, on both themes; the corners are rounded by 3 pixels,
+  and the box has a thin green border (see Gray boxes in the place of `No usage reported` and `No data`).
 - The placeholder has **the tooltip of its element**, in the form that needs no value: `Last update`,
   `Share of the budget spent`, `Credits used`, `Credit budget`, `Seconds until the next refresh (negative when overdue)`,
   `Change in the amount used since the previous reading`, `Time since the previous reading` and `How long the latest usage request took`.
@@ -1033,9 +1034,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   request duration. The
   interval is known from the settings and the buttons are drawn at once, so they have none; a countdown that already has a value
   shows it. A reading taken from the history at startup is a reading, so the row then has its figures and no gray box.
-- For the time, the percentage, the amount used, the budget and the countdown it is for the start only. Once a reading or
-  a failure has arrived the row has the figures, or `No data`, or `No usage reported`. The two changes and the request
-  duration are a gray box whenever they have no value (see below).
+- For the countdown it is for the start only. The time and the amounts are gray boxes again when there is no reading at
+  all or no usage is reported, and the two changes and the request duration whenever they have no value (see the two
+  passages below).
 - Before the page has its first answer from the application it does not know which elements are switched on, so for that moment
   it shows only the refresh button and the panel buttons.
 
@@ -1054,9 +1055,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
   `docs/img_4.png` is the case that brought this up: `No usage reported`, both changes switched on, and, before, an empty gap
   where the two are; there are two gray boxes there now.
-- **The other elements are as they were.** The time, the percentage, the amount used, the budget and the countdown are
-  gray boxes at the start only; after that the row has their figures, or `No data` or `No usage reported` in the
-  place of the amounts, and the percentage is not there when Anthropic reports none.
+- **The other elements.** The countdown is a gray box at the start only. The time, the percentage, the amount used and
+  the budget have their figures after it, or are gray boxes with no usage and with no data (see the next passage); with
+  a reading that has usage, the percentage is not there when Anthropic reports none.
 - **A change of nothing is written, not left out.** When the amount used is the same as that of the reading before, the
   `Change in the amount used` shows `0.00`: no sign, no currency symbol, two decimals, in the green of the other
   figures. Before version 0.39 the element was empty then. A rise is `+1.37` and a fall `-1.37`, as before.
@@ -1067,6 +1068,29 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The tooltip of the checkbox `Change in the amount used`** in the settings reads `How much the amount used has
   changed since the reading before this one. 0.00 when it has not changed.`
 - **The history panel is not changed by this**: its columns `Δ used` and `Δ time` are as they were.
+
+### Gray boxes in the place of `No usage reported` and `No data`, and a green border round every gray box
+
+- **The row does not say `No usage reported`** (it did, before version 0.41). When Anthropic reports no usage, the elements of the amounts that
+  are switched on, the percentage, the amount used and the budget, are each shown as a gray box, as at the start. An
+  element that is switched off is not there, as always.
+- **Nor does it say `No data`** (as it did). When there is no reading at all, the first request having failed, the same elements
+  are gray boxes as well, and so is the time, which has no value then. That a refresh failed is said by the message
+  line, or by the red countdown for an HTTP 429, as before.
+- **The time, with no usage reported, is the time of the reading**, as before: that reading was taken.
+- **The slash between the amount used and the budget** is there when both are shown, between the two boxes as between
+  the two figures.
+- **The tooltip of such a box says why it is one**: the element's own short tooltip, a colon, and `no usage reported`
+  or `no data`. So `Credits used: no usage reported`, `Credit budget: no data`, `Share of the budget spent: no usage
+  reported`, `Last update: no data`. A box at the start, and the box of a figure that is not known, keep the tooltip
+  they have.
+- **Every gray box of the row has a thin green border**: 1 pixel, in the green of the figures, at its full strength
+  while the gray inside stays at a third. That holds for every gray box, at the start, for a figure that is not known,
+  and for no usage and no data alike. The box is as wide and as tall as it was: the border is inside it.
+- **The boxes are not dimmed** after a failed refresh, border included.
+- **The two changes and the request duration** are as A gray box for a figure that is not known says; with no usage
+  and with no data the two changes are gray boxes, since there is nothing to compare.
+- **Nothing else says `No usage reported` in the window.** The log still records each reading as it does.
 
 ## Debug mode
 
@@ -1160,34 +1184,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## Gray boxes for no usage, a border and dragging without the title bar, debug lines, the format error, and select all
+## A border and dragging without the title bar, debug lines, the format error, and select all
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.40; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.41; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 53 to 58).
-
-### Gray boxes in the place of `No usage reported` and `No data`, and a green border round every gray box
-
-- **The row no longer says `No usage reported`.** When Anthropic reports no usage, the elements of the amounts that
-  are switched on, the percentage, the amount used and the budget, are each shown as a gray box, as at the start. An
-  element that is switched off is not there, as always.
-- **Nor does it say `No data`.** When there is no reading at all, the first request having failed, the same elements
-  are gray boxes as well, and so is the time, which has no value then. That a refresh failed is said by the message
-  line, or by the red countdown for an HTTP 429, as before.
-- **The time, with no usage reported, is the time of the reading**, as before: that reading was taken.
-- **The slash between the amount used and the budget** is there when both are shown, between the two boxes as between
-  the two figures.
-- **The tooltip of such a box says why it is one**: the element's own short tooltip, a colon, and `no usage reported`
-  or `no data`. So `Credits used: no usage reported`, `Credit budget: no data`, `Share of the budget spent: no usage
-  reported`, `Last update: no data`. A box at the start, and the box of a figure that is not known, keep the tooltip
-  they have.
-- **Every gray box of the row has a thin green border**: 1 pixel, in the green of the figures, at its full strength
-  while the gray inside stays at a third. That holds for every gray box, at the start, for a figure that is not known,
-  and for no usage and no data alike. The box is as wide and as tall as it was: the border is inside it.
-- **The boxes are not dimmed** after a failed refresh, border included.
-- **The two changes and the request duration** are as A gray box for a figure that is not known says; with no usage
-  and with no data the two changes are gray boxes, since there is nothing to compare.
-- **Nothing else says `No usage reported` in the window.** The log still records each reading as it does.
+when it is built (see the implementation plan, phases 54 to 58).
 
 ### A border round the window that has no title bar
 
@@ -1552,7 +1553,7 @@ These are things the program does that the sections above do not say, written do
 - **The room of the items that change.** The countdown has room for `-3s` to `99s`; the interval for `120s`; the change in the amount for `+12.34`; the time since the previous reading for `3600s`; the request duration for `1s034ms`. A longer value, such as a countdown of `120s` during a back-off, makes the row wider for
   as long as it shows. The time, the amounts and the percentage have no room kept for them: their digits are of equal width, so a change of a digit moves nothing, and a figure that gains a digit, `99.99` becoming `100.00`, makes the row that much wider. An item whose switch is on and which has no
   value keeps that least width, not the width of the value it lacks. The percentage is the exception among the optional items: with its switch on and no percentage sent, it is not there and takes no room. A countdown the backend did not send is likewise not there.
-- **Colours not said elsewhere.** The placeholder (`No data`, `No usage reported`) is muted gray. The line of a 429 that shows over the countdown is weight 800, heavier than the 700 of the other message lines. A message line is 3
+- **Colours not said elsewhere.** The line of a 429 that shows over the countdown is weight 800, heavier than the 700 of the other message lines. A message line is 3
   pixels below the row and breaks anywhere, inside a long word if it must.
 - **Before the first answer** the row shows the refresh button and all four panel buttons, and no word, no time, no figures, no countdown and no optional item. A status that says nothing of a button leaves it shown, so the three panel buttons are there until the first status that switches one off says so.
 - **What the page asks the application.** At startup `GET /api/config`, once, then the status at once, and never a refresh of its own. The polls never overlap: the next one is asked for the poll interval after the one before was answered, failed or given up, so the time between two is the interval and the time

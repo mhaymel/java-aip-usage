@@ -14,7 +14,7 @@
      *   timeTooltip  "Last update: " and the full date and time, or null
      *   spend        {percentText, percentTooltip, used, limit, usedTooltip, limitTooltip,
      *                 severityText}, or null
-     *   placeholder  text for a row with nothing else to show, or null
+     *   placeholder  why the row has no amounts, `No usage reported` or `No data`, or null; the row shows gray boxes, and says it in their tooltips
      *   loading      no reading and no failure yet: the elements that are switched on are drawn as gray boxes
      *   variants     {timeShort, timeLong, usedPlain, usedSymbol, limitPlain, limitSymbol} for the preview of the settings, or null
      *   countdown    {text, tooltip} for the seconds to the next refresh, or null

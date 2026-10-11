@@ -86,7 +86,8 @@ final class StatusDisplay {
                 placeholder = "No usage reported";
             }
         } else {
-            // Before the first reading the row has no word: the page draws a gray box for each element that is switched on.
+            // Before the first reading the row has no word: the page draws a gray box for each element that is switched on. It
+            // draws them for the two words as well, which it shows as the tooltips of the boxes and not in the row.
             placeholder = state.error() != null ? "No data" : null;
         }
         boolean loading = usage == null && state.error() == null;

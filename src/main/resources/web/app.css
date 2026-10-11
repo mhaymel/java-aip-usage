@@ -161,21 +161,20 @@ body {
  */
 .skeleton {
     display: inline-block;
+    box-sizing: border-box;
     line-height: 1.15;
     color: transparent;
-    background: var(--muted);
+    /* The muted gray, #8a8f98, at a third of its strength; the strength is the colour's own, so that the border keeps its. */
+    background: rgba(138, 143, 152, 0.33);
+    /* A thin green border round every gray box, in the green of the figures, inside the box. */
+    border: 1px solid var(--ok);
     border-radius: 3px;
-    opacity: 0.33;
 }
 
 #time.skeleton { min-width: 5ch; }
 #percent.skeleton { min-width: 3ch; }
 #used.skeleton { min-width: 6ch; }
 #limit.skeleton { min-width: 8ch; }
-
-.placeholder {
-    color: var(--muted);
-}
 
 /* Figures that predate a failed refresh are dimmed. */
 .stale .time,
@@ -186,9 +185,10 @@ body {
     opacity: 0.6;
 }
 
-/* A gray box has no figure to be old, so it is not dimmed with them: it keeps its own strength. */
-.stale .skeleton {
-    opacity: 0.33;
+/* A gray box has no figure to be old, so it is not dimmed with them, and nor is the group of the amounts while it holds boxes. */
+.stale .skeleton,
+.stale .spend.boxes {
+    opacity: 1;
 }
 
 .icon {

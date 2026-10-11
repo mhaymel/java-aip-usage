@@ -220,7 +220,7 @@ texts are in the requirements (How the figures are written).
 - `display`: what the window shows, finished: the frontend does no calculation or formatting of readings.
   `time` (the local time of the last reading, `14:24` or `14:24:53` by the `timeFormat` setting) and `timeTooltip`
   (`Last update: 8 Oct 2026, 14:24:53`); `spend` (`percentText`, `percentTooltip`, `used`, `limit`, `usedTooltip`,
-  `limitTooltip`, `severityText`); `placeholder` (`No data`, `No usage reported`); `loading` (`true` before the first reading and the first failure: the window then draws a gray box for each element that is switched on and has no value, and there is no placeholder);
+  `limitTooltip`, `severityText`); `placeholder` (`No data`, `No usage reported`, or `null`: why there are no amounts; the row does not show the words, it shows gray boxes for the time and the amounts that have no value and says the reason in their tooltips, `Credits used: no data`); `loading` (`true` before the first reading and the first failure: the window then draws a gray box for each element that is switched on and has no value, and there is no placeholder);
   `variants` (the time as `timeShort` and `timeLong`, and the amounts as `usedPlain`, `usedSymbol`, `limitPlain` and `limitSymbol`, whatever the settings say, so that the settings view can show a change of the time format or of the symbol in the row before it is applied; `null` with no reading, and the four amounts `null` with no spend);
   `countdown` (with `countdownAlert`, the message of an HTTP 429, which makes the countdown red and is shown when it is hovered; the 429
   has no `message`; with the countdown switched off there is no `countdownAlert` and the 429 has a `message` like any other failure), `interval` (the time between usage requests in force, `60s`), `deltaUsed` and `deltaTime` as
@@ -277,7 +277,7 @@ do (for example log in with Claude Code).
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.40", "..."],
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.41", "..."],
   "hidden": false,
   "level": "info",
   "date": false
