@@ -262,7 +262,7 @@ test('the panels, the line of the log\'s two choices and the settings view are t
 
 test('the log panel has a line at its top with the level and the date, at the left, in that order', () => {
     const line = html.slice(html.indexOf('<div id="log-controls"'), html.indexOf('<p id="panel-note"'));
-    assert.match(line, /^<div id="log-controls" class="log-controls" hidden>/, 'hidden until the log is shown');
+    assert.match(line, /^<div id="log-controls" class="log-controls" hidden>\s*<span id="log-choices" class="log-choices" hidden>/, 'hidden until a list is shown, and the two choices in it until it is the log');
     assert.ok(html.indexOf('id="log-controls"') > html.indexOf('<div id="panel"'), 'in the panel');
     assert.ok(html.indexOf('id="log-controls"') < html.indexOf('id="panel-lines"'), 'above the lines');
     assert.match(line, /<label[^>]*>Level\s*<select id="log-level"/, 'the label, then the dropdown');
@@ -311,6 +311,35 @@ test('while a panel is shown the row is as wide as the window, and with none a m
     assert.match(ruleOf('.top'), /max-width:\s*900px/);
     assert.match(ruleOf('.note'), /min-width:\s*100%/, 'a message is as wide as the row\'s box, whatever that is');
     assert.doesNotMatch(ruleOf('.strip'), /justify-content/, 'the elements stay at the left');
+});
+
+test('the line at the top of a list has two buttons that make its text larger and smaller, after the log\'s two choices', () => {
+    const line = html.slice(html.indexOf('<div id="log-controls"'), html.indexOf('<p id="log-error"'));
+    assert.ok(line.indexOf('id="log-choices"') < line.indexOf('id="zoom-in"'), 'after the level and the date');
+    assert.ok(line.indexOf('</span>') < line.indexOf('id="zoom-in"'), 'and outside them, so that the history and the error log have the buttons too');
+    assert.match(line, /<button id="zoom-in" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">/);
+    assert.match(line, /<button id="zoom-out" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">/);
+    assert.ok(line.indexOf('id="zoom-in"') < line.indexOf('id="zoom-out"'));
+    const icons = [...line.matchAll(/<button id="zoom-(in|out)"[\s\S]*?<\/button>/g)].map(m => m[0]);
+    assert.equal(icons.length, 2);
+    for (const icon of icons) {
+        assert.match(icon, /<circle cx="6\.8" cy="6\.8" r="4\.6"\/>/, 'a magnifying glass');
+        assert.equal(icon.replace(/<svg[\s\S]*<\/svg>/, '').replace(/<[^>]*>/g, '').trim(), '', 'an icon and no text');
+    }
+    assert.match(icons[0], /M6\.8 4\.6v4\.4/, 'the plus has its upright');
+    assert.doesNotMatch(icons[1], /M6\.8 4\.6v4\.4/, 'the minus has none');
+    assert.match(css, /\.icon\[disabled\]\s*{\s*opacity:\s*0\.35/,'the button that would lead out of the range is faint');
+});
+
+test('the text of the lists is as large as the page says, twelve pixels when it says nothing, and a line a quarter taller', () => {
+    for (const rule of [ruleOf('.panel-lines'), ruleOf('.table-probe')]) {
+        assert.match(rule, /font-size:\s*var\(--list-size, 12px\)/);
+        assert.match(rule, /line-height:\s*calc\(var\(--list-size, 12px\) \* 1\.25\)/);
+    }
+    assert.ok(css.indexOf('font-size: var(--list-size', css.indexOf('.table-probe {')) > css.indexOf('font: 400 12px/15px', css.indexOf('.table-probe {')),
+        'in the probe after the font it is given, so that the table is measured at the size it is drawn at');
+    assert.doesNotMatch(ruleOf('.panel-note'), /list-size/, 'the notes of a list keep their size');
+    assert.doesNotMatch(ruleOf('.log-controls'), /list-size/, 'and so does the line of the controls');
 });
 
 test('an error in the panel is red', () => {

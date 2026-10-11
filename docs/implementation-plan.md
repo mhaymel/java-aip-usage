@@ -1500,9 +1500,26 @@ a panel, and the test allows the probe three minutes where it allowed one.
 
 ### 64. The zoom of the lists
 
-**Status: specified, not built (version 0.52).** `listFontSize` in `Settings` and `settings.json`, with a request of its
-own or with the log's; a custom property of the style sheet for the size and the line height of `.panel`; the line of
-controls for the history and the error log; `measureTable` already measures the table as it is drawn.
+**Status: built (version 0.52).** Requirement: A zoom for the lists.
+
+- **The setting.** `listFontSize` in `Settings` (`withListFontSize`) and `settings.json`, after the log's two choices.
+  The page has it from `GET /api/config` at startup and saves it with `POST /api/text-size`; `POST /api/settings` keeps
+  it as it is.
+- **The size.** The page sets `--list-size` on the document, and `.panel-lines` takes its size and its line height from
+  it; the probe that measures the history's table takes them too, after the font it is given, so the window is sized for
+  the text that is drawn. The notes and the line of the controls are outside that rule.
+- **The line.** `log-controls` is the line at the top of every list now and holds the two buttons; the level and the date
+  are in a part of it, `log-choices`, that is shown for the log.
+- **Tests.** `SettingsStoreTest`, `ApiTest`: the key, its default, its range, the save, the refusals, the settings leaving
+  it alone. `app.test.cjs`: the saved size at the start, the line for each list and for nothing else, a press for all
+  three lists and saved, the two ends and the disabled button, the failed save. `layout.test.cjs`: the buttons, their
+  icons, the two rules.
+- **In a real window** (the on-request test): the history at 12 pixels has lines of 15; eight presses make it 20 pixels
+  with lines of 25 and the window 453 pixels wide where it was 371; eight presses back give 12, 15 and 371. The error log
+  has the line of the buttons, and with no list there is none. It passes.
+
+**Not checked by a test.** The size after a restart of the real program, which the tests of the store and of the
+configuration stand for. How the two icons look.
 
 ### 65. The automatic interval
 

@@ -509,6 +509,34 @@ body {
     display: none;
 }
 
+/* The two choices of the log, in the line they share with the buttons of the zoom; they are the log's alone. */
+.log-choices {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.log-choices[hidden] {
+    display: none;
+}
+
+/* The two buttons that make the text of the lists larger and smaller, side by side. */
+.zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* At the largest and at the smallest size the button that would go further is not to be pressed. */
+.icon[disabled] {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.icon[disabled]:hover {
+    border-color: transparent;
+}
+
 .log-controls label {
     display: flex;
     align-items: center;
@@ -528,6 +556,12 @@ body {
     padding-right: 16px;
     white-space: pre;
     font-variant-numeric: tabular-nums;
+    /*
+     * The text of the three lists is as large as the two buttons at their top have made it, 12 pixels when nobody has: the
+     * page sets --list-size on the document. A line is a quarter taller than its text, as 15 is to 12.
+     */
+    font-size: var(--list-size, 12px);
+    line-height: calc(var(--list-size, 12px) * 1.25);
 }
 
 .panel-note {
@@ -667,6 +701,9 @@ body {
     overflow: visible;
     visibility: hidden;
     font: 400 12px/15px ui-monospace, SFMono-Regular, Menlo, monospace;
+    /* The probe is measured at the size the lists have, or the window would be sized for another text. */
+    font-size: var(--list-size, 12px);
+    line-height: calc(var(--list-size, 12px) * 1.25);
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
 }

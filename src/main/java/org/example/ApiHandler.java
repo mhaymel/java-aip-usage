@@ -145,6 +145,12 @@ final class ApiHandler implements HttpHandler {
                     throw new ApiException(405, "Use GET or POST.", "GET, POST");
                 }
             }
+            case "/api/text-size" -> {
+                if (!method.equals("POST")) {
+                    throw new ApiException(405, "Use POST.", "POST");
+                }
+                updateTextSize(exchange);
+            }
             case "/api/errors" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
@@ -175,7 +181,8 @@ final class ApiHandler implements HttpHandler {
                 settings.usageSeconds(),
                 settings.pollSeconds(),
                 new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())),
-                sources.debug());
+                sources.debug(),
+                settings.current().listFontSize());
     }
 
     // ---- /api/debug: the debug settings, in debug mode only
@@ -270,11 +277,12 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showDuration"),
                     flag(body, "stayOnTop"),
                     flag(body, "showTitleBar"),
-                    false, org.example.fake.Scenario.NORMAL, false, LogLevel.INFO, false);
+                    false, org.example.fake.Scenario.NORMAL, false, LogLevel.INFO, false, Settings.DEFAULT_LIST_FONT_SIZE);
             // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone. Nor are
-            // the two choices of the log panel, which POST /api/log changes.
+            // the two choices of the log panel, which POST /api/log changes, and the size of the lists' text, which POST /api/text-size changes.
             Settings kept = settings.current();
-            settings.apply(given.withDebug(kept.fakeBackend(), kept.fakeScenario(), kept.fakeToken()).withLog(kept.logLevel(), kept.logDate()));
+            settings.apply(given.withDebug(kept.fakeBackend(), kept.fakeScenario(), kept.fakeToken()).withLog(kept.logLevel(), kept.logDate())
+                    .withListFontSize(kept.listFontSize()));
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
         } catch (SettingsException e) {
@@ -331,6 +339,25 @@ final class ApiHandler implements HttpHandler {
             LOG.log(System.Logger.Level.WARNING, "Could not read the log: " + e.getMessage());
             throw new ApiException(500, "The log could not be read.", null);
         }
+    }
+
+    /**
+     * The size of the text of the three lists, which the buttons at the top of a list change. It is saved at once, and
+     * the other settings are left as they are.
+     */
+    private void updateTextSize(HttpExchange exchange) throws IOException {
+        requireJson(exchange);
+        JsonNode size = readJson(exchange).get("size");
+        String range = "The size must be a whole number of pixels from " + Settings.MIN_LIST_FONT_SIZE + " to " + Settings.MAX_LIST_FONT_SIZE + ".";
+        if (size == null || !size.isIntegralNumber() || !size.canConvertToInt() || !Settings.isListFontSize(size.intValue())) {
+            throw new ApiException(400, range, null);
+        }
+        try {
+            settings.apply(settings.current().withListFontSize(size.intValue()));
+        } catch (SettingsException e) {
+            throw new ApiException(500, "The text size could not be saved: " + e.getCause().getMessage(), null);
+        }
+        send(exchange, 200, new TextSizeBody(settings.current().listFontSize()));
     }
 
     /** The level a request for the log names in its query, {@code level=warning}; none if it names none. */
@@ -608,7 +635,11 @@ final class ApiHandler implements HttpHandler {
     record Limits(Range usageIntervalSeconds) {
     }
 
-    record ConfigBody(int usageIntervalSeconds, int pollIntervalSeconds, Limits limits, boolean debug) {
+    /** @param listFontSize the size of the text of the lists, in pixels, as saved: the page has it from here when it starts */
+    record ConfigBody(int usageIntervalSeconds, int pollIntervalSeconds, Limits limits, boolean debug, int listFontSize) {
+    }
+
+    record TextSizeBody(int size) {
     }
 
     record DebugValues(boolean fakeBackend, String fakeScenario, boolean fakeToken) {

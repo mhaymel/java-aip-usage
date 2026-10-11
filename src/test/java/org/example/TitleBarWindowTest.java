@@ -100,7 +100,7 @@ class TitleBarWindowTest {
         assertTrue(line(all, "settings-narrow").contains("/0 note:"), "another: all off:\n" + all);
 
         // The window has the program's icon in its four sizes, with the title bar and without, in each window that took the place of another.
-        assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" icons:16/32/48/256 end")).count(),
+        assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" icons:16/32/48/256 ")).count(),
                 "the icon at every step:\n" + all);
         assertTrue(line(all, "start").contains("titleBar:false") && line(all, "history").contains("titleBar:true"), "both kinds of window were among them:\n" + all);
 
@@ -110,6 +110,17 @@ class TitleBarWindowTest {
         // The word of between the amount used and the budget: small, light and gray, and near the foot of the figures.
         assertTrue(line(all, "start").matches(".* of:\\[ of \\|14px\\|400\\|rgb\\(138, 143, 152\\)\\|[0-3]] .*"), all);
         assertTrue(line(all, "start").contains("187.39 of 1,000.00"), "the row reads so:\n" + all);
+
+        // The zoom of the lists: the text of the history is 12 pixels with a line of 15, eight presses make it 20, the largest, with a
+        // line of 25, the window is wider for the wider table, and eight presses back give what there was.
+        Matcher usual = Pattern.compile(" size:(\\d+),.* list:\\[12px\\|15\\|true\\|20]").matcher(line(all, "history"));
+        Matcher larger = Pattern.compile(" size:(\\d+),.* list:\\[20px\\|25\\|true\\|20]").matcher(line(all, "history-larger"));
+        Matcher back = Pattern.compile(" size:(\\d+),.* list:\\[12px\\|15\\|true\\|20]").matcher(line(all, "history-usual"));
+        assertTrue(usual.find() && larger.find() && back.find(), all);
+        assertTrue(Integer.parseInt(larger.group(1)) > Integer.parseInt(usual.group(1)), "the window is wider for the larger text:\n" + all);
+        assertEquals(usual.group(1), back.group(1), "and as wide as it was again:\n" + all);
+        assertTrue(line(all, "start").contains("|false|"), "with no list there is no line of the zoom:\n" + all);
+        assertTrue(line(all, "errors").contains(" list:[12px|") && line(all, "errors").contains("|true|20]"), "the error log has the line too:\n" + all);
 
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.
         assertTrue(line(all, "log").contains(" logControls:true "), all);

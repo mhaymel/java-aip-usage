@@ -183,7 +183,7 @@ class SettingsStoreTest {
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "logLevel", "logDate",
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "logLevel", "logDate", "listFontSize",
                         "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
@@ -369,6 +369,31 @@ class SettingsStoreTest {
             assertEquals(LogLevel.INFO, loaded.logLevel(), bad);
             assertTrue(loaded.logDate(), bad);
             assertEquals(90, loaded.usageIntervalSeconds(), bad);
+        }
+    }
+
+    @Test
+    void theTextOfTheListsIsTwelvePixelsByDefaultAndComesBackAsSaved() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        assertEquals(12, Settings.defaults().listFontSize());
+        assertEquals(12, store.load().listFontSize(), "no file: the default");
+
+        for (int size : List.of(10, 15, 20)) {
+            store.save(Settings.defaults().withListFontSize(size));
+            assertEquals(size, store.load().listFontSize());
+        }
+        assertTrue(Files.readString(file()).contains("\"listFontSize\" : 20"), Files.readString(file()));
+    }
+
+    @Test
+    void aTextSizeOutOfItsRangeHasTheDefaultAndTheOtherKeysAreKept() throws IOException {
+        for (String bad : List.of("9", "21", "12.5", "\"12\"", "true", "-3")) {
+            Files.writeString(file(), "{\"listFontSize\": " + bad + ", \"logDate\": true}");
+
+            Settings loaded = new SettingsStore(file()).load();
+
+            assertEquals(12, loaded.listFontSize(), bad);
+            assertTrue(loaded.logDate(), bad);
         }
     }
 }

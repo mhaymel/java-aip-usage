@@ -79,6 +79,7 @@
 
     <div id="panel" class="panel" hidden>
         <div id="log-controls" class="log-controls" hidden>
+            <span id="log-choices" class="log-choices" hidden>
             <label title="The least severe level that is shown; the more severe ones are shown with it. It changes what is shown, not what is written to the log.">Level
                 <select id="log-level" aria-label="The level of the log lines that are shown">
                     <option value="error">Error</option>
@@ -87,6 +88,23 @@
                     <option value="debug">Debug</option>
                 </select></label>
             <label title="Shows the date before the time of each line."><input id="log-date" type="checkbox"> Date</label>
+            </span>
+            <span class="zoom">
+                <button id="zoom-in" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6.8" cy="6.8" r="4.6"/>
+                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4M6.8 4.6v4.4"/>
+                    </svg>
+                </button>
+                <button id="zoom-out" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6.8" cy="6.8" r="4.6"/>
+                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4"/>
+                    </svg>
+                </button>
+            </span>
         </div>
         <p id="log-error" class="panel-error" role="alert" hidden></p>
         <p id="panel-note" class="panel-note" hidden></p>

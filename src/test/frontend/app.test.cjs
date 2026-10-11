@@ -77,6 +77,8 @@ async function load(backend, options = {}) {
         createElement: tag => element('<' + tag + '>'),
         // Only the scrollbar probe reads these: a box that always has a scrollbar of the width the test gives it.
         body: { append() {}, removeChild() {} },
+        // The page sets the size of the lists' text here, as a property of the style sheet.
+        documentElement: { style: { properties: {}, setProperty(name, value) { this.properties[name] = value; } } },
     };
     const opened = [];
     global.window = { UsageView: require(path.join(WEB, 'view.js')), open: (...args) => { opened.push(args); } };
@@ -142,6 +144,7 @@ function backendOf(state) {
             return state.postLog ? state.postLog(JSON.parse(call.body)) : { status: 200, body: JSON.parse(call.body) };
         }
         if (call.url.split('?')[0] === '/api/log') return state.log ? state.log(call) : { status: 200, body: LOG };
+        if (call.url === '/api/text-size') return state.postTextSize ? state.postTextSize(JSON.parse(call.body)) : { status: 200, body: JSON.parse(call.body) };
         if (call.url === '/api/errors') return state.errors ? state.errors() : { status: 200, body: ERRORS };
         if (call.url === '/api/history') return state.history ? state.history() : { status: 200, body: HISTORY };
         return { status: 404, body: { error: 'No such endpoint.' } };
@@ -2511,22 +2514,22 @@ const logPosts = page => page.calls.filter(c => c.url === '/api/log' && c.method
 
 test('the log panel comes up with the level and the date that are saved, and the line of the two is shown only with the log', async () => {
     const page = await load(backendOf(logBackend({ level: 'warning', date: false })));
-    assert.equal(page.el('log-controls').hidden, true, 'no panel, no line');
+    assert.equal(page.el('log-choices').hidden, true, 'no panel, no line');
 
     await page.click('log-button');
 
-    assert.equal(page.el('log-controls').hidden, false);
+    assert.equal(page.el('log-choices').hidden, false);
     assert.equal(page.el('log-level').value, 'warning');
     assert.equal(page.el('log-date').checked, false);
     assert.deepEqual(lines(page), ['19:00:03 SEVERE  [A] three', '19:00:02 WARNING [A] two'], 'the lines of the level, newest first, with no date');
     assert.equal(logPosts(page).length, 0, 'showing the panel saves nothing');
 
     await page.click('history-button');
-    assert.equal(page.el('log-controls').hidden, true, 'the history has no such line');
+    assert.equal(page.el('log-choices').hidden, true, 'the history has no such line');
     await page.click('errors-button');
-    assert.equal(page.el('log-controls').hidden, true, 'nor has the error log');
+    assert.equal(page.el('log-choices').hidden, true, 'nor has the error log');
     await page.click('errors-button');
-    assert.equal(page.el('log-controls').hidden, true);
+    assert.equal(page.el('log-choices').hidden, true);
 });
 
 test('a level that is chosen takes effect at once on the log that is shown, is saved, and the log stands at its newest line', async () => {
@@ -2614,7 +2617,7 @@ test('a level with no lines says so in blue, and the line of the two choices sta
     assert.equal(page.el('panel-note').textContent, 'The log has no lines at this level.');
     assert.match(page.el('panel-note').className, /highlight/);
     assert.equal(page.el('panel-lines').hidden, true);
-    assert.equal(page.el('log-controls').hidden, false);
+    assert.equal(page.el('log-choices').hidden, false);
 });
 
 test('the settings left for the log bring it back with its saved choices, and the settings do not send them', async () => {
@@ -2622,7 +2625,7 @@ test('the settings left for the log bring it back with its saved choices, and th
     const page = await load(backendOf(state));
     await page.click('log-button');
     await page.click('settings-button');
-    assert.equal(page.el('log-controls').hidden, true, 'the settings have no such line');
+    assert.equal(page.el('log-choices').hidden, true, 'the settings have no such line');
     page.el('set-logResponse').checked = true;
 
     await page.click('settings-button');
@@ -2630,7 +2633,7 @@ test('the settings left for the log bring it back with its saved choices, and th
     const sent = JSON.parse(page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST')[0].body);
     assert.equal('logLevel' in sent, false);
     assert.equal('logDate' in sent, false);
-    assert.equal(page.el('log-controls').hidden, false);
+    assert.equal(page.el('log-choices').hidden, false);
     assert.equal(page.el('log-level').value, 'warning');
     assert.equal(page.el('log-date').checked, true);
 });
@@ -2841,4 +2844,91 @@ test('with a panel shown the row\'s width is measured with its stretch let go of
         assert.equal(top.style.width, '', button + ': and stretched again afterwards');
         assert.equal(top.style.maxWidth, '');
     }
+});
+
+// ---- the zoom of the lists: two buttons at the top of each list, one size for all three, saved at once
+
+const listSizeOf = () => global.document.documentElement.style.properties['--list-size'];
+const sizePosts = page => page.calls.filter(c => c.url === '/api/text-size').map(c => JSON.parse(c.body).size);
+
+test('the lists have the text size that is saved, twelve pixels when none is, and the line of the two buttons is at the top of each list', async () => {
+    const usual = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    assert.equal(listSizeOf(), '12px');
+    assert.equal(usual.el('log-controls').hidden, true, 'no list, no line');
+
+    const page = await load(backendOf({ config: { ...CONFIG, listFontSize: 16 }, status: SPEND_STATUS }));
+    assert.equal(listSizeOf(), '16px');
+    for (const button of ['history-button', 'errors-button', 'log-button']) {
+        await page.click(button);
+        assert.equal(page.el('log-controls').hidden, false, button + ': the line with the two buttons');
+        assert.equal(page.el('log-choices').hidden, button !== 'log-button', button + ': the level and the date are the log\'s alone');
+    }
+    await page.click('settings-button');
+    assert.equal(page.el('log-controls').hidden, true, 'the settings are no list');
+    await page.click('settings-cancel');
+    await page.click('log-button');
+    assert.equal(page.el('log-controls').hidden, true, 'and with no panel there is no line');
+    assert.equal(sizePosts(page).length, 0, 'showing a list saves nothing');
+
+    const odd = await load(backendOf({ config: { ...CONFIG, listFontSize: 99 }, status: SPEND_STATUS }));
+    assert.equal(listSizeOf(), '12px', 'a size out of the range is the usual one');
+    assert.equal(odd.el('zoom-in').attrs.disabled, undefined);
+});
+
+test('a press makes the text of all three lists a pixel larger or smaller at once, and saves it', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('history-button');
+
+    await page.click('zoom-in');
+    assert.equal(listSizeOf(), '13px');
+    await page.click('zoom-in');
+    assert.equal(listSizeOf(), '14px');
+    assert.deepEqual(sizePosts(page), [13, 14], 'each step is saved, with no button to press for it');
+
+    await page.click('log-button');
+    assert.equal(listSizeOf(), '14px', 'the log has the size the history was given');
+    await page.click('zoom-out');
+    await page.click('errors-button');
+    assert.equal(listSizeOf(), '13px', 'and the error log the one the log was given');
+    assert.deepEqual(sizePosts(page), [13, 14, 13]);
+    assert.equal(page.el('log-error').hidden, true);
+});
+
+test('the text is never smaller than ten nor larger than twenty pixels, and the button that would go further is disabled', async () => {
+    const small = await load(backendOf({ config: { ...CONFIG, listFontSize: 11 }, status: SPEND_STATUS }));
+    await small.click('log-button');
+    assert.equal(small.el('zoom-out').attrs.disabled, undefined);
+    await small.click('zoom-out');
+    assert.equal(listSizeOf(), '10px');
+    assert.equal(small.el('zoom-out').attrs.disabled, '');
+    assert.equal(small.el('zoom-in').attrs.disabled, undefined);
+    await small.click('zoom-out');
+    assert.equal(listSizeOf(), '10px');
+    assert.deepEqual(sizePosts(small), [10], 'a press at the end changes and sends nothing');
+
+    const large = await load(backendOf({ config: { ...CONFIG, listFontSize: 19 }, status: SPEND_STATUS }));
+    await large.click('log-button');
+    await large.click('zoom-in');
+    await large.click('zoom-in');
+    assert.equal(listSizeOf(), '20px');
+    assert.equal(large.el('zoom-in').attrs.disabled, '');
+    assert.equal(large.el('zoom-out').attrs.disabled, undefined);
+    assert.deepEqual(sizePosts(large), [20]);
+});
+
+test('a size that cannot be saved holds for the run, and a red line says so until one is saved', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS, postTextSize: () => ({ status: 500, body: { error: 'The text size could not be saved: disk full' } }) };
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+
+    await page.click('zoom-in');
+
+    assert.equal(listSizeOf(), '13px');
+    assert.equal(page.el('log-error').hidden, false);
+    assert.equal(page.el('log-error').textContent, 'The text size could not be saved: disk full');
+
+    state.postTextSize = body => ({ status: 200, body });
+    await page.click('zoom-in');
+    assert.equal(listSizeOf(), '14px');
+    assert.equal(page.el('log-error').hidden, true);
 });

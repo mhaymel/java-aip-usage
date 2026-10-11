@@ -22,6 +22,7 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `POST` | `/api/log` | Save the two choices of the log panel, the level and the date |
 | `GET` | `/api/history` | The usage history, as finished lines (read-only) |
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
+| `POST` | `/api/text-size` | Save the size of the text of the three lists |
 
 Only a path that begins `/api/` is the API's; a query on it is not looked at. Any
 other path under `/api/` is `404` with `{"error":"No such endpoint."}`. Any other
@@ -136,10 +137,13 @@ The frontend asks for this once at startup, and then polls `/api/status` every
   "limits": {
     "usageIntervalSeconds": { "min": 5, "max": 3600 }
   },
-  "debug": false
+  "debug": false,
+  "listFontSize": 12
 }
 ```
 
+- `listFontSize`: the size of the text of the log, the usage history and the error log, in pixels, as saved: a whole
+  number from 10 to 20, 12 by default. The page takes it at startup and changes it through `POST /api/text-size`.
 - `usageIntervalSeconds`: how often the backend fetches usage from Anthropic.
   Default 60. It is changed, with the other settings, through `POST /api/settings`;
   this endpoint changes nothing.
@@ -277,7 +281,7 @@ do (for example log in with Claude Code).
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.51", "..."],
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.52", "..."],
   "hidden": false,
   "level": "info",
   "date": false
@@ -308,6 +312,15 @@ be given: `{"level": "warning", "date": true}`. A level that is none of the four
 `false`, or one of them missing is `400`, and nothing is saved; a file that cannot be written is `500` with
 `The log settings could not be saved: <reason>`. The settings of `/api/settings` do not have the two, and saving
 them leaves the two as they are.
+
+## `POST /api/text-size`
+
+Saves the size of the text of the three lists, which the two buttons at the top of a list change: `{"size": 14}`, a
+whole number of pixels from 10 to 20. It is saved in `settings.json` under `listFontSize`, and the answer is the size
+that is saved, `{"size": 14}`; `GET /api/config` says it from then on. A `size` that is missing, not a whole number, or
+out of the range is `400` with `The size must be a whole number of pixels from 10 to 20.`, and nothing is saved; a file
+that cannot be written is `500` with `The text size could not be saved: <reason>`. The settings of `/api/settings` do
+not have the size, and saving them leaves it as it is. Any other method is `405`.
 
 ## `GET /api/history`
 

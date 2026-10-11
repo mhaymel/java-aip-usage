@@ -2025,4 +2025,50 @@ class ApiTest {
             }
         }
     }
+
+    // ---- the size of the text of the lists
+
+    @Test
+    void theConfigSaysTheSizeOfTheListsTextWhichIsTwelveByDefault() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        assertEquals(12, json(get(app, "/api/config")).get("listFontSize").asInt());
+    }
+
+    @Test
+    void theTextSizeIsSavedAtOnceAndTheConfigSaysItAfterThat() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        HttpResponse<String> saved = post(app, "/api/text-size", "{\"size\": 16}");
+
+        assertEquals(200, saved.statusCode(), saved.body());
+        assertEquals(16, json(saved).get("size").asInt());
+        assertEquals(16, json(get(app, "/api/config")).get("listFontSize").asInt());
+        assertEquals(16, new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json"))).get("listFontSize").asInt());
+    }
+
+    @Test
+    void aTextSizeThatIsNotOneIsRefusedAndNothingIsSaved() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        for (String body : new String[] {"{\"size\": 9}", "{\"size\": 21}", "{\"size\": 12.5}", "{\"size\": \"12\"}", "{}"}) {
+            HttpResponse<String> refused = post(app, "/api/text-size", body);
+            assertEquals(400, refused.statusCode(), body);
+            assertTrue(refused.body().contains("from 10 to 20"), refused.body());
+        }
+        assertEquals(12, json(get(app, "/api/config")).get("listFontSize").asInt());
+        assertEquals(405, get(app, "/api/text-size").statusCode(), "there is nothing to read there");
+    }
+
+    @Test
+    void savingTheSettingsLeavesTheTextSizeAsItIs() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        post(app, "/api/text-size", "{\"size\": 18}");
+
+        JsonNode settings = json(get(app, "/api/settings"));
+        assertFalse(settings.get("settings").has("listFontSize"), "the settings view does not have it");
+        assertEquals(200, post(app, "/api/settings", settings.get("defaults").toString()).statusCode(), "Restore defaults, saved");
+
+        assertEquals(18, json(get(app, "/api/config")).get("listFontSize").asInt());
+    }
 }

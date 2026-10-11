@@ -72,6 +72,8 @@ public final class SettingsStore {
 
     static final String LOG_DATE_KEY = "logDate";
 
+    static final String LIST_FONT_SIZE_KEY = "listFontSize";
+
     static final String HISTORY_DELTA_USED_KEY = "historyDeltaUsed";
 
     static final String HISTORY_DELTA_TIME_KEY = "historyDeltaTime";
@@ -158,7 +160,8 @@ public final class SettingsStore {
                 scenario(root, defaults.fakeScenario()),
                 flag(root, FAKE_TOKEN_KEY, defaults.fakeToken()),
                 logLevel(root, defaults.logLevel()),
-                flag(root, LOG_DATE_KEY, defaults.logDate()));
+                flag(root, LOG_DATE_KEY, defaults.logDate()),
+                listFontSize(root, defaults.listFontSize()));
     }
 
     /**
@@ -257,6 +260,20 @@ public final class SettingsStore {
         return named.get();
     }
 
+    /** The size of the text of the lists; a value that is not a whole number of pixels in its range is logged and passed over. */
+    private int listFontSize(JsonNode root, int fallback) {
+        JsonNode node = root.get(LIST_FONT_SIZE_KEY);
+        if (node == null || node.isNull()) {
+            return fallback;
+        }
+        if (!node.isIntegralNumber() || !node.canConvertToInt() || !Settings.isListFontSize(node.intValue())) {
+            LOG.log(System.Logger.Level.WARNING, "Ignoring " + LIST_FONT_SIZE_KEY + " in " + file + ": it must be a whole number of pixels from "
+                    + Settings.MIN_LIST_FONT_SIZE + " to " + Settings.MAX_LIST_FONT_SIZE);
+            return fallback;
+        }
+        return node.intValue();
+    }
+
     private int interval(JsonNode root, int fallback) {
         JsonNode node = root.get(USAGE_KEY);
         if (node == null || node.isNull()) {
@@ -334,6 +351,7 @@ public final class SettingsStore {
         root.put(FAKE_TOKEN_KEY, settings.fakeToken());
         root.put(LOG_LEVEL_KEY, settings.logLevel().json());
         root.put(LOG_DATE_KEY, settings.logDate());
+        root.put(LIST_FONT_SIZE_KEY, settings.listFontSize());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
 

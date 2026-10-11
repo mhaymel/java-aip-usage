@@ -55,6 +55,11 @@ public final class UsageAppProbe {
             step("settings", "settings-button");
             step("settings-left", "settings-cancel");
             step("history", "history-button");
+            // The zoom: eight presses make the text of the list as large as it gets, and the window as wide as the table needs then.
+            onFx(() -> page().getEngine().executeScript("for (var i = 0; i < 8; i++) { document.getElementById('zoom-in').click(); }"));
+            step("history-larger", null);
+            onFx(() -> page().getEngine().executeScript("for (var i = 0; i < 8; i++) { document.getElementById('zoom-out').click(); }"));
+            step("history-usual", null);
             // A panel is shown, so the title bar is there: a drag inside the window moves nothing.
             drag("drag-with-title-bar", "time");
             step("history-closed", "history-button");
@@ -154,7 +159,7 @@ public final class UsageAppProbe {
                                     + " return out; })()")
                     // The log panel: whether its line of choices is shown, how many lines it has, how many of them are
                     // information, and how the newest begins.
-                    + " logControls:" + page().getEngine().executeScript("!document.getElementById('log-controls').hidden")
+                    + " logControls:" + page().getEngine().executeScript("!document.getElementById('log-choices').hidden")
                     + " logLines:" + page().getEngine().executeScript(
                             "(function () { var rows = document.querySelectorAll('#panel-lines .row'), info = 0;"
                                     + " Array.prototype.forEach.call(rows, function (r) { if (/ INFO /.test(r.textContent)) { info++; } });"
@@ -181,6 +186,11 @@ public final class UsageAppProbe {
                                     + " return o.textContent + '|' + c.fontSize + '|' + c.fontWeight + '|' + c.color + '|' + Math.round(Math.abs(u.bottom - b.bottom)); })()") + "]"
                     // The icons of the window: their sizes.
                     + " icons:" + window().getIcons().stream().map(icon -> String.valueOf((int) icon.getWidth())).collect(java.util.stream.Collectors.joining("/"))
+                    // The lists: the size of their text, the height of a line, and whether the line of the zoom is shown.
+                    + " list:[" + page().getEngine().executeScript(
+                            "(function () { var row = document.querySelector('#panel-lines .row'), c = getComputedStyle(document.getElementById('panel-lines'));"
+                                    + " return c.fontSize + '|' + (row ? Math.round(row.getBoundingClientRect().height) : 0) + '|' + !document.getElementById('log-controls').hidden"
+                                    + " + '|' + Math.round(document.getElementById('zoom-in').getBoundingClientRect().width); })()") + "]"
                     + " end");
             System.out.flush();
         });

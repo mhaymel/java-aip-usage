@@ -1269,6 +1269,32 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   the middle of the ring's foot; the corners of the square are rounded by a fifth of its side and see-through beyond
   that. In the small sizes the lines are thicker in proportion, so that they are seen.
 
+### A zoom for the lists: the log, the usage history and the error log
+
+- **The text of the three lists can be made larger and smaller** (since version 0.52) with two small buttons, each an icon with no text: a
+  magnifying glass with a plus, and one with a minus. Their tooltips are `Larger text` and `Smaller text`.
+- **Where they are.** In a line at the top of each list, at its left, which stays while the list is scrolled: in the
+  log it is the line of `Level` and `Date`, after those two; the history and the error log get such a line for them.
+- **One size for all three lists.** A change made in one holds for the others.
+- **The sizes.** One press is one pixel. The text is 12 pixels by default, as it was, at least 10 and at most 20. At 10
+  the minus is disabled, at 20 the plus.
+- **A line is a quarter taller than its text**, as 15 pixels are to 12: 25 pixels at the largest size.
+- **Everything of a list follows**: its lines and their height, the header of a table, and the widths of the history's
+  columns, which are in characters and so grow with the text; the notes of the list and the line of the two controls
+  keep their size.
+- **The window follows where it is sized to the list**: with the history shown the window is as wide as the table
+  needs at the size chosen. The log and the error log keep their width, and their lines scroll sideways as before.
+- **A change takes effect at once and is saved at once**, in `settings.json` under the key `listFontSize`, a whole
+  number from 10 to 20; a value in the file that is not one has the default. So it holds when another list is shown,
+  and at the next start.
+- **The settings view does not have it**, and its `Restore defaults` leaves it as it is, like the two choices of the log.
+- **When it cannot be saved** it holds for the run, and a red line in the list says `The text size could not be saved:
+  <reason>`, until a size is saved.
+- **The page has the size from the application when it starts**, with its configuration; a size it is not told, or one
+  out of the range, is 12.
+- **The line of the two buttons is shown with each list and with nothing else**: not with the settings, the debug
+  settings, or no panel. The two choices of the log are in that line for the log alone, before the buttons.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1361,32 +1387,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## The zoom of the lists, and the automatic interval
+## The automatic interval
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.51; where
-this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 64 and 65).
-
-### A zoom for the lists: the log, the usage history and the error log
-
-- **The text of the three lists can be made larger and smaller** with two small buttons, each an icon with no text: a
-  magnifying glass with a plus, and one with a minus. Their tooltips are `Larger text` and `Smaller text`.
-- **Where they are.** In a line at the top of each list, at its left, which stays while the list is scrolled: in the
-  log it is the line of `Level` and `Date`, after those two; the history and the error log get such a line for them.
-- **One size for all three lists.** A change made in one holds for the others.
-- **The sizes.** One press is one pixel. The text is 12 pixels by default, as it was, at least 10 and at most 20. At 10
-  the minus is disabled, at 20 the plus.
-- **Everything of a list follows**: its lines and their height, the header of a table, and the widths of the history's
-  columns, which are in characters and so grow with the text; the notes of the list and the line of the two controls
-  keep their size.
-- **The window follows where it is sized to the list**: with the history shown the window is as wide as the table
-  needs at the size chosen. The log and the error log keep their width, and their lines scroll sideways as before.
-- **A change takes effect at once and is saved at once**, in `settings.json` under the key `listFontSize`, a whole
-  number from 10 to 20; a value in the file that is not one has the default. So it holds when another list is shown,
-  and at the next start.
-- **The settings view does not have it**, and its `Restore defaults` leaves it as it is, like the two choices of the log.
-- **When it cannot be saved** it holds for the run, and a red line in the list says `The text size could not be saved:
-  <reason>`.
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.52; where
+this section says otherwise, this section is what is to be built. It moves into the description of the program
+when it is built (see the implementation plan, phase 65).
 
 ### The automatic interval
 
@@ -1977,7 +1982,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), and the two heights
   `historyHeight` and `logHeight`. Where this document says "in the project root, beside `gradlew`", the files are in the working directory the program was
   started from, which is the project root for `./gradlew run` and for an IDE run configuration set as the notes say.
 - **The settings file as written.** One JSON object, printed over several lines, with the keys always in the order above, the two heights last and always there, as `0` when none is remembered. Every save writes the whole file

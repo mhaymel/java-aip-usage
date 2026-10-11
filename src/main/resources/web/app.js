@@ -26,6 +26,11 @@
     var logUnsaved = false;
     // After a change of either the log stands at its newest line again.
     var logToTop = false;
+    // The size of the text of the three lists, in pixels: the backend's, saved in the settings file, and the page's to
+    // change with the two buttons at the top of a list.
+    var LIST_SIZE_MIN = 10;
+    var LIST_SIZE_MAX = 20;
+    var listSize = 12;
     // Which reading the history panel shows up to: a new one means it is read again.
     var panelMark = null;
     // What the panel shows, to leave it alone when a read finds nothing new.
@@ -636,7 +641,44 @@
         logDate = Boolean(body.date);
         $('log-level').value = logLevel;
         $('log-date').checked = logDate;
-        show('log-controls', true);
+        show('log-choices', true);
+    }
+
+    /** Gives the lists the size of text chosen, and takes from the two buttons the step that would lead out of the range. */
+    function applyListSize() {
+        var root = document.documentElement;
+        if (root && root.style && root.style.setProperty) {
+            root.style.setProperty('--list-size', listSize + 'px');
+        }
+        setDisabled('zoom-in', listSize >= LIST_SIZE_MAX);
+        setDisabled('zoom-out', listSize <= LIST_SIZE_MIN);
+    }
+
+    function setDisabled(id, disabled) {
+        if (disabled) {
+            $(id).setAttribute('disabled', '');
+        } else {
+            $(id).removeAttribute('disabled');
+        }
+    }
+
+    /**
+     * One of the two buttons was pressed: the text of the lists is a pixel larger or smaller, at once and for all three,
+     * and the size is saved. If it cannot be saved it holds all the same, for the run.
+     */
+    async function zoomLists(step) {
+        var wanted = Math.min(LIST_SIZE_MAX, Math.max(LIST_SIZE_MIN, listSize + step));
+        if (wanted === listSize) {
+            return;
+        }
+        listSize = wanted;
+        applyListSize();
+        try {
+            await postJson('/api/text-size', { size: listSize });
+            setNote('log-error', '');
+        } catch (e) {
+            setNote('log-error', /^The text size could not be saved: /.test(e.message) ? e.message : 'The text size could not be saved: ' + e.message);
+        }
     }
 
     /**
@@ -808,7 +850,10 @@
         logUnsaved = false;
         logToTop = false;
         logLevel = null;
-        show('log-controls', false);
+        // The line at the top of a list has the two buttons of the zoom, for each of the three lists; the two choices of
+        // the log are in it for the log alone.
+        show('log-controls', Boolean(openPanel) && !FORMS[openPanel]);
+        show('log-choices', false);
         setNote('log-error', '');
         labelButtons();
         show('panel', panelIsOpen());
@@ -946,6 +991,13 @@
         }
         showConnection(false);
         scrollbarWidth = measureScrollbar();
+        // The size of the lists' text as it was saved; a backend that says none, or one out of the range, means the usual.
+        if (typeof config.listFontSize === 'number' && config.listFontSize >= LIST_SIZE_MIN && config.listFontSize <= LIST_SIZE_MAX) {
+            listSize = config.listFontSize;
+        }
+        applyListSize();
+        $('zoom-in').addEventListener('click', function () { zoomLists(1); });
+        $('zoom-out').addEventListener('click', function () { zoomLists(-1); });
         // The debug button is there in debug mode, always, and never otherwise.
         show('debug-button', Boolean(config.debug));
         $('debug-button').addEventListener('click', function () { togglePanel('debug'); });
