@@ -55,6 +55,18 @@ public final class UsageService implements AutoCloseable {
     /** Whether the reading before this one had no spend, so that the log warns of it once and not at every refresh. */
     private volatile boolean noSpendBefore;
 
+    /** The interval the settings give, which is in force while the program does not search for one. */
+    private long configuredNanos;
+
+    /** The search for the interval, while the automatic interval is on; {@code null} while it is off. */
+    private IntervalSearch search;
+
+    /** Told where the search is whenever it has moved, so that it can be saved; called with no lock held. */
+    private java.util.function.Consumer<IntervalSearch> searchListener = moved -> { };
+
+    /** Whether the search has moved since its listener was last told. */
+    private boolean searchMoved;
+
     /** Counts the restarts: a request that was begun before the latest one has an answer nobody wants any more. */
     private long generation;
 
@@ -65,6 +77,7 @@ public final class UsageService implements AutoCloseable {
     UsageService(Supplier<UsageSnapshot> fetcher, Duration interval, Duration maxBackoff) {
         this.fetcher = fetcher;
         this.schedule = new RefreshSchedule(positive(interval).toNanos());
+        this.configuredNanos = interval.toNanos();
         this.backoff = new Backoff(positive(maxBackoff).toNanos());
     }
 
@@ -191,14 +204,64 @@ public final class UsageService implements AutoCloseable {
      */
     public void setInterval(Duration interval) {
         long nanos = positive(interval).toNanos();
+        boolean inForce;
         lock.lock();
         try {
-            schedule.setInterval(nanos);
+            configuredNanos = nanos;
+            // While the program searches for the interval the configured one is kept, and waits for the search to be switched off.
+            inForce = search == null;
+            if (inForce) {
+                schedule.setInterval(nanos);
+                changed.signalAll();
+            }
+        } finally {
+            lock.unlock();
+        }
+        if (inForce) {
+            LOG.log(System.Logger.Level.INFO, "Usage fetch interval is now " + interval.toSeconds() + " s");
+        }
+    }
+
+    /** Registers who is told where the search for the automatic interval is, each time it has moved; replaces any earlier listener. */
+    public void onSearchMoved(java.util.function.Consumer<IntervalSearch> listener) {
+        lock.lock();
+        try {
+            this.searchListener = listener;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** Whether the program is searching for the interval itself. */
+    public boolean automatic() {
+        lock.lock();
+        try {
+            return search != null;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Switches the automatic interval on, with the search to go on from, or off, with {@code null}. On, the interval of the
+     * search is in force and takes the place of the back-off; off, the configured interval is in force again.
+     */
+    public void setAutomatic(IntervalSearch from) {
+        long seconds;
+        lock.lock();
+        try {
+            search = from;
+            backoff.clear();
+            schedule.setBackoff(0);
+            schedule.setInterval(from == null ? configuredNanos : Duration.ofSeconds(from.interval()).toNanos());
+            seconds = Duration.ofNanos(schedule.interval()).toSeconds();
             changed.signalAll();
         } finally {
             lock.unlock();
         }
-        LOG.log(System.Logger.Level.INFO, "Usage fetch interval is now " + interval.toSeconds() + " s");
+        LOG.log(System.Logger.Level.INFO, from == null
+                ? "Automatic interval off: the usage fetch interval is " + seconds + " s"
+                : "Automatic interval: " + from.describe());
     }
 
     /**
@@ -258,6 +321,18 @@ public final class UsageService implements AutoCloseable {
                 }
                 if (!closed) {
                     state = outcome.applyTo(state);
+                }
+                if (searchMoved && search != null && !closed) {
+                    // Told with no lock held: the listener saves a file, and may ask this service something in turn.
+                    searchMoved = false;
+                    IntervalSearch moved = IntervalSearch.of(search.interval(), search.lower(), search.upper());
+                    java.util.function.Consumer<IntervalSearch> listener = searchListener;
+                    lock.unlock();
+                    try {
+                        listener.accept(moved);
+                    } finally {
+                        lock.lock();
+                    }
                 }
             }
         } catch (InterruptedException e) {
@@ -330,7 +405,49 @@ public final class UsageService implements AutoCloseable {
      * {@link Backoff} for the policy. The refresh button is not held back: a person
      * asked. A failure that is not a 429 leaves the hold as it is.
      */
+    /**
+     * What an answer does to the search for the interval: a 429 moves it up, a success down, and any other failure not at
+     * all. The interval it then has is the next wait. A longer wait the server names with a 429 is honoured for that one
+     * wait, and the search goes on from the interval it had worked out.
+     */
+    private Outcome settleSearch(Outcome outcome) {
+        // The one longer wait a server asked for is over with the next answer, whatever that is.
+        schedule.setBackoff(0);
+        String before = search.describe();
+        if (outcome.rateLimited()) {
+            boolean reset = search.rateLimited();
+            long interval = Duration.ofSeconds(search.interval()).toNanos();
+            schedule.setInterval(interval);
+            long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
+            if (retryAfter > interval) {
+                schedule.setBackoff(retryAfter);
+            }
+            long next = Math.max(interval, retryAfter);
+            if (reset) {
+                LOG.log(System.Logger.Level.INFO, "Automatic interval: the bounds are " + IntervalSearch.MIN_SECONDS + " s and "
+                        + IntervalSearch.MAX_SECONDS + " s again");
+            }
+            LOG.log(System.Logger.Level.INFO, "Automatic interval: " + search.describe());
+            LOG.log(System.Logger.Level.WARNING, "Rate limited; next try in " + describe(next));
+            searchMoved = true;
+            return outcome.withError(outcome.error() + " Next try in " + describe(next) + ".");
+        }
+        if (outcome.snapshot() != null) {
+            search.succeeded();
+            schedule.setInterval(Duration.ofSeconds(search.interval()).toNanos());
+            if (!search.describe().equals(before)) {
+                // A search that has settled says nothing more: nothing of it has changed.
+                LOG.log(System.Logger.Level.INFO, "Automatic interval: " + search.describe());
+                searchMoved = true;
+            }
+        }
+        return outcome;
+    }
+
     private Outcome settleBackoff(Outcome outcome) {
+        if (search != null) {
+            return settleSearch(outcome);
+        }
         long interval = schedule.interval();
         if (outcome.rateLimited()) {
             long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());

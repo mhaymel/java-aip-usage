@@ -84,6 +84,23 @@ public final class IntervalSettings {
         LOG.log(System.Logger.Level.DEBUG, "The " + panel + " window height is now " + pixels + " px");
     }
 
+    /** Where the search for the automatic interval was when it was last saved; its beginning if it never was. */
+    public synchronized SettingsStore.Search storedSearch() {
+        return store.loadSearch();
+    }
+
+    /**
+     * Remembers where the search for the automatic interval is. A file that cannot be written is logged and nothing more:
+     * the search goes on in this run, and begins where it was last saved in the next.
+     */
+    public synchronized void storeSearch(int interval, int lower, int upper) {
+        try {
+            store.saveSearch(new SettingsStore.Search(interval, lower, upper));
+        } catch (IOException e) {
+            LOG.log(System.Logger.Level.WARNING, "Could not save the automatic interval to " + store.file() + ": " + e.getMessage());
+        }
+    }
+
     /** Every setting as in force: what the file holds, but with the usage interval the run is using. */
     public synchronized Settings current() {
         return saved.withUsageIntervalSeconds(usageSeconds);

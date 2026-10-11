@@ -225,14 +225,18 @@ final class ApiHandler implements HttpHandler {
      */
     private Settings shown() {
         Settings current = settings.current();
-        return current.withUsageIntervalSeconds(Math.max(current.usageIntervalSeconds(), service.effectiveIntervalSeconds()));
+        // While the program searches for the interval itself, the one it has found is in force, shorter or longer than the configured one.
+        return current.withUsageIntervalSeconds(current.autoInterval()
+                ? service.effectiveIntervalSeconds()
+                : Math.max(current.usageIntervalSeconds(), service.effectiveIntervalSeconds()));
     }
 
     private SettingsBody settingsBody() {
         return new SettingsBody(
                 toBody(shown()),
                 toBody(Settings.defaults()),
-                new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())));
+                new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())),
+                settings.current().usageIntervalSeconds());
     }
 
     private static SettingValues toBody(Settings s) {
@@ -240,7 +244,7 @@ final class ApiHandler implements HttpHandler {
                 s.showErrorIcon(), s.showInterval(), s.showDeltaUsed(),
                 s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate(),
                 s.historyZeroLines(), s.historyFailedLines(), s.showTime(), s.showUsed(), s.showLimit(), s.showRefresh(), s.showCountdown(),
-                s.showDuration(), s.stayOnTop(), s.showTitleBar());
+                s.showDuration(), s.stayOnTop(), s.showTitleBar(), s.autoInterval());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -277,7 +281,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showDuration"),
                     flag(body, "stayOnTop"),
                     flag(body, "showTitleBar"),
-                    false, org.example.fake.Scenario.NORMAL, false, LogLevel.INFO, false, Settings.DEFAULT_LIST_FONT_SIZE);
+                    false, org.example.fake.Scenario.NORMAL, false, LogLevel.INFO, false, Settings.DEFAULT_LIST_FONT_SIZE,
+                    flag(body, "autoInterval"));
             // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone. Nor are
             // the two choices of the log panel, which POST /api/log changes, and the size of the lists' text, which POST /api/text-size changes.
             Settings kept = settings.current();
@@ -672,10 +677,15 @@ final class ApiHandler implements HttpHandler {
             boolean showCountdown,
             boolean showDuration,
             boolean stayOnTop,
-            boolean showTitleBar) {
+            boolean showTitleBar,
+            boolean autoInterval) {
     }
 
-    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits) {
+    /**
+     * @param configuredIntervalSeconds the interval that is saved, which {@code settings.usageIntervalSeconds} is not while
+     *     a back-off or the automatic interval has another in force
+     */
+    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds) {
     }
 
     record RefreshBody(boolean started) {

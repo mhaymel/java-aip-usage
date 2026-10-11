@@ -1009,4 +1009,109 @@ class UsageServiceTest {
             root.removeHandler(capture);
         }
     }
+
+    // ---- the automatic interval: the search takes the place of the configured interval and of the back-off
+
+    @Test
+    void switchedOnTheIntervalOfTheSearchIsInForceAndEachAnswerMovesIt() {
+        Scripted fetch = new Scripted(false, false, true);
+        List<String> saved = new CopyOnWriteArrayList<>();
+        UsageService service = new UsageService(fetch, HOUR);
+        started.add(service);
+        service.onSearchMoved(moved -> saved.add(moved.interval() + " in " + moved.lower() + ".." + moved.upper()));
+        service.setAutomatic(IntervalSearch.fresh());
+        assertTrue(service.automatic());
+        assertEquals(60, service.effectiveIntervalSeconds(), "the search begins at 60, whatever is configured");
+
+        service.start();
+        await(() -> saved.size() == 1);
+        assertEquals(35, service.effectiveIntervalSeconds(), "an answer: half way down to the lower bound");
+
+        assertTrue(service.refreshNow());
+        await(() -> saved.size() == 2);
+        assertEquals(23, service.effectiveIntervalSeconds(), "a manual refresh moves the search as a scheduled one does");
+
+        assertTrue(service.refreshNow());
+        await(() -> saved.size() == 3);
+        assertEquals(29, service.effectiveIntervalSeconds(), "a 429: half way up, (35 + 23) / 2, and no doubling");
+        assertTrue(service.state().rateLimited());
+        assertTrue(service.state().error().endsWith(" Next try in 29 s."), service.state().error());
+        assertEquals(List.of("35 in 10..60", "23 in 10..35", "29 in 23..35"), saved, "and each step is given to be saved");
+    }
+
+    @Test
+    void aFailureThatIsNo429LeavesTheSearchWhereItIs() {
+        AtomicInteger calls = new AtomicInteger();
+        List<String> saved = new CopyOnWriteArrayList<>();
+        UsageService service = new UsageService(() -> {
+            if (calls.incrementAndGet() == 2) {
+                throw new UsageFetchException("Anthropic returned HTTP 500.", 500);
+            }
+            return snapshot(1);
+        }, HOUR);
+        started.add(service);
+        service.onSearchMoved(moved -> saved.add(String.valueOf(moved.interval())));
+        service.setAutomatic(IntervalSearch.fresh());
+        service.start();
+        await(() -> saved.size() == 1);
+
+        assertTrue(service.refreshNow());
+        await(() -> calls.get() == 2 && !service.state().refreshing());
+
+        assertNotNull(service.state().error());
+        assertEquals(35, service.effectiveIntervalSeconds(), "as it was after the first answer");
+        assertEquals(List.of("35"), saved, "and nothing was given to be saved for it");
+    }
+
+    @Test
+    void aLongerRetryAfterIsHonouredForTheOneWaitAndTheSearchGoesOnFromItsOwnInterval() {
+        AtomicInteger calls = new AtomicInteger();
+        UsageService service = new UsageService(() -> {
+            if (calls.incrementAndGet() == 1) {
+                throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429, Duration.ofSeconds(500));
+            }
+            return snapshot(1);
+        }, HOUR);
+        started.add(service);
+        service.setAutomatic(IntervalSearch.fresh());
+        service.start();
+        await(() -> service.state().rateLimited());
+
+        assertEquals(180, service.effectiveIntervalSeconds(), "(300 + 60) / 2: the interval the search worked out");
+        long wait = service.secondsUntilNextRefresh().orElseThrow();
+        assertTrue(wait > 400 && wait <= 500, "but this one wait is as long as the server said: " + wait);
+        assertTrue(service.state().error().endsWith(" Next try in 9 min."), service.state().error());
+    }
+
+    @Test
+    void switchedOffTheConfiguredIntervalIsInForceAgainAlsoOneThatWasSetMeanwhile() {
+        UsageService service = new UsageService(() -> snapshot(1), Duration.ofSeconds(90));
+        started.add(service);
+        service.setAutomatic(IntervalSearch.of(29, 23, 35));
+        assertEquals(29, service.effectiveIntervalSeconds());
+
+        service.setInterval(Duration.ofSeconds(120));
+        assertEquals(29, service.effectiveIntervalSeconds(), "the configured interval waits while the search is on");
+
+        service.setAutomatic(null);
+        assertFalse(service.automatic());
+        assertEquals(120, service.effectiveIntervalSeconds());
+    }
+
+    @Test
+    void aSearchThatHasSettledGivesNothingMoreToBeSaved() {
+        List<String> saved = new CopyOnWriteArrayList<>();
+        AtomicInteger calls = new AtomicInteger();
+        UsageService service = new UsageService(() -> { calls.incrementAndGet(); return snapshot(1); }, HOUR);
+        started.add(service);
+        service.onSearchMoved(moved -> saved.add(String.valueOf(moved.interval())));
+        service.setAutomatic(IntervalSearch.of(24, 23, 24));
+        service.start();
+        await(() -> calls.get() == 1 && !service.state().refreshing());
+        assertTrue(service.refreshNow());
+        await(() -> calls.get() == 2 && !service.state().refreshing());
+
+        assertEquals(24, service.effectiveIntervalSeconds());
+        assertEquals(List.of(), saved, "24 between 23 and 24 stays what it is");
+    }
 }

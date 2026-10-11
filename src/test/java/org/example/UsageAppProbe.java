@@ -53,6 +53,11 @@ public final class UsageAppProbe {
             drag("drag-button", "settings-button");
             drag("drag-refresh", "refresh");
             step("settings", "settings-button");
+            // Automatic is checked: the field of the interval is disabled at once and shows the interval in force.
+            onFx(() -> page().getEngine().executeScript("document.getElementById('set-autoInterval').click()"));
+            step("settings-auto", null);
+            onFx(() -> page().getEngine().executeScript("document.getElementById('set-autoInterval').click()"));
+            step("settings-manual", null);
             step("settings-left", "settings-cancel");
             step("history", "history-button");
             // The zoom: eight presses make the text of the list as large as it gets, and the window as wide as the table needs then.
@@ -191,6 +196,10 @@ public final class UsageAppProbe {
                             "(function () { var row = document.querySelector('#panel-lines .row'), c = getComputedStyle(document.getElementById('panel-lines'));"
                                     + " return c.fontSize + '|' + (row ? Math.round(row.getBoundingClientRect().height) : 0) + '|' + !document.getElementById('log-controls').hidden"
                                     + " + '|' + Math.round(document.getElementById('zoom-in').getBoundingClientRect().width); })()") + "]"
+                    // The automatic interval in the settings: whether it is checked, whether the field is disabled, and what the field shows.
+                    + " auto:[" + page().getEngine().executeScript(
+                            "(function () { var f = document.getElementById('set-usageIntervalSeconds'), a = document.getElementById('set-autoInterval');"
+                                    + " return a.checked + '|' + f.disabled + '|' + f.value + '|' + Math.round(Math.abs(a.getBoundingClientRect().top - f.getBoundingClientRect().top)); })()") + "]"
                     + " end");
             System.out.flush();
         });

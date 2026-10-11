@@ -183,6 +183,10 @@
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
         markNoted();
+        // With the settings shown and Automatic checked, the field of the interval follows the search.
+        if (openPanel === 'settings' && settingsShown !== null && $('set-autoInterval').checked) {
+            syncIntervalField();
+        }
     }
 
     /**
@@ -280,6 +284,11 @@
     /** The settings as the backend gave them when the view was opened, to tell whether the form has unapplied changes. */
     var settingsShown = null;
     var settingsDefaults = null;
+    // The interval that is saved, which the field does not show while the program finds the interval itself: it is what
+    // is sent with Automatic checked, and what the field has again when Automatic is unchecked.
+    var configuredInterval = null;
+    // Whether the field of the interval is disabled, for Automatic: the page's own note of what it did to the field.
+    var intervalLocked = false;
 
     // The setting that switches the button of each panel on and off; the settings have none, as their button is always there.
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon' };
@@ -288,7 +297,7 @@
     var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
     // The thirteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
-    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']);
+    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse', 'autoInterval']);
 
     /**
      * Shows in the row what the main-view part of the form says, at once and before Apply, so that it can be seen which element a
@@ -326,6 +335,53 @@
         previewNow();
     }
 
+    /**
+     * What the backend gave of the settings, as the form is compared with it and as it is sent back: with Automatic on the
+     * interval is the configured one, not the one in force, which the field only shows.
+     */
+    function takeSettings(body) {
+        settingsShown = Object.assign({}, body.settings);
+        configuredInterval = typeof body.configuredIntervalSeconds === 'number' ? body.configuredIntervalSeconds : body.settings.usageIntervalSeconds;
+        if (settingsShown.autoInterval) {
+            settingsShown.usageIntervalSeconds = configuredInterval;
+        }
+        settingsDefaults = body.defaults;
+    }
+
+    /** The interval in force as the row has it, in seconds; none while the backend has said none. */
+    function intervalInForce() {
+        var shown = lastStatus && lastStatus.display && lastStatus.display.interval;
+        var digits = shown && /^(\d+)s$/.exec(shown.text);
+        return digits ? Number(digits[1]) : null;
+    }
+
+    /**
+     * The field of the interval follows the checkbox Automatic. Checked, the field is disabled and shows the interval the
+     * program is using now; unchecked, it can be typed in and has the configured interval again.
+     */
+    function syncIntervalField() {
+        var field = $('set-usageIntervalSeconds');
+        var automatic = Boolean($('set-autoInterval').checked);
+        var wasDisabled = intervalLocked;
+        intervalLocked = automatic;
+        if (automatic) {
+            if (!wasDisabled && /^\d+$/.test(String(field.value).trim())) {
+                // What was typed is the configured interval from now on, and is sent when the view is saved.
+                configuredInterval = Number(field.value);
+            }
+            field.setAttribute('disabled', '');
+            var inForce = intervalInForce();
+            if (inForce !== null) {
+                field.value = String(inForce);
+            }
+        } else {
+            field.removeAttribute('disabled');
+            if (wasDisabled && configuredInterval !== null) {
+                field.value = String(configuredInterval);
+            }
+        }
+    }
+
     /** The interval is one entry field for a whole number of seconds; it shows the value in force, which is what the backend has. */
     function fillInterval(current) {
         $('set-usageIntervalSeconds').value = String(current);
@@ -341,7 +397,8 @@
 
     function readForm() {
         var values = {
-            usageIntervalSeconds: Number($('set-usageIntervalSeconds').value),
+            // With Automatic checked the field shows the interval the program found; the configured one is what is kept.
+            usageIntervalSeconds: $('set-autoInterval').checked && configuredInterval !== null ? configuredInterval : Number($('set-usageIntervalSeconds').value),
             timeFormat: $('set-timeFormat').value
         };
         SETTING_FLAGS.forEach(function (key) {
@@ -355,10 +412,13 @@
         setNote('settings-error', '');
         try {
             var body = await request('/api/settings');
-            settingsShown = body.settings;
-            settingsDefaults = body.defaults;
+            takeSettings(body);
             fillInterval(body.settings.usageIntervalSeconds);
             fillForm(body.settings);
+            // The field is enabled while the form is filled, so that the checkbox alone says how it is afterwards.
+            $('set-usageIntervalSeconds').removeAttribute('disabled');
+            intervalLocked = Boolean(body.settings.autoInterval);
+            syncIntervalField();
             show('settings-form', true);
         } catch (e) {
             // The frontend keeps no settings of its own, so with none to show there is no form.
@@ -395,14 +455,13 @@
      */
     async function saveSettings() {
         // Only that it is a number is checked here; whether it is in range is the backend's to say.
-        if (!/^\d+$/.test($('set-usageIntervalSeconds').value.trim())) {
+        if (!$('set-autoInterval').checked && !/^\d+$/.test($('set-usageIntervalSeconds').value.trim())) {
             setNote('settings-error', 'The interval must be a whole number of seconds.');
             return false;
         }
         try {
             var body = await postJson('/api/settings', readForm());
-            settingsShown = body.settings;
-            settingsDefaults = body.defaults;
+            takeSettings(body);
             // A panel whose button has just been switched off is not given back.
             if (returnTo && body.settings[ICON_SETTINGS[returnTo]] === false) {
                 returnTo = null;
@@ -443,6 +502,11 @@
     function restoreDefaults() {
         if (settingsDefaults) {
             fillForm(settingsDefaults);
+            // The defaults have Automatic off, and their own interval: the field is theirs to fill, and can be typed in.
+            $('set-usageIntervalSeconds').removeAttribute('disabled');
+            intervalLocked = false;
+            configuredInterval = settingsDefaults.usageIntervalSeconds;
+            syncIntervalField();
             previewNow();
         }
     }
@@ -1015,6 +1079,7 @@
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
         $('settings-restore').addEventListener('click', restoreDefaults);
         $('set-all').addEventListener('click', selectAllOrNone);
+        $('set-autoInterval').addEventListener('change', syncIntervalField);
         $('settings-cancel').addEventListener('click', cancelSettings);
         MAIN_FLAGS.forEach(function (key) { $('set-' + key).addEventListener('change', previewNow); });
         $('set-timeFormat').addEventListener('change', previewNow);

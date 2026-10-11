@@ -1523,19 +1523,39 @@ configuration stand for. How the two icons look.
 
 ### 65. The automatic interval
 
-**Status: specified, not built (version 0.53).**
+**Status: built (version 0.53).** Requirement: The automatic interval.
 
-- **The search** is a class of its own with no clock and no thread: the interval and the two bounds, a success, a 429.
-  It is tested by its arithmetic alone.
-- **`UsageService`** asks it in the place of `Backoff` while it is on; `RefreshSchedule` gets the interval as it gets one
-  from the settings. `retry-after` lengthens the one wait as it does now.
-- **`Settings`** gets `autoInterval`; the three figures of the search are kept beside the settings like the remembered
-  heights, since they change by themselves and are no choice of the settings view.
-- **The page.** The checkbox; the field disabled and filled from the interval in force, which the status already carries.
-- **Tests.** The search step by step, the reset, the bounds; the service with a scripted fetcher; the store; the page.
+- **The search** is `IntervalSearch`, with no clock and no thread: the interval and the two bounds, a success, a 429, and
+  whether a 429 set the bounds back. Figures that cannot be a state of it begin it anew.
+- **`UsageService`** has the search while it is on (`setAutomatic`), and `settleBackoff` hands an outcome to
+  `settleSearch` then: a 429 moves it up, a success down, another failure not at all, and its interval is given to
+  `RefreshSchedule`. The back-off that doubles is cleared and not used; a longer `retry-after` is put on the schedule for
+  the one wait and taken off at the next answer. The configured interval is kept in the service and is in force again
+  when the search is switched off.
+- **Saving.** The service tells a listener where the search is, after it has moved, with its lock released, since the
+  listener writes a file and the settings call the service under their own lock. `AppRuntime` saves it through
+  `IntervalSettings.storeSearch`, and switches the search with the setting.
+- **`Settings`** has `autoInterval`; the three figures of the search are kept in `settings.json` beside the settings, like
+  the remembered heights (`SettingsStore.Search`), and a save of the one leaves the others as they are.
+- **The API.** The settings carry `autoInterval` and, beside them, `configuredIntervalSeconds`; the interval in force is
+  that of the search while it is on, also when it is shorter than the configured one.
+- **The page.** The checkbox in the line of the interval. The field is disabled and shows the interval in force, from the
+  status, at each drawing of the row; what is compared and sent is the configured interval.
+- **Tests.** `IntervalSearchTest`: the steps down, a refusal, the bounds set back at the upper bound and a second below
+  it, the limits, 5,000 random answers, a saved state and figures that are none. `UsageServiceTest`: each answer moves
+  it and is given to be saved, a 500 does not, a longer `retry-after` for the one wait, switching off, a settled search.
+  `SettingsStoreTest`: the flag, the search beside the settings and the heights, figures that are not three whole
+  numbers. `ApiTest`: the setting, both intervals, the search saved by a run and gone on from. `app.test.cjs`,
+  `layout.test.cjs`: the checkbox, the field in each state, what is sent, `Restore defaults`.
+- **In a real window** (the on-request test): with the settings shown the field can be typed in; `Automatic` checked, it
+  is disabled and shows 60, the interval in force; unchecked, it can be typed in again; the checkbox is in the line of
+  the field. It passes.
 
-*Risk:* the largest piece. A search that is wrong asks Anthropic too often, so the least interval and the steps are
-tested before anything is run against the real endpoint.
+**Not checked against the real endpoint.** Nothing here was run against Anthropic: where the search settles with a real
+account, and how often it is refused once it has, is not known. The fake backend answers without a limit, so against it
+the search goes down to 11 seconds and stays.
+
+The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built
 

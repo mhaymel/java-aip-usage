@@ -1295,6 +1295,63 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The line of the two buttons is shown with each list and with nothing else**: not with the settings, the debug
   settings, or no panel. The two choices of the log are in that line for the log alone, before the buttons.
 
+### The automatic interval
+
+- **The group `Request` of the settings has a checkbox `Automatic`** (since version 0.53), in the line of the interval, after the field and
+  its `s`. Its tooltip: `Lets the program find the shortest time between usage requests that Anthropic accepts, between
+  10 and 300 seconds.` It is **off by default**, saved under the key `autoInterval`, and takes effect when the settings
+  are saved, like the interval.
+- **Off, everything is as it was**: the program uses the configured interval and does not change it, and an HTTP 429
+  is answered by the back-off that doubles the wait.
+- **On, the field of the interval is disabled** and shows, grayed, the interval the search is using now; it follows the
+  search while the settings are shown. Switching `Automatic` off puts the configured interval back into the field,
+  which can be typed in again. The configured interval is kept while `Automatic` is on, and is in force again when it
+  is switched off.
+- **On, the program searches for the interval**, between a lower and an upper bound, in the manner of a binary search.
+  The least is **10 seconds** and the most **300 seconds**, both fixed in the program and not settings. The search
+  begins with a lower bound of 10, an upper bound of 300 and an interval of **60 seconds**.
+- **After a refresh that Anthropic answered without an HTTP 429** the interval was long enough: the upper bound becomes
+  the current interval, and the new interval is the middle of the lower bound and the current interval,
+  `(lower + current) / 2`.
+- **After an HTTP 429** the interval was too short: the lower bound becomes the current interval, and the new interval
+  is the middle of the upper bound and the current interval, `(upper + current) / 2`.
+- **When a 429 comes with the interval at the upper bound, or within a second of it**, the search has closed in on an
+  interval that no longer holds: the bounds are set back to 10 and 300, and the new interval is `(300 + current) / 2`.
+- **The middle is in whole seconds, rounded up**, and the interval is never less than 10 nor more than 300. So the
+  search settles a little above the shortest interval that Anthropic accepts: 60, 35, 23, 17, 14, 12, 11 while nothing
+  is refused, where it stays, a second above the least; and back up towards the upper bound when something is. An
+  example: refused at 23 with the upper bound at 35, it goes to 29, then with each answer to 26, 25 and 24, and stays at
+  24, a second above the interval that was refused.
+- **A search that has settled is refused again sooner or later**, since it sits just above an interval that was: at
+  the upper bound that is the case of the bounds being set back, and the interval then goes half way to 300. So with
+  `Automatic` on an HTTP 429 now and then is part of how it works, and not a fault.
+- **Only an answer of Anthropic moves the search.** A refresh that fails in another way, an HTTP error that is not a
+  429, a timeout, a token that cannot be obtained, leaves the interval and the bounds as they are. A manual refresh
+  moves the search as a scheduled one does.
+- **The search takes the place of the back-off.** With `Automatic` on a 429 does not double the wait: the next request
+  comes after the new interval. A `retry-after` of the server is still honoured: when it is longer than the new
+  interval, that one wait is as long as the server says, within the limit there is for it; the search goes on from the
+  interval it had worked out.
+- **The row shows it as it shows the interval in force**: the element `Interval` has the interval of the search, the
+  countdown counts down to it, and a 429 is the red countdown or the message line as before.
+- **What is typed while `Automatic` is off is the configured interval**, also when `Automatic` is then checked before the
+  view is saved; with `Automatic` checked the field is not checked for being a number, since it is not the person's to
+  fill.
+- **The settings say both intervals** to the page: the one in force, and the configured one (`docs/api.md`).
+- **The search is remembered.** The interval and the two bounds are saved in `settings.json` whenever they change, under
+  the keys `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the next start goes on from them.
+  Values in the file that are not whole seconds from 10 to 300, or a lower bound above the upper one, or an interval
+  outside the two, begin the search anew at 60, 10 and 300. Switching `Automatic` off and on again goes on from what was
+  saved.
+- **The log says each step**, at the information level: `Automatic interval: <N> s (between <lower> s and <upper> s)`,
+  and `Automatic interval: the bounds are 10 s and 300 s again` before it when they were set back. A search that has
+  settled, and whose interval and bounds an answer leaves as they are, writes nothing. Switching it on writes the same
+  line with where the search is, and switching it off `Automatic interval off: the usage fetch interval is <N> s`.
+- **A change of the configured interval while `Automatic` is on** is saved and waits: it is in force when `Automatic` is
+  switched off.
+- **`Restore defaults`** unchecks `Automatic` with the rest; the search that is saved is left as it is.
+- **The usage history** records for each row the interval in force, which with `Automatic` on is that of the search.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1386,56 +1443,6 @@ backend switched while the program runs, and the mark that says its figures are 
   (see `docs/img_3.png`, taken with every element of the row hidden).
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
-
-## The automatic interval
-
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.52; where
-this section says otherwise, this section is what is to be built. It moves into the description of the program
-when it is built (see the implementation plan, phase 65).
-
-### The automatic interval
-
-- **The group `Request` of the settings has a checkbox `Automatic`**, in the line of the interval, after the field and
-  its `s`. Its tooltip: `Lets the program find the shortest time between usage requests that Anthropic accepts, between
-  10 and 300 seconds.` It is **off by default**, saved under the key `autoInterval`, and takes effect when the settings
-  are saved, like the interval.
-- **Off, everything is as it was**: the program uses the configured interval and does not change it, and an HTTP 429
-  is answered by the back-off that doubles the wait.
-- **On, the field of the interval is disabled** and shows, grayed, the interval the search is using now; it follows the
-  search while the settings are shown. Switching `Automatic` off puts the configured interval back into the field,
-  which can be typed in again. The configured interval is kept while `Automatic` is on, and is in force again when it
-  is switched off.
-- **On, the program searches for the interval**, between a lower and an upper bound, in the manner of a binary search.
-  The least is **10 seconds** and the most **300 seconds**, both fixed in the program and not settings. The search
-  begins with a lower bound of 10, an upper bound of 300 and an interval of **60 seconds**.
-- **After a refresh that Anthropic answered without an HTTP 429** the interval was long enough: the upper bound becomes
-  the current interval, and the new interval is the middle of the lower bound and the current interval,
-  `(lower + current) / 2`.
-- **After an HTTP 429** the interval was too short: the lower bound becomes the current interval, and the new interval
-  is the middle of the upper bound and the current interval, `(upper + current) / 2`.
-- **When a 429 comes with the interval at the upper bound, or within a second of it**, the search has closed in on an
-  interval that no longer holds: the bounds are set back to 10 and 300, and the new interval is `(300 + current) / 2`.
-- **The middle is in whole seconds, rounded up**, and the interval is never less than 10 nor more than 300. So the
-  search settles a little above the shortest interval that Anthropic accepts: 60, 35, 23, 17 ... while nothing is
-  refused, and back up towards the upper bound when something is.
-- **Only an answer of Anthropic moves the search.** A refresh that fails in another way, an HTTP error that is not a
-  429, a timeout, a token that cannot be obtained, leaves the interval and the bounds as they are. A manual refresh
-  moves the search as a scheduled one does.
-- **The search takes the place of the back-off.** With `Automatic` on a 429 does not double the wait: the next request
-  comes after the new interval. A `retry-after` of the server is still honoured: when it is longer than the new
-  interval, that one wait is as long as the server says, within the limit there is for it; the search goes on from the
-  interval it had worked out.
-- **The row shows it as it shows the interval in force**: the element `Interval` has the interval of the search, the
-  countdown counts down to it, and a 429 is the red countdown or the message line as before.
-- **The search is remembered.** The interval and the two bounds are saved in `settings.json` whenever they change, under
-  the keys `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the next start goes on from them.
-  Values in the file that are not whole seconds from 10 to 300, or a lower bound above the upper one, or an interval
-  outside the two, begin the search anew at 60, 10 and 300. Switching `Automatic` off and on again goes on from what was
-  saved.
-- **The log says each step**, at the information level: `Automatic interval: <N> s (between <lower> s and <upper> s)`,
-  and `Automatic interval: the bounds are 10 s and 300 s again` before it when they were set back.
-- **`Restore defaults`** unchecks `Automatic` with the rest; the search that is saved is left as it is.
-- **The usage history** records for each row the interval in force, as before, which is that of the search.
 
 ## Details of the behaviour
 
@@ -1982,7 +1989,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
   `historyHeight` and `logHeight`. Where this document says "in the project root, beside `gradlew`", the files are in the working directory the program was
   started from, which is the project root for `./gradlew run` and for an IDE run configuration set as the notes say.
 - **The settings file as written.** One JSON object, printed over several lines, with the keys always in the order above, the two heights last and always there, as `0` when none is remembered. Every save writes the whole file

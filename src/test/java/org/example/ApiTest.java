@@ -271,7 +271,7 @@ class ApiTest {
     private static String allSettings(int interval, boolean logResponse, String timeFormat) {
         return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
                 + ", \"showPercentage\": true, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
-                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true, \"showDuration\": false, \"stayOnTop\": false, \"showTitleBar\": true}";
+                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true, \"showDuration\": false, \"stayOnTop\": false, \"showTitleBar\": true, \"autoInterval\": false}";
     }
 
     @Test
@@ -283,7 +283,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(24, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(25, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -974,7 +974,7 @@ class ApiTest {
         await(() -> history(app).size() >= 2);
         post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showPercentage\": false, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": false,"
                 + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
-                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true, \"showDuration\": false, \"stayOnTop\": false, \"showTitleBar\": true}");
+                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true, \"showDuration\": false, \"stayOnTop\": false, \"showTitleBar\": true, \"autoInterval\": false}");
         fail.set(false);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);
@@ -2070,5 +2070,73 @@ class ApiTest {
         assertEquals(200, post(app, "/api/settings", settings.get("defaults").toString()).statusCode(), "Restore defaults, saved");
 
         assertEquals(18, json(get(app, "/api/config")).get("listFontSize").asInt());
+    }
+
+    // ---- the automatic interval
+
+    @Test
+    void automaticIsASettingOffByDefaultAndTheSettingsSayTheConfiguredIntervalBesideTheOneInForce() throws Exception {
+        AppRuntime app = start(new FakeFetch(), 90);
+
+        JsonNode body = json(get(app, "/api/settings"));
+
+        assertFalse(body.at("/settings/autoInterval").asBoolean());
+        assertFalse(body.at("/defaults/autoInterval").asBoolean());
+        assertEquals(90, body.get("configuredIntervalSeconds").asInt());
+        assertEquals(90, body.at("/settings/usageIntervalSeconds").asInt());
+        assertEquals(400, post(app, "/api/settings", allSettings(90, false, "hh:mm").replace(", \"autoInterval\": false", "")).statusCode(),
+                "it must be given like every other setting");
+    }
+
+    @Test
+    void switchedOnTheIntervalOfTheSearchIsInForceAndTheConfiguredOneIsKept() throws Exception {
+        AppRuntime app = start(new FakeFetch(), 90);
+        String on = allSettings(90, false, "hh:mm").replace("\"autoInterval\": false", "\"autoInterval\": true");
+
+        HttpResponse<String> saved = post(app, "/api/settings", on);
+
+        assertEquals(200, saved.statusCode(), saved.body());
+        JsonNode body = json(saved);
+        assertTrue(body.at("/settings/autoInterval").asBoolean());
+        assertEquals(90, body.get("configuredIntervalSeconds").asInt(), "the configured interval is kept");
+        int inForce = body.at("/settings/usageIntervalSeconds").asInt();
+        assertTrue(inForce >= 10 && inForce <= 60, "the search begins at 60 and goes down with each answer: " + inForce);
+        JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+        assertTrue(file.get("autoInterval").asBoolean());
+        assertEquals(90, file.get("usageIntervalSeconds").asInt(), "and is what the file has");
+
+        // Switched off again, the configured interval is in force.
+        JsonNode off = json(post(app, "/api/settings", allSettings(90, false, "hh:mm")));
+        assertFalse(off.at("/settings/autoInterval").asBoolean());
+        assertEquals(90, off.at("/settings/usageIntervalSeconds").asInt());
+    }
+
+    @Test
+    void theSearchIsSavedWhenItMovesAndTheNextStartGoesOnFromIt() throws Exception {
+        Files.writeString(dir.resolve("settings.json"),
+                "{\"autoInterval\": true, \"autoIntervalSeconds\": 29, \"autoLowerSeconds\": 23, \"autoUpperSeconds\": 35}");
+        AppRuntime app = start(new FakeFetch());
+
+        // The first refresh was answered: (23 + 29) / 2 = 26, and the upper bound is 29.
+        awaitSearch(26);
+
+        JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+        assertEquals(26, file.get("autoIntervalSeconds").asInt());
+        assertEquals(23, file.get("autoLowerSeconds").asInt());
+        assertEquals(29, file.get("autoUpperSeconds").asInt());
+        assertEquals(26, json(get(app, "/api/settings")).at("/settings/usageIntervalSeconds").asInt(), "the interval in force");
+        assertEquals("26s", json(get(app, "/api/status")).at("/display/interval/text").asText(), "which the row shows");
+    }
+
+    private void awaitSearch(int seconds) throws Exception {
+        long deadline = System.nanoTime() + java.time.Duration.ofSeconds(5).toNanos();
+        while (System.nanoTime() < deadline) {
+            JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+            if (file.has("autoIntervalSeconds") && file.get("autoIntervalSeconds").asInt() == seconds) {
+                return;
+            }
+            Thread.sleep(20);
+        }
+        throw new AssertionError("the search was not saved at " + seconds + " s: " + Files.readString(dir.resolve("settings.json")));
     }
 }

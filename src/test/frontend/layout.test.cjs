@@ -342,6 +342,13 @@ test('the text of the lists is as large as the page says, twelve pixels when it 
     assert.doesNotMatch(ruleOf('.log-controls'), /list-size/, 'and so does the line of the controls');
 });
 
+test('the group Request has the checkbox Automatic in the line of the interval, after the field and its unit', () => {
+    const request = html.slice(html.indexOf('<legend>Request</legend>'), html.indexOf('<legend>Main view'));
+    assert.match(request, /<span class="line">\s*<label>Interval\s*<input id="set-usageIntervalSeconds"[^>]*> s<\/label>\s*<label title="[^"]+"><input id="set-autoInterval" type="checkbox"> Automatic<\/label>\s*<\/span>/);
+    assert.match(request, /title="Lets the program find the shortest time between usage requests that Anthropic accepts, between 10 and 300 seconds\."/);
+    assert.match(css, /\.settings input\[type="text"\]\[disabled\]\s*{\s*opacity:\s*0\.5/, 'the field is grayed while it is not to be typed in');
+});
+
 test('an error in the panel is red', () => {
     assert.match(ruleOf('.panel-error'), /color:\s*var\(--bad\)/);
 });

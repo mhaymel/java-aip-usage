@@ -427,6 +427,11 @@ body {
     border-radius: 4px;
 }
 
+/* The interval's field while the program finds the interval itself: it shows that interval, and is not to be typed in. */
+.settings input[type="text"][disabled] {
+    opacity: 0.5;
+}
+
 .settings input[type="text"] {
     width: 5ch;
     padding: 1px 4px;

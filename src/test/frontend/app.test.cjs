@@ -155,7 +155,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true, autoInterval: false,
 };
 const SETTINGS = {
     settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showInterval: true, timeFormat: 'hh:mm:ss' },
@@ -908,7 +908,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true, autoInterval: false,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
     assert.equal(page.el('settings-view').hidden, true, 'Apply closes the view');
@@ -2931,4 +2931,94 @@ test('a size that cannot be saved holds for the run, and a red line says so unti
     await page.click('zoom-in');
     assert.equal(listSizeOf(), '14px');
     assert.equal(page.el('log-error').hidden, true);
+});
+
+// ---- the automatic interval: a checkbox beside the interval, whose field then shows the interval the program found
+
+const AUTO_ON = {
+    ...SETTINGS,
+    settings: { ...SETTINGS.settings, autoInterval: true, usageIntervalSeconds: 35 },
+    configuredIntervalSeconds: 120,
+};
+const withInterval = (status, text) => { const s = withDisplay(status); return { ...s, display: { ...s.display, interval: { text, tooltip: 'Time between usage requests' } } }; };
+const autoPosts = page => page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST').map(c => JSON.parse(c.body));
+
+test('with Automatic off the field of the interval is as it was, and the checkbox is sent with the rest', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+
+    assert.equal(page.el('set-autoInterval').checked, false);
+    assert.equal(page.el('set-usageIntervalSeconds').attrs.disabled, undefined, 'it can be typed in');
+    assert.equal(page.el('set-usageIntervalSeconds').value, '120');
+
+    page.type('set-usageIntervalSeconds', '45');
+    await page.click('settings-apply');
+    assert.equal(autoPosts(page)[0].autoInterval, false);
+    assert.equal(autoPosts(page)[0].usageIntervalSeconds, 45);
+});
+
+test('with Automatic on the field is disabled and shows the interval the program is using, and follows it', async () => {
+    const state = { config: CONFIG, status: withInterval(SPEND_STATUS, '35s'), settings: () => ({ status: 200, body: AUTO_ON }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+
+    assert.equal(page.el('set-autoInterval').checked, true);
+    assert.equal(page.el('set-usageIntervalSeconds').attrs.disabled, '', 'not to be typed in');
+    assert.equal(page.el('set-usageIntervalSeconds').value, '35', 'the interval in force, not the configured 120');
+
+    state.status = withInterval(SPEND_STATUS, '23s');
+    await page.firePoll();
+    assert.equal(page.el('set-usageIntervalSeconds').value, '23', 'it follows the search while the settings are shown');
+
+    await page.click('settings-button');
+    assert.equal(autoPosts(page).length, 0, 'nothing was changed, so leaving sends nothing, though the field shows another number');
+});
+
+test('unchecking Automatic gives the field the configured interval back, and what is sent is the configured interval either way', async () => {
+    const state = { config: CONFIG, status: withInterval(SPEND_STATUS, '35s'), settings: () => ({ status: 200, body: AUTO_ON }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+
+    await change(page, 'set-autoInterval', false);
+    assert.equal(page.el('set-usageIntervalSeconds').attrs.disabled, undefined);
+    assert.equal(page.el('set-usageIntervalSeconds').value, '120', 'the configured interval, which was kept');
+
+    page.type('set-usageIntervalSeconds', '90');
+    await change(page, 'set-autoInterval', true);
+    assert.equal(page.el('set-usageIntervalSeconds').attrs.disabled, '');
+    assert.equal(page.el('set-usageIntervalSeconds').value, '35', 'the interval in force again');
+
+    await page.click('settings-apply');
+    assert.equal(autoPosts(page)[0].autoInterval, true);
+    assert.equal(autoPosts(page)[0].usageIntervalSeconds, 90, 'what was typed while it was off is the configured interval now');
+});
+
+test('checking Automatic disables the field at once and does not ask for a number in it', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withInterval(SPEND_STATUS, '60s') }));
+    await page.click('settings-button');
+    page.type('set-usageIntervalSeconds', 'abc');
+
+    await change(page, 'set-autoInterval', true);
+    assert.equal(page.el('set-usageIntervalSeconds').attrs.disabled, '');
+    assert.equal(page.el('set-usageIntervalSeconds').value, '60');
+
+    await page.click('settings-apply');
+    assert.equal(page.el('settings-error').hidden, true, 'the field is not the user\'s to fill, so it is not checked');
+    assert.equal(autoPosts(page)[0].autoInterval, true);
+    assert.equal(autoPosts(page)[0].usageIntervalSeconds, 120, 'the configured interval, which the nonsense did not replace');
+});
+
+test('Restore defaults unchecks Automatic and gives the field the default interval, to be typed in', async () => {
+    const state = { config: CONFIG, status: withInterval(SPEND_STATUS, '35s'), settings: () => ({ status: 200, body: AUTO_ON }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+
+    await page.click('settings-restore');
+
+    assert.equal(page.el('set-autoInterval').checked, false);
+    assert.equal(page.el('set-usageIntervalSeconds').attrs.disabled, undefined);
+    assert.equal(page.el('set-usageIntervalSeconds').value, '60');
+    await page.click('settings-apply');
+    assert.equal(autoPosts(page)[0].usageIntervalSeconds, 60);
+    assert.equal(autoPosts(page)[0].autoInterval, false);
 });

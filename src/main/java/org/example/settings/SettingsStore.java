@@ -74,6 +74,14 @@ public final class SettingsStore {
 
     static final String LIST_FONT_SIZE_KEY = "listFontSize";
 
+    static final String AUTO_INTERVAL_KEY = "autoInterval";
+
+    static final String AUTO_SECONDS_KEY = "autoIntervalSeconds";
+
+    static final String AUTO_LOWER_KEY = "autoLowerSeconds";
+
+    static final String AUTO_UPPER_KEY = "autoUpperSeconds";
+
     static final String HISTORY_DELTA_USED_KEY = "historyDeltaUsed";
 
     static final String HISTORY_DELTA_TIME_KEY = "historyDeltaTime";
@@ -161,7 +169,8 @@ public final class SettingsStore {
                 flag(root, FAKE_TOKEN_KEY, defaults.fakeToken()),
                 logLevel(root, defaults.logLevel()),
                 flag(root, LOG_DATE_KEY, defaults.logDate()),
-                listFontSize(root, defaults.listFontSize()));
+                listFontSize(root, defaults.listFontSize()),
+                flag(root, AUTO_INTERVAL_KEY, defaults.autoInterval()));
     }
 
     /**
@@ -227,7 +236,7 @@ public final class SettingsStore {
                 throw new IOException("the settings file is not a JSON object");
             }
         }
-        write(load(), heights);
+        write(load(), heights, loadSearch());
     }
 
     /** The scenario of the fake backend, by its name; a name that is none of them is logged and passed over. */
@@ -317,10 +326,59 @@ public final class SettingsStore {
      * @throws IOException if the file cannot be written; it is then unchanged
      */
     public void save(Settings settings) throws IOException {
-        write(settings, Files.exists(file) ? loadHeights() : Heights.NONE);
+        write(settings, Files.exists(file) ? loadHeights() : Heights.NONE, Files.exists(file) ? loadSearch() : Search.BEGINNING);
     }
 
-    private void write(Settings settings, Heights heights) throws IOException {
+    /**
+     * Where the search for the automatic interval is: the interval and its two bounds, in seconds. They are in the
+     * settings file but are no settings of the settings view: the program changes them by itself.
+     */
+    public record Search(int interval, int lower, int upper) {
+
+        /** Where a search begins: 60 seconds, between 10 and 300. */
+        public static final Search BEGINNING = new Search(60, 10, 300);
+    }
+
+    /**
+     * The search as saved; its beginning if the file is missing, unusable, or has not all three as whole numbers. Whether
+     * the three can be a state of the search is the search's to say. Never fails.
+     */
+    public Search loadSearch() {
+        try {
+            JsonNode root = mapper.readTree(Files.readString(file));
+            if (root == null || !root.isObject()) {
+                return Search.BEGINNING;
+            }
+            JsonNode interval = root.get(AUTO_SECONDS_KEY);
+            JsonNode lower = root.get(AUTO_LOWER_KEY);
+            JsonNode upper = root.get(AUTO_UPPER_KEY);
+            for (JsonNode node : new JsonNode[] {interval, lower, upper}) {
+                if (node == null || !node.isIntegralNumber() || !node.canConvertToInt()) {
+                    return Search.BEGINNING;
+                }
+            }
+            return new Search(interval.intValue(), lower.intValue(), upper.intValue());
+        } catch (IOException e) {
+            return Search.BEGINNING;
+        }
+    }
+
+    /**
+     * Stores the search, keeping the settings and the heights the file has.
+     *
+     * @throws IOException if the file cannot be written; it is then unchanged
+     */
+    public void saveSearch(Search search) throws IOException {
+        if (Files.exists(file)) {
+            JsonNode root = mapper.readTree(Files.readString(file));
+            if (root == null || !root.isObject()) {
+                throw new IOException("the settings file is not a JSON object");
+            }
+        }
+        write(load(), loadHeights(), search);
+    }
+
+    private void write(Settings settings, Heights heights, Search search) throws IOException {
         ObjectNode root = mapper.createObjectNode();
         root.put(USAGE_KEY, settings.usageIntervalSeconds());
         root.put(LOG_RESPONSE_KEY, settings.logResponse());
@@ -352,6 +410,10 @@ public final class SettingsStore {
         root.put(LOG_LEVEL_KEY, settings.logLevel().json());
         root.put(LOG_DATE_KEY, settings.logDate());
         root.put(LIST_FONT_SIZE_KEY, settings.listFontSize());
+        root.put(AUTO_INTERVAL_KEY, settings.autoInterval());
+        root.put(AUTO_SECONDS_KEY, search.interval());
+        root.put(AUTO_LOWER_KEY, search.lower());
+        root.put(AUTO_UPPER_KEY, search.upper());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
 

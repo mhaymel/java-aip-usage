@@ -100,6 +100,12 @@ final class AppRuntime implements AutoCloseable, UsageSources {
      * @param factory opens the source of usage: once for a run that is not in debug mode, and in debug mode at startup and
      *     again whenever the debug settings change
      */
+    /** The search for the automatic interval as it was saved, or from its beginning when what was saved cannot be one. */
+    private static org.example.usage.IntervalSearch searchOf(IntervalSettings settings) {
+        org.example.settings.SettingsStore.Search stored = settings.storedSearch();
+        return org.example.usage.IntervalSearch.of(stored.interval(), stored.lower(), stored.upper());
+    }
+
     static AppRuntime start(AppFiles files, LaunchOptions options, UsageSources.Factory factory, ResponseLog responseLog)
             throws IOException {
         LOG.log(System.Logger.Level.INFO, "Settings are stored in " + files.settings());
@@ -123,7 +129,17 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         });
         settings.onUsageIntervalChange(service::setInterval);
         responseLog.set(saved.logResponse());
-        settings.onChange(changed -> responseLog.set(changed.logResponse()));
+        // The automatic interval: the search goes on from where it was saved, and is saved again whenever it moves.
+        service.onSearchMoved(moved -> settings.storeSearch(moved.interval(), moved.lower(), moved.upper()));
+        if (saved.autoInterval()) {
+            service.setAutomatic(searchOf(settings));
+        }
+        settings.onChange(changed -> {
+            responseLog.set(changed.logResponse());
+            if (changed.autoInterval() != service.automatic()) {
+                service.setAutomatic(changed.autoInterval() ? searchOf(settings) : null);
+            }
+        });
 
         runtime.server = LocalWebServer.start(new ApiHandler(service, settings, files, runtime));
         service.start();
@@ -175,7 +191,8 @@ final class AppRuntime implements AutoCloseable, UsageSources {
     private UsageSnapshot fetchAndRecord() {
         Source asked = source;
         UsageHistory history = asked.fake() ? fakeHistory : realHistory;
-        int interval = settings.usageSeconds();
+        // The interval in force: the configured one, or the one the program has found while it searches for it itself.
+        int interval = service != null && service.automatic() ? service.effectiveIntervalSeconds() : settings.usageSeconds();
         long started = System.nanoTime();
         UsageSnapshot snapshot;
         try {

@@ -183,8 +183,8 @@ class SettingsStoreTest {
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "logLevel", "logDate", "listFontSize",
-                        "historyHeight", "logHeight"),
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "logLevel", "logDate", "listFontSize", "autoInterval",
+                        "autoIntervalSeconds", "autoLowerSeconds", "autoUpperSeconds", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -394,6 +394,51 @@ class SettingsStoreTest {
 
             assertEquals(12, loaded.listFontSize(), bad);
             assertTrue(loaded.logDate(), bad);
+        }
+    }
+
+    @Test
+    void theAutomaticIntervalIsOffByDefaultAndComesBackAsSaved() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        assertFalse(Settings.defaults().autoInterval());
+
+        store.save(Settings.defaults().withAutoInterval(true));
+
+        assertTrue(store.load().autoInterval());
+        assertTrue(Files.readString(file()).contains("\"autoInterval\" : true"), Files.readString(file()));
+    }
+
+    @Test
+    void theSearchIsKeptBesideTheSettingsAndASaveOfEitherLeavesTheOtherAsItIs() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        assertEquals(new SettingsStore.Search(60, 10, 300), store.loadSearch(), "no file: where a search begins");
+
+        store.saveSearch(new SettingsStore.Search(29, 23, 35));
+        assertEquals(new SettingsStore.Search(29, 23, 35), store.loadSearch());
+        assertEquals(Settings.defaults(), store.load(), "the settings are the defaults still");
+
+        store.save(interval(45).withAutoInterval(true));
+        assertEquals(new SettingsStore.Search(29, 23, 35), store.loadSearch(), "saving the settings keeps the search");
+
+        store.saveHeights(new SettingsStore.Heights(640, 500));
+        assertEquals(new SettingsStore.Search(29, 23, 35), store.loadSearch(), "and so does saving a height");
+
+        store.saveSearch(new SettingsStore.Search(26, 23, 29));
+        assertEquals(45, store.load().usageIntervalSeconds(), "saving the search keeps the settings");
+        assertTrue(store.load().autoInterval());
+        assertEquals(new SettingsStore.Heights(640, 500), store.loadHeights(), "and the heights");
+    }
+
+    @Test
+    void aSearchThatIsNotThreeWholeNumbersIsTheBeginningOfOne() throws IOException {
+        for (String bad : List.of(
+                "{\"autoIntervalSeconds\": 29, \"autoLowerSeconds\": 23}",
+                "{\"autoIntervalSeconds\": \"29\", \"autoLowerSeconds\": 23, \"autoUpperSeconds\": 35}",
+                "{\"autoIntervalSeconds\": 29.5, \"autoLowerSeconds\": 23, \"autoUpperSeconds\": 35}",
+                "[1, 2, 3]", "not json")) {
+            Files.writeString(file(), bad);
+
+            assertEquals(SettingsStore.Search.BEGINNING, new SettingsStore(file()).loadSearch(), bad);
         }
     }
 }

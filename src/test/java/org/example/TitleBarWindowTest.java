@@ -122,6 +122,13 @@ class TitleBarWindowTest {
         assertTrue(line(all, "start").contains("|false|"), "with no list there is no line of the zoom:\n" + all);
         assertTrue(line(all, "errors").contains(" list:[12px|") && line(all, "errors").contains("|true|20]"), "the error log has the line too:\n" + all);
 
+        // The settings: Automatic is off and the field of the interval can be typed in; checked, the field is disabled and
+        // shows the interval in force; unchecked again, it has the configured interval and can be typed in.
+        assertTrue(line(all, "settings").contains(" auto:[false|false|60|"), all);
+        assertTrue(line(all, "settings-auto").contains(" auto:[true|true|60|"), all);
+        assertTrue(line(all, "settings-manual").contains(" auto:[false|false|60|"), all);
+        assertTrue(line(all, "settings-auto").matches(".* auto:\\[true\\|true\\|60\\|[0-6]] .*"), "the checkbox is in the line of the field:\n" + all);
+
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.
         assertTrue(line(all, "log").contains(" logControls:true "), all);
         assertTrue(line(all, "log").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), "information is shown, and the lines begin with the time:\n" + all);

@@ -83,6 +83,19 @@ wait as the configured interval. `defaults` and `GET /api/config` are not change
 The same keys are in `settings.json`, which
 is created with the defaults if it is missing.
 
+### The automatic interval in the settings
+
+`settings` and `defaults` have `autoInterval`, `false` by default: whether the program finds the time between usage
+requests itself, between 10 and 300 seconds. `POST /api/settings` must give it like every other setting.
+
+Beside `settings`, `defaults` and `limits` the answer has `configuredIntervalSeconds`: the interval that is saved.
+`settings.usageIntervalSeconds` is the interval in force, which is another one while a back-off holds, and, with
+`autoInterval` on, the one the search has found, shorter or longer than the configured one. A page that shows the interval
+in force in its field sends the configured one back when `autoInterval` is on, so that it is kept.
+
+The three figures of the search, `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, are in
+`settings.json` and in no request: the program changes them by itself.
+
 ## `POST /api/settings`
 
 The body is an object with all keys of `settings`. A missing key, a value of the wrong type, an
@@ -281,7 +294,7 @@ do (for example log in with Claude Code).
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.52", "..."],
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.53", "..."],
   "hidden": false,
   "level": "info",
   "date": false

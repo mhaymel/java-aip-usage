@@ -39,6 +39,11 @@ final class Backoff {
         return holdNanos;
     }
 
+    /** Ends the back-off at once: the automatic interval takes its place. */
+    void clear() {
+        holdNanos = 0;
+    }
+
     /**
      * The server answered 429.
      *

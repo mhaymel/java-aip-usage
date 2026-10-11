@@ -115,9 +115,12 @@
             <div id="settings-form">
                 <fieldset>
                     <legend>Request</legend>
+                    <span class="line">
                     <label>Interval
                         <input id="set-usageIntervalSeconds" type="text" inputmode="numeric" autocomplete="off"
                                aria-label="Interval in seconds, from 5 to 3600"> s</label>
+                    <label title="Lets the program find the shortest time between usage requests that Anthropic accepts, between 10 and 300 seconds."><input id="set-autoInterval" type="checkbox"> Automatic</label>
+                    </span>
                 </fieldset>
                 <fieldset>
                     <legend>Main view<button id="set-all" class="select-all" type="button" aria-label="Select every element, or none" title="Select every element, or none">
