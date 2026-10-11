@@ -26,6 +26,11 @@ interface UsageSources {
     /** How long the latest usage request that has ended took, or a negative number when none has. */
     long latestDurationMillis();
 
+    /** The desktop the program asks to show a file in its folder and to take a text on its clipboard. */
+    default Desk desk() {
+        return Desk.SYSTEM;
+    }
+
     /**
      * Saves the debug settings and makes them take effect at once: the source is opened anew and a refresh follows.
      *

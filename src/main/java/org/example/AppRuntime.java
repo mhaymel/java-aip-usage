@@ -100,6 +100,18 @@ final class AppRuntime implements AutoCloseable, UsageSources {
      * @param factory opens the source of usage: once for a run that is not in debug mode, and in debug mode at startup and
      *     again whenever the debug settings change
      */
+    /** The desktop asked for the About view; another one in a test, which must not open a file manager. */
+    private volatile Desk desk = Desk.SYSTEM;
+
+    @Override
+    public Desk desk() {
+        return desk;
+    }
+
+    void desk(Desk other) {
+        this.desk = other;
+    }
+
     /** The search for the automatic interval as it was saved, or from its beginning when what was saved cannot be one. */
     private static org.example.usage.IntervalSearch searchOf(IntervalSettings settings) {
         org.example.settings.SettingsStore.Search stored = settings.storedSearch();

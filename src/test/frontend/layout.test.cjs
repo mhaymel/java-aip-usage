@@ -367,9 +367,9 @@ test('the About view has the logo at 96 pixels, the name and the version, a tabl
     assert.ok(html.indexOf('id="about-view"') > html.indexOf('id="settings-view"') && html.indexOf('id="about-view"') < html.indexOf('id="debug-view"'), 'a part of the settings view');
     assert.match(view, /<img id="about-logo" class="about-logo" src="icon\.png" width="96" height="96" alt="[^"]+">/);
     assert.match(view, /<p id="about-name" class="about-name">aip usage<\/p>\s*<p id="about-version" class="about-version"><\/p>/);
-    assert.deepEqual([...view.matchAll(/<span class="about-label">([^<]+)<\/span><span id="(about-[a-z]+)"><\/span>/g)].map(m => m[1] + ':' + m[2]),
+    assert.deepEqual([...view.matchAll(/<span class="about-label">([^<]+)<\/span><span(?: class="about-path"><a)? id="(about-[a-z]+)"/g)].map(m => m[1] + ':' + m[2]),
         ['Settings:about-settings', 'Log:about-log', 'Usage history:about-history', 'Java:about-java', 'JavaFX:about-javafx', 'System:about-system', 'Debug mode:about-debug']);
-    assert.deepEqual([...view.matchAll(/<button id="([a-z-]+)"[^>]*>([^<]+)<\/button>/g)].map(m => m[1] + ':' + m[2]), ['about-back:Back']);
+    assert.deepEqual([...view.matchAll(/<button id="([a-z-]+)"[^>]*>([^<]+)<\/button>/g)].map(m => m[1] + ':' + m[2]), ['about-back:Back'], 'the one button with a text');
 
     assert.match(ruleOf('.about-logo'), /width:\s*96px/);
     assert.match(ruleOf('.about-logo'), /height:\s*96px/);
@@ -389,6 +389,29 @@ test('the row keeps room for the usual values only, so that its elements do not 
     assert.match(ruleOf('.delta-interval'), /min-width:\s*4ch/, 'the interval is as it was: 300s');
     assert.match(ruleOf('.countdown'), /min-width:\s*3\.5ch/, 'and so is the countdown');
     assert.doesNotMatch(ruleOf('.delta'), /max-width|overflow/, 'a longer value is not cut off: the row is wider for it');
+});
+
+test('the three paths of About are links that are not bold, each with a button of an icon that copies it', () => {
+    const view = html.slice(html.indexOf('<div id="about-view"'), html.indexOf('<div id="debug-view"'));
+    for (const name of ['settings', 'log', 'history']) {
+        assert.match(view, new RegExp('<span class="about-path"><a id="about-' + name + '" class="about-link" href="#" title="Open the folder of this file"></a>\\s*<button id="about-copy-' + name
+            + '" class="icon tiny copy" type="button" aria-label="Copy the path" title="Copy the path">'), name);
+    }
+    for (const plain of ['java', 'javafx', 'system', 'debug']) {
+        assert.match(view, new RegExp('<span id="about-' + plain + '"></span>'), plain + ' is text, no link');
+    }
+    assert.equal((view.match(/class="about-link"/g) || []).length, 3);
+    assert.equal((view.match(/class="copy-icon"/g) || []).length, 3, 'the icon of a copy');
+    assert.equal((view.match(/class="copied-icon"/g) || []).length, 3, 'and the tick that takes its place for a moment');
+
+    const link = ruleOf('.about-link');
+    assert.match(link, /font-weight:\s*400/, 'not bold');
+    assert.match(link, /color:\s*var\(--info\)/, 'the blue of the notes');
+    assert.match(link, /text-decoration:\s*underline/);
+    assert.match(link, /cursor:\s*pointer/);
+    assert.match(css, /\.copy \.copied-icon,\s*\.copy\.done \.copy-icon\s*{\s*display:\s*none/, 'one of the two icons at a time');
+    assert.match(ruleOf('.copy.done .copied-icon'), /color:\s*var\(--ok\)/);
+    assert.doesNotMatch(link, /user-select/, 'a link cannot be selected either: the button is how a path is copied');
 });
 
 test('an error in the panel is red', () => {

@@ -149,6 +149,9 @@ function backendOf(state) {
         if (call.url.split('?')[0] === '/api/log') return state.log ? state.log(call) : { status: 200, body: LOG };
         if (call.url === '/api/text-size') return state.postTextSize ? state.postTextSize(JSON.parse(call.body)) : { status: 200, body: JSON.parse(call.body) };
         if (call.url === '/api/about') return state.about ? state.about() : { status: 200, body: ABOUT };
+        if (call.url === '/api/about/open' || call.url === '/api/about/copy') {
+            return state.aboutAction ? state.aboutAction(call) : { status: 200, body: { done: true } };
+        }
         if (call.url === '/api/errors') return state.errors ? state.errors() : { status: 200, body: ERRORS };
         if (call.url === '/api/history') return state.history ? state.history() : { status: 200, body: HISTORY };
         return { status: 404, body: { error: 'No such endpoint.' } };
@@ -3253,4 +3256,65 @@ test('an element of the row that shows a figure has no such line, though the rea
     assert.equal(page.el('hover-note').hidden, true, 'the duration is a figure');
     await hover(page, 'delta-time', 'mouseenter');
     assert.equal(page.el('hover-note').hidden, false, 'the time since the previous reading is a box');
+});
+
+// ---- the paths of the About view: a click opens the folder, the button beside one copies it
+
+const aboutActions = page => page.calls.filter(c => c.url.startsWith('/api/about/')).map(c => c.url.slice('/api/about/'.length) + ' ' + JSON.parse(c.body).file);
+
+async function openAbout(state) {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, ...state }));
+    await page.click('settings-button');
+    await page.click('settings-about');
+    return page;
+}
+
+test('a click on a path asks the program to open the folder of that file, by its name', async () => {
+    const page = await openAbout({});
+
+    let prevented = false;
+    await page.el('about-log').listeners.click({ preventDefault() { prevented = true; } });
+    await settle();
+    await page.click('about-settings');
+    await page.click('about-history');
+
+    assert.equal(prevented, true, 'the link goes nowhere: the page stays where it is');
+    assert.deepEqual(aboutActions(page), ['open log', 'open settings', 'open history'], 'the name of the file, never its path');
+    assert.equal(page.el('about-error').hidden, true);
+    assert.equal(page.el('about-view').hidden, false, 'and the view stays');
+});
+
+test('the button beside a path asks for it to be copied, and says for a moment that it was', async () => {
+    const page = await openAbout({});
+    const button = page.el('about-copy-settings');
+
+    await page.click('about-copy-settings');
+
+    assert.deepEqual(aboutActions(page), ['copy settings']);
+    assert.equal(button.className, 'icon tiny copy done', 'the tick');
+    assert.equal(button.title, 'Copied');
+    const timer = page.timers.filter(t => t.live && t.ms === 1500).pop();
+    assert.ok(timer, 'for a second and a half');
+    timer.fn();
+    assert.equal(button.className, 'icon tiny copy', 'then the icon of a copy again');
+    assert.equal(button.title, 'Copy the path');
+
+    await page.click('about-copy-history');
+    assert.deepEqual(aboutActions(page), ['copy settings', 'copy history']);
+    assert.equal(page.el('about-copy-log').className, '', 'a button that was not pressed says nothing');
+});
+
+test('when the folder cannot be opened or the path not copied a red line says so, and the button does not say Copied', async () => {
+    const page = await openAbout({
+        aboutAction: call => ({ status: 500, body: { error: (call.url.endsWith('/open') ? 'The folder could not be opened: ' : 'The path could not be copied: ') + 'no such program' } }),
+    });
+
+    await page.click('about-log');
+    assert.equal(page.el('about-error').hidden, false);
+    assert.equal(page.el('about-error').textContent, 'The folder could not be opened: no such program');
+
+    await page.click('about-copy-log');
+    assert.equal(page.el('about-error').textContent, 'The path could not be copied: no such program');
+    assert.notEqual(page.el('about-copy-log').title, 'Copied');
+    assert.equal(page.timers.filter(t => t.live && t.ms === 1500).length, 0);
 });

@@ -1691,10 +1691,25 @@ last ends at the right, the three gaps are equal and wider than the least, and t
 
 ### 73. The paths of About
 
-**Status: specified, not built (version 0.61).** Two requests that take the name of a file, never a path: one opens its folder
-(`explorer /select,` on Windows, `open -R` on macOS, the folder elsewhere), one puts the path on the clipboard, which is the
-window's to do, so the handler asks the window class. *Risk:* opening a folder starts a program of the system; the name is
-checked against the three, and nothing of the request reaches a command line.
+**Status: built (version 0.61).** Requirement: The paths of the About view are links, with a button to copy each.
+
+- **`Desk`** is what the program asks of the desktop: `reveal` a file in its folder and `copy` a text. The system's one
+  starts `explorer.exe /select,<path>` on Windows, `open -R` on macOS and `xdg-open` on the folder elsewhere, the folder
+  alone for a file that is not there; and puts a text on the clipboard of JavaFX, on its thread.
+- **Two requests** take the name of a file and never a path, `POST /api/about/open` and `/api/about/copy`; the name is
+  one of three or the request is refused, and the path is the program's own. Nothing of a request reaches a command line.
+- **The page.** Each of the three paths is an `a` with a small button beside it; the button's icon is a tick, and its
+  tooltip `Copied`, for a second and a half after a copy.
+- **Tests.** `DeskTest`: the command for each system, for a file that is not there, for a relative path, and that a path
+  is one argument however it is spelled. `ApiTest`, with a desktop that only notes what it is asked: the three names,
+  everything else refused and the desktop not asked, and a desktop that refuses. `app.test.cjs`, `layout.test.cjs`: the
+  links, the buttons, the tick and its end, the red line.
+- **In a real window** (the on-request test): the button beside the path of the settings puts on the clipboard exactly
+  the full path the view shows, and says `Copied`; the path is drawn at weight 400, in the blue, underlined, with the
+  pointer of a link. What was on the clipboard before is put back by the test. It passes.
+
+**Not checked by a test.** A click on a link: it opens a window of the file manager, which the test does not do to the
+desktop it runs on. The command it starts is tested, the starting of it is not.
 
 ### 74. The fake backend to configure
 

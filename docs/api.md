@@ -24,6 +24,8 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 | `POST` | `/api/text-size` | Save the size of the text of the three lists |
 | `GET` | `/api/about` | What the About view says: the version, where the files are, what the program runs on |
+| `POST` | `/api/about/open` | Show one of the program's three files in its folder |
+| `POST` | `/api/about/copy` | Put the path of one of the three files on the clipboard |
 
 Only a path that begins `/api/` is the API's; a query on it is not looked at. Any
 other path under `/api/` is `404` with `{"error":"No such endpoint."}`. Any other
@@ -295,7 +297,7 @@ do (for example log in with Claude Code).
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.60", "..."],
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.61", "..."],
   "hidden": false,
   "level": "info",
   "date": false
@@ -365,6 +367,21 @@ Read-only. What the About view of the settings shows.
 - `debug`, `fake`: whether the program was started with `--debug`, and whether the fake backend is in use.
 
 The logo of the view is the program's icon at 256 pixels, which the server gives the page as `/icon.png`.
+
+## `POST /api/about/open` and `POST /api/about/copy`
+
+What a click on a path of the About view, and on the button beside it, ask for. The body names the file and never a
+path: `{"file": "settings"}`, with `settings`, `log` or `history`. The program uses the path it knows for that
+name.
+
+- `open` shows the file in its folder: the Explorer on Windows and the Finder on macOS with the file marked, the folder
+  elsewhere, and the folder alone when the file is not there yet.
+- `copy` puts the full path on the clipboard, as text.
+- Both answer `{"done": true}`.
+- Any other `file`, a missing one, or one that is not text is `400` with `The file must be one of settings, log,
+  history.`, and nothing is opened or copied. No request makes the program open or copy anything but these three.
+- `500` with `The folder could not be opened: <reason>` or `The path could not be copied: <reason>` when the desktop
+  refuses. Any other method is `405`.
 
 ## `GET /api/history`
 

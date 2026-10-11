@@ -452,6 +452,37 @@ body {
     overflow-wrap: anywhere;
 }
 
+/*
+ * A path of the About view: a link, in the blue of the notes and underlined, and not bold, with the button that copies it
+ * beside it. A click on the link opens the folder of the file.
+ */
+.about-link {
+    font-weight: 400;
+    color: var(--info);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* The button that copies a path: the icon of a copy, and for a moment after a copy the tick that says it was made. */
+.settings .copy {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    margin-left: 4px;
+    vertical-align: middle;
+    border-color: transparent;
+}
+
+.copy .copied-icon,
+.copy.done .copy-icon {
+    display: none;
+}
+
+.copy.done .copied-icon {
+    display: inline;
+    color: var(--ok);
+}
+
 .settings button {
     padding: 1px 8px;
     font: inherit;

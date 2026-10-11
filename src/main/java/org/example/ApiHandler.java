@@ -157,6 +157,13 @@ final class ApiHandler implements HttpHandler {
                 }
                 send(exchange, 200, about());
             }
+            case "/api/about/open", "/api/about/copy" -> {
+                if (!method.equals("POST")) {
+                    throw new ApiException(405, "Use POST.", "POST");
+                }
+                requireJson(exchange);
+                aboutAction(exchange, exchange.getRequestURI().getPath().endsWith("/open"));
+            }
             case "/api/errors" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
@@ -387,6 +394,32 @@ final class ApiHandler implements HttpHandler {
                 (System.getProperty("os.name", "unknown") + " " + System.getProperty("os.version", "")).trim(),
                 sources.debug(),
                 sources.fake());
+    }
+
+    /**
+     * Shows one of the program's three files in its folder, or puts its path on the clipboard. The request names the file,
+     * `settings`, `log` or `history`, and never a path: the path is the one the program knows.
+     */
+    private void aboutAction(HttpExchange exchange, boolean open) throws IOException {
+        JsonNode name = readJson(exchange).get("file");
+        java.nio.file.Path file = switch (name != null && name.isTextual() ? name.textValue() : "") {
+            case "settings" -> files.settings();
+            case "log" -> files.log();
+            case "history" -> sources.history();
+            default -> throw new ApiException(400, "The file must be one of settings, log, history.", null);
+        };
+        try {
+            if (open) {
+                sources.desk().reveal(file);
+            } else {
+                sources.desk().copy(absolute(file));
+            }
+        } catch (IOException | RuntimeException e) {
+            String what = open ? "The folder could not be opened: " : "The path could not be copied: ";
+            LOG.log(System.Logger.Level.WARNING, what + e.getMessage());
+            throw new ApiException(500, what + e.getMessage(), null);
+        }
+        send(exchange, 200, Map.of("done", true));
     }
 
     private static String absolute(java.nio.file.Path file) {

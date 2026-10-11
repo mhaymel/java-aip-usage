@@ -1430,8 +1430,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
     use` while it is.
 - **The lines are a table of two columns**, the name of a thing at the left in the muted gray and what it is at the
   right, in the type of the settings view. The logo, the name and the version are centred above it.
-- **The text cannot be selected**, like everything in the window (see Nothing in the window can be selected); the
-  paths are there to be read. A path that is longer than the view is wide is broken over lines; it never makes the
+- **The text cannot be selected**, like everything in the window (see Nothing in the window can be selected); a path
+  is copied with the button beside it (see The paths of the About view are links, with a button to copy each). A path that is longer than the view is wide is broken over lines; it never makes the
   window wider.
 - **It has one button, `Back`**, which shows the settings form again.
 - **The settings are kept as they were.** Pressing `About` saves nothing and loses nothing: what was changed in the form
@@ -1492,6 +1492,29 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **Within a column nothing changes**: the time at the left, the figures right-aligned so that they line up by their
   last digit, the header over its column, and `failed` where the amount used would be.
 - **When there is no spare width** the table is as it was, and a table wider than the window scrolls sideways.
+
+### The paths of the About view are links, with a button to copy each
+
+- **The three paths of the About view are not bold** (since version 0.61): regular weight, where the rest of the view has the weight of the
+  settings.
+- **Each path is a link**: in the blue of the notes, `#0969da` on the light theme and `#58a6ff` on the dark one,
+  underlined, with the pointer of a link. A click **opens the folder the file is in, with the file marked** where the
+  system can do that (the Explorer on Windows, the Finder on macOS); elsewhere it opens the folder. The file itself is
+  not opened: the log and the history are in use.
+- **When the file is not there yet**, as a log that was never written, the folder is opened without a file marked.
+- **Beside each path is a small button that copies it**: an icon with no text, two sheets one over the other, with the
+  tooltip `Copy the path`. A click puts the full path on the clipboard, as text.
+- **A copy is confirmed** in the button itself: its icon is a tick for a second and a half, and its tooltip `Copied`,
+  then it is the copy icon again.
+- **Nothing can be selected still.** The button is how a path is copied; the rule that no text of the window can be
+  selected stays as it is.
+- **The page names the file, never a path**: it asks for `settings`, `log` or `history` to be opened or copied, and
+  the program uses the path it knows. No request makes the program open or copy anything else.
+- **The link has the tooltip `Open the folder of this file`.** The button is 18 pixels, with no border but while the
+  mouse is on it, and its tick is green.
+- **On another system than Windows and macOS** the folder is opened with `xdg-open`.
+- **When it cannot be done**, the system refusing to open the folder or the clipboard not being there, a red line in
+  the view says `The folder could not be opened: <reason>` or `The path could not be copied: <reason>`.
 
 ## Debug mode
 
@@ -1585,31 +1608,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## The paths of About, a fake backend to configure, and cost control
+## A fake backend to configure, and cost control
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.60; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.61; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 73 to 75).
-
-### The paths of the About view are links, with a button to copy each
-
-- **The three paths of the About view are not bold**: regular weight, where the rest of the view has the weight of the
-  settings.
-- **Each path is a link**: in the blue of the notes, `#0969da` on the light theme and `#58a6ff` on the dark one,
-  underlined, with the pointer of a link. A click **opens the folder the file is in, with the file marked** where the
-  system can do that (the Explorer on Windows, the Finder on macOS); elsewhere it opens the folder. The file itself is
-  not opened: the log and the history are in use.
-- **When the file is not there yet**, as a log that was never written, the folder is opened without a file marked.
-- **Beside each path is a small button that copies it**: an icon with no text, two sheets one over the other, with the
-  tooltip `Copy the path`. A click puts the full path on the clipboard, as text.
-- **A copy is confirmed** in the button itself: its icon is a tick for a second and a half, and its tooltip `Copied`,
-  then it is the copy icon again.
-- **Nothing can be selected still.** The button is how a path is copied; the rule that no text of the window can be
-  selected stays as it is.
-- **The page names the file, never a path**: it asks for `settings`, `log` or `history` to be opened or copied, and
-  the program uses the path it knows. No request makes the program open or copy anything else.
-- **When it cannot be done**, the system refusing to open the folder or the clipboard not being there, a red line in
-  the view says `The folder could not be opened: <reason>` or `The path could not be copied: <reason>`.
+when it is built (see the implementation plan, phases 74 and 75).
 
 ### A fake backend that can be configured
 

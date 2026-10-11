@@ -164,6 +164,11 @@ class TitleBarWindowTest {
         assertTrue(first > 8, "and more than the least there is, since the window is wider than the table: " + first);
         assertEquals(edge[4], edge[9], "the header is in line with the rows:\n" + all);
 
+        // The button beside a path of About copies it: the clipboard holds the full path the view shows, the button says so,
+        // and the path is a link, not bold, blue and underlined.
+        assertEquals("PROBE about-copy=clipboard:true same:true link:[400|rgb(9, 105, 218)|underline|pointer|settings.json|icon tiny copy done|Copied|18]",
+                line(all, "about-copy"), all);
+
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.
         assertTrue(line(all, "log").contains(" logControls:true "), all);
         assertTrue(line(all, "log").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), "information is shown, and the lines begin with the time:\n" + all);

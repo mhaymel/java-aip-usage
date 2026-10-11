@@ -2170,4 +2170,82 @@ class ApiTest {
         assertFalse(get(app, "/api/history").body().contains(dir.toString()));
         assertTrue(get(app, "/api/about").body().contains(dir.getFileName().toString()), "the About view is where it is said");
     }
+
+    // ---- the paths of the About view: shown in their folder, and copied
+
+    /** A desktop that notes what it is asked and does nothing, or fails when told to. */
+    private static final class NotedDesk implements Desk {
+
+        final List<String> asked = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        volatile String failure;
+
+        @Override
+        public void reveal(java.nio.file.Path file) throws IOException {
+            asked.add("reveal " + file.toAbsolutePath().normalize());
+            if (failure != null) {
+                throw new IOException(failure);
+            }
+        }
+
+        @Override
+        public void copy(String text) throws IOException {
+            asked.add("copy " + text);
+            if (failure != null) {
+                throw new IOException(failure);
+            }
+        }
+    }
+
+    @Test
+    void aboutShowsAFileInItsFolderAndCopiesItsPathByTheNameOfTheFile() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        NotedDesk desk = new NotedDesk();
+        app.desk(desk);
+        String settings = dir.resolve("settings.json").toAbsolutePath().normalize().toString();
+        String log = AppFiles.in(dir).log().toAbsolutePath().normalize().toString();
+        String history = AppFiles.in(dir).history().toAbsolutePath().normalize().toString();
+
+        assertEquals(200, post(app, "/api/about/open", "{\"file\": \"settings\"}").statusCode());
+        assertEquals(200, post(app, "/api/about/open", "{\"file\": \"log\"}").statusCode());
+        assertEquals(200, post(app, "/api/about/copy", "{\"file\": \"history\"}").statusCode());
+        assertEquals(200, post(app, "/api/about/copy", "{\"file\": \"settings\"}").statusCode());
+
+        assertEquals(List.of("reveal " + settings, "reveal " + log, "copy " + history, "copy " + settings), desk.asked);
+    }
+
+    @Test
+    void aboutOpensAndCopiesNothingButTheThreeFilesWhateverTheRequestSays() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        NotedDesk desk = new NotedDesk();
+        app.desk(desk);
+
+        for (String body : new String[] {"{\"file\": \"C:\\\\Windows\\\\System32\"}", "{\"file\": \"../settings\"}", "{\"file\": \"\"}", "{\"file\": 1}", "{}",
+                "{\"path\": \"settings\"}"}) {
+            for (String action : new String[] {"/api/about/open", "/api/about/copy"}) {
+                HttpResponse<String> refused = post(app, action, body);
+                assertEquals(400, refused.statusCode(), action + " " + body);
+                assertTrue(refused.body().contains("settings, log, history"), refused.body());
+            }
+        }
+        assertEquals(List.of(), desk.asked, "the desktop was asked nothing");
+        assertEquals(405, get(app, "/api/about/open").statusCode());
+        assertEquals(405, get(app, "/api/about/copy").statusCode());
+    }
+
+    @Test
+    void whenTheDesktopRefusesAboutSaysWhatCouldNotBeDone() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        NotedDesk desk = new NotedDesk();
+        desk.failure = "no such program";
+        app.desk(desk);
+
+        HttpResponse<String> open = post(app, "/api/about/open", "{\"file\": \"log\"}");
+        HttpResponse<String> copy = post(app, "/api/about/copy", "{\"file\": \"log\"}");
+
+        assertEquals(500, open.statusCode());
+        assertEquals("The folder could not be opened: no such program", json(open).get("error").asText());
+        assertEquals(500, copy.statusCode());
+        assertEquals("The path could not be copied: no such program", json(copy).get("error").asText());
+    }
 }

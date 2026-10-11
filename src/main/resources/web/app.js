@@ -557,6 +557,37 @@
         }
     }
 
+    // How long the button that copied a path says so, in milliseconds.
+    var COPIED_MS = 1500;
+
+    /** Asks the program to show one of its files in its folder: `settings`, `log` or `history`. The page names the file, never a path. */
+    async function openFolderOf(name) {
+        setNote('about-error', '');
+        try {
+            await postJson('/api/about/open', { file: name });
+        } catch (e) {
+            setNote('about-error', /^The folder could not be opened: /.test(e.message) ? e.message : 'The folder could not be opened: ' + e.message);
+        }
+    }
+
+    /** Asks the program to put the path of one of its files on the clipboard, and says in the button that it did. */
+    async function copyPathOf(name) {
+        var button = $('about-copy-' + name);
+        setNote('about-error', '');
+        try {
+            await postJson('/api/about/copy', { file: name });
+        } catch (e) {
+            setNote('about-error', /^The path could not be copied: /.test(e.message) ? e.message : 'The path could not be copied: ' + e.message);
+            return;
+        }
+        button.className = 'icon tiny copy done';
+        button.title = 'Copied';
+        setTimeout(function () {
+            button.className = 'icon tiny copy';
+            button.title = 'Copy the path';
+        }, COPIED_MS);
+    }
+
     /** Cancel: closes the view and changes nothing; it asks nothing, since nothing was sent. It is the one way to leave without saving. */
     function cancelSettings() {
         if (openPanel === 'settings') {
@@ -1146,6 +1177,16 @@
         $('set-all').addEventListener('click', selectAllOrNone);
         $('settings-about').addEventListener('click', function () { showAbout(true); });
         $('about-back').addEventListener('click', function () { showAbout(false); });
+        ['settings', 'log', 'history'].forEach(function (name) {
+            $('about-' + name).addEventListener('click', function (event) {
+                // A link that goes nowhere: the click asks the program, and the page stays where it is.
+                if (event && event.preventDefault) {
+                    event.preventDefault();
+                }
+                return openFolderOf(name);
+            });
+            $('about-copy-' + name).addEventListener('click', function () { return copyPathOf(name); });
+        });
         // The key that selects everything is passed over, except in the field to type in: nothing of the window is to be selected.
         if (document.addEventListener) {
             document.addEventListener('keydown', function (event) {

@@ -60,6 +60,7 @@ public final class UsageAppProbe {
             step("settings-manual", null);
             // The About view, in the place of the form, and the form again.
             step("about", "settings-about");
+            copyPath("about-copy");
             step("about-back", "about-back");
             step("settings-left", "settings-cancel");
             step("history", "history-button");
@@ -381,6 +382,34 @@ public final class UsageAppProbe {
                     + " width:" + Math.round(window().getScene().getWidth()));
             System.out.flush();
             Window.getWindows().stream().filter(window -> window instanceof javafx.scene.control.Tooltip).toList().forEach(Window::hide);
+        });
+    }
+
+    /**
+     * Presses the button that copies the path of the settings file and says what is on the clipboard then, how the link
+     * of the path is drawn, and what the button says. What was on the clipboard before is put back afterwards. The link
+     * itself is not pressed: it would open a window of the file manager on the desktop the test runs on.
+     */
+    private static void copyPath(String name) throws InterruptedException {
+        String[] before = new String[1];
+        onFx(() -> {
+            before[0] = javafx.scene.input.Clipboard.getSystemClipboard().getString();
+            page().getEngine().executeScript("document.getElementById('about-copy-settings').click()");
+        });
+        Thread.sleep(700);
+        onFx(() -> {
+            String copied = javafx.scene.input.Clipboard.getSystemClipboard().getString();
+            Object link = page().getEngine().executeScript(
+                    "(function () { var a = document.getElementById('about-settings'), c = getComputedStyle(a), b = document.getElementById('about-copy-settings');"
+                            + " return c.fontWeight + '|' + c.color + '|' + c.textDecorationLine + '|' + c.cursor + '|' + (a.textContent === arguments.length ? '' : a.textContent.slice(-13))"
+                            + " + '|' + b.className + '|' + b.title + '|' + Math.round(b.getBoundingClientRect().width); })()");
+            System.out.println("PROBE " + name + "=clipboard:" + (copied != null && copied.endsWith("settings.json") && java.nio.file.Path.of(copied).isAbsolute())
+                    + " same:" + String.valueOf(copied).equals(String.valueOf(page().getEngine().executeScript("document.getElementById('about-settings').textContent")))
+                    + " link:[" + link + "]");
+            System.out.flush();
+            javafx.scene.input.ClipboardContent back = new javafx.scene.input.ClipboardContent();
+            back.putString(before[0] == null ? "" : before[0]);
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(back);
         });
     }
 
