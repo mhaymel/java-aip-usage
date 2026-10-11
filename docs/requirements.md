@@ -1330,8 +1330,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   moves the search as a scheduled one does.
 - **The search takes the place of the back-off.** With `Automatic` on a 429 does not double the wait: the next request
   comes after the new interval. A `retry-after` of the server is still honoured: when it is longer than the new
-  interval, that one wait is as long as the server says, within the limit there is for it; the search goes on from the
-  interval it had worked out.
+  interval, the interval becomes that wait (see With the automatic interval, the search follows a longer wait the
+  server names).
 - **The row shows it as it shows the interval in force**: the element `Interval` has the interval of the search, the
   countdown counts down to it, and a 429 is the red countdown or the message line as before.
 - **What is typed while `Automatic` is off is the configured interval**, also when `Automatic` is then checked before the
@@ -1351,6 +1351,29 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   switched off.
 - **`Restore defaults`** unchecks `Automatic` with the rest; the search that is saved is left as it is.
 - **The usage history** records for each row the interval in force, which with `Automatic` on is that of the search.
+
+### With the automatic interval, the search follows a longer wait the server names
+
+- **The fault that was** (before version 0.54). With `Automatic` on, Anthropic answered a 429 with `retry-after 300`. The search worked out 156
+  seconds and said so in the log, the row showed that as its interval, and the next try came after 5 minutes, as the
+  message said: the one wait the server named was honoured and the search kept its own figure. Two figures for one
+  wait, and `Next try in 5 min` beside `Automatic interval: 156 s`, read as a fault.
+- **The search takes the wait the server names.** After a 429 the search makes its step as before, and when the server
+  names a wait that is longer than the interval it then has, **the interval becomes that wait**. So the log, the
+  element `Interval` of the row, the countdown and `Next try in ...` all say the same.
+- **Never more than 300 seconds.** A wait of the server above 300 seconds makes the interval 300; that one wait is
+  still as long as the server says, within the limit there is for it, since the server asked for it.
+- **The bounds stay sound**: the lower bound is the interval that was refused, as before, and when the server's wait
+  is above the upper bound the upper bound is 300 again.
+- **It comes down again by itself**: the next answers that are no 429 halve the way to the lower bound, as always.
+- **The log** says the interval the search has after that, `Automatic interval: 300 s (between <lower> s and 300 s)`,
+  and `Rate limited; next try in 5 min` then agrees with it.
+- With `Automatic` off nothing changes: the back-off honours `retry-after` as it did.
+- **A wait of the server is counted in whole seconds, rounded up**, and one that is no longer than the step the search
+  made leaves the step as it is: the server's wait never shortens the interval.
+- **An example**, the run that showed the fault: the search had settled at 11 seconds and was refused with
+  `retry-after 300`. The bounds are set back, the interval is 300, and with the answers that follow it is 155, 83, 47,
+  29.
 
 ## Debug mode
 
@@ -1444,29 +1467,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## The wait after a 429 with the automatic interval, no selecting, the no-spend text on hover, and the About view
+## No selecting, the no-spend text on hover, and the About view
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.53; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.54; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 66 to 69).
-
-### With the automatic interval, the search follows a longer wait the server names
-
-- **The fault.** With `Automatic` on, Anthropic answered a 429 with `retry-after 300`. The search worked out 156
-  seconds and said so in the log, the row showed that as its interval, and the next try came after 5 minutes, as the
-  message said: the one wait the server named was honoured and the search kept its own figure. Two figures for one
-  wait, and `Next try in 5 min` beside `Automatic interval: 156 s`, read as a fault.
-- **The search takes the wait the server names.** After a 429 the search makes its step as before, and when the server
-  names a wait that is longer than the interval it then has, **the interval becomes that wait**. So the log, the
-  element `Interval` of the row, the countdown and `Next try in ...` all say the same.
-- **Never more than 300 seconds.** A wait of the server above 300 seconds makes the interval 300; that one wait is
-  still as long as the server says, within the limit there is for it, since the server asked for it.
-- **The bounds stay sound**: the lower bound is the interval that was refused, as before, and when the server's wait
-  is above the upper bound the upper bound is 300 again.
-- **It comes down again by itself**: the next answers that are no 429 halve the way to the lower bound, as always.
-- **The log** says the interval the search has after that, `Automatic interval: 300 s (between <lower> s and 300 s)`,
-  and `Rate limited; next try in 5 min` then agrees with it.
-- With `Automatic` off nothing changes: the back-off honours `retry-after` as it did.
+when it is built (see the implementation plan, phases 67 to 69).
 
 ### Nothing in the window can be selected
 

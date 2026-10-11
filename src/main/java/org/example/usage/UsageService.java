@@ -407,18 +407,20 @@ public final class UsageService implements AutoCloseable {
      */
     /**
      * What an answer does to the search for the interval: a 429 moves it up, a success down, and any other failure not at
-     * all. The interval it then has is the next wait. A longer wait the server names with a 429 is honoured for that one
-     * wait, and the search goes on from the interval it had worked out.
+     * all. The interval it then has is the next wait. A longer wait the server names with a 429 becomes the interval of the
+     * search, so that there is one figure for the wait; one above the 300 seconds the search goes to is honoured for that
+     * one wait beside it.
      */
     private Outcome settleSearch(Outcome outcome) {
         // The one longer wait a server asked for is over with the next answer, whatever that is.
         schedule.setBackoff(0);
         String before = search.describe();
         if (outcome.rateLimited()) {
-            boolean reset = search.rateLimited();
+            long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
+            // In whole seconds, rounded up: a wait of 2.5 seconds is not over after 2.
+            boolean reset = search.rateLimited((retryAfter + 999_999_999L) / 1_000_000_000L);
             long interval = Duration.ofSeconds(search.interval()).toNanos();
             schedule.setInterval(interval);
-            long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
             if (retryAfter > interval) {
                 schedule.setBackoff(retryAfter);
             }

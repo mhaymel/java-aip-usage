@@ -123,4 +123,57 @@ class IntervalSearchTest {
             assertEquals("60 in 10..300", state(IntervalSearch.of(bad[0], bad[1], bad[2])), bad[0] + ", " + bad[1] + ", " + bad[2]);
         }
     }
+
+    @Test
+    void aLongerWaitTheServerNamesBecomesTheInterval() {
+        // The case of the log: settled at 11 seconds, refused, and the server says 300.
+        IntervalSearch settled = IntervalSearch.of(11, 10, 11);
+        assertTrue(settled.rateLimited(300), "at the upper bound: the bounds are set back");
+        assertEquals("300 in 10..300", state(settled), "not the 156 of half way up: the server said 300");
+
+        IntervalSearch room = IntervalSearch.of(23, 10, 35);
+        assertFalse(room.rateLimited(120));
+        assertEquals("120 in 23..300", state(room), "above the upper bound, which is 300 again; the lower bound is the interval that was refused");
+
+        IntervalSearch within = IntervalSearch.of(23, 10, 200);
+        assertFalse(within.rateLimited(150));
+        assertEquals("150 in 23..200", state(within), "within the bounds they stay");
+    }
+
+    @Test
+    void aWaitThatIsNoLongerThanTheStepLeavesTheStepAsItIs() {
+        IntervalSearch search = IntervalSearch.of(23, 10, 35);
+        assertFalse(search.rateLimited(29));
+        assertEquals("29 in 23..35", state(search));
+
+        IntervalSearch shorter = IntervalSearch.of(23, 10, 35);
+        shorter.rateLimited(5);
+        assertEquals("29 in 23..35", state(shorter), "a shorter wait of the server does not shorten the step");
+
+        IntervalSearch none = IntervalSearch.of(23, 10, 35);
+        none.rateLimited(0);
+        assertEquals("29 in 23..35", state(none), "and no wait named is the step alone");
+    }
+
+    @Test
+    void aWaitAboveThreeHundredSecondsMakesTheIntervalThreeHundred() {
+        IntervalSearch search = IntervalSearch.fresh();
+
+        search.rateLimited(3600);
+
+        assertEquals("300 in 60..300", state(search));
+    }
+
+    @Test
+    void afterFollowingTheServerTheIntervalComesDownAgainWithEachAnswer() {
+        IntervalSearch search = IntervalSearch.of(11, 10, 11);
+        search.rateLimited(300);
+        List<String> steps = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            search.succeeded();
+            steps.add(state(search));
+        }
+
+        assertEquals(List.of("155 in 10..300", "83 in 10..155", "47 in 10..83", "29 in 10..47"), steps);
+    }
 }

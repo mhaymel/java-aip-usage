@@ -1572,10 +1572,18 @@ shown below the row while the mouse is on a gray box; the three fixes first, a v
 
 ### 66. The search follows the server's wait
 
-**Status: specified, not built (version 0.54).** `IntervalSearch.rateLimited` takes the wait the server named and, when it is
-longer than the step gave, makes it the interval, at most 300 seconds, with the upper bound at 300 when it was below;
-`UsageService.settleSearch` hands it over and keeps the one longer wait on the schedule only for a wait above 300. Tests in
-`IntervalSearchTest` and `UsageServiceTest`, the case of the log among them: refused at 11 seconds with `retry-after 300`.
+**Status: built (version 0.54).** Requirement: With the automatic interval, the search follows a longer wait the server names.
+
+- `IntervalSearch.rateLimited(serverSeconds)` makes its step and then, when the server's wait is longer than the interval
+  it has, takes the wait as the interval, at most 300 seconds, with the upper bound at 300 when the wait is above it.
+- `UsageService.settleSearch` hands the server's wait over, in whole seconds rounded up. The one longer wait is still put
+  on the schedule when it is above the interval, which is now only the case for a wait above 300 seconds.
+- **Tests.** `IntervalSearchTest`: the case of the log, refused at 11 with 300; a wait above the upper bound and one within
+  the bounds; a wait no longer than the step; one above 300; the way down afterwards. `UsageServiceTest`: the interval in
+  force, the countdown, the message and what is saved all say 300; a wait of 500 is honoured beside an interval of 300.
+
+**Not checked against the real endpoint.** The fault came from a run against Anthropic; the repair was tested with the
+figures of that run, not by running it again.
 
 ### 67. Nothing can be selected
 

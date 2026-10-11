@@ -1064,7 +1064,31 @@ class UsageServiceTest {
     }
 
     @Test
-    void aLongerRetryAfterIsHonouredForTheOneWaitAndTheSearchGoesOnFromItsOwnInterval() {
+    void aLongerWaitOfTheServerBecomesTheIntervalOfTheSearchSoThatThereIsOneFigure() {
+        AtomicInteger calls = new AtomicInteger();
+        List<String> saved = new CopyOnWriteArrayList<>();
+        UsageService service = new UsageService(() -> {
+            if (calls.incrementAndGet() == 1) {
+                throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429, Duration.ofSeconds(300));
+            }
+            return snapshot(1);
+        }, HOUR);
+        started.add(service);
+        service.onSearchMoved(moved -> saved.add(moved.interval() + " in " + moved.lower() + ".." + moved.upper()));
+        // Where the search was in the run that showed the fault: settled at 11 seconds.
+        service.setAutomatic(IntervalSearch.of(11, 10, 11));
+        service.start();
+        await(() -> service.state().rateLimited() && saved.size() == 1);
+
+        assertEquals(300, service.effectiveIntervalSeconds(), "the interval the row shows is the wait the server named");
+        long wait = service.secondsUntilNextRefresh().orElseThrow();
+        assertTrue(wait > 290 && wait <= 300, "and it is the wait: " + wait);
+        assertTrue(service.state().error().endsWith(" Next try in 5 min."), service.state().error());
+        assertEquals(List.of("300 in 10..300"), saved, "and what is saved");
+    }
+
+    @Test
+    void aWaitOfTheServerAboveThreeHundredSecondsIsHonouredForTheOneWaitBesideAnIntervalOfThreeHundred() {
         AtomicInteger calls = new AtomicInteger();
         UsageService service = new UsageService(() -> {
             if (calls.incrementAndGet() == 1) {
@@ -1077,7 +1101,7 @@ class UsageServiceTest {
         service.start();
         await(() -> service.state().rateLimited());
 
-        assertEquals(180, service.effectiveIntervalSeconds(), "(300 + 60) / 2: the interval the search worked out");
+        assertEquals(300, service.effectiveIntervalSeconds(), "the search goes no higher");
         long wait = service.secondsUntilNextRefresh().orElseThrow();
         assertTrue(wait > 400 && wait <= 500, "but this one wait is as long as the server said: " + wait);
         assertTrue(service.state().error().endsWith(" Next try in 9 min."), service.state().error());

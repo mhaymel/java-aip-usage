@@ -75,6 +75,17 @@ public final class IntervalSearch {
      * @return whether the bounds were set back
      */
     public boolean rateLimited() {
+        return rateLimited(0);
+    }
+
+    /**
+     * A 429 with which the server named a wait, in seconds; none is 0. The search makes its step, and when the wait the
+     * server names is longer than the interval it then has, the interval becomes that wait: the server knows better than a
+     * guess half way up. Never more than 300 seconds, and with the upper bound at 300 again when the wait is above it.
+     *
+     * @return whether the bounds were set back by the step
+     */
+    public boolean rateLimited(long serverSeconds) {
         boolean reset = interval >= upper - NEAR_SECONDS;
         if (reset) {
             lower = MIN_SECONDS;
@@ -83,6 +94,12 @@ public final class IntervalSearch {
             lower = interval;
         }
         interval = middle(upper, interval);
+        if (serverSeconds > interval) {
+            interval = (int) Math.min(MAX_SECONDS, serverSeconds);
+            if (interval > upper) {
+                upper = MAX_SECONDS;
+            }
+        }
         return reset;
     }
 
