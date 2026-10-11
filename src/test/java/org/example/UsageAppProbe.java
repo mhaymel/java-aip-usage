@@ -67,6 +67,8 @@ public final class UsageAppProbe {
             step("history-usual", null);
             // A panel is shown, so the title bar is there: a drag inside the window moves nothing.
             drag("drag-with-title-bar", "time");
+            // And it selects nothing: not the row it began in, not the lines of the list it went across, and nor does selecting everything.
+            select("select-history");
             step("history-closed", "history-button");
             step("log", "log-button");
             // The two choices of the log panel: the date on, then warnings and worse only.
@@ -281,6 +283,39 @@ public final class UsageAppProbe {
         }
         onFx(() -> {
             System.out.println("PROBE " + name + "=shown:[" + shown[0] + "] sheets:" + page().getScene().getStylesheets().size());
+            System.out.flush();
+        });
+    }
+
+    /**
+     * Drags the mouse from the time of the row down across the list that is shown, then asks the page to select
+     * everything, and says each time how many characters are selected, and what the style of the row and of a line says.
+     */
+    private static void select(String name) throws InterruptedException {
+        String[] dragged = new String[1];
+        onFx(() -> {
+            WebView view = page();
+            Object at = view.getEngine().executeScript(
+                    "(function () { var b = document.getElementById('time').getBoundingClientRect(); return Math.round(b.left + 2) + ',' + Math.round(b.top + b.height / 2); })()");
+            double x = Double.parseDouble(at.toString().split(",")[0]);
+            double y = Double.parseDouble(at.toString().split(",")[1]);
+            javafx.geometry.Point2D screen = view.localToScreen(x, y);
+            fire(view, javafx.scene.input.MouseEvent.MOUSE_PRESSED, x, y, screen.getX(), screen.getY(), true);
+            for (int i = 1; i <= 6; i++) {
+                fire(view, javafx.scene.input.MouseEvent.MOUSE_DRAGGED, x + 40 * i, y + 20 * i, screen.getX() + 40 * i, screen.getY() + 20 * i, true);
+            }
+            fire(view, javafx.scene.input.MouseEvent.MOUSE_RELEASED, x + 240, y + 120, screen.getX() + 240, screen.getY() + 120, false);
+            dragged[0] = String.valueOf(view.getEngine().executeScript("String(window.getSelection()).length"));
+        });
+        Thread.sleep(300);
+        onFx(() -> {
+            Object all = page().getEngine().executeScript(
+                    "(function () { document.execCommand('selectAll'); var n = String(window.getSelection()).length; window.getSelection().removeAllRanges(); return n; })()");
+            Object styles = page().getEngine().executeScript(
+                    "(function () { var row = document.querySelector('#panel-lines .row');"
+                            + " return getComputedStyle(document.getElementById('time')).webkitUserSelect + '/' + (row ? getComputedStyle(row).webkitUserSelect : '-')"
+                            + " + '/' + getComputedStyle(document.getElementById('set-usageIntervalSeconds')).webkitUserSelect; })()");
+            System.out.println("PROBE " + name + "=dragged:" + dragged[0] + " all:" + all + " styles:" + styles);
             System.out.flush();
         });
     }

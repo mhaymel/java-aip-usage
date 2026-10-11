@@ -513,7 +513,8 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   label.
 - **Every control is wide enough for its own value**, the arrow of a dropdown included: the value is never
   covered by the arrow, nor cut off.
-- **The text of the view can be selected and copied.**
+- **The text of the view cannot be selected**, like everything in the window (see Nothing in the window can be selected);
+  until version 0.55 it could, and be copied. What is typed in the field of the interval can.
 - The view is arranged in sections: `Request`, `Main view`, `Window`, `History view` and `Log`.
 - **The title bar.** The setting `Title bar`, in the group `Window` before `Stay on top`, on by default and saved under the key
   `showTitleBar`, shows or hides the title bar of the window. It is not previewed: it takes effect when the settings are saved.
@@ -1375,6 +1376,20 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   `retry-after 300`. The bounds are set back, the interval is 300, and with the answers that follow it is 155, 83, 47,
   29.
 
+### Nothing in the window can be selected
+
+- **No text of the window can be selected** (since version 0.55), by dragging, by a double or triple click, or by a key for selecting
+  everything. Before, a drag or a double click selected text as in a web page, and the row, a message line or a whole
+  list stood in the blue of a selection (see `docs/img_4.png`, `docs/img_5.png` and `docs/img_6.png`).
+- **That holds for everything**: the row and its message lines, the lines of the log, the usage history and the error
+  log and their headers, the settings and the debug settings, and the About view.
+- **So nothing can be copied out of the window.** The text of the settings could be selected and copied until now, and
+  so could the lines of the lists; that is given up. The log and the history are files, and the About view says where
+  they are.
+- **The field of the interval is the one exception**: what is typed in it can be selected and replaced, as in any
+  field to type in.
+- Nothing else changes: a click on a button, the tooltips, and dragging the window that has no title bar.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1467,25 +1482,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## No selecting, the no-spend text on hover, and the About view
+## The no-spend text on hover, and the About view
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.54; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.55; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 67 to 69).
-
-### Nothing in the window can be selected
-
-- **No text of the window can be selected**, by dragging, by a double or triple click, or by a key for selecting
-  everything. Before, a drag or a double click selected text as in a web page, and the row, a message line or a whole
-  list stood in the blue of a selection (see `docs/img_4.png`, `docs/img_5.png` and `docs/img_6.png`).
-- **That holds for everything**: the row and its message lines, the lines of the log, the usage history and the error
-  log and their headers, the settings and the debug settings, and the About view.
-- **So nothing can be copied out of the window.** The text of the settings could be selected and copied until now, and
-  so could the lines of the lists; that is given up. The log and the history are files, and the About view says where
-  they are.
-- **The field of the interval is the one exception**: what is typed in it can be selected and replaced, as in any
-  field to type in.
-- Nothing else changes: a click on a button, the tooltips, and dragging the window that has no title bar.
+when it is built (see the implementation plan, phases 68 and 69).
 
 ### The text of an answer with no spend is shown while the mouse is on a gray box
 

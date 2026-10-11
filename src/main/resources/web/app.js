@@ -1079,6 +1079,22 @@
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
         $('settings-restore').addEventListener('click', restoreDefaults);
         $('set-all').addEventListener('click', selectAllOrNone);
+        // The key that selects everything is passed over, except in the field to type in: nothing of the window is to be selected.
+        if (document.addEventListener) {
+            document.addEventListener('keydown', function (event) {
+                var field = event.target && event.target.tagName === 'INPUT' && event.target.type === 'text';
+                if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 'a' && !field) {
+                    event.preventDefault();
+                }
+            });
+            // A selection is not begun by the mouse either, where a style that forbids it should not be honoured.
+            document.addEventListener('selectstart', function (event) {
+                var field = event.target && event.target.tagName === 'INPUT' && event.target.type === 'text';
+                if (!field) {
+                    event.preventDefault();
+                }
+            });
+        }
         $('set-autoInterval').addEventListener('change', syncIntervalField);
         $('settings-cancel').addEventListener('click', cancelSettings);
         MAIN_FLAGS.forEach(function (key) { $('set-' + key).addEventListener('change', previewNow); });

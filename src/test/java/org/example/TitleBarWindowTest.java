@@ -129,6 +129,10 @@ class TitleBarWindowTest {
         assertTrue(line(all, "settings-manual").contains(" auto:[false|false|60|"), all);
         assertTrue(line(all, "settings-auto").matches(".* auto:\\[true\\|true\\|60\\|[0-6]] .*"), "the checkbox is in the line of the field:\n" + all);
 
+        // Nothing can be selected: a drag from the row across the history selects no character, selecting everything selects
+        // none, and the style says so for the row and for a line of the list; the field to type in is the exception.
+        assertEquals("PROBE select-history=dragged:0 all:0 styles:none/none/text", line(all, "select-history"), all);
+
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.
         assertTrue(line(all, "log").contains(" logControls:true "), all);
         assertTrue(line(all, "log").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), "information is shown, and the lines begin with the time:\n" + all);

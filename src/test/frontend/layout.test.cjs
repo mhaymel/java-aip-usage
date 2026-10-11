@@ -494,8 +494,17 @@ test('the error log rows have the time and the message, which is not wrapped', (
     assert.match(rule, /grid-template-columns:\s*\d+ch max-content/);
 });
 
-test('the settings can be selected and copied, and their dropdowns have room for the value and the arrow', () => {
-    assert.match(ruleOf('.settings'), /user-select:\s*text/);
+test('nothing in the window can be selected but what is typed in the field of the interval', () => {
+    const page = css.slice(css.indexOf('html,\nbody {'), css.indexOf('}', css.indexOf('html,\nbody {')));
+    assert.match(page, /-webkit-user-select:\s*none/);
+    assert.match(page, /[^-]user-select:\s*none/);
+    const allowed = [...css.matchAll(/([^{}]+){([^}]*user-select:\s*text[^}]*)}/g)].map(rule => rule[1].trim().split('\n').pop().trim());
+    assert.deepEqual(allowed, ['.settings input[type="text"]'], 'the one exception: a field to type in');
+    assert.doesNotMatch(ruleOf('.settings'), /user-select/, 'the settings are no exception any more');
+    assert.doesNotMatch(ruleOf('.panel-lines'), /user-select/, 'nor are the lists');
+});
+
+test('the dropdowns of the settings have room for the value and the arrow', () => {
     const select = ruleOf('.settings select');
     assert.match(select, /min-width:\s*\d+ch/);
     assert.match(select, /padding:\s*\d+px\s+[2-9](\.\d+)?em\s+\d+px\s+\d+px/, 'room on the right, for the arrow');

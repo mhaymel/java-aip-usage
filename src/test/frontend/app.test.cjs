@@ -77,6 +77,9 @@ async function load(backend, options = {}) {
         createElement: tag => element('<' + tag + '>'),
         // Only the scrollbar probe reads these: a box that always has a scrollbar of the width the test gives it.
         body: { append() {}, removeChild() {} },
+        // The page listens here for the key that selects everything, and for a selection that is begun.
+        listeners: {},
+        addEventListener(type, fn) { this.listeners[type] = fn; },
         // The page sets the size of the lists' text here, as a property of the style sheet.
         documentElement: { style: { properties: {}, setProperty(name, value) { this.properties[name] = value; } } },
     };
@@ -3021,4 +3024,29 @@ test('Restore defaults unchecks Automatic and gives the field the default interv
     await page.click('settings-apply');
     assert.equal(autoPosts(page)[0].usageIntervalSeconds, 60);
     assert.equal(autoPosts(page)[0].autoInterval, false);
+});
+
+// ---- nothing in the window can be selected
+
+test('the key that selects everything is passed over, except in the field to type in', async () => {
+    await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    const press = (event) => { let prevented = false; global.document.listeners.keydown({ ...event, preventDefault() { prevented = true; } }); return prevented; };
+    const row = { tagName: 'SPAN' };
+    const field = { tagName: 'INPUT', type: 'text' };
+
+    assert.equal(press({ key: 'a', ctrlKey: true, target: row }), true);
+    assert.equal(press({ key: 'A', metaKey: true, target: row }), true, 'the key of a Mac too');
+    assert.equal(press({ key: 'a', ctrlKey: true, target: field }), false, 'in the field it selects what is typed there');
+    assert.equal(press({ key: 'a', target: row }), false, 'the letter alone is no such key');
+    assert.equal(press({ key: 'c', ctrlKey: true, target: row }), false, 'other keys are left alone');
+});
+
+test('a selection that the mouse begins is refused, except in the field to type in', async () => {
+    await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    const begin = target => { let prevented = false; global.document.listeners.selectstart({ target, preventDefault() { prevented = true; } }); return prevented; };
+
+    assert.equal(begin({ tagName: 'SPAN' }), true);
+    assert.equal(begin({ tagName: 'DIV' }), true);
+    assert.equal(begin({ tagName: 'INPUT', type: 'text' }), false);
+    assert.equal(begin(null), true, 'with nothing under it, nothing is selected');
 });

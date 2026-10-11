@@ -1587,9 +1587,19 @@ figures of that run, not by running it again.
 
 ### 67. Nothing can be selected
 
-**Status: specified, not built (version 0.55).** `user-select: none` for the page, and `text` for the field of the interval
-alone; the rule that made the settings selectable goes. A key that selects everything is passed over. Tests in
-`layout.test.cjs`; the on-request window test drags across the row and a list and reads the selection, which must be empty.
+**Status: built (version 0.55).** Requirement: Nothing in the window can be selected.
+
+- **The style.** `user-select: none` on `html` and `body`, which every element takes from there, and `text` for
+  `.settings input[type="text"]` alone; the rule that made the settings selectable is gone.
+- **Beside it**, in case a style is not honoured: the page refuses a selection the mouse begins (`selectstart`) and passes
+  over the key that selects everything, both except in the field to type in.
+- **Tests.** `layout.test.cjs`: the one rule that allows selecting. `app.test.cjs`: the key and the beginning of a
+  selection, in the row and in the field. In a real window (the on-request test), with the history shown: a drag from the
+  time of the row across the list selects 0 characters, selecting everything selects 0, and the style in force is `none`
+  for the row and for a line of the list and `text` for the field. It passes.
+
+**Not checked by a test.** A double click with a real mouse, which is how the blue of `docs/img_4.png` most likely came
+about; the style that forbids it is the one the test reads.
 
 ### 68. The no-spend text on hover
 

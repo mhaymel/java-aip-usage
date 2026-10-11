@@ -45,6 +45,13 @@ body {
     overflow: hidden;
     background: Canvas;
     color: CanvasText;
+    /*
+     * Nothing in the window can be selected: a drag or a double click selects text in a page, and the row, a message line
+     * or a whole list then stood in the blue of a selection. Every element takes this from here; the one field to type in
+     * is the exception (see the settings).
+     */
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* Readable, not fine: 15 px and bold. Nothing on the page is smaller than 14 px. */
@@ -317,9 +324,6 @@ body {
     /* Smaller than the row's text, so that the settings need less room; the one place besides the panels under 14 px. */
     font: 700 12px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
     letter-spacing: normal;
-    /* The text of the settings can be selected and copied. */
-    -webkit-user-select: text;
-    user-select: text;
     /* Nothing in the settings wraps: the text of a checkbox stays on one line and the buttons in one row. */
     white-space: nowrap;
 }
@@ -433,6 +437,9 @@ body {
 }
 
 .settings input[type="text"] {
+    /* What is typed in the field can be selected and replaced, as in any field: the one text of the window that can. */
+    -webkit-user-select: text;
+    user-select: text;
     width: 5ch;
     padding: 1px 4px;
     font: inherit;
