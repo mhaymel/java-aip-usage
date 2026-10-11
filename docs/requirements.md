@@ -1481,6 +1481,18 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **A gray box is as wide as the room of its element**, so the boxes are narrower by as much.
 - The values stay at the left of their room, as before.
 
+### The usage history spreads its spare width over all columns
+
+- **The fault that was** (before version 0.60). When the history is wider than its columns need, which it is whenever the row is wide, all the spare
+  width was given to the first column: the time stood at the left edge and the other columns far away at the right
+  (see `docs/img_7.png`).
+- **The spare width is shared out equally as room between the columns.** Each column has its fixed width, in
+  characters, as before; the first is at the left edge of the list and the last at the right edge, and the gaps between
+  neighbouring columns are all the same.
+- **Within a column nothing changes**: the time at the left, the figures right-aligned so that they line up by their
+  last digit, the header over its column, and `failed` where the amount used would be.
+- **When there is no spare width** the table is as it was, and a table wider than the window scrolls sideways.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1573,23 +1585,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## The history's columns, the paths of About, a fake backend to configure, and cost control
+## The paths of About, a fake backend to configure, and cost control
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.59; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.60; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 72 to 75).
-
-### The usage history spreads its spare width over all columns
-
-- **The fault.** When the history is wider than its columns need, which it is whenever the row is wide, all the spare
-  width was given to the first column: the time stood at the left edge and the other columns far away at the right
-  (see `docs/img_7.png`).
-- **The spare width is shared out equally as room between the columns.** Each column is as wide as its content needs,
-  as before; the first is at the left edge of the list and the last at the right edge, and the gaps between
-  neighbouring columns are all the same.
-- **Within a column nothing changes**: the time at the left, the figures right-aligned so that they line up by their
-  last digit, the header over its column, and `failed` where the amount used would be.
-- **When there is no spare width** the table is as it was, and a table wider than the window scrolls sideways.
+when it is built (see the implementation plan, phases 73 to 75).
 
 ### The paths of the About view are links, with a button to copy each
 

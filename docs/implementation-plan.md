@@ -1682,9 +1682,12 @@ where it was 636 with the room there was before.
 
 ### 72. The history's columns
 
-**Status: specified, not built (version 0.60).** A row of the history is a grid whose first track takes what room there is;
-the tracks become as wide as their content with the spare width between them. The table is measured on a copy for the window's
-width, which must give the same as before. *Risk:* the header and the rows are separate grids and must stay in line.
+**Status: built (version 0.60).** A row of the history was a grid whose first track, the time, took what room there was. The
+first track is fixed now like the others, 8 characters and 19 with the date, and the grid has `justify-content:
+space-between`, which shares the spare width out equally between the tracks. The header and the rows are separate grids of
+the same tracks in the same width, so they stay in line. The copy the table is measured on is as wide as its tracks, as
+before. Tests in `layout.test.cjs`; in a real window (the on-request test) the first column begins at the left edge, the
+last ends at the right, the three gaps are equal and wider than the least, and the header's column ends where the row's does.
 
 ### 73. The paths of About
 

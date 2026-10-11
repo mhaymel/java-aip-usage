@@ -646,21 +646,23 @@ body {
 }
 
 /*
- * A row of the history is a table row. The time is at the left and takes what room there is (a flexible track); every other
- * column has a fixed width, in characters, so that the rows line up with each other, and is right-aligned, so that the columns
- * sit against the right edge and the numbers line up by their last digit. The time is the time of day, 8 characters; with the date
+ * A row of the history is a table row. Every column has a fixed width, in characters, so that the rows line up with each other;
+ * the time is at the left of its column and the others are right-aligned, so that the numbers line up by their last digit. The
+ * width the columns leave is not one column's: it is shared out equally between them. The time is the time of day, 8 characters; with the date
  * (the `date` class) it is 19. The widths hold amounts up to 9,999,999.99; the room the columns leave between `used` and `limit`
  * is about three characters. A row is never narrower than its content, so a table wider than the panel scrolls sideways.
  */
 .panel-lines .cols-4 {
     display: grid;
-    grid-template-columns: minmax(8ch, 1fr) 10ch 10ch 5ch;
+    /* What width the columns leave is shared out equally as room between them: the first is at the left edge, the last at the right. */
+    justify-content: space-between;
+    grid-template-columns: 8ch 10ch 10ch 5ch;
     column-gap: 8px;
     min-width: max-content;
 }
 
 .panel-lines .cols-4.date {
-    grid-template-columns: minmax(19ch, 1fr) 10ch 10ch 5ch;
+    grid-template-columns: 19ch 10ch 10ch 5ch;
 }
 
 .panel-lines .cols-4 > :not(:first-child) {
@@ -673,24 +675,28 @@ body {
  */
 .panel-lines .cols-5 {
     display: grid;
-    grid-template-columns: minmax(8ch, 1fr) 10ch 10ch 9ch 5ch;
+    /* What width the columns leave is shared out equally as room between them: the first is at the left edge, the last at the right. */
+    justify-content: space-between;
+    grid-template-columns: 8ch 10ch 10ch 9ch 5ch;
     column-gap: 8px;
     min-width: max-content;
 }
 
 .panel-lines .cols-5.date {
-    grid-template-columns: minmax(19ch, 1fr) 10ch 10ch 9ch 5ch;
+    grid-template-columns: 19ch 10ch 10ch 9ch 5ch;
 }
 
 .panel-lines .cols-6 {
     display: grid;
-    grid-template-columns: minmax(8ch, 1fr) 10ch 10ch 9ch 8ch 5ch;
+    /* What width the columns leave is shared out equally as room between them: the first is at the left edge, the last at the right. */
+    justify-content: space-between;
+    grid-template-columns: 8ch 10ch 10ch 9ch 8ch 5ch;
     column-gap: 8px;
     min-width: max-content;
 }
 
 .panel-lines .cols-6.date {
-    grid-template-columns: minmax(19ch, 1fr) 10ch 10ch 9ch 8ch 5ch;
+    grid-template-columns: 19ch 10ch 10ch 9ch 8ch 5ch;
 }
 
 .panel-lines .cols-5 > :not(:first-child),

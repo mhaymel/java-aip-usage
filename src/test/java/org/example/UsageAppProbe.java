@@ -223,6 +223,14 @@ public final class UsageAppProbe {
                                     + " + '|' + document.getElementById('about-debug').textContent + '|' + document.getElementById('about-settings').textContent.slice(-13)"
                                     + " + '|' + document.getElementById('about-history').textContent.slice(-23) + '|' + !document.getElementById('settings-form').hidden"
                                     + " + '|' + Math.round(v.getBoundingClientRect().width) + '/' + window.innerWidth + '|' + (document.documentElement.scrollWidth - window.innerWidth); })()") + "]"
+                    // The history's table: the left edge of each cell of the first row beside the list's own edges, so that the
+                    // room between the columns can be worked out.
+                    + " columns:[" + page().getEngine().executeScript(
+                            "(function () { var row = document.querySelector('#panel-lines .row:not(.head)'); if (!row || row.children.length < 4) { return ''; }"
+                                    + " var box = row.getBoundingClientRect(), out = [Math.round(box.width)];"
+                                    + " Array.prototype.forEach.call(row.children, function (c) { var b = c.getBoundingClientRect(); out.push(Math.round(b.left - box.left) + '-' + Math.round(b.right - box.left)); });"
+                                    + " var head = document.querySelector('#panel-lines .head'); out.push(head ? Math.round(head.children[1].getBoundingClientRect().right - box.left) : 0);"
+                                    + " return out.join(' '); })()") + "]"
                     + " end");
             System.out.flush();
         });

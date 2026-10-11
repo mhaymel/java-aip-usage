@@ -434,20 +434,25 @@ test('the row has its own width, which the window follows: it wraps at 900 px, a
     assert.doesNotMatch(ruleOf('#app'), /max-width/, 'a wide log is not held to the width of the row');
 });
 
-test('the history is a table: the time at the left takes what room there is, the other columns are fixed and right-aligned', () => {
+test('the history is a table of fixed columns, the time at the left and the others right-aligned, with the spare width shared out between them', () => {
     const table = ruleOf('.panel-lines .cols-4');
     assert.match(table, /display:\s*grid/);
     const columns = table.match(/grid-template-columns:\s*(.+);/)[1].trim().split(/\s+(?![^(]*\))/);
     assert.equal(columns.length, 4);
-    assert.match(columns[0], /^minmax\(\d+ch,\s*1fr\)$/, 'the time is the flexible one, so the others sit against the right edge');
+    assert.match(columns[0], /^\d+ch$/, 'the time is a fixed column too: the spare width is not its alone');
     assert.ok(Number(columns[0].match(/\d+/)[0]) >= '21:01:22'.length, 'it has room for the time of day');
+    for (const cols of ['cols-4', 'cols-5', 'cols-6']) {
+        assert.match(ruleOf('.panel-lines .' + cols), /justify-content:\s*space-between/, cols + ': equal room between the columns, the first and the last at the edges');
+        assert.doesNotMatch(ruleOf('.panel-lines .' + cols), /1fr/, cols + ': no column takes what room there is');
+        assert.doesNotMatch(ruleOf('.panel-lines .' + cols + '.date'), /1fr/, cols + ' with the date');
+    }
     for (const fixed of columns.slice(1)) {
         assert.match(fixed, /^\d+ch$/, 'a fixed width, so that the rows line up with each other: ' + fixed);
     }
     assert.ok(Number(columns[3].replace('ch', '')) >= 'USD'.length && Number(columns[3].replace('ch', '')) >= 'Cur.'.length, 'wide enough for the code and its short title');
     assert.ok(Number(columns[1].replace('ch', '')) >= '9999999.99'.length, 'used holds the amounts the requirements name');
     assert.ok(Number(columns[2].replace('ch', '')) >= '9999999.99'.length, 'so does limit');
-    const withDate = ruleOf('.panel-lines .cols-4.date').match(/grid-template-columns:\s*minmax\((\d+)ch/);
+    const withDate = ruleOf('.panel-lines .cols-4.date').match(/grid-template-columns:\s*(\d+)ch/);
     assert.ok(Number(withDate[1]) >= '2026-10-08 21:01:22'.length, 'with the date the time is wider');
     assert.ok(Number(table.match(/column-gap:\s*(\d+)px/)[1]) <= 10, 'little space between the columns');
     assert.match(ruleOf('.panel-lines .cols-4 > :not(:first-child)'), /text-align:\s*right/);
@@ -459,7 +464,7 @@ test('the change columns are fixed and right-aligned too, after the currency, in
         for (const suffix of ['', '.date']) {
             const columns = ruleOf('.panel-lines .' + cols + suffix).match(/grid-template-columns:\s*(.+);/)[1].trim().split(/\s+(?![^(]*\))/);
             assert.equal(columns.length, count, cols + suffix);
-            assert.match(columns[0], /^minmax\(\d+ch,\s*1fr\)$/);
+            assert.match(columns[0], /^\d+ch$/);
             columns.slice(1).forEach(c => assert.match(c, /^\d+ch$/, cols + suffix + ' ' + c));
         }
     }

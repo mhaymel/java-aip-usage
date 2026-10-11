@@ -147,6 +147,23 @@ class TitleBarWindowTest {
         assertTrue(line(all, "about-back").contains(" about:[false|") && line(all, "about-back").contains("|true|0/"), "Back: the form again:\n" + all);
         assertTrue(line(all, "about-back").contains(" size:" + form.group(1) + "," + form.group(2) + ",3,settings "), "at the size it had:\n" + all);
 
+        // The history's columns: the first at the left edge, the last at the right, and the same room between each two
+        // neighbours; the header's second column ends where the row's does, so the two are in line.
+        Matcher table = Pattern.compile(" columns:\\[(\\d+) (\\d+)-(\\d+) (\\d+)-(\\d+) (\\d+)-(\\d+) (\\d+)-(\\d+) (\\d+)]").matcher(line(all, "history"));
+        assertTrue(table.find(), all);
+        int[] edge = new int[10];
+        for (int i = 0; i < 10; i++) {
+            edge[i] = Integer.parseInt(table.group(i + 1));
+        }
+        assertEquals(0, edge[1], "the time begins at the left edge:\n" + all);
+        assertTrue(Math.abs(edge[0] - edge[8]) <= 1, "the last column ends at the right edge:\n" + all);
+        int first = edge[3] - edge[2];
+        int second = edge[5] - edge[4];
+        int third = edge[7] - edge[6];
+        assertTrue(Math.abs(first - second) <= 1 && Math.abs(second - third) <= 1, "equal room between the columns: " + first + ", " + second + ", " + third + "\n" + all);
+        assertTrue(first > 8, "and more than the least there is, since the window is wider than the table: " + first);
+        assertEquals(edge[4], edge[9], "the header is in line with the rows:\n" + all);
+
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.
         assertTrue(line(all, "log").contains(" logControls:true "), all);
         assertTrue(line(all, "log").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), "information is shown, and the lines begin with the time:\n" + all);
