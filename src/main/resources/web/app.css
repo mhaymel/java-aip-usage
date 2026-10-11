@@ -103,9 +103,10 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-/* One green for the amounts, the percentage and the two changes: fixed, and never a sign of the severity. */
+/* One green for the amounts, the percentage, the two changes and the request duration: fixed, and never a sign of the severity. */
 .delta-used,
 .delta-time,
+.delta-duration,
 .spend {
     color: var(--ok);
 }
@@ -152,7 +153,8 @@ body {
 .stale .time,
 .stale .spend,
 .stale .delta-used,
-.stale .delta-time {
+.stale .delta-time,
+.stale .delta-duration {
     opacity: 0.6;
 }
 
@@ -220,6 +222,10 @@ body {
 
 .delta-time {
     min-width: 5.5ch; /* "3600s" */
+}
+
+.delta-duration {
+    min-width: 7.5ch; /* "1s034ms" */
 }
 
 /* The settings: a form in the panel area, in the row's own readable type rather than the log's small one. */

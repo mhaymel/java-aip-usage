@@ -145,7 +145,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false,
 };
 const SETTINGS = {
     settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showInterval: true, timeFormat: 'hh:mm:ss' },
@@ -859,7 +859,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
     assert.equal(page.el('settings-view').hidden, true, 'Apply closes the view');
@@ -1912,7 +1912,7 @@ async function change(page, id, value) {
 
 const ROW_ELEMENTS = {
     showTime: 'time', showPercentage: 'percent', showUsed: 'used', showLimit: 'limit', showRefresh: 'refresh', showCountdown: 'countdown',
-    showInterval: 'interval', showDeltaUsed: 'delta-used', showDeltaTime: 'delta-time',
+    showInterval: 'interval', showDeltaUsed: 'delta-used', showDeltaTime: 'delta-time', showDuration: 'duration',
     showLogIcon: 'log-button', showHistoryIcon: 'history-button', showErrorIcon: 'errors-button',
 };
 
@@ -2078,6 +2078,28 @@ test('the settings never make the window narrower than the row, and the width go
     assert.equal(page.window.contentSize(), '400,42,0', 'the row alone again');
 });
 
+test('the request duration is in the row when its switch is on, as the backend wrote it, and off by default', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    assert.equal(page.el('duration').hidden, true, 'off unless the backend says so');
+
+    const status = withShow(withDisplay(SPEND_STATUS), { duration: true });
+    status.display = { ...status.display, duration: { text: '1s034ms', tooltip: 'How long the latest usage request took' } };
+    const shown = await load(backendOf({ config: CONFIG, status }));
+
+    assert.equal(shown.el('duration').hidden, false);
+    assert.equal(shown.el('duration').textContent, '1s034ms');
+    assert.equal(shown.el('duration').title, 'How long the latest usage request took');
+    assert.equal(shown.el('duration').className, 'delta delta-duration');
+});
+
+test('the request duration with its switch on and no value keeps its room and is not seen', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(withDisplay(SPEND_STATUS), { duration: true }) }));
+
+    assert.equal(page.el('duration').hidden, false);
+    assert.equal(page.el('duration').className, 'delta delta-duration empty');
+    assert.equal(page.el('duration').textContent, '');
+});
+
 test('the slash is there only when both amounts are, and the amounts go when all three of their figures are off', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     assert.equal(page.el('slash').hidden, false);
@@ -2129,7 +2151,7 @@ test('Cancel gives the row back as the backend has it; Apply keeps what was prev
 test('every element of the row can be switched off by the backend, down to the gear', async () => {
     const nothing = {
         time: false, percentage: false, used: false, limit: false, refresh: false, countdown: false, interval: false,
-        deltaUsed: false, deltaTime: false, logIcon: false, historyIcon: false, errorIcon: false,
+        deltaUsed: false, deltaTime: false, duration: false, logIcon: false, historyIcon: false, errorIcon: false,
     };
     const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, nothing) }));
 
@@ -2142,13 +2164,14 @@ test('every element of the row can be switched off by the backend, down to the g
 
 test('before the first reading each element that is switched on is a gray box with its tooltip, and there is no word', async () => {
     const waiting = { refreshing: true, stale: false, nextRefreshInSeconds: null, error: null, usage: null };
-    const everything = { percentage: true, interval: true, deltaUsed: true, deltaTime: true };
+    const everything = { percentage: true, interval: true, deltaUsed: true, deltaTime: true, duration: true };
     const page = await load(backendOf({ config: CONFIG, status: withShow(withDisplay(waiting), everything) }));
 
     const tooltips = {
         'time': 'Last update', 'percent': 'Share of the budget spent', 'used': 'Credits used', 'limit': 'Credit budget',
         'countdown': 'Seconds until the next refresh (negative when overdue)',
         'delta-used': 'Change in the amount used since the previous reading', 'delta-time': 'Time since the previous reading',
+        'duration': 'How long the latest usage request took',
     };
     for (const [id, tooltip] of Object.entries(tooltips)) {
         assert.equal(page.el(id).hidden, false, id);

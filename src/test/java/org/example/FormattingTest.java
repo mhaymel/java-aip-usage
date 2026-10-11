@@ -52,6 +52,18 @@ class FormattingTest {
     }
 
     @Test
+    void aRequestDurationIsMillisecondsAndFromASecondOnSecondsAndThreeDigits() {
+        assertEquals("0ms", Formatting.duration(0));
+        assertEquals("87ms", Formatting.duration(87));
+        assertEquals("999ms", Formatting.duration(999));
+        assertEquals("1s000ms", Formatting.duration(1000));
+        assertEquals("1s034ms", Formatting.duration(1034));
+        assertEquals("12s005ms", Formatting.duration(12005));
+        assertEquals("75s250ms", Formatting.duration(75250), "never minutes");
+        assertEquals("0ms", Formatting.duration(-5));
+    }
+
+    @Test
     void theRowWritesSecondsWithoutTheSpace() {
         assertEquals("42s", Formatting.rowSeconds(42));
         assertEquals("0s", Formatting.rowSeconds(0));

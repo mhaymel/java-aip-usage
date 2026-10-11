@@ -254,7 +254,8 @@ snug against the button, so they read as one group:
    an HTTP 429 (see Refresh behavior);
 7. the change since the previous reading, when its settings are on (both are off by default): first
    the change in the amount used, with its sign and never a currency symbol, for example `+0.05`, then the time since the previous
-   reading, **in whole seconds, never in minutes or hours**, for example `63s` or `105s`; see Changes between readings;
+   reading, **in whole seconds, never in minutes or hours**, for example `63s` or `105s`; see Changes between readings; and after
+   them, when its setting is on (it is off by default), how long the latest usage request took, for example `87ms` or `1s034ms`;
 8. a small button that shows the log below the row, and hides it again, an icon rather than a word, when its
    setting is on (it is on by default);
 9. next to it, a small button that shows the usage history below the row, and hides it again,
@@ -264,10 +265,10 @@ snug against the button, so they read as one group:
 11. at the right-hand end, after the other buttons, the settings button, a very small icon of
     a gear, not a word and not sliders. It is always there, so that the other buttons can be brought back.
 
-**Every element of the row can be hidden**, the gear alone excepted. The elements of the row, below, names the twelve, and says how
+**Every element of the row can be hidden**, the gear alone excepted. The elements of the row, below, names the thirteen, and says how
 they are switched and what the row shows before the first reading.
 
-**An item of the row whose switch is on keeps its room.** The interval and the two changes (the percentage is part of the figures) are in the row when their
+**An item of the row whose switch is on keeps its room.** The interval, the two changes and the request duration (the percentage is part of the figures) are in the row when their
 switches are on, and when the program has no value for one at that moment, for instance a change of zero or a time that cannot be worked out, the item is empty and not seen but keeps the width it would have, so the row does not change width from
 one refresh to the next. An item whose switch is off is not there and takes no room.
 
@@ -291,8 +292,8 @@ the height of the refresh button, so the row keeps its height and the window doe
 closed. When that panel is closed, or another is opened, the new one turns green and bigger and the one that was goes back to
 what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is green, and none is when no panel is shown.
 
-**One green.** The percentage spent, the amount used, the budget, the change in the amount used and the time since
-the previous reading are all in one green, `#1a7f37` on the light theme and `#3fb950` on the dark one. The green is
+**One green.** The percentage spent, the amount used, the budget, the change in the amount used, the time since
+the previous reading and the request duration are all in one green, `#1a7f37` on the light theme and `#3fb950` on the dark one. The green is
 fixed: it does not follow the severity, so nothing in the row turns amber or red as the budget is spent, and it is the
 same whether a severity was sent or not, whether a change is up or down, and whatever the settings are. A missing
 amount, the dash, is green like one that is there. The time of the reading, the countdown and the time between usage
@@ -485,6 +486,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Show the time between usage requests in the row | on, off | off |
   | Show the change in the amount used in the row | on, off | off |
   | Show the time since the previous reading in the row | on, off | off |
+  | Show the request duration in the row | on, off | off |
   | Time format in the row | hours and minutes, or hours, minutes and seconds | hours and minutes |
   | Show the date in the history, as well as the time | on, off | off |
   | Show the zero usage lines in the history | on, off | on |
@@ -828,11 +830,11 @@ Every reading the application gets is kept, so the usage can be looked at afterw
 Which elements the row has, what each is called, how each is switched on and off in the settings, and what the row shows before
 the first reading.
 
-### The twelve elements and their names
+### The thirteen elements and their names
 
-The row has twelve elements that can be shown or hidden, and the settings button, the gear, which is
+The row has thirteen elements that can be shown or hidden, and the settings button, the gear, which is
 always there. Each has a name, which is the text of its checkbox in the settings and the word this
-document uses for it. From left to right (see `docs/img_2.png`, where each is marked):
+document uses for it. From left to right (see `docs/img_2.png`, where each but the request duration, which came later, is marked):
 
 | # | Name | What it is | Example | Shown by default | Key in `settings.json` |
 | --- | --- | --- | --- | --- | --- |
@@ -845,9 +847,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each is ma
 | 7 | `Interval` | the time between usage requests in force | `30s` | no | `showInterval` |
 | 8 | `Change in the amount used` | the amount used less that of the reading before | `+1.37` | no | `showDeltaUsed` |
 | 9 | `Time since the previous reading` | the seconds between the two readings | `30s` | no | `showDeltaTime` |
-| 10 | `Log button` | shows and hides the log | the sheet with lines | yes | `showLogIcon` |
-| 11 | `History button` | shows and hides the usage history | the table | yes | `showHistoryIcon` |
-| 12 | `Error log button` | shows and hides the error log | the triangle | yes | `showErrorIcon` |
+| 10 | `Request duration` | how long the latest usage request took | `87ms` | no | `showDuration` |
+| 11 | `Log button` | shows and hides the log | the sheet with lines | yes | `showLogIcon` |
+| 12 | `History button` | shows and hides the usage history | the table | yes | `showHistoryIcon` |
+| 13 | `Error log button` | shows and hides the error log | the triangle | yes | `showErrorIcon` |
 
 - The time, the amount used, the budget, the refresh button and the countdown were always shown before version 0.32. They are on
   by default, so a settings file that says nothing of them changes nothing.
@@ -857,9 +860,24 @@ document uses for it. From left to right (see `docs/img_2.png`, where each is ma
 - **With the refresh button hidden** there is no manual refresh in the window; the scheduled one goes on.
 - **With the countdown hidden** an HTTP 429 is shown in a message line (see Countdown).
 
+### The request duration
+
+- **The request duration shows how long the usage request took.** It is the latest request that has ended, a failed one
+  included, and the figure is the one the history file records for that request in `duration_ms`.
+- **How it is written.** Under a second, the milliseconds and `ms` with no space: `87ms`, `999ms`. From a second on,
+  the whole seconds, `s`, the remaining milliseconds in three digits and `ms`: 1,034 milliseconds is `1s034ms`, 12,005
+  is `12s005ms`, and 1,000 is `1s000ms`. It is never written in minutes.
+- **Where it is.** After the time since the previous reading: the last of the figures, before the buttons.
+- **It is off by default and green**, the green of the other figures, and its tooltip in the row is `How long the latest
+  usage request took`.
+- **It behaves like the other figures:** it is dimmed with the old figures after a failed refresh, it is a gray box at
+  the start until a request has ended, and with its switch on and no value it keeps its room, which is that of `1s034ms`.
+  A reading taken from the history at startup has no request behind it, so until the first request has ended the element is
+  empty.
+
 ### A checkbox for each element, in the order of the row
 
-- The section `Main view` of the settings has one checkbox for each of the twelve elements, with the
+- The section `Main view` of the settings has one checkbox for each of the thirteen elements, with the
   name of the element as its text, **in the order of the row, from left to right**, so the first
   checkbox is the leftmost element.
 - **A property of an element is beside its checkbox**, in the same line, not somewhere else in the view:
@@ -884,6 +902,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each is ma
   | `Interval` | `The time between two usage requests, in seconds, as set under Request, or the longer wait in force after Anthropic asked the program to slow down.` |
   | `Change in the amount used` | `How much the amount used has changed since the reading before this one. Nothing is shown when it has not changed.` |
   | `Time since the previous reading` | `The seconds between this reading and the one before it.` |
+  | `Request duration` | `How long the latest usage request to Anthropic took, in milliseconds, and in seconds and milliseconds from one second on.` |
   | `Log button` | `A button that shows the log of the program below the row, and hides it again.` |
   | `History button` | `A button that shows the usage history, one line for each reading, below the row, and hides it again.` |
   | `Error log button` | `A button that shows the failed refreshes of this run below the row, and hides it again.` |
@@ -915,8 +934,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each is ma
 - The gray is the muted gray, `#8a8f98`, at a third of its strength, on both themes; the corners are rounded by 3 pixels.
 - The placeholder has **the tooltip of its element**, in the form that needs no value: `Last update`,
   `Share of the budget spent`, `Credits used`, `Credit budget`, `Seconds until the next refresh (negative when overdue)`,
-  `Change in the amount used since the previous reading` and `Time since the previous reading`.
-- **Which elements have one.** The time, the percentage, the amount used, the budget, the countdown and the two changes. The
+  `Change in the amount used since the previous reading`, `Time since the previous reading` and `How long the latest usage request took`.
+- **Which elements have one.** The time, the percentage, the amount used, the budget, the countdown, the two changes and the
+  request duration. The
   interval is known from the settings and the buttons are drawn at once, so they have none; a countdown that already has a value
   shows it. A reading taken from the history at startup is a reading, so the row then has its figures and no gray box.
 - It is for the start only. Once a reading or a failure has arrived the row is as described above: the
@@ -1025,23 +1045,6 @@ when it is built. Every decision taken for it is written here as a requirement; 
   under the key `stayOnTop`: on, the window stays above every
   other window for as long as the program runs; off, it is brought to the front at startup only and can be covered
   afterwards as usual.
-
-### The request duration, a thirteenth element
-
-- **A new element of the row shows how long the usage request took.** It can be switched on and off in the settings
-  like the other elements, with a checkbox in the order of the row and a tooltip. It is **off by default** and
-  **green**, the green of the other figures.
-- **How it is written.** Under a second, the milliseconds and `ms` with no space: `87ms`, `999ms`. From a second on,
-  the whole seconds, `s`, the remaining milliseconds in three digits and `ms`: 1,034 milliseconds is `1s034ms`, 12,005
-  is `12s005ms`, and 1,000 is `1s000ms`.
-- **Where it is.** After the time since the previous reading: the last of the figures, before the buttons.
-- **Which request.** The latest request that has ended, a failed one included, as the history file records it in
-  `duration_ms`.
-- **Its name is `Request duration`**, which is the text of its checkbox; its key in `settings.json` is `showDuration`;
-  its tooltip in the row is `How long the latest usage request took`, and the tooltip of its checkbox is `How long the
-  latest usage request to Anthropic took, in milliseconds, and in seconds and milliseconds from one second on.`
-- **It behaves like the other figures:** it is dimmed with the old figures after a failed refresh, it is a gray box at
-  the start until a request has ended, and with its switch on and no value it keeps its room.
 
 ## Details of the behaviour
 
@@ -1244,7 +1247,7 @@ These are things the program does that the sections above do not say, written do
 - The settings are strict: every one of them must be in a `POST /api/settings`, else 400 `The setting X is missing.`; a flag must be true or false (`The setting X must be true or false.`); the time format `hh:mm` or `hh:mm:ss`; and the interval a whole number
   within 5 to 3600 (`The usage interval must be a whole number of seconds from 5 to 3600.`). A file that cannot be written is 500 `The settings could not be saved: <reason>`, and nothing changes.
 - **The settings are checked in a fixed order and the first fault is the one reported**: the interval first, then the switches in the order of the settings table, with the time format between `showDeltaTime` and
-  `historyDeltaUsed`, and `showTime`, `showUsed`, `showLimit`, `showRefresh` and `showCountdown` last, in that order. An interval that is not a whole JSON number (`30.5`, `"30"`, `true`, a number too large) draws the same message as one out of range. A `null` counts as missing, for every key. The message for the time
+  `historyDeltaUsed`, and `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown` and `showDuration` last, in that order. An interval that is not a whole JSON number (`30.5`, `"30"`, `true`, a number too large) draws the same message as one out of range. A `null` counts as missing, for every key. The message for the time
   format is `The setting timeFormat must be "hh:mm" or "hh:mm:ss".`, also when it is not a text. A key that is not a setting is ignored. An interval out of range refuses the whole set before anything is written, so no other
   value of that request is kept. A set that was applied is answered with the settings as they now are, in the shape `GET /api/settings` has, which is what the view shows next.
 - **The order of the checks on a request**: the path (404), then the method (405), then the `Content-Type` (415), then the size (413), then whether it is JSON (400), then the settings themselves. So a `POST` of the wrong type
@@ -1292,7 +1295,7 @@ These are things the program does that the sections above do not say, written do
 - The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.
-- The window title is `aip usage v0.33`; the program is called `java-aip-usage v0.33` in the log.
+- The window title is `aip usage v0.34`; the program is called `java-aip-usage v0.34` in the log.
 - **The program asks the page for its size about every 150 milliseconds** and gives the window a new size when the answer is a new one, so the window follows its content within a moment. The page measures its own content, never the window, so that giving the window that size does not change the answer; the same size is not set twice. The page says nothing but its size, what may be dragged and which panel is open, and the program tells the page nothing.
 - **What may be dragged.** With no panel, and with the settings, nothing. With the history, the height only, the width staying what the page asked for. With the log and the error log, the height and the width. Neither can be dragged below the size the window has with no panel open, which is the size the page last asked for with none; until there has been one, the size the panel opened at is the least.
 - **An answer of the page that is not a size is passed over**: one that is not text, one with a width or a height of 0 or of more than five digits, a panel name other than `history`, `log` and `errors`. A change of what may be dragged, or of the panel, with the same numbers, counts as a new size.
@@ -1303,7 +1306,7 @@ These are things the program does that the sections above do not say, written do
 
 - **Colours** follow the operating system's light or dark setting, and there is no setting for it. `muted` is `#8a8f98` in both; the green of the figures is `#1a7f37` and `#3fb950`, the red of errors `#cf222e` and `#f85149`, the open
   panel's button `#00b341` and `#3ddc6b`, the blue of notes `#0969da` and `#58a6ff`. Background and text are the system's. There is no amber, and no colour stands for a severity.
-- The refresh icon turns round and round while a refresh is running. When a refresh has failed and the figures are old they are dimmed to 60 percent: the time, the amounts, the percentage, the change in the amount used and the time since the previous reading, not the countdown, the interval or the buttons. It is the same green, less opaque, not another colour.
+- The refresh icon turns round and round while a refresh is running. When a refresh has failed and the figures are old they are dimmed to 60 percent: the time, the amounts, the percentage, the change in the amount used, the time since the previous reading and the request duration, not the countdown, the interval or the buttons. It is the same green, less opaque, not another colour.
 - The icons are: refresh, an arrow round a circle; log, a sheet with lines; history, a table; error log, a triangle with an exclamation mark; settings, a gear. An icon button has a border that is invisible and turns muted gray when the pointer is over it or it has the keyboard focus.
 - A time that the backend gave no tooltip for has the tooltip `Last update`.
 - Under the row, in this order, there can be the message line, the line with the message of an HTTP 429 that shows while the pointer is over the countdown, and the red line `Lost contact with the application. Still trying.`. The last one is the window's own: it shows when a request to the
@@ -1325,7 +1328,7 @@ These are things the program does that the sections above do not say, written do
 - **The buttons.** The refresh button is 24 by 24 pixels with an icon of 14, a line of 1.7, in the colour of the text, and it is never green. The log, history and error log icons are 12 pixels with a line of 1.6; the gear is 13, drawn on a finer grid with a line of 2, which becomes 3.3 when its panel is open
   (the 2.2 of the others at its scale). The button of the open panel takes back the 4 pixels it grew by on every side, so that the row is neither wider nor taller and nothing beside it moves. An icon button has corners rounded by 4 pixels and no focus ring of the browser's; the border that shows is its sign of
   focus. The refresh icon turns once a second, at an even speed.
-- **The room of the items that change.** The countdown has room for `-3s` to `99s`; the interval for `120s`; the change in the amount for `+12.34`; the time since the previous reading for `3600s`. A longer value, such as a countdown of `120s` during a back-off, makes the row wider for
+- **The room of the items that change.** The countdown has room for `-3s` to `99s`; the interval for `120s`; the change in the amount for `+12.34`; the time since the previous reading for `3600s`; the request duration for `1s034ms`. A longer value, such as a countdown of `120s` during a back-off, makes the row wider for
   as long as it shows. The time, the amounts and the percentage have no room kept for them: their digits are of equal width, so a change of a digit moves nothing, and a figure that gains a digit, `99.99` becoming `100.00`, makes the row that much wider. An item whose switch is on and which has no
   value keeps that least width, not the width of the value it lacks. The percentage is the exception among the optional items: with its switch on and no percentage sent, it is not there and takes no room. A countdown the backend did not send is likewise not there.
 - **Colours not said elsewhere.** The placeholder (`No data`, `No usage reported`) is muted gray. The line of a 429 that shows over the countdown is weight 800, heavier than the 700 of the other message lines. A message line is 3
@@ -1338,7 +1341,7 @@ These are things the program does that the sections above do not say, written do
   answer whose status is not a success, so an application that answers a poll with an error is "lost contact" too. The line goes with the next status that is answered. While it shows, an open panel is not read again.
 - **What the application's refusal reads as.** The reason a red line gives is the `error` text of the answer when it has one, else `The application answered HTTP <status>.` With the answers the panels' files give, the line reads `The usage history could not be read: The usage history could not be read.`, and the
   same for the log.
-- **The settings view, exactly.** The groups and their order: `Request`, with `Interval`, the field and `s`; `Main view`, with the twelve checkboxes of The elements of the row in the order of the row, the time format dropdown beside `Time` and `Currency symbol` beside `Amount used`, 12 pixels from it;
+- **The settings view, exactly.** The groups and their order: `Request`, with `Interval`, the field and `s`; `Main view`, with the thirteen checkboxes of The elements of the row in the order of the row, the time format dropdown beside `Time` and `Currency symbol` beside `Amount used`, 12 pixels from it;
   `History view`, with `Date`, `Zero usage lines`, `Failed lines`, `Δ used`, `Δ time`; and `Log`, with `Log the response`. The text is bold, 12 pixels on a line of 1.45, in the system's own interface font, not condensed. Each group is a box with a thin gray border
   and its heading set in the border; each setting has a line of its own, the control 4 pixels from its text. The buttons are 6 pixels apart, with a gray border that takes the colour of the text under the pointer or with the focus; a disabled one is at half strength. `Apply` has no tooltip. The dropdown is at
   least 12 characters wide. The red line of the view is at its top, above the groups; it stays until the view is opened again, whatever is typed or pressed meanwhile. When the settings cannot be read it says `The settings could not be read: <reason>` and the groups are not shown at all, not shown empty; Cancel
@@ -1574,7 +1577,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - **A poll is cheap.** The window asks for the status every second for as long as the application runs, so that answer costs no more work than it has to: the figures it carries are the ones the refresh already worked out, and the history file is read again only when it has changed (its size or its time), not once a second. A panel that is open is read again on the same terms: the history when its file has changed, the log and the error log on the poll, and the lines on the page are replaced only when they differ from what is already there, so that what a person is reading does not move for an answer that says nothing new.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
-  (`Starting java-aip-usage v0.33`), and then a line that says which file the usage history CSV is written to, as a full path, for example
+  (`Starting java-aip-usage v0.34`), and then a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).
@@ -1590,7 +1593,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, and the two heights
   `historyHeight` and `logHeight`. Where this document says "in the project root, beside `gradlew`", the files are in the working directory the program was
   started from, which is the project root for `./gradlew run` and for an IDE run configuration set as the notes say.
 - **The settings file as written.** One JSON object, printed over several lines, with the keys always in the order above, the two heights last and always there, as `0` when none is remembered. Every save writes the whole file

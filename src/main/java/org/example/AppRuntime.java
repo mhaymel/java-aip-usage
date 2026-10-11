@@ -14,6 +14,7 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
@@ -74,7 +75,10 @@ final class AppRuntime implements AutoCloseable {
         IntervalSettings settings =
                 IntervalSettings.load(new SettingsStore(files.settings()), options.usageInterval(), options.pollInterval());
         UsageHistory history = new UsageHistory(files.history());
-        UsageService service = new UsageService(recording(fetcher, history, settings::usageSeconds), settings.usageInterval());
+        // How long the latest request that has ended took, for the row; negative until one has.
+        AtomicLong latestDuration = new AtomicLong(-1);
+        UsageService service =
+                new UsageService(recording(fetcher, history, settings::usageSeconds, latestDuration), settings.usageInterval());
         history.latest().ifPresent(earlier -> {
             service.restore(earlier);
             LOG.log(System.Logger.Level.INFO, "Showing the newest reading in the usage history until the first refresh is done");
@@ -83,7 +87,7 @@ final class AppRuntime implements AutoCloseable {
         responseLog.set(settings.current().logResponse());
         settings.onChange(changed -> responseLog.set(changed.logResponse()));
 
-        LocalWebServer server = LocalWebServer.start(new ApiHandler(service, settings, files));
+        LocalWebServer server = LocalWebServer.start(new ApiHandler(service, settings, files, latestDuration::get));
         service.start();
         return new AppRuntime(settings, service, server);
     }
@@ -91,11 +95,11 @@ final class AppRuntime implements AutoCloseable {
     /**
      * The fetcher, with each query it makes added to the history: the reading it returns, or a row for
      * the failure, which is then thrown on as it was. The row says how long the query took and what
-     * the interval was. A history that cannot be written is logged and nothing more: the reading is
+     * the interval was, and the row is told the same duration. A history that cannot be written is logged and nothing more: the reading is
      * good, and the refresh did succeed. A query cut short because the program is stopping is not a failure to record.
      */
     private static Supplier<UsageSnapshot> recording(
-            Supplier<UsageSnapshot> fetcher, UsageHistory history, IntSupplier intervalSeconds) {
+            Supplier<UsageSnapshot> fetcher, UsageHistory history, IntSupplier intervalSeconds, AtomicLong latestDuration) {
         return () -> {
             int interval = intervalSeconds.getAsInt();
             long started = System.nanoTime();
@@ -104,11 +108,15 @@ final class AppRuntime implements AutoCloseable {
                 snapshot = fetcher.get();
             } catch (RuntimeException failure) {
                 if (!Thread.currentThread().isInterrupted()) {
-                    record(history, () -> history.appendFailure(Instant.now(), interval, millisSince(started)));
+                    long took = millisSince(started);
+                    latestDuration.set(took);
+                    record(history, () -> history.appendFailure(Instant.now(), interval, took));
                 }
                 throw failure;
             }
-            record(history, () -> history.append(snapshot, interval, millisSince(started)));
+            long took = millisSince(started);
+            latestDuration.set(took);
+            record(history, () -> history.append(snapshot, interval, took));
             return snapshot;
         };
     }

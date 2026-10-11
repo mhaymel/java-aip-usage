@@ -40,7 +40,7 @@ class StatusDisplayTest {
     }
 
     private static StatusDisplay.View build(UsageState state, OptionalLong countdown, ApiHandler.DeltaBody change, Settings settings) {
-        return StatusDisplay.build(state, countdown, change, settings, FETCHED, ZoneOffset.UTC);
+        return StatusDisplay.build(state, countdown, change, OptionalLong.empty(), settings, FETCHED, ZoneOffset.UTC);
     }
 
     private static StatusDisplay.View build(UsageState state) {
@@ -301,11 +301,29 @@ class StatusDisplayTest {
         Settings on = new Settings(60, false, true, false, true, true, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false, false, true, true);
 
         assertEquals(
-                new StatusDisplay.Show(true, false, true, true, false, true, true, true, true, true, true, true, true),
+                new StatusDisplay.Show(true, false, true, true, false, true, true, true, true, true, true, true, true, false),
                 build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
         assertEquals(
-                new StatusDisplay.Show(false, false, false, false, false, true, true, true, true, true, true, true, true),
+                new StatusDisplay.Show(false, false, false, false, false, true, true, true, true, true, true, true, true, false),
                 build(state(spend(SPEND), null, null)).show(), "the optional ones off by default, the five that were always there on");
+    }
+
+    @Test
+    void theRequestDurationIsATipOnceARequestHasEndedAndItsSwitchIsOffByDefault() {
+        UsageState s = state(spend(SPEND), null, null);
+
+        assertNull(build(s).duration(), "none before a request has ended");
+        assertFalse(build(s).show().duration());
+
+        StatusDisplay.View v = StatusDisplay.build(
+                s, OptionalLong.empty(), null, OptionalLong.of(1034), Settings.defaults().withShowDuration(true), FETCHED, ZoneOffset.UTC);
+        assertEquals("1s034ms", v.duration().text());
+        assertEquals("How long the latest usage request took", v.duration().tooltip());
+        assertTrue(v.show().duration());
+
+        UsageState failed = state(spend(SPEND), "Anthropic returned HTTP 503.", FETCHED);
+        assertEquals("87ms", StatusDisplay.build(failed, OptionalLong.empty(), null, OptionalLong.of(87), Settings.defaults(), FETCHED, ZoneOffset.UTC)
+                .duration().text(), "a failed request has a duration too");
     }
 
     @Test

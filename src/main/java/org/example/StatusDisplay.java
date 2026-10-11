@@ -35,7 +35,7 @@ final class StatusDisplay {
     record Show(
             boolean percentage, boolean currency, boolean interval, boolean deltaUsed, boolean deltaTime,
             boolean historyIcon, boolean logIcon, boolean errorIcon,
-            boolean time, boolean used, boolean limit, boolean refresh, boolean countdown) {
+            boolean time, boolean used, boolean limit, boolean refresh, boolean countdown, boolean duration) {
     }
 
     /**
@@ -58,16 +58,19 @@ final class StatusDisplay {
             Tip interval,
             Tip deltaUsed,
             Tip deltaTime,
+            Tip duration,
             Message message,
             Show show) {
     }
 
     /**
      * @param change the change since the previous row for the newest reading, or {@code null}
+     * @param duration how long the latest usage request that has ended took, in milliseconds, a failed one included; empty before one has
      * @param now kept for the callers; nothing shown is counted from it any more
      */
     static View build(
-            UsageState state, OptionalLong countdown, ApiHandler.DeltaBody change, Settings settings, Instant now, ZoneId zone) {
+            UsageState state, OptionalLong countdown, ApiHandler.DeltaBody change, OptionalLong duration, Settings settings, Instant now,
+            ZoneId zone) {
         UsageSnapshot usage = state.snapshot();
         String time = null;
         String timeTooltip = null;
@@ -119,11 +122,13 @@ final class StatusDisplay {
                 change == null || change.deltaTime() == null ? null
                         // Never less than 0s, and without the space the history's cell has.
                         : new Tip(Formatting.rowSeconds(Math.max(0, change.deltaTime())), "Time since the previous reading"),
+                duration.isPresent() ? new Tip(Formatting.duration(duration.getAsLong()), "How long the latest usage request took") : null,
                 message,
                 new Show(
                         settings.showPercentage(), settings.showCurrency(), settings.showInterval(), settings.showDeltaUsed(),
                         settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon(),
-                        settings.showTime(), settings.showUsed(), settings.showLimit(), settings.showRefresh(), settings.showCountdown()));
+                        settings.showTime(), settings.showUsed(), settings.showLimit(), settings.showRefresh(), settings.showCountdown(),
+                        settings.showDuration()));
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {

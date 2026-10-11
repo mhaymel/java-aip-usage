@@ -66,15 +66,19 @@ final class ApiHandler implements HttpHandler {
 
     private final AppFiles files;
 
+    private final java.util.function.LongSupplier latestDurationMillis;
+
     private final ObjectMapper mapper = new ObjectMapper();
 
     /** The status is polled every second; the history is read again only when its file has changed. */
     private final LatestChangeCache latestChangeCache = new LatestChangeCache();
 
-    ApiHandler(UsageService service, IntervalSettings settings, AppFiles files) {
+    /** @param latestDurationMillis how long the latest usage request that has ended took, or a negative number when none has */
+    ApiHandler(UsageService service, IntervalSettings settings, AppFiles files, java.util.function.LongSupplier latestDurationMillis) {
         this.service = service;
         this.settings = settings;
         this.files = files;
+        this.latestDurationMillis = latestDurationMillis;
     }
 
     @Override
@@ -178,7 +182,8 @@ final class ApiHandler implements HttpHandler {
         return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showPercentage(), s.showCurrency(), s.showHistoryIcon(), s.showLogIcon(),
                 s.showErrorIcon(), s.showInterval(), s.showDeltaUsed(),
                 s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate(),
-                s.historyZeroLines(), s.historyFailedLines(), s.showTime(), s.showUsed(), s.showLimit(), s.showRefresh(), s.showCountdown());
+                s.historyZeroLines(), s.historyFailedLines(), s.showTime(), s.showUsed(), s.showLimit(), s.showRefresh(), s.showCountdown(),
+                s.showDuration());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -211,7 +216,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showUsed"),
                     flag(body, "showLimit"),
                     flag(body, "showRefresh"),
-                    flag(body, "showCountdown"));
+                    flag(body, "showCountdown"),
+                    flag(body, "showDuration"));
             settings.apply(given);
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
@@ -384,6 +390,11 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
+    private OptionalLong duration() {
+        long millis = latestDurationMillis.getAsLong();
+        return millis < 0 ? OptionalLong.empty() : OptionalLong.of(millis);
+    }
+
     private StatusBody status(UsageState state) {
         UsageSnapshot snapshot = state.snapshot();
         OptionalLong countdown = service.secondsUntilNextRefresh();
@@ -395,7 +406,7 @@ final class ApiHandler implements HttpHandler {
                 state.error() == null ? null : new ErrorBody(state.error(), state.errorAt().toString()),
                 snapshot == null ? null : usage(snapshot),
                 change,
-                StatusDisplay.build(state, countdown, change, shown(), Instant.now(), ZoneId.systemDefault()),
+                StatusDisplay.build(state, countdown, change, duration(), shown(), Instant.now(), ZoneId.systemDefault()),
                 historyStamp());
     }
 
@@ -522,7 +533,8 @@ final class ApiHandler implements HttpHandler {
             boolean showUsed,
             boolean showLimit,
             boolean showRefresh,
-            boolean showCountdown) {
+            boolean showCountdown,
+            boolean showDuration) {
     }
 
     record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits) {

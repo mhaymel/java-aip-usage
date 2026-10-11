@@ -44,6 +44,15 @@ final class Formatting {
         return Math.max(0, seconds) + " s";
     }
 
+    /**
+     * How long a request took, as the row writes it: the milliseconds under a second, {@code 87ms}, and from a second on the whole
+     * seconds and the rest in three digits, {@code 1s034ms}.
+     */
+    static String duration(long millis) {
+        long shown = Math.max(0, millis);
+        return shown < 1000 ? shown + "ms" : String.format(Locale.ROOT, "%ds%03dms", shown / 1000, shown % 1000);
+    }
+
     /** Seconds as the row writes them, with no space before the unit: {@code 63s}, {@code -3s}. */
     static String rowSeconds(long seconds) {
         return seconds + "s";

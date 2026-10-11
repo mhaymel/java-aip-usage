@@ -531,11 +531,11 @@ const MAIN = html.slice(html.indexOf('<legend>Main view</legend>'), html.indexOf
 const MAIN_CHECKBOXES = [
     ['set-showTime', 'Time'], ['set-showPercentage', 'Percentage spent'], ['set-showUsed', 'Amount used'], ['set-showLimit', 'Budget'],
     ['set-showRefresh', 'Refresh button'], ['set-showCountdown', 'Countdown'], ['set-showInterval', 'Interval'],
-    ['set-showDeltaUsed', 'Change in the amount used'], ['set-showDeltaTime', 'Time since the previous reading'],
+    ['set-showDeltaUsed', 'Change in the amount used'], ['set-showDeltaTime', 'Time since the previous reading'], ['set-showDuration', 'Request duration'],
     ['set-showLogIcon', 'Log button'], ['set-showHistoryIcon', 'History button'], ['set-showErrorIcon', 'Error log button'],
 ];
 
-test('the Main view group has a checkbox for each of the twelve elements, named as the requirements name them', () => {
+test('the Main view group has a checkbox for each of the thirteen elements, named as the requirements name them', () => {
     for (const [id, text] of MAIN_CHECKBOXES) {
         assert.ok(MAIN.includes('<input id="' + id + '" type="checkbox"> ' + text + '</label>'), id);
     }
@@ -544,7 +544,7 @@ test('the Main view group has a checkbox for each of the twelve elements, named 
 test('the checkboxes are in the order of the row, from left to right', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     const inRow = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"', 'id="refresh"', 'id="countdown"', 'id="interval"', 'id="delta-used"',
-        'id="delta-time"', 'id="log-button"', 'id="history-button"', 'id="errors-button"'].map(id => strip.indexOf(id));
+        'id="delta-time"', 'id="duration"', 'id="log-button"', 'id="history-button"', 'id="errors-button"'].map(id => strip.indexOf(id));
     const inSettings = MAIN_CHECKBOXES.map(([id]) => MAIN.indexOf('id="' + id + '"'));
     for (const positions of [inRow, inSettings]) {
         assert.ok(positions.every(p => p >= 0));
@@ -613,8 +613,16 @@ test('the seconds of the row have room for their usual values without the space:
     assert.match(ruleOf('.delta-time'), /min-width:\s*5\.5ch/);
 });
 
-test('the percentage, the amounts and the two changes are one fixed green, and no severity colours anything', () => {
-    assert.match(ruleOf('.delta-used,\n.delta-time,\n.spend'), /color:\s*var\(--ok\)/);
+test('the request duration is the last of the figures, before the buttons, with room for 1s034ms', () => {
+    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
+    assert.ok(strip.indexOf('id="delta-time"') < strip.indexOf('id="duration"'));
+    assert.ok(strip.indexOf('id="duration"') < strip.indexOf('id="log-button"'));
+    assert.match(html, /<span id="duration" class="delta delta-duration" hidden><\/span>/, 'hidden until the backend says it is on');
+    assert.match(ruleOf('.delta-duration'), /min-width:\s*7\.5ch/);
+});
+
+test('the percentage, the amounts, the two changes and the request duration are one fixed green, and no severity colours anything', () => {
+    assert.match(ruleOf('.delta-used,\n.delta-time,\n.delta-duration,\n.spend'), /color:\s*var\(--ok\)/);
     assert.deepEqual([...css.matchAll(/--ok:\s*(#[0-9a-f]{6})/g)].map(m => m[1]), ['#1a7f37', '#3fb950'], 'the light theme, then the dark one');
     assert.doesNotMatch(css, /\.sev-/, 'no rule by severity');
     assert.doesNotMatch(css, /--warn/, 'and no amber');
@@ -625,7 +633,7 @@ test('the percentage, the amounts and the two changes are one fixed green, and n
 });
 
 test('old figures are dimmed, the two changes with the amounts', () => {
-    assert.match(ruleOf('.stale .time,\n.stale .spend,\n.stale .delta-used,\n.stale .delta-time'), /opacity:\s*0\.6/);
+    assert.match(ruleOf('.stale .time,\n.stale .spend,\n.stale .delta-used,\n.stale .delta-time,\n.stale .delta-duration'), /opacity:\s*0\.6/);
 });
 
 test('the log\'s start line has a gray for each theme, a light one and a dark one that the light text can be read on', () => {

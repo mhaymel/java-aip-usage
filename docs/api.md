@@ -64,7 +64,8 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "showUsed": true,
     "showLimit": true,
     "showRefresh": true,
-    "showCountdown": true
+    "showCountdown": true,
+    "showDuration": false
   },
   "defaults": { "...": "the same keys, with the defaults" },
   "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } }
@@ -169,11 +170,12 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
     "interval": { "text": "60s", "tooltip": "Time between usage requests" },
     "deltaUsed": { "text": "+0.05", "tooltip": "Change in the amount used since the previous reading, in USD" },
     "deltaTime": { "text": "60s", "tooltip": "Time since the previous reading" },
+    "duration": { "text": "87ms", "tooltip": "How long the latest usage request took" },
     "message": null,
     "show": {
       "percentage": false, "currency": false, "interval": false, "deltaUsed": false, "deltaTime": false,
       "historyIcon": true, "logIcon": true, "errorIcon": true,
-      "time": true, "used": true, "limit": true, "refresh": true, "countdown": true
+      "time": true, "used": true, "limit": true, "refresh": true, "countdown": true, "duration": false
     }
   },
   "historyStamp": "48211-1791468293000"
@@ -194,8 +196,8 @@ texts are in the requirements (How the figures are written).
   `variants` (the time as `timeShort` and `timeLong`, and the amounts as `usedPlain`, `usedSymbol`, `limitPlain` and `limitSymbol`, whatever the settings say, so that the settings view can show a change of the time format or of the symbol in the row before it is applied; `null` with no reading, and the four amounts `null` with no spend);
   `countdown` (with `countdownAlert`, the message of an HTTP 429, which makes the countdown red and is shown when it is hovered; the 429
   has no `message`; with the countdown switched off there is no `countdownAlert` and the 429 has a `message` like any other failure), `interval` (the time between usage requests in force, `60s`), `deltaUsed` and `deltaTime` as
-  `{text, tooltip}` or `null` (the seconds of `countdown`, `interval` and `deltaTime` have no space before the `s`, and `deltaUsed` never has a currency symbol); `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
-  `deltaTime`, `time`, `used`, `limit`, `refresh` and `countdown` the settings switch on, and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
+  `{text, tooltip}` or `null` (the seconds of `countdown`, `interval` and `deltaTime` have no space before the `s`, and `deltaUsed` never has a currency symbol); `duration` (how long the latest usage request that has ended took, a failed one included, as the history file has it: `87ms`, and `1s034ms` from a second on; `null` until one has ended); `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
+  `deltaTime`, `time`, `used`, `limit`, `refresh`, `countdown` and `duration` the settings switch on, and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
   the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language (the cells of the history are the exception: they are the file's own text, `1000.00`).
 - `historyStamp`: a text that changes whenever a row is added to the history file, a row of a failed refresh as well as a reading: the file's size in bytes, a `-`, and its time of last change in milliseconds.
@@ -245,7 +247,7 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.33", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.34", "..."]
 }
 ```
 

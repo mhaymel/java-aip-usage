@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.33). What these mechanisms make the
+How the requirements are met today (version 0.34). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1387,7 +1387,7 @@ last:
 | Phase | Version | Piece |
 | --- | --- | --- |
 | 45 | 0.33 | The settings view: no `Maximum view` and `Minimum view`, a least width, leaving saves (done) |
-| 46 | 0.34 | The request duration, a thirteenth element |
+| 46 | 0.34 | The request duration, a thirteenth element (done) |
 | 47 | 0.35 | The window to the front at startup, and `Stay on top` |
 | 48 | 0.36 | The title bar, on and off while the program runs |
 | 49 | 0.37 | Debug mode: `--debug`, the debug view, the fake backend switched at runtime, the red border |
@@ -1434,23 +1434,31 @@ button of the row saves them; The settings have a least width).
 
 ### 46. The request duration, a thirteenth element
 
-**Status: specified, not built (version 0.34).** Requirement: The request duration, a thirteenth element.
+**Status: done (version 0.34); how it looks in the row is for a person to judge.** Requirement: The elements of the row (The
+request duration).
 
-- **Where the figure comes from.** The duration is measured already, in `AppRuntime.recording`, for the `duration_ms` column of
-  the history, and kept nowhere else. The service is told it: `UsageState` gets the duration of the latest request that has
-  ended, a failed one included, set where the result of a fetch is recorded.
-- **The text.** `Formatting.duration(long millis)`: `87ms` under a second, then `1s034ms`, the milliseconds in three digits.
-- **The setting.** `showDuration`, off by default, at the end of the `Settings` record, the file and the settings API, as the
-  five of phase 44 were added; `StatusDisplay.Show.duration`, and a `Tip` with the tooltip `How long the latest usage request
-  took`.
-- **The page.** An element `duration` after `delta-time`, with the classes of the two changes: green, dimmed with old figures,
-  a gray box at the start, its room kept when it has no value (for `12s005ms`). A checkbox `Request duration` after `Time since
-  the previous reading`, with its tooltip, in `MAIN_FLAGS` so that it is previewed and saved like the others.
-- **Tests.** `FormattingTest` (the two forms, 999, 1,000, 12,005); `StatusDisplayTest` (the tip, the flag, none before a request
-  has ended, a failed request's duration); `SettingsStoreTest` and `ApiTest` (the key); the page tests of phase 44 with one
-  element more.
+- **Where the figure comes from.** `AppRuntime.recording` measured the request already, for the `duration_ms` column of the
+  history. It now measures once and gives the one number to both: the history row, and an `AtomicLong` the runtime holds, which
+  is negative until a request has ended. A request cut short because the program is stopping sets neither. The plan had the
+  figure go into `UsageState`; it is kept beside the service instead, because the measuring is done in the wrapper round the
+  fetcher, where the history is written, and so the row and the file cannot differ.
+- **To the row.** `ApiHandler` is given a `LongSupplier` for it and hands `StatusDisplay.build` an `OptionalLong`;
+  `Formatting.duration` writes `87ms` and `1s034ms`; the view has a `duration` tip and `show.duration`.
+- **The setting.** `showDuration`, off by default, at the end of the `Settings` record, the file and the settings API, required
+  in a `POST` like every key and checked last. The sixteen-argument constructor leaves it off; `withShowDuration` sets it.
+- **The page.** An element `duration` after `delta-time`, drawn by `renderOptional` like the two changes, so it has their
+  behaviour: its room kept when it has no value, a gray box at the start. The class `delta-duration` is in the rule of the one
+  green and in the rule that dims old figures, with a least width of 7.5 characters. A checkbox `Request duration` after
+  `Time since the previous reading`, in `MAIN_FLAGS`, so that it is previewed and saved with the others.
+- **Tests.** `FormattingTest` (0, 87, 999, 1,000, 1,034, 12,005, more than a minute, a negative number); `StatusDisplayTest`
+  (none before a request has ended, the tip, the flag, a failed request); `SettingsStoreTest` (off by default, saved and read
+  back, the key in the file); `ApiTest` (the tip in a status after a request, the switch through the settings, and that the
+  figure of the row is the one in the last line of the history file); `app.test.cjs` (off unless the backend says so, shown as
+  written, its room kept when empty, its checkbox previewed, its gray box and tooltip at the start); `layout.test.cjs` (the
+  last of the figures, its checkbox in the order of the row, the green, the dimming, the width).
 
-*Risk:* small.
+*Assumed, easy to change:* the least width, which is that of `1s034ms`; a request of ten seconds or more makes the row wider
+for as long as it shows.
 
 ### 47. The window to the front at startup, and `Stay on top`
 

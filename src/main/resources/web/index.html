@@ -27,6 +27,7 @@
         <span id="interval" class="delta delta-interval" hidden></span>
         <span id="delta-used" class="delta delta-used" hidden></span>
         <span id="delta-time" class="delta delta-time" hidden></span>
+        <span id="duration" class="delta delta-duration" hidden></span>
 
         <span class="tools">
         <button id="log-button" class="icon tiny" type="button" aria-label="Show the log" title="Show the log"
@@ -102,6 +103,7 @@
                     <label title="The time between two usage requests, in seconds, as set under Request, or the longer wait in force after Anthropic asked the program to slow down."><input id="set-showInterval" type="checkbox"> Interval</label>
                     <label title="How much the amount used has changed since the reading before this one. Nothing is shown when it has not changed."><input id="set-showDeltaUsed" type="checkbox"> Change in the amount used</label>
                     <label title="The seconds between this reading and the one before it."><input id="set-showDeltaTime" type="checkbox"> Time since the previous reading</label>
+                    <label title="How long the latest usage request to Anthropic took, in milliseconds, and in seconds and milliseconds from one second on."><input id="set-showDuration" type="checkbox"> Request duration</label>
                     <label title="A button that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log button</label>
                     <label title="A button that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History button</label>
                     <label title="A button that shows the failed refreshes of this run below the row, and hides it again."><input id="set-showErrorIcon" type="checkbox"> Error log button</label>

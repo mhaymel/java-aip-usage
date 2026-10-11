@@ -22,8 +22,9 @@
      *   interval     {text, tooltip} for the time between usage requests
      *   deltaUsed    {text, tooltip} for the change in the amount used, or null
      *   deltaTime    {text, tooltip} for the time since the previous reading, or null
+     *   duration     {text, tooltip} for how long the latest usage request took, or null
      *   show         {percentage, currency, interval, deltaUsed, deltaTime, historyIcon, logIcon, errorIcon, time, used, limit,
-     *                 refresh, countdown}: which elements of the row there are; one the backend does not name is shown
+     *                 refresh, countdown, duration}: which elements of the row there are; one the backend does not name is shown
      *   message      {kind: 'error'|'stale', text} for the line under the row, or null
      *   stale        the figures predate a failed refresh
      *   refreshing   a refresh is running
@@ -42,6 +43,7 @@
             interval: d.interval || null,
             deltaUsed: d.deltaUsed || null,
             deltaTime: d.deltaTime || null,
+            duration: d.duration || null,
             show: d.show || { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true },
             message: d.message || null,
             stale: Boolean(status.stale),

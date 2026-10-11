@@ -294,7 +294,7 @@ class ApiTest {
     private static String allSettings(int interval, boolean logResponse, String timeFormat) {
         return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
                 + ", \"showPercentage\": true, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
-                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true}";
+                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true, \"showDuration\": false}";
     }
 
     @Test
@@ -306,7 +306,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(21, body.get("settings").size());
+        assertEquals(22, body.get("settings").size());
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -332,6 +332,28 @@ class ApiTest {
         assertTrue(show.get("used").asBoolean());
         assertTrue(show.get("limit").asBoolean());
         assertTrue(show.get("refresh").asBoolean());
+    }
+
+    @Test
+    void theRequestDurationIsInTheStatusOnceARequestHasEndedAndItsSwitchIsASetting() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        await(() -> app.service().state().snapshot() != null);
+
+        JsonNode display = json(get(app, "/api/status")).get("display");
+        assertTrue(display.at("/duration/text").asText().matches("\\d+ms|\\d+s\\d{3}ms"), display.get("duration").toString());
+        assertEquals("How long the latest usage request took", display.at("/duration/tooltip").asText());
+        assertFalse(display.at("/show/duration").asBoolean(), "off by default");
+
+        String on = allSettings(60, false, "hh:mm").replace("\"showDuration\": false", "\"showDuration\": true");
+        assertEquals(200, post(app, "/api/settings", on).statusCode());
+        assertTrue(json(get(app, "/api/status")).at("/display/show/duration").asBoolean());
+
+        // The figure of the row is the one the history file has for that request.
+        String row = history(app).getLast();
+        String millis = row.substring(row.lastIndexOf(',') + 1);
+        long written = Long.parseLong(millis);
+        String expected = written < 1000 ? written + "ms" : (written / 1000) + "s" + String.format("%03d", written % 1000) + "ms";
+        assertEquals(expected, json(get(app, "/api/status")).at("/display/duration/text").asText());
     }
 
     @Test
@@ -768,7 +790,7 @@ class ApiTest {
         await(() -> history(app).size() >= 2);
         post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showPercentage\": false, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": false,"
                 + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
-                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true}");
+                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true, \"showDuration\": false}");
         fail.set(false);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);

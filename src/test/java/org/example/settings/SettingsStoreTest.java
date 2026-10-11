@@ -95,6 +95,16 @@ class SettingsStoreTest {
     }
 
     @Test
+    void theSwitchOfTheRequestDurationIsOffByDefaultAndComesBackAsSaved() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        assertFalse(Settings.defaults().showDuration());
+
+        store.save(Settings.defaults().withShowDuration(true));
+
+        assertTrue(store.load().showDuration());
+    }
+
+    @Test
     void aFileFromBeforeTheFiveSwitchesHasThemAllOn() throws IOException {
         Files.writeString(file(), "{\"usageIntervalSeconds\": 90, \"showPercentage\": true}");
 
@@ -116,14 +126,14 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFileHoldsTheTwentyOneSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
+    void theFileHoldsTheTwentyTwoSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
         JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown",
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration",
                         "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());

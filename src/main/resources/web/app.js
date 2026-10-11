@@ -159,6 +159,7 @@
         renderButtons(s);
         renderOptional('delta-used', s.deltaUsed, v.deltaUsed, loading, 'Change in the amount used since the previous reading');
         renderOptional('delta-time', s.deltaTime, v.deltaTime, loading, 'Time since the previous reading');
+        renderOptional('duration', s.duration, v.duration, loading, 'How long the latest usage request took');
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
     }
@@ -199,7 +200,7 @@
     }
 
     // The classes of the optional items of the row, which keep their room when they have no value.
-    var OPTIONAL_CLASSES = { 'interval': 'delta delta-interval', 'delta-used': 'delta delta-used', 'delta-time': 'delta delta-time' };
+    var OPTIONAL_CLASSES = { 'interval': 'delta delta-interval', 'delta-used': 'delta delta-used', 'delta-time': 'delta delta-time', 'duration': 'delta delta-duration' };
 
     /**
      * An optional item of the row. Its setting off, it is not there and takes no room. Its setting on, it keeps its room even when the
@@ -231,7 +232,7 @@
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon' };
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
-    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
+    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
     var SETTING_FLAGS = MAIN_FLAGS.concat(['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']);
 
     /**
@@ -249,6 +250,7 @@
                 time: checked('showTime'), percentage: checked('showPercentage'), used: checked('showUsed'), currency: checked('showCurrency'),
                 limit: checked('showLimit'), refresh: checked('showRefresh'), countdown: checked('showCountdown'),
                 interval: checked('showInterval'), deltaUsed: checked('showDeltaUsed'), deltaTime: checked('showDeltaTime'),
+                duration: checked('showDuration'),
                 logIcon: checked('showLogIcon'), historyIcon: checked('showHistoryIcon'), errorIcon: checked('showErrorIcon')
             }
         };
