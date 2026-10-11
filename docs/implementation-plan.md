@@ -1160,6 +1160,65 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 *Assumed:* "the option icon" is the gear; the extra buttons are in their usual places left of it; the window follows the wider row, as it does for any change of the row.
 
+### 50 to 52. The border round a view, the gray box for what is not known, the level and date of the log
+
+Requirement: The border round a settings view, a gray box for a figure that is not known, and the level and date of the log.
+Three pieces that do not depend on one another. *Decided by the person:* they are built as phases 45 to 49 were, **one at a
+time, each a phase and a version of its own**, both suites green, its passage of the requirements moved out of "specified, not
+yet built", a commit. Also decided by the person: the frame in `docs/img_3.png` is the program's own border, misplaced;
+`Debug` is a level to choose and the program gets no debug lines with it; the history's `Δ used` stays as it is.
+
+| Phase | Version | Piece |
+| --- | --- | --- |
+| 50 | 0.38 | The red border goes round the whole window, a settings view included |
+| 51 | 0.39 | A gray box for a figure that is not known; a change of nothing is `0.00` |
+| 52 | 0.40 | The log panel: `Level` and `Date`, saved as `logLevel` and `logDate` |
+
+### 50. The red border goes round the whole window
+
+**Status: specified, not built (version 0.38).**
+
+- **The fault.** `#app` is `width: max-content`, the width of the row, and `#app.fake` puts the border on it. The
+  settings and the debug view are made wider than the row by `formWidth`, so they stick out of `#app`, and the border is
+  drawn at the row's width through them.
+- **The repair.** While a form is shown `#app` is as wide as the window, as it is with the other panels (`#app.open`), so
+  that the border is on the box that holds everything. `contentSize` adds the 6 pixels of the border to the row's width
+  only; it has to add them to the form's as well (`formWidth`), or the form is cut by the border's width. `formWidth`
+  measures from the left edge of `#app`, which the border moves, so the measuring is looked at with the border on.
+- **Tests.** `layout.test.cjs` and `app.test.cjs` for the size asked for with the fake backend on and a form open; the
+  on-request window test of debug mode reports `overflow:0` with the settings open and every element hidden, the case of
+  `docs/img_3.png`.
+
+### 51. A gray box for a figure that is not known
+
+**Status: specified, not built (version 0.39).**
+
+- **The page.** `renderOptional` draws the gray box whenever the element is wanted and has no item, not only while
+  `loading`; the class `empty` and its rule go.
+- **The backend.** The status carries the change in the amount used when it is zero as well, as `0.00`, where it carried
+  nothing; it carries nothing only when there is no reading before or no amount. The change comes from `HistoryDeltas`
+  through `LatestChangeCache`, and the history panel takes its `Δ used` from the same place (`delta_used_text`), where
+  an unchanged amount has to stay empty: the `0.00` is made where the status is put together, not in `HistoryDeltas`.
+- **Tests.** The view and status tests that expect nothing for an unchanged amount are turned round; `app.test.cjs` for the
+  gray box after the start, in `No usage reported` and `No data`.
+
+### 52. The log panel: a level and the date
+
+**Status: specified, not built (version 0.40).**
+
+- **The levels.** Four: error, warning, info and debug. Nothing is written at debug today, so the reader is tested
+  with a file that has such lines.
+- **Settings.** `logLevel` and `logDate` in `Settings` and `settings.json`, after the keys there are; they are not
+  part of what the settings view reads and sends, and have a request of their own (`docs/api.md`).
+- **The backend filters.** `/api/log` gives the newest 1,000 lines (`LOG_LINES`) of the level saved, out of the last 512
+  kilobytes (`LOG_BYTES`), entries whole; the count it reports is of the lines given. `LogTail` reads the bytes as now, and
+  the level of an entry is read from its first line, the word after the date and the time.
+- **The page.** A line with the dropdown and the checkbox at the top of the log panel; the date is cut from the lines as they
+  are drawn; a change is sent at once and the panel read again.
+- **Tests.** The log reader for each level, an entry of several lines, the fragment before the first entry and the limit;
+  the settings for the two keys and a value out of range; `app.test.cjs` for the two controls, the saved values at the
+  next opening, and the failed save.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.37). What these mechanisms make the

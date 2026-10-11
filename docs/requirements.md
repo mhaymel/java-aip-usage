@@ -1057,6 +1057,114 @@ backend switched while the program runs, and the mark that says its figures are 
   panel too. The window is larger by the border, so nothing in the row is covered. It is there while the figures are old
   as well, and is not dimmed with them.
 
+## The border round a settings view, a gray box for a figure that is not known, and the level and date of the log
+
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.37; where
+this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
+when it is built (see the implementation plan, phases 50 to 52).
+
+### The red border goes round the whole window
+
+- **The border of the fake backend goes round everything the window shows**, whatever is shown: the row alone, a panel,
+  the settings view and the debug settings view. Its four sides are at the four edges of the window's content.
+- **It is never round the row alone while a view is shown below it.** In version 0.37, with the settings view or the debug
+  settings view wider than the row, the border was drawn as wide as the row and as tall as the window, so that it ran
+  down through the view, across its checkboxes and its `Apply` button, and the right part of the view was outside it
+  (see `docs/img_3.png`, taken with every element of the row hidden). That is the fault this passage puts right.
+- **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
+  row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
+- The rest of the border is as Debug mode says: 3 pixels, the red of errors, 4 seconds for one change, there for as long
+  as the fake backend is in use.
+
+### A gray box for a figure that is not known, and a change of nothing written as a figure
+
+- **The gray box is not for the start only.** At any time, an element of the row that is switched on, and whose value
+  is not known, is shown as the gray box of A placeholder at the start, with the tooltip it has there. It no longer
+  keeps its room unseen.
+- **Which elements, and when their value is not known:**
+
+  | Element | Not known when |
+  | --- | --- |
+  | `Change in the amount used` | there is no reading before this one to compare with, or the row has no amount used: `No data`, `No usage reported` |
+  | `Time since the previous reading` | there is no reading before this one, or the application has no time for either of the two |
+  | `Request duration` | no usage request of this run has ended yet, as when the reading shown was taken from the history at startup |
+
+  `docs/img_4.png` is the case that brought this up: `No usage reported`, both changes switched on, and an empty gap
+  where the two are; there are two gray boxes there now.
+- **The other elements are as they were.** The time, the percentage, the amount used, the budget and the countdown are
+  gray boxes at the start only; after that the row has their figures, or `No data` or `No usage reported` in the
+  place of the amounts, and the percentage is not there when Anthropic reports none.
+- **A change of nothing is written, not left out.** When the amount used is the same as that of the reading before, the
+  `Change in the amount used` shows `0.00`: no sign, no currency symbol, two decimals, in the green of the other
+  figures. Before, the element was empty then. A rise is `+1.37` and a fall `-1.37`, as before.
+- **So an empty, unseen element is no more.** A switched-on figure of the row is its value or a gray box. The row
+  still does not change its width from one refresh to the next: the gray box of an element is as wide as the room the
+  element kept before.
+- **The gray box is not dimmed with the old figures** after a failed refresh; it has no figure to be old.
+- **The tooltip of the checkbox `Change in the amount used`** in the settings reads `How much the amount used has
+  changed since the reading before this one. 0.00 when it has not changed.`
+- **The history panel is not changed by this**: its columns `Δ used` and `Δ time` are as they were.
+
+### The log panel: a level to choose and the date to switch on and off
+
+- **The log panel has a line of its own at the top**, above the lines of the log, with two controls: a dropdown
+  `Level` and a checkbox `Date`. The line stays where it is while the log is scrolled. It is in the log panel only:
+  the settings view does not have the two, and the error log and the history have no such line.
+- **The dropdown has four levels**, `Error`, `Warning`, `Info` and `Debug`, in that order, from the most severe
+  to the least. The one selected is the least severe level shown, and the more severe ones are shown with it:
+
+  | Selected | Shown |
+  | --- | --- |
+  | `Error` | errors |
+  | `Warning` | errors and warnings |
+  | `Info` | errors, warnings and information |
+  | `Debug` | errors, warnings, information and debug lines: everything the file has |
+
+- **The two controls are at the left of their line**, in this order: the label `Level`, the dropdown, and the
+  checkbox with its text `Date`, written and spaced like the controls of the settings view.
+- **The dropdown has the same four levels in every run**, with `--debug` and without it. The level `Debug` has
+  nothing to do with debug mode.
+- **After a change of the level or of the date the log stands at the top**, at its newest line, whatever it was
+  scrolled to before.
+- **`Debug` is in the list although the program writes no debug lines today.** It writes at three levels, error,
+  warning and information, so for now `Debug` shows what `Info` shows. The level is there so that a debug line, once
+  the program writes one, can be shown and can be left out; it is written to the file like every other level, whatever
+  the dropdown says, and is not shown with `Info`, which is the default.
+- **A line of a level that is none of the four**, should the file ever hold one, is shown with `Debug` only.
+- **The dropdown chooses what is shown, not what is written.** It does not make the program log more or less.
+
+- **A selection takes effect at once**, on the log that is shown, without a button to press and without closing the
+  panel.
+- **An entry is shown or left out whole.** The lines that belong to an entry, a stack trace or the response JSON, go
+  with the line that begins it. Lines the panel cannot give a level, those before the first entry of what was read
+  (see The log, exactly), are shown with `Info` and with `Debug`, and with neither of the other two.
+- **The 1,000 lines are 1,000 lines of the level selected.** The filter comes first: of the last 512 kilobytes of the
+  file, the newest 1,000 lines that the level lets through are shown, so `Error` shows up to 1,000 lines of errors
+  and not what is left of the newest 1,000 of everything. The note above the lines, `Showing the newest N lines of
+  the log.`, counts the lines shown and is there when lines of the level were left out.
+- **When the file has lines and none of the level**, the panel says `The log has no lines at this level.` in the
+  blue of its other notes.
+- **The checkbox `Date` shows or hides the date of each line.** Off, the line begins with its time:
+  `2026-10-11 13:24:05 INFO    [Name] message` is shown as `13:24:05 INFO    [Name] message`. On, the line is as
+  it is in the file. The time is always there. The lines that follow in an entry have no date and are not changed.
+  Like the level, it takes effect at once.
+- **Only what is shown changes.** The log file is written as before, every level and the full date; the line that
+  begins a run is marked as before, with or without its date.
+- **The defaults are `Info` and the date off.** So the panel shows every line the program writes today, as before,
+  and, other than before, without the date.
+- **Both are remembered.** A change is saved at once, in `settings.json` with the other settings, under the keys
+  `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate` (true or false), and the next time the
+  panel is shown, in this run or the next, it comes up with what was saved. A value in the file that is none of the
+  four has the default, as any other value that is out of range. There is no `Apply` and no `Cancel` for them.
+- **The settings view leaves them alone**: they are not in it, saving it does not change them, and its
+  `Restore defaults` does not put them back.
+- **When a change cannot be saved**, it still holds for the panel as it is shown, and a red line says
+  `The log settings could not be saved: <reason>`.
+- **The error log panel is not changed by this.** It lists the failed refreshes of the run, as before, whatever level
+  is selected for the log, and its times have no date, as before.
+- **The window is not sized to the line**: the log panel is as wide and as tall as before, and the line of the two
+  controls takes its height from the lines of the log.
+
 ## Details of the behaviour
 
 These are things the program does that the sections above do not say, written down so that the requirements are the whole of it.
