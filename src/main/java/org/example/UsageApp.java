@@ -8,6 +8,8 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.scene.Scene;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -134,6 +136,48 @@ public class UsageApp extends Application {
         stage.show();
         bringToFront();
         keepFitting(webView);
+        letTheWindowBeDragged(webView);
+    }
+
+    /** The move that is under way, from the press of the mouse button that began it; {@code null} when there is none. */
+    private WindowDrag drag;
+
+    /**
+     * Lets a window with no title bar be moved by dragging it: the button pressed anywhere in it but on a button, and the
+     * mouse moved with the button held. A window with its title bar is moved by that, and a drag inside it moves nothing.
+     * The page says whether a press is on something of its own to press, so a button does what it does and begins no move.
+     * The moves are kept from the page while the window follows them, so that it does not select its text meanwhile; the
+     * press and the release reach it as always.
+     */
+    private void letTheWindowBeDragged(WebView webView) {
+        webView.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            drag = null;
+            if (event.getButton() == MouseButton.PRIMARY && !StageSwap.hasTitleBar(stage) && beginsADrag(webView, event.getX(), event.getY())) {
+                drag = new WindowDrag(event.getScreenX(), event.getScreenY(), stage.getX(), stage.getY());
+            }
+        });
+        webView.addEventFilter(MouseEvent.MOUSE_DRAGGED, event -> {
+            // The title bar may have come meanwhile, with a panel: the move ends there.
+            if (drag == null || StageSwap.hasTitleBar(stage)) {
+                drag = null;
+                return;
+            }
+            WindowDrag.Place place = drag.at(event.getScreenX(), event.getScreenY());
+            stage.setX(place.x());
+            stage.setY(place.y());
+            event.consume();
+        });
+        webView.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> drag = null);
+    }
+
+    /** Whether a press at this place of the page begins a move of the window; it does not where the page has something to press. */
+    private static boolean beginsADrag(WebView webView, double x, double y) {
+        try {
+            return Boolean.TRUE.equals(webView.getEngine().executeScript("window.dragStartsAt(" + x + ", " + y + ")"));
+        } catch (RuntimeException e) {
+            // The page is not there yet, or not the one expected: nothing to move by.
+            return false;
+        }
     }
 
     /**

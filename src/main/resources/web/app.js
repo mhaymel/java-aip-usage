@@ -814,6 +814,16 @@
      * person's to change from there; with the log the width is three times the row's, and that is
      * theirs too. The page never reports the size the window was dragged to.
      */
+    /**
+     * Whether a press of the mouse at this place of the page, in CSS pixels, may begin a move of the window. The host asks
+     * when the window has no title bar, and moves it by a drag that begins where this says yes: anywhere but on something
+     * that is pressed for its own sake, a button of the row or a control. A press there does what it always did.
+     */
+    window.dragStartsAt = function (x, y) {
+        var at = document.elementFromPoint(x, y);
+        return !(at && at.closest && at.closest('button, select, input, textarea, label, a'));
+    };
+
     window.contentSize = function () {
         var box = $('top').getBoundingClientRect();
         // The red border of the fake backend is round everything: the window is larger by it, so that nothing is covered.

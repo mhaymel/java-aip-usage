@@ -1107,6 +1107,25 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   fraction of a pixel inside them; the same holds for the red border of the fake backend round the row.
 - It is there since version 0.42.
 
+### Dragging the window that has no title bar
+
+- **While the window has no title bar it is moved by dragging it**: the mouse button pressed anywhere inside the
+  window, and the mouse moved with the button held, moves the window with it; releasing the button leaves it there.
+- **The buttons are as they were** (the window can be dragged since version 0.43). A press on a button of the row, the refresh button, the log, history and error log
+  buttons, the gear and the debug button, does what the button does and never begins a drag.
+- **A press with no movement does nothing**: the window does not move, and no tooltip, hover or countdown line is lost
+  by it.
+- **Anywhere else inside the border begins a drag**: the figures, the gray boxes, the room between the elements, a
+  message line, and the border itself, the red one of the fake backend included.
+- **The left mouse button only.** Another button moves nothing.
+- **While the window is dragged the page is not told of the moves**, so the text of the row is not selected by a drag
+  that moves the window; the press and the release reach it as always.
+- **Only without the title bar.** With the title bar the window is moved by it, and a drag inside the window moves
+  nothing; so nothing changes while a panel is shown.
+- **The window stays where it was dropped** for the run, also when the title bar comes and goes for a panel. Where it
+  was is not remembered for the next start: the program starts where it always does. (Remembering the position was
+  considered and decided against.)
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1199,27 +1218,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## Dragging without the title bar, debug lines, the format error, and select all
+## Debug lines, the format error, and select all
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.42; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.43; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 55 to 58).
-
-### Dragging the window that has no title bar
-
-- **While the window has no title bar it is moved by dragging it**: the mouse button pressed anywhere inside the
-  window, and the mouse moved with the button held, moves the window with it; releasing the button leaves it there.
-- **The buttons are as they were.** A press on a button of the row, the refresh button, the log, history and error log
-  buttons, the gear and the debug button, does what the button does and never begins a drag.
-- **A press with no movement does nothing**: the window does not move, and no tooltip, hover or countdown line is lost
-  by it.
-- **Anywhere else inside the border begins a drag**: the figures, the gray boxes, the room between the elements, a
-  message line, and the border itself, the red one of the fake backend included.
-- **Only without the title bar.** With the title bar the window is moved by it, and a drag inside the window moves
-  nothing; so nothing changes while a panel is shown.
-- **The window stays where it was dropped** for the run, also when the title bar comes and goes for a panel. Where it
-  was is not remembered for the next start: the program starts where it always does. (Remembering the position was
-  considered and decided against.)
+when it is built (see the implementation plan, phases 56 to 58).
 
 ### Debug lines in the log
 

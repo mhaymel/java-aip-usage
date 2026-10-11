@@ -2678,3 +2678,21 @@ test('the border of a window with no title bar is left out while the red border 
     assert.doesNotMatch(page.el('app').className, /\bfake\b/);
     assert.equal(page.window.contentSize(), '402,44,0');
 });
+
+// ---- the window with no title bar is moved by dragging it: the page says where a drag may begin
+
+test('a drag may begin anywhere but on a button or a control', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    const hit = selectorHit => ({ closest: selector => (selector.split(/,\s*/).includes(selectorHit) ? {} : null) });
+    const asked = [];
+    const under = { '10,20': hit('span'), '200,20': hit('button'), '250,300': hit('select'), '260,300': hit('input'), '270,300': hit('label') };
+    global.document.elementFromPoint = (x, y) => { asked.push(x + ',' + y); return under[x + ',' + y] || null; };
+
+    assert.equal(page.window.dragStartsAt(10, 20), true, 'a figure of the row');
+    assert.equal(page.window.dragStartsAt(200, 20), false, 'a button of the row, or the icon in it: it does what it does');
+    assert.equal(page.window.dragStartsAt(250, 300), false, 'a dropdown');
+    assert.equal(page.window.dragStartsAt(260, 300), false, 'a checkbox or a field');
+    assert.equal(page.window.dragStartsAt(270, 300), false, 'the text of a checkbox');
+    assert.equal(page.window.dragStartsAt(5, 5), true, 'the border, or the room between the elements: nothing of the page is there');
+    assert.deepEqual(asked, ['10,20', '200,20', '250,300', '260,300', '270,300', '5,5'], 'the place is asked as given');
+});

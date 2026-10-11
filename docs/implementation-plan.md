@@ -1311,14 +1311,25 @@ bottom edge of the window in the probe; the window of a settings view is rounded
 
 ### 55. Dragging the window that has no title bar
 
-**Status: specified, not built (version 0.43).**
+**Status: built (version 0.43).** Requirement: Dragging the window that has no title bar.
 
-- **The host moves the window.** `UsageApp` listens to the mouse on the `WebView`: pressed, it notes where; dragged, it
-  moves the stage by the difference, only while the stage has no title bar. Whether the press was on a button is asked of
-  the page, or the page tells the host that a drag may begin; which of the two is decided when it is built.
-- **Tests.** The part that decides is tested without a window; the on-request window test moves the window.
+- **The host moves the window.** `UsageApp.letTheWindowBeDragged` puts three event filters on the `WebView`, which stays
+  the same node when the window is exchanged for the title bar: pressed, with the left button and no title bar, it asks
+  the page whether a move may begin there and notes where the mouse and the window are (`WindowDrag`); dragged, it puts
+  the window where `WindowDrag` says and consumes the event; released, the move is over.
+- **The page says where.** `window.dragStartsAt(x, y)`: not on a button or a control (`docs/api.md`, Window host
+  contract). That was the open choice of the plan; the host asks at each press, so the page tells it nothing in advance.
+- **Nothing is consumed but the moves of a drag that moves the window**, so a button gets its press and its release as
+  before.
+- **Tests.** `WindowDragTest` for the arithmetic; `app.test.cjs` for where a drag may begin.
+- **In a real window** (the on-request test, title bar off), with mouse events made by the test: a drag of 40 by 25 pixels
+  that begins on the time moves the window by 40 and 25, and so does one that begins at the edge of the window; one that
+  begins on the gear or on the refresh button moves nothing; with the history shown, and so the title bar, a drag on the
+  time moves nothing. It passes.
 
-*Risk:* the WebView takes mouse events for the page; a drag must not swallow the clicks of the buttons.
+**Not checked by a test.** A drag with a real mouse: the events of the test are made by the program and handed to the
+`WebView`, which is where the system's events arrive too, but nobody held a mouse. Whether a click on a button still feels
+as it did, and a drag over several screens.
 
 ### 56. Debug lines
 

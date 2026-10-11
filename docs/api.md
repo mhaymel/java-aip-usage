@@ -277,7 +277,7 @@ do (for example log in with Claude Code).
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.42", "..."],
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.43", "..."],
   "hidden": false,
   "level": "info",
   "date": false
@@ -415,6 +415,13 @@ between 160 x 32 and 2400 x 1600, and does not apply a size twice; a change of t
 such as the future Go one, needs only to call the function and resize.
 
 The page exposes nothing else to its host, and the host exposes nothing to the page.
+
+The host also asks the page where a move of the window may begin. While the window has no title bar, a press of the
+left mouse button calls `window.dragStartsAt(x, y)`, with the place of the press in CSS pixels. The page answers `true`
+anywhere but on something that is pressed for its own sake, a `button`, a `select`, an `input`, a `textarea`, a
+`label` or a link, and anything inside one. On `true` the host moves the window with the mouse for as long as the
+button is held, and keeps those moves of the mouse from the page; an answer that is not `true`, or a page that has no
+such function, begins no move.
 
 ## Protections
 

@@ -45,9 +45,16 @@ public final class UsageAppProbe {
         try {
             Thread.sleep(5000);
             step("start", null);
+            // No title bar: the window is moved by a drag that begins on a figure, and not by one that begins on a button.
+            drag("drag-figure", "time");
+            drag("drag-gap", null);
+            drag("drag-button", "settings-button");
+            drag("drag-refresh", "refresh");
             step("settings", "settings-button");
             step("settings-left", "settings-cancel");
             step("history", "history-button");
+            // A panel is shown, so the title bar is there: a drag inside the window moves nothing.
+            drag("drag-with-title-bar", "time");
             step("history-closed", "history-button");
             step("log", "log-button");
             // The two choices of the log panel: the date on, then warnings and worse only.
@@ -133,6 +140,46 @@ public final class UsageAppProbe {
                     + " end");
             System.out.flush();
         });
+    }
+
+    /**
+     * Presses the mouse button in the middle of the named element of the page, or at the left edge of the window for
+     * none, moves the mouse by 40 and 25 pixels in three steps with the button held, releases it, and says by how much
+     * the window moved and whether the page has a panel open afterwards (a button that was pressed would have opened one).
+     */
+    private static void drag(String name, String id) throws InterruptedException {
+        double[] before = new double[2];
+        onFx(() -> {
+            WebView view = page();
+            Object at = id == null ? "1,10" : view.getEngine().executeScript(
+                    "(function () { var b = document.getElementById('" + id + "').getBoundingClientRect();"
+                            + " return Math.round(b.left + b.width / 2) + ',' + Math.round(b.top + b.height / 2); })()");
+            double x = Double.parseDouble(at.toString().split(",")[0]);
+            double y = Double.parseDouble(at.toString().split(",")[1]);
+            before[0] = window().getX();
+            before[1] = window().getY();
+            javafx.geometry.Point2D screen = view.localToScreen(x, y);
+            fire(view, javafx.scene.input.MouseEvent.MOUSE_PRESSED, x, y, screen.getX(), screen.getY(), true);
+            for (int i = 1; i <= 3; i++) {
+                double dx = 40.0 * i / 3;
+                double dy = 25.0 * i / 3;
+                fire(view, javafx.scene.input.MouseEvent.MOUSE_DRAGGED, x + dx, y + dy, screen.getX() + dx, screen.getY() + dy, true);
+            }
+            fire(view, javafx.scene.input.MouseEvent.MOUSE_RELEASED, x + 40, y + 25, screen.getX() + 40, screen.getY() + 25, false);
+        });
+        Thread.sleep(500);
+        onFx(() -> {
+            System.out.println("PROBE " + name + "=moved:" + Math.round(window().getX() - before[0]) + "," + Math.round(window().getY() - before[1])
+                    + " hasTitleBar:" + StageSwap.hasTitleBar(window())
+                    + " panel:" + page().getEngine().executeScript("!document.getElementById('panel').hidden"));
+            System.out.flush();
+        });
+    }
+
+    private static void fire(WebView view, javafx.event.EventType<javafx.scene.input.MouseEvent> type, double x, double y,
+            double screenX, double screenY, boolean down) {
+        javafx.event.Event.fireEvent(view, new javafx.scene.input.MouseEvent(type, x, y, screenX, screenY,
+                javafx.scene.input.MouseButton.PRIMARY, 1, false, false, false, false, down, false, false, true, false, false, null));
     }
 
     private static Stage window() {

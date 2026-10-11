@@ -86,6 +86,14 @@ class TitleBarWindowTest {
             assertTrue(line(all, open).contains("titleBar:true"), open + ": a panel is open, so the title bar is there:\n" + all);
             assertTrue(line(all, open).contains("," + open + " "), open + ": and the page names it:\n" + all);
         }
+        // With no title bar the window is moved by dragging it, from a figure and from its edge, and not from a button; with
+        // the title bar a drag inside it moves nothing.
+        assertEquals("moved:40,25 hasTitleBar:false panel:false", line(all, "drag-figure").substring("PROBE drag-figure=".length()), all);
+        assertEquals("moved:40,25 hasTitleBar:false panel:false", line(all, "drag-gap").substring("PROBE drag-gap=".length()), all);
+        assertTrue(line(all, "drag-button").contains("moved:0,0 "), "a press on the gear begins no move:\n" + all);
+        assertTrue(line(all, "drag-refresh").contains("moved:0,0 "), "nor does one on the refresh button:\n" + all);
+        assertEquals("moved:0,0 hasTitleBar:true panel:true", line(all, "drag-with-title-bar").substring("PROBE drag-with-title-bar=".length()), all);
+
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.
         assertTrue(line(all, "log").contains(" logControls:true "), all);
         assertTrue(line(all, "log").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), "information is shown, and the lines begin with the time:\n" + all);
