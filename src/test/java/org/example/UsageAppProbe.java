@@ -72,8 +72,9 @@ public final class UsageAppProbe {
             step("errors-closed", "errors-button");
             // The settings with every element of the row hidden: the view is far wider than the row then.
             step("settings-again", "settings-button");
-            onFx(() -> page().getEngine().executeScript(
-                    "Array.prototype.forEach.call(document.querySelectorAll(\"#settings-form input[id^='set-show']\"), function (box) { if (box.checked && box.id !== 'set-showTitleBar' && box.id !== 'set-showCurrency') { box.click(); } });"));
+            // By the button of Main view: not every element is on, so the first press switches all on, and the second all off.
+            step("settings-all", "set-all");
+            onFx(() -> page().getEngine().executeScript("document.getElementById('set-all').click()"));
             step("settings-narrow", null);
             step("settings-narrow-left", "settings-cancel");
             // Debug mode: the debug settings, and the fake backend switched off and on again while the program runs.
@@ -137,6 +138,11 @@ public final class UsageAppProbe {
                             "(function () { var u = document.getElementById('used'), c = getComputedStyle(u);"
                                     + " return u.className + '|' + c.borderTopWidth + '|' + c.borderTopColor + '|' + u.title + '|'"
                                     + " + document.querySelector('.strip').textContent.replace(/\\u00a0/g, '').replace(/\\s+/g, ' ').trim(); })()") + "]"
+                    // The button of Main view: its size, and how far its middle is from the middle of the heading it is in.
+                    + " allButton:" + page().getEngine().executeScript(
+                            "(function () { var b = document.getElementById('set-all').getBoundingClientRect(), l = document.getElementById('set-all').parentNode.getBoundingClientRect();"
+                                    + " return Math.round(b.width) + 'x' + Math.round(b.height) + '/' + Math.round(Math.abs((b.top + b.bottom) / 2 - (l.top + l.bottom) / 2)) + '/' + Math.round(l.height)"
+                                    + " + '/' + document.querySelectorAll('#settings-form input[id^=set-show]:checked').length; })()")
                     + " end");
             System.out.flush();
         });

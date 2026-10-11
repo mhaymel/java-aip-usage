@@ -277,6 +277,21 @@ test('the log panel has a line at its top with the level and the date, at the le
     assert.match(css, /\.log-controls select,\s*\.settings select\s*{/, 'and its dropdown is the settings\' dropdown');
 });
 
+test('the heading of Main view has a small button with an icon and no text that selects every element, or none', () => {
+    const legend = html.slice(html.indexOf('<legend>Main view'), html.indexOf('</legend>', html.indexOf('<legend>Main view')));
+    assert.match(legend, /^<legend>Main view<button id="set-all" class="select-all" type="button"/, 'in the line of the heading, after it');
+    assert.match(legend, /title="Select every element, or none"/);
+    assert.match(legend, /aria-label="Select every element, or none"/, 'it has no text, so it has a name');
+    assert.match(legend, /<rect x="2" y="2" width="12" height="12" rx="2"\/>\s*<path d="M5 8\.2l2\.2 2\.3L11 5\.6"\/>/, 'a square with a tick in it');
+    assert.equal(legend.replace(/<svg[\s\S]*<\/svg>/, '').replace(/<[^>]*>/g, '').trim(), 'Main view', 'no text but the heading');
+    assert.equal((html.match(/class="select-all"/g) || []).length, 1, 'Main view alone has one');
+
+    const rule = ruleOf('.settings .select-all');
+    assert.match(rule, /border-color:\s*transparent/, 'an icon, not a boxed button like Apply');
+    assert.match(rule, /color:\s*CanvasText/);
+    assert.match(rule, /margin-left:\s*\d+px/, 'at the right of the heading');
+});
+
 test('an error in the panel is red', () => {
     assert.match(ruleOf('.panel-error'), /color:\s*var\(--bad\)/);
 });
@@ -549,7 +564,7 @@ test('the currency is the right-most column of the history, with the change colu
     }
 });
 
-const MAIN = html.slice(html.indexOf('<legend>Main view</legend>'), html.indexOf('<legend>History view</legend>'));
+const MAIN = html.slice(html.indexOf('<legend>Main view'), html.indexOf('<legend>History view</legend>'));
 const MAIN_CHECKBOXES = [
     ['set-showTime', 'Time'], ['set-showPercentage', 'Percentage spent'], ['set-showUsed', 'Amount used'], ['set-showLimit', 'Budget'],
     ['set-showRefresh', 'Refresh button'], ['set-showCountdown', 'Countdown'], ['set-showInterval', 'Interval'],
@@ -593,7 +608,7 @@ test('the time format is beside the Time checkbox and the currency symbol beside
 });
 
 test('the settings have a group Window, after Main view and before History view, with Title bar and Stay on top', () => {
-    const order = ['<legend>Request</legend>', '<legend>Main view</legend>', '<legend>Window</legend>', '<legend>History view</legend>', '<legend>Log</legend>']
+    const order = ['<legend>Request</legend>', '<legend>Main view', '<legend>Window</legend>', '<legend>History view</legend>', '<legend>Log</legend>']
         .map(legend => html.indexOf(legend));
     assert.ok(order.every(p => p >= 0));
     assert.deepEqual([...order].sort((a, b) => a - b), order);
@@ -629,7 +644,7 @@ test('the highlighted note is blue, in a colour of its own for each theme, and c
 });
 
 test('the interval is one entry field with its unit, in the Request section', () => {
-    const request = html.slice(html.indexOf('<legend>Request</legend>'), html.indexOf('<legend>Main view</legend>'));
+    const request = html.slice(html.indexOf('<legend>Request</legend>'), html.indexOf('<legend>Main view'));
     assert.match(request, /<input id="set-usageIntervalSeconds" type="text"/);
     assert.match(request, /> s<\/label>/, 'the unit s beside it');
     assert.equal((request.match(/<select/g) || []).length, 0, 'no dropdown');

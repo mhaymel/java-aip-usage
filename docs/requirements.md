@@ -1004,6 +1004,20 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   seconds.`; the currency symbol, `Puts the currency symbol before the amount used and the budget: the dollar sign for
   US dollars, the code for any other currency.`
 
+### A button that selects every element of `Main view`, or none
+
+- **The group `Main view` of the settings has a small button** (since version 0.46) in the line of its heading, at the right of the
+  heading. It is an icon with no text: a small square with a tick in it, drawn like the icons of the row, and the same
+  whatever is selected. Its tooltip is `Select every element, or none`. It has no border but
+  while the mouse is on it, and is no taller than the heading.
+- **A click switches the thirteen checkboxes of the elements**: when every one of them is on, all are switched off;
+  otherwise all are switched on. So with none on, and with some on, a click switches all on.
+- **The two properties are not touched**: `Currency symbol` and the time format stay as they are.
+- **It is a click like any other in `Main view`**: the row shows it at once, as a preview, and it is saved when the
+  view is saved, by `Apply` or by leaving through a button of the row; `Cancel` puts the row back.
+- **The three panel buttons follow as for a click on their own checkbox**: the button of a panel that is open stays
+  until the panel is closed.
+
 ### A click is shown in the row at once
 
 - **A click on a checkbox of `Main view` changes the row at once**, while the settings are still
@@ -1166,6 +1180,13 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   changed.`
 - In the file the word for the level of an error is `SEVERE`; the log panel shows the line at every level.
 
+### The title bar is not previewed
+
+- **`Title bar` takes effect when the settings are saved, not when it is clicked.** It was considered, with the
+  requirements of version 0.41 to 0.46, to let a click
+  change the window at once, and decided against: while the settings are shown the window has its title bar whatever
+  the setting says, so a click could not be seen. It stays as Settings describes it.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1257,31 +1278,6 @@ backend switched while the program runs, and the mark that says its figures are 
   (see `docs/img_3.png`, taken with every element of the row hidden).
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
-
-## Select all
-
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.45; where
-this section says otherwise, this section is what is to be built. It moves into the description of the program
-when it is built (see the implementation plan, phase 58).
-
-### A button that selects every element of `Main view`, or none
-
-- **The group `Main view` of the settings has a small button** in the line of its heading, at the right of the
-  heading. It is an icon with no text: a small square with a tick in it, drawn like the icons of the row, and the same
-  whatever is selected. Its tooltip is `Select every element, or none`.
-- **A click switches the thirteen checkboxes of the elements**: when every one of them is on, all are switched off;
-  otherwise all are switched on.
-- **The two properties are not touched**: `Currency symbol` and the time format stay as they are.
-- **It is a click like any other in `Main view`**: the row shows it at once, as a preview, and it is saved when the
-  view is saved, by `Apply` or by leaving through a button of the row; `Cancel` puts the row back.
-- **The three panel buttons follow as for a click on their own checkbox**: the button of a panel that is open stays
-  until the panel is closed.
-
-### The title bar is not previewed
-
-- **`Title bar` takes effect when the settings are saved, not when it is clicked.** It was considered to let a click
-  change the window at once, and decided against: while the settings are shown the window has its title bar whatever
-  the setting says, so a click could not be seen. It stays as Settings describes it.
 
 ## Details of the behaviour
 

@@ -2696,3 +2696,70 @@ test('a drag may begin anywhere but on a button or a control', async () => {
     assert.equal(page.window.dragStartsAt(5, 5), true, 'the border, or the room between the elements: nothing of the page is there');
     assert.deepEqual(asked, ['10,20', '200,20', '250,300', '260,300', '270,300', '5,5'], 'the place is asked as given');
 });
+
+// ---- the button of Main view that selects every element of the row, or none
+
+const ELEMENTS = ['showTime', 'showPercentage', 'showUsed', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed',
+    'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
+const checkedOf = page => ELEMENTS.filter(key => page.el('set-' + key).checked);
+
+test('the button switches every element on when not all are on, and all off when all are, and leaves the two properties alone', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.ok(checkedOf(page).length > 0 && checkedOf(page).length < 13, 'some are on at the start');
+    const currency = page.el('set-showCurrency').checked;
+    const format = page.el('set-timeFormat').value;
+
+    await page.click('set-all');
+    assert.deepEqual(checkedOf(page), ELEMENTS, 'all thirteen on');
+
+    await page.click('set-all');
+    assert.deepEqual(checkedOf(page), [], 'all on, so all off');
+
+    await page.click('set-all');
+    assert.deepEqual(checkedOf(page), ELEMENTS, 'none on is not all on: all on again');
+
+    page.el('set-showInterval').checked = false;
+    await page.click('set-all');
+    assert.deepEqual(checkedOf(page), ELEMENTS, 'one off: all on');
+
+    assert.equal(page.el('set-showCurrency').checked, currency, 'the currency symbol is not an element');
+    assert.equal(page.el('set-timeFormat').value, format);
+    assert.equal(page.calls.filter(c => c.method === 'POST').length, 0, 'nothing is sent by the button');
+});
+
+test('what the button does is shown in the row at once, saved with the view, and put back by Cancel', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    assert.equal(page.el('delta-used').hidden, true, 'the row is the backend\'s until something is clicked');
+
+    await page.click('set-all');
+    assert.equal(page.el('percent').hidden, false, 'the percentage is in the row before anything is saved');
+    assert.equal(page.el('delta-used').hidden, false);
+
+    await page.click('set-all');
+    for (const id of ['time', 'spend', 'refresh', 'countdown', 'interval', 'delta-used', 'delta-time', 'duration', 'log-button', 'history-button', 'errors-button']) {
+        assert.equal(page.el(id).hidden, true, id + ' is gone from the row');
+    }
+    assert.equal(page.el('settings-button').hidden, false, 'the gear is always there');
+
+    await page.click('settings-cancel');
+    assert.equal(page.el('time').hidden, false, 'Cancel gives the row back');
+    assert.equal(page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST').length, 0);
+
+    await page.click('settings-button');
+    await page.click('set-all');
+    await page.click('settings-apply');
+    const sent = JSON.parse(page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST')[0].body);
+    assert.deepEqual(ELEMENTS.filter(key => sent[key] === true), ELEMENTS, 'saved as any other click is');
+});
+
+test('the button does nothing before the settings have been read', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('set-all');
+
+    assert.deepEqual(checkedOf(page), []);
+    assert.equal(page.el('time').hidden, false, 'the row is as it was');
+});

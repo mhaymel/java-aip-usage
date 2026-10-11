@@ -1364,12 +1364,21 @@ process.
 
 ### 58. Select every element, or none
 
-**Status: specified, not built (version 0.46).**
+**Status: built (version 0.46).** Requirement: A button that selects every element of `Main view`, or none.
 
-- **The page.** A button in the legend of `Main view`, with an icon of its own, a square with a tick; it sets the thirteen checkboxes of `MAIN_FLAGS` that are elements and
-  calls the preview. The settings' least width is measured with it.
-- **Tests.** `app.test.cjs`: all on from a mixed state, all off from all on, the two properties untouched, the preview, the
-  save and `Cancel`. `layout.test.cjs`: where the button is, that it has no text and has its tooltip.
+- **The page.** `set-all`, a button inside the legend of `Main view`, with an icon of its own, a square with a tick.
+  `selectAllOrNone` sets the thirteen checkboxes of `ELEMENT_FLAGS`, which is `MAIN_FLAGS` without the currency symbol,
+  and calls the preview; nothing else is new, so saving, `Cancel` and the panel buttons are those of any click.
+- **Tests.** `app.test.cjs`: all on from some, all off from all, all on from none and from all but one; the two
+  properties untouched; the row at once; `Cancel`; the save; nothing before the settings are read. `layout.test.cjs`:
+  where the button is, its icon, its tooltip and name, no text.
+- **In a real window** (the on-request test): the button is 16 by 16 pixels with its middle a pixel from the middle of
+  the heading; a press with eight elements on switches all thirteen on and the window is as wide as the row then needs;
+  another switches all off. It passes.
+
+**Not checked by a test.** How the icon looks beside the heading.
+
+The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built
 

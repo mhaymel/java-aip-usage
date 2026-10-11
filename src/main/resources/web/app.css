@@ -308,6 +308,21 @@ body {
 }
 
 /*
+ * The button in the heading of Main view that selects every element of the row, or none: an icon and no text, at the right
+ * of the heading and no taller than it, with a border only while the mouse is on it.
+ */
+.settings .select-all {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    padding: 1px;
+    line-height: 0;
+    vertical-align: middle;
+    color: CanvasText;
+    border-color: transparent;
+}
+
+/*
  * A checkbox and its text, or a label and its box and dropdown, are centred on each other vertically, so that nothing sits higher or
  * lower than its label.
  */

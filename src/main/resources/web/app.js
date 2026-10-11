@@ -264,6 +264,8 @@
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
     var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
+    // The thirteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
+    var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
     var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']);
 
     /**
@@ -286,6 +288,20 @@
             }
         };
         render();
+    }
+
+    /**
+     * The button in the heading of Main view: switches every element of the row on, or, when every one is on already, all of
+     * them off. The two properties, the currency symbol and the time format, are left as they are. The row shows it at once,
+     * like a click on a checkbox, and it is saved when the view is.
+     */
+    function selectAllOrNone() {
+        if (openPanel !== 'settings' || settingsShown === null) {
+            return;
+        }
+        var allOn = ELEMENT_FLAGS.every(function (key) { return Boolean($('set-' + key).checked); });
+        ELEMENT_FLAGS.forEach(function (key) { $('set-' + key).checked = !allOn; });
+        previewNow();
     }
 
     /** The interval is one entry field for a whole number of seconds; it shows the value in force, which is what the backend has. */
@@ -915,6 +931,7 @@
         $('countdown').addEventListener('mouseenter', function () { hoveringCountdown = true; render(); });
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
         $('settings-restore').addEventListener('click', restoreDefaults);
+        $('set-all').addEventListener('click', selectAllOrNone);
         $('settings-cancel').addEventListener('click', cancelSettings);
         MAIN_FLAGS.forEach(function (key) { $('set-' + key).addEventListener('change', previewNow); });
         $('set-timeFormat').addEventListener('change', previewNow);
