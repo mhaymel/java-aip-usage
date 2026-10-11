@@ -183,7 +183,7 @@ final class ApiHandler implements HttpHandler {
                 s.showErrorIcon(), s.showInterval(), s.showDeltaUsed(),
                 s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate(),
                 s.historyZeroLines(), s.historyFailedLines(), s.showTime(), s.showUsed(), s.showLimit(), s.showRefresh(), s.showCountdown(),
-                s.showDuration(), s.stayOnTop());
+                s.showDuration(), s.stayOnTop(), s.showTitleBar());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -218,7 +218,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showRefresh"),
                     flag(body, "showCountdown"),
                     flag(body, "showDuration"),
-                    flag(body, "stayOnTop"));
+                    flag(body, "stayOnTop"),
+                    flag(body, "showTitleBar"));
             settings.apply(given);
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
@@ -536,7 +537,8 @@ final class ApiHandler implements HttpHandler {
             boolean showRefresh,
             boolean showCountdown,
             boolean showDuration,
-            boolean stayOnTop) {
+            boolean stayOnTop,
+            boolean showTitleBar) {
     }
 
     record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits) {

@@ -66,7 +66,8 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "showRefresh": true,
     "showCountdown": true,
     "showDuration": false,
-    "stayOnTop": false
+    "stayOnTop": false,
+    "showTitleBar": true
   },
   "defaults": { "...": "the same keys, with the defaults" },
   "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } }
@@ -248,7 +249,7 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.35", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.36", "..."]
 }
 ```
 
@@ -356,15 +357,15 @@ the row's *as it was when the panel opened*, which it keeps reporting whatever t
 message line coming or going does not move the window; and a width of the row's plus the width of the
 panel's vertical scrollbar, which the page measures and always reserves (three rows plus it for the log).
 Those are the starting point, not the size the window was dragged to. While the settings are shown it
-reports flag `3` and the height of the whole page, the row and its message lines and the settings, so the
-window is exactly as tall as they need, and follows them. An optional last field names the panel: `415,420,1,history`,
+reports flag `3`, the name `settings` (`520,658,3,settings`) and the height of the whole page, the row and its message lines and the settings, so the
+window is exactly as tall as they need, and follows them. The last field names the panel that is open, and is left out when none is: `415,420,1,history`,
 `1215,420,2,log` or `615,420,2,errors` (the error log is half as wide as the log, rounded up). For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
 is whole. The host (`WindowFit`) remembers the height of the history and of the log, in the settings
-file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
+file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. For as long as a panel is named the host gives the window its title bar, whatever the setting `showTitleBar` says, and with none named it follows the setting. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
 resize only what it is told may be: nothing for `0` and `3`, the height for `1`, the height and the width for `2`, and never
 below the size last reported with `0`. The page measures its own content, never the window, so resizing the
 window to match does not change the answer. The Java host (`WindowFit`) ignores anything that is not that
-shape (a width or a height of 0 or of more than five digits, a panel name other than the three), keeps the size it sets
+shape (a width or a height of 0 or of more than five digits, a panel name other than `history`, `log`, `errors`, `settings` and `debug`), keeps the size it sets
 between 160 x 32 and 2400 x 1600, and does not apply a size twice; a change of the flag or of the panel alone counts as a new size. A different host,
 such as the future Go one, needs only to call the function and resize.
 

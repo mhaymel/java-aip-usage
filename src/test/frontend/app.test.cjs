@@ -145,7 +145,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true,
 };
 const SETTINGS = {
     settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showInterval: true, timeFormat: 'hh:mm:ss' },
@@ -859,7 +859,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
     assert.equal(page.el('settings-view').hidden, true, 'Apply closes the view');
@@ -978,7 +978,7 @@ test('with the settings shown the window is exactly as tall as the page needs, t
 
     await page.click('settings-button');
 
-    assert.equal(page.window.contentSize(), '400,613,3', 'the whole page, rounded up; flag 3: fitted and not resizable');
+    assert.equal(page.window.contentSize(), '400,613,3,settings', 'the whole page, rounded up; flag 3: fitted and not resizable');
     assert.match(page.el('app').className, /\bfit\b/);
     assert.doesNotMatch(page.el('app').className, /\bopen\b/, 'it does not fill the window, or its height would be the window\'s');
 });
@@ -989,14 +989,14 @@ test('the settings window follows the page when a message line appears, grows or
     page.el('top').rect = { width: 399.2, height: 41.5 };
     page.el('app').rect = { width: 399.2, height: 600 };
     await page.click('settings-button');
-    assert.equal(page.window.contentSize(), '400,600,3');
+    assert.equal(page.window.contentSize(), '400,600,3,settings');
 
     // A failed refresh puts a message line in the row: the page is taller by it.
     page.el('app').rect = { width: 399.2, height: 636 };
-    assert.equal(page.window.contentSize(), '400,636,3');
+    assert.equal(page.window.contentSize(), '400,636,3,settings');
 
     page.el('app').rect = { width: 399.2, height: 600 };
-    assert.equal(page.window.contentSize(), '400,600,3', 'and shorter again when it goes');
+    assert.equal(page.window.contentSize(), '400,600,3,settings', 'and shorter again when it goes');
 });
 
 test('with the history shown the height is what it was when it opened, whatever the main view does after', async () => {
@@ -1047,7 +1047,7 @@ test('the window is as wide as the row plus the scrollbar of the history and the
 
     await page.click('settings-button');
     page.el('app').rect = { width: 399.2, height: 500 };
-    assert.equal(page.window.contentSize(), '400,500,3', 'the settings do not scroll, so they take no room for one');
+    assert.equal(page.window.contentSize(), '400,500,3,settings', 'the settings do not scroll, so they take no room for one');
 });
 
 test('no scrollbar width is added when the platform has none to measure', async () => {
@@ -1274,7 +1274,7 @@ test('the history and the log name themselves to the host, which remembers their
     await page.click('log-button');
     assert.match(page.window.contentSize(), /,2,log$/);
     await page.click('settings-button');
-    assert.match(page.window.contentSize(), /,3$/, 'the settings have no remembered height');
+    assert.match(page.window.contentSize(), /,3,settings$/, 'the settings name themselves too, though no height of theirs is remembered');
 });
 
 test('a new error appears at the top of the open error log at the next poll', async () => {
@@ -1657,7 +1657,7 @@ test('the window asks for the remembered panel again when it comes back: the his
     await page.click('history-button');
     await page.click('settings-button');
     page.el('app').rect = { width: 399.2, height: 500 };
-    assert.equal(page.window.contentSize(), '400,500,3');
+    assert.equal(page.window.contentSize(), '400,500,3,settings');
 
     await page.click('settings-cancel');
 
@@ -2057,10 +2057,10 @@ test('while the settings are shown the window is as wide as they need, when that
     page.el('settings-form').rect = { left: 8, width: 500, height: 200 };
     page.el('settings-buttons').rect = { left: 8, width: 260, height: 20 };
 
-    assert.equal(page.window.contentSize(), '516,300,3', 'the form and the room at its left again at its right');
+    assert.equal(page.window.contentSize(), '516,300,3,settings', 'the form and the room at its left again at its right');
 
     page.el('settings-buttons').rect = { left: 8, width: 540, height: 20 };
-    assert.equal(page.window.contentSize(), '556,300,3', 'the buttons in one row, when they are the wider');
+    assert.equal(page.window.contentSize(), '556,300,3,settings', 'the buttons in one row, when they are the wider');
     assert.equal(page.el('settings-form').style.minWidth, '', 'the form is given back its width after the measuring');
 });
 
@@ -2071,7 +2071,7 @@ test('the settings never make the window narrower than the row, and the width go
     page.el('settings-form').rect = { left: 8, width: 200, height: 200 };
     page.el('settings-buttons').rect = { left: 8, width: 200, height: 20 };
 
-    assert.equal(page.window.contentSize(), '400,300,3', 'the row is wider');
+    assert.equal(page.window.contentSize(), '400,300,3,settings', 'the row is wider');
 
     page.el('settings-form').rect = { left: 8, width: 900, height: 200 };
     await page.click('settings-cancel');
@@ -2110,6 +2110,30 @@ test('Stay on top is a setting of the window: sent with the others, and not prev
     await page.click('settings-apply');
 
     assert.equal(JSON.parse(settingsPosts(page)[0].body).stayOnTop, true);
+});
+
+test('Title bar is a setting of the window: on by default, sent with the others, and not previewed in the row', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.el('set-showTitleBar').checked, true, 'on by default');
+    assert.equal(page.el('set-showTitleBar').listeners.change, undefined);
+
+    page.el('set-showTitleBar').checked = false;
+    await page.click('settings-apply');
+
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).showTitleBar, false);
+});
+
+test('the page names every open panel in its size, the settings too, so that the host can give the window its title bar', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    assert.match(page.window.contentSize(), /^\d+,\d+,0$/, 'no panel, no name');
+
+    for (const [button, name] of [['settings-button', 'settings'], ['log-button', 'log'], ['history-button', 'history'], ['errors-button', 'errors']]) {
+        await page.click(button);
+        assert.ok(page.window.contentSize().endsWith(',' + name), button + ': ' + page.window.contentSize());
+        await page.click(button);
+        assert.match(page.window.contentSize(), /^\d+,\d+,0$/, button + ' closed again');
+    }
 });
 
 test('the slash is there only when both amounts are, and the amounts go when all three of their figures are off', async () => {

@@ -10,6 +10,7 @@ import javafx.concurrent.Worker;
 import javafx.scene.Scene;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.util.Duration;
 
 import org.example.fake.FakeBackend;
@@ -58,6 +59,12 @@ public class UsageApp extends Application {
 
     private AppRuntime runtime;
 
+    /** The window that is showing. It is another one after the title bar has come or gone; see {@link StageSwap}. */
+    private Stage stage;
+
+    /** Whether the page last said that a panel is open, which is when the window has its title bar whatever the setting says. */
+    private boolean panelOpen;
+
     /** Only ever set by {@code --fake-backend}; null on every other run. */
     private FakeBackend fakeBackend;
 
@@ -82,7 +89,10 @@ public class UsageApp extends Application {
 
     private double decorationHeight = Double.NaN;
 
-    /** The size of the window with no panel open, as decorated; what an open one may be shrunk to. */
+    /**
+     * The size of the window's content with no panel open; with the frame added, what an open one may be shrunk to. Kept
+     * without the frame, which is another when the title bar has come or gone.
+     */
     private double closedWidth = Double.MAX_VALUE;
 
     private double closedHeight = Double.MAX_VALUE;
@@ -127,20 +137,60 @@ public class UsageApp extends Application {
         logLoadResult(webView);
         webView.getEngine().load(runtime.baseUri().toString());
 
+        this.stage = stage;
         stage.setTitle(AppInfo.windowTitle());
+        if (!runtime.settings().current().showTitleBar()) {
+            // The row alone, as configured; the style of a window is fixed before it is first shown.
+            stage.initStyle(StageStyle.UNDECORATED);
+        }
         stage.setScene(new Scene(webView, INITIAL_WIDTH, INITIAL_HEIGHT));
         // The window is as big as the page needs and no bigger, so there is nothing to drag,
         // except while a panel is shown; see resize, which sets the limits that say what may be dragged.
         stage.setResizable(true);
-        heightSettled.setOnFinished(event -> rememberDraggedHeight(stage));
-        stage.heightProperty().addListener((observable, before, after) -> {
-            if (!applying && rememberedPanel != null) {
+        heightSettled.setOnFinished(event -> rememberDraggedHeight(this.stage));
+        watchHeight(stage);
+        stage.show();
+        bringToFront();
+        keepFitting(webView);
+    }
+
+    /** Notices when the person drags the height of an open history or log, so that it can be remembered. */
+    private void watchHeight(Stage window) {
+        window.heightProperty().addListener((observable, before, after) -> {
+            if (!applying && rememberedPanel != null && window == stage) {
                 heightSettled.playFromStart();
             }
         });
-        stage.show();
-        bringToFront(stage);
-        keepFitting(webView, stage);
+    }
+
+    /**
+     * Gives the window its title bar or takes it away, as the setting says, and gives it whatever the setting says for as
+     * long as a panel is open: a window with no title bar has no frame, so it could be neither moved nor closed, nor a
+     * panel in it resized. The window is exchanged for another to do it, with the same page in it at the same place.
+     */
+    private void followTitleBar() {
+        if (runtime == null || raising) {
+            return;
+        }
+        boolean wanted = runtime.settings().current().showTitleBar() || panelOpen;
+        if (StageSwap.hasTitleBar(stage) == wanted) {
+            return;
+        }
+        heightSettled.stop();
+        applying = true;
+        try {
+            stage = StageSwap.replace(stage, wanted);
+        } finally {
+            applying = false;
+        }
+        watchHeight(stage);
+        // The frame is another, so what the window is bigger by than its content is measured again: not here, where the
+        // new window has not been laid out yet, but by resize on a later tick, as for the first window. The size the page
+        // asked for is then applied again to the new window, with its limits.
+        decorationWidth = Double.NaN;
+        decorationHeight = Double.NaN;
+        appliedSize = Optional.empty();
+        LOG.log(Level.INFO, wanted ? "The window has its title bar" : "The window has no title bar");
     }
 
     /**
@@ -148,7 +198,7 @@ public class UsageApp extends Application {
      * particular when it was not started by the person's last click, but a window that is on top is in front: so it is
      * put on top for a moment and then left to the setting again.
      */
-    private void bringToFront(Stage stage) {
+    private void bringToFront() {
         raising = true;
         stage.setAlwaysOnTop(true);
         stage.toFront();
@@ -156,13 +206,13 @@ public class UsageApp extends Application {
         PauseTransition settled = new PauseTransition(Duration.millis(400));
         settled.setOnFinished(event -> {
             raising = false;
-            followStayOnTop(stage);
+            followStayOnTop();
         });
         settled.play();
     }
 
     /** Keeps the window above the others for as long as the setting says so, and lets it go when it no longer does. */
-    private void followStayOnTop(Stage stage) {
+    private void followStayOnTop() {
         if (raising || runtime == null) {
             return;
         }
@@ -174,11 +224,13 @@ public class UsageApp extends Application {
     }
 
     /** Keeps the window the size the page asks for, as messages and the config fields come and go. */
-    private void keepFitting(WebView webView, Stage stage) {
+    private void keepFitting(WebView webView) {
         // The same tick follows the setting that keeps the window on top: it is read, not listened for, since it changes rarely.
+        // The title bar and the stage are looked at on the same tick: the window may be another one from one tick to the next.
         fitTimer = new Timeline(new KeyFrame(FIT_INTERVAL, event -> {
             fit(webView, stage);
-            followStayOnTop(stage);
+            followTitleBar();
+            followStayOnTop();
         }));
         fitTimer.setCycleCount(Animation.INDEFINITE);
         fitTimer.play();
@@ -218,9 +270,9 @@ public class UsageApp extends Application {
         double width = size.width() + decorationWidth;
         double height = contentHeight + decorationHeight;
         if (size.resize() == WindowFit.Resize.NONE) {
-            // The window as it is with nothing open: what the person may shrink an open one back to.
-            closedWidth = width;
-            closedHeight = height;
+            // The content as it is with nothing open: what the person may shrink an open one back to.
+            closedWidth = size.width();
+            closedHeight = contentHeight;
         }
         applying = true;
         try {
@@ -264,11 +316,11 @@ public class UsageApp extends Application {
                 // The width is fixed; the height may be anything from the closed window's up.
                 stage.setMinWidth(width);
                 stage.setMaxWidth(width);
-                stage.setMinHeight(Math.min(closedHeight, height));
+                stage.setMinHeight(Math.min(closedHeight + decorationHeight, height));
             }
             case BOTH -> {
-                stage.setMinWidth(Math.min(closedWidth, width));
-                stage.setMinHeight(Math.min(closedHeight, height));
+                stage.setMinWidth(Math.min(closedWidth + decorationWidth, width));
+                stage.setMinHeight(Math.min(closedHeight + decorationHeight, height));
             }
         }
     }
@@ -276,6 +328,7 @@ public class UsageApp extends Application {
     private void fit(WebView webView, Stage stage) {
         try {
             Object reported = webView.getEngine().executeScript(ASK_CONTENT_SIZE);
+            WindowFit.parse(reported).ifPresent(size -> panelOpen = size.panel() != null);
             WindowFit.next(reported, appliedSize).ifPresent(size -> resize(stage, size));
         } catch (RuntimeException e) {
             // The page is not ready, or is being replaced. Say so once, not every tick.

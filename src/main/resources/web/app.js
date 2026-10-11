@@ -233,7 +233,7 @@
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
     var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
-    var SETTING_FLAGS = MAIN_FLAGS.concat(['stayOnTop', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']);
+    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']);
 
     /**
      * Shows in the row what the main-view part of the form says, at once and before Apply, so that it can be seen which element a
@@ -637,8 +637,8 @@
         var height = Math.ceil(box.height);
         if (openPanel === 'settings') {
             // As tall as the row, its message lines and the settings need, whole, and never narrower than the settings need
-            // for every text to be on one line and the buttons in one row; the flag says it is not resizable.
-            return Math.max(width, settingsWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3';
+            // for every text to be on one line and the buttons in one row; the flag says it is not resizable, and the name that a panel is open.
+            return Math.max(width, settingsWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,settings';
         }
         // The last field names the panel, so that the host remembers the height of the history and of the log.
         if (openPanel === 'log') {

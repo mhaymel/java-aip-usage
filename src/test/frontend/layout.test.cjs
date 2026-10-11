@@ -570,13 +570,15 @@ test('the time format is beside the Time checkbox and the currency symbol beside
     assert.match(ruleOf('.settings .line'), /align-items:\s*center/);
 });
 
-test('the settings have a group Window, after Main view and before History view, with Stay on top', () => {
+test('the settings have a group Window, after Main view and before History view, with Title bar and Stay on top', () => {
     const order = ['<legend>Request</legend>', '<legend>Main view</legend>', '<legend>Window</legend>', '<legend>History view</legend>', '<legend>Log</legend>']
         .map(legend => html.indexOf(legend));
     assert.ok(order.every(p => p >= 0));
     assert.deepEqual([...order].sort((a, b) => a - b), order);
     const group = html.slice(html.indexOf('<legend>Window</legend>'), html.indexOf('<legend>History view</legend>'));
+    assert.match(group, /<label title="[^"]{40,}"><input id="set-showTitleBar" type="checkbox"> Title bar<\/label>/);
     assert.match(group, /<label title="[^"]{40,}"><input id="set-stayOnTop" type="checkbox"> Stay on top<\/label>/);
+    assert.ok(group.indexOf('set-showTitleBar') < group.indexOf('set-stayOnTop'), 'the title bar first');
 });
 
 test('the gray box of an element with no value yet is light, rounded and has a width of its own', () => {

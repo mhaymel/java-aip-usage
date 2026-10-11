@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.35). What these mechanisms make the
+How the requirements are met today (version 0.36). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1379,7 +1379,7 @@ loaded the page and fitted the window, which is all that was seen.
 
 ### 45 to 49. Debug mode, the title bar, the window on top, the request duration: how they are built
 
-Requirement: Debug mode and the title bar, a section that was named for all five when it was written and loses a piece with each
+Requirement: Debug mode, a section that was named for all five when it was written and loses a piece with each
 phase. It is five pieces that do not
 depend on one another. *Decided by the person:* they are built **one at a time, each a phase and a version of its own**, tested
 and committed by itself, so that each can be looked at in the window before the next is begun. Smallest first, the two with risk
@@ -1390,7 +1390,7 @@ last:
 | 45 | 0.33 | The settings view: no `Maximum view` and `Minimum view`, a least width, leaving saves (done) |
 | 46 | 0.34 | The request duration, a thirteenth element (done) |
 | 47 | 0.35 | The window to the front at startup, and `Stay on top` (done) |
-| 48 | 0.36 | The title bar, on and off while the program runs |
+| 48 | 0.36 | The title bar, on and off while the program runs (done) |
 | 49 | 0.37 | Debug mode: `--debug`, the debug view, the fake backend switched at runtime, the red border |
 
 Each phase ends the same way: both suites green, the passages of the requirements it makes true moved out of the section
@@ -1484,30 +1484,49 @@ for as long as it shows.
 
 ### 48. The title bar, on and off while the program runs
 
-**Status: specified, not built (version 0.36).** Requirement: The title bar.
+**Status: done (version 0.36); the flicker of the exchange is for a person to judge.** Requirement: Settings (The title bar).
 
-- **Tried first.** JavaFX fixes the style of a stage before it is first shown, so a title bar cannot be switched on a window
-  that exists: the window is made again. Before anything else is written, a probe: a second `Stage` with the other
-  `StageStyle` (`DECORATED` or `UNDECORATED`), the scene with the one `WebView` moved to it (`oldStage.setScene(null)`, then
-  `newStage.setScene(scene)`), shown, the old one closed. The page must still be loaded and running afterwards. If a scene
-  cannot change its stage like that, the `WebView` is taken out of the old scene and put into a new one.
-- **The exchange.** A method in `UsageApp` that makes the new stage with the title, the listeners of the height and the
-  resize limits the old one has, puts it where the row of the old one is on the screen (the content's place, so the title bar
-  appears above the row and the row does not move), shows it and closes the old one. The decoration sizes that `resize`
-  measured once are measured again, since they are those of the style.
-- **Not a shutdown.** `stop()` is what ends the program, and JavaFX calls it when the last window closes. The new stage is
-  shown before the old one is closed, so there is never no window; if the probe shows the exit all the same,
-  `Platform.setImplicitExit(false)` is set and the program is ended by the close request of the window instead.
-- **When.** The host shows the title bar when the setting is on, and whenever the page names an open panel. The size answer
-  already ends with `log`, `history` or `errors`; it gets `settings` and `debug` as well. `WindowFit` reads that field today
-  and passes over, whole, an answer with a name it does not know, so it has to learn the two before the page sends them.
-- **The setting.** `showTitleBar`, on by default, in `Settings`, the file and the API, with the checkbox `Title bar` first in
-  the group `Window`, not previewed.
-- **Tests.** The setting through store and API; `WindowFitTest` for the two panel names; `PanelWindowTest`, on request, for
-  the style of the stage with the setting off, a panel opened and closed again.
+- **Tried first, and it held.** `TitleBarProbe` opens a real window with the application's page, sets a mark in the page, and
+  exchanges the window for one without a title bar and back. The first run answered every question of the plan: the scene
+  with its `WebView` moves to the new stage as it is (`Stage.setScene` takes it from the old one), the mark is still there
+  and the page was loaded once, the content is at the same place on the screen and of the same size, there is one window
+  throughout, and the program ends only when the last window is closed. No `Platform.setImplicitExit(false)` was needed: the
+  new stage is shown before the old one is closed.
+- **`StageSwap.replace`.** Makes a stage in the other style with the title, the icons, the always-on-top state and the
+  resizable flag of the old one, invisible until it is in place; sets the scene on it and shows it; then, now that the frame
+  of the new window is known, moves it so that the content is where it was and sizes it to the content it had; makes it
+  visible and closes the old one.
+- **The host.** `UsageApp` keeps the stage in a field, since it is another after an exchange, and every method reads the field.
+  `followTitleBar`, on the tick that fits the window: the title bar is wanted when the setting is on or the page named an open
+  panel, and when the stage is not so, it is exchanged. Afterwards the frame's size is forgotten and measured again by `resize`
+  on a later tick, and the size the page asked for is applied again, with its limits. A program started with the setting off
+  gives its first stage the style without a title bar before showing it, so there is no exchange at startup.
+- **A mistake found by the real window.** The first version measured the new frame at once, before the new window had been laid
+  out, and got it wrong: the content shrank by the same amount at every exchange, 335 by 34, then 251 by 18, then 166 by 2,
+  and then JavaFX refused a negative size. None of the tests showed it; asking the system for the real window's size did. The
+  measuring is now left to `resize`, as for the first window. With it, the size the window may be shrunk to with a panel open
+  is kept as the content's and the frame added when it is used, since the frame is another from one exchange to the next.
+- **The page names every panel.** The size answer of the settings ends `,settings` now, as those of the other panels end with
+  their name; `WindowFit` takes `settings` and `debug` (for phase 49) and still passes over a name it does not know.
+- **The setting.** `showTitleBar`, on by default, at the end of `Settings`, the file and the settings API. The checkbox
+  `Title bar` is the first of the group `Window`, in `SETTING_FLAGS` and not previewed.
+- **Tests.** `SettingsStoreTest`, `ApiTest` (on by default, also for an older file; applied, given back, read by the window);
+  `WindowFitTest` (the two new names; an unknown one is no size); `app.test.cjs` (sent with the others, not previewed; every
+  panel names itself and none is named with none open); `layout.test.cjs` (the checkbox, before `Stay on top`).
+- **Seen in real windows.** `TitleBarWindowTest`, on request, runs two probes. `TitleBarProbe`, above. `UsageAppProbe` runs
+  the application itself against its fake backend with the title bar switched off in the settings file and presses the buttons
+  of the page: no title bar at the start; a title bar with the settings, the history, the log and the error log open; none
+  again after each is closed, with the row at the size it had; one window at every step; and the program ends when the window
+  is closed. Both pass. By hand, with a script that asks the system: the setting switched through the API while the installed
+  program ran took the title bar away and gave it back with the content at the same place, the window still on top when it was
+  set to be, one window, the page loaded once; and a second start with the setting off opened without a title bar.
 
-*Risk:* the largest of the five. A flicker is accepted, and so is closing the window and opening it again. What is not: a page
-that starts again (the row would show its gray boxes and the panel would be gone), a window that jumps, or a program that ends.
+*Assumed, easy to change:* a window that is being held on top for the moment of startup is not exchanged until that moment is
+over.
+
+**Not checked by a test.** How the exchange looks: the new window is shown before the old one is closed, and is invisible until
+it is in place, so there should be little to see, but that is for a person to judge. Whether the window keeps the keyboard focus
+through an exchange was not looked at.
 
 ### 49. Debug mode
 

@@ -116,6 +116,17 @@ class SettingsStoreTest {
     }
 
     @Test
+    void theTitleBarIsOnByDefaultAlsoForAFileThatSaysNothingOfItAndComesBackAsSaved() throws IOException {
+        Files.writeString(file(), "{\"usageIntervalSeconds\": 90}");
+        SettingsStore store = new SettingsStore(file());
+        assertTrue(store.load().showTitleBar(), "an older file keeps the title bar");
+
+        store.save(Settings.defaults().withShowTitleBar(false));
+
+        assertFalse(store.load().showTitleBar());
+    }
+
+    @Test
     void aFileFromBeforeTheFiveSwitchesHasThemAllOn() throws IOException {
         Files.writeString(file(), "{\"usageIntervalSeconds\": 90, \"showPercentage\": true}");
 
@@ -137,14 +148,14 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFileHoldsTheTwentyThreeSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
+    void theFileHoldsTheTwentyFourSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
         JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop",
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar",
                         "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
