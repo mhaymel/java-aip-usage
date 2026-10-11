@@ -48,7 +48,17 @@ public final class UsageParser {
             throw new UsageParseException(
                     "The usage response has no \"spend\" object; its format may have changed.");
         }
-        return new UsageSnapshot(fetchedAt, spend(root.get("spend")));
+        return new UsageSnapshot(fetchedAt, spend(root.get("spend")), otherLimits(root));
+    }
+
+    /**
+     * Whether the response reports limits the program does not show, those of a session or of a week: a list
+     * {@code limits} with something in it, or one of the windows {@code five_hour} and {@code seven_day}. With no spend
+     * that is the answer of a seat-based account.
+     */
+    private static boolean otherLimits(JsonNode root) {
+        JsonNode limits = root.path("limits");
+        return (limits.isArray() && !limits.isEmpty()) || root.path("five_hour").isObject() || root.path("seven_day").isObject();
     }
 
     /**

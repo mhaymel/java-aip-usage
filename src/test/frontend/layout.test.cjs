@@ -292,6 +292,11 @@ test('the heading of Main view has a small button with an icon and no text that 
     assert.match(rule, /margin-left:\s*\d+px/, 'at the right of the heading');
 });
 
+test('the line that says an answer had no spend is muted, and the lines of a failure are red', () => {
+    assert.match(ruleOf('.note-info'), /color:\s*var\(--muted\)/);
+    assert.match(css, /\.note-stale,\s*\.note-error\s*{\s*color:\s*var\(--bad\)/);
+});
+
 test('an error in the panel is red', () => {
     assert.match(ruleOf('.panel-error'), /color:\s*var\(--bad\)/);
 });

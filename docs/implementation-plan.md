@@ -1380,6 +1380,29 @@ process.
 
 The requirements have no section "specified, not yet built" any more.
 
+### 59. An answer that came and has no spend is said explicitly
+
+**Status: built (version 0.47).** Requirement: An answer that came and has no spend is said explicitly. It came from a run
+against a seat-based account, whose answer the program read as a success and showed as gray boxes with nothing said.
+*Decided by the person:* a message line below the row; the seat-based account is named; the log warns when it begins and
+informs after that; it stays a reading and is no failure.
+
+- **The reading knows.** `UsageSnapshot` has `otherLimits`, set by `UsageParser` when the answer has a list `limits`
+  with something in it or a window `five_hour` or `seven_day`, and `noSpendMessage()`, which is one of two texts for a
+  reading with no spend and nothing for one with spend. A reading taken from the history says nothing of other limits.
+- **The log.** `UsageService.refresh` writes that text in the place of `Usage refresh succeeded`, as a warning unless the
+  reading before had no spend either.
+- **The row.** `StatusDisplay` gives the text as `message` of the kind `info` when there is no failure to say; the page
+  draws it as any message line, and `.note-info` is muted.
+- **Tests.** `UsageParserTest`: the three signs of other limits, none of them, a reading with spend. `UsageServiceTest`:
+  warning, information, success, warning again; no error and no entry in the error log. `StatusDisplayTest`,
+  `app.test.cjs`, `layout.test.cjs`: the line, its two texts, its colour, that it goes with spend and gives way to a
+  failure.
+
+**Not checked by a test.** The line in a real window against the real account. *Seen:* `UsageServiceTest
+.otherFailuresAreNotHeldBack` failed once in nine runs with `took 1464`, a limit of time, while the machine was
+compiling; it was not changed.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.37). What these mechanisms make the

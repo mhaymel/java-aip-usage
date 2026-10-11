@@ -107,6 +107,10 @@ final class StatusDisplay {
         Message message = state.error() == null || alert ? null : new Message(
                 usage != null ? "stale" : "error",
                 "Refresh failed at " + Formatting.time(state.errorAt(), settings.timeFormat(), zone) + ": " + state.error());
+        if (message == null && state.error() == null && usage != null && usage.noSpendMessage() != null) {
+            // The response came and has nothing the row can show: said in a line of its own, which is no failure.
+            message = new Message("info", usage.noSpendMessage());
+        }
 
         return new View(
                 time,

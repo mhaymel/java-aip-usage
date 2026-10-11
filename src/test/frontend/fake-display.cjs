@@ -138,6 +138,11 @@ process.env.TZ = 'UTC';
             view.loading = !error;
         }
 
+        if (!error && usage && !usage.spend) {
+            view.message = { kind: 'info', text: usage.otherLimits
+                ? 'Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.'
+                : 'Received, but Anthropic reports no spend for this account (spend is not enabled).' };
+        }
         if (error) {
             view.message = {
                 kind: usage ? 'stale' : 'error',

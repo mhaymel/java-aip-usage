@@ -135,4 +135,39 @@ class UsageParserTest {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
+
+    private static final String NO_SPEND = "\"spend\": {\"used\": {\"amount_minor\": 0, \"currency\": \"USD\", \"exponent\": 2}, \"limit\": null, \"enabled\": false}";
+
+    @Test
+    void anAnswerWithNoSpendAndTheLimitsOfASessionOrAWeekIsThatOfASeatBasedAccount() {
+        for (String other : new String[] {
+                "\"limits\": [{\"kind\": \"session\", \"percent\": 4}]",
+                "\"five_hour\": {\"utilization\": 4.0}",
+                "\"seven_day\": {\"utilization\": 4.0}"}) {
+            UsageSnapshot snapshot = parser.parse("{" + other + ", " + NO_SPEND + "}", FETCHED_AT);
+
+            assertTrue(snapshot.isEmpty(), other);
+            assertTrue(snapshot.otherLimits(), other);
+            assertEquals(UsageSnapshot.NO_SPEND_SEAT_BASED, snapshot.noSpendMessage(), other);
+        }
+    }
+
+    @Test
+    void anAnswerWithNoSpendAndNothingElseSaysOnlyThat() {
+        for (String other : new String[] {"\"limits\": []", "\"five_hour\": null", "\"seven_day\": null, \"limits\": null"}) {
+            UsageSnapshot snapshot = parser.parse("{" + other + ", " + NO_SPEND + "}", FETCHED_AT);
+
+            assertTrue(snapshot.isEmpty(), other);
+            assertFalse(snapshot.otherLimits(), other);
+            assertEquals(UsageSnapshot.NO_SPEND, snapshot.noSpendMessage(), other);
+        }
+    }
+
+    @Test
+    void aReadingWithSpendHasNothingToSayOfIt() throws IOException {
+        UsageSnapshot snapshot = parser.parse(fixture("usage-credits.json"), FETCHED_AT);
+
+        assertFalse(snapshot.isEmpty());
+        assertNull(snapshot.noSpendMessage());
+    }
 }

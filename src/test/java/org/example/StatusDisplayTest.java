@@ -357,4 +357,18 @@ class StatusDisplayTest {
         assertTrue(build(s, OptionalLong.empty(), null, Settings.defaults()).titleBar(), "on by default");
         assertFalse(build(s, OptionalLong.empty(), null, Settings.defaults().withShowTitleBar(false)).titleBar());
     }
+
+    @Test
+    void aReadingWithNoSpendHasALineThatSaysTheAnswerCameAndWhatItLacks() {
+        UsageState seat = state(new UsageSnapshot(FETCHED, null, true), null, null);
+        StatusDisplay.View v = build(seat);
+        assertEquals("info", v.message().kind());
+        assertEquals("Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.", v.message().text());
+        assertEquals("No usage reported", v.placeholder(), "the gray boxes and their tooltips are as before");
+
+        UsageState plain = state(new UsageSnapshot(FETCHED, null, false), null, null);
+        assertEquals("Received, but Anthropic reports no spend for this account (spend is not enabled).", build(plain).message().text());
+
+        assertNull(build(state(spend(SPEND), null, null)).message(), "a reading with spend has no such line");
+    }
 }

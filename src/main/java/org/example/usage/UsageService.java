@@ -52,6 +52,9 @@ public final class UsageService implements AutoCloseable {
 
     private boolean closed;
 
+    /** Whether the reading before this one had no spend, so that the log warns of it once and not at every refresh. */
+    private volatile boolean noSpendBefore;
+
     /** Counts the restarts: a request that was begun before the latest one has an answer nobody wants any more. */
     private long generation;
 
@@ -267,7 +270,15 @@ public final class UsageService implements AutoCloseable {
     private Outcome refresh() {
         try {
             UsageSnapshot snapshot = fetcher.get();
-            LOG.log(System.Logger.Level.INFO, "Usage refresh succeeded");
+            String noSpend = snapshot.noSpendMessage();
+            if (noSpend == null) {
+                LOG.log(System.Logger.Level.INFO, "Usage refresh succeeded");
+            } else {
+                // The response came and holds nothing to show: said in place of the success, as a warning when it begins
+                // and as information at the refreshes that follow, so that the log is not filled with warnings.
+                LOG.log(noSpendBefore ? System.Logger.Level.INFO : System.Logger.Level.WARNING, noSpend);
+            }
+            noSpendBefore = noSpend != null;
             return Outcome.success(snapshot);
         } catch (UsageFetchException e) {
             // Logged by run, with the rest of the message the window shows.

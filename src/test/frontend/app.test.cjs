@@ -2763,3 +2763,33 @@ test('the button does nothing before the settings have been read', async () => {
     assert.deepEqual(checkedOf(page), []);
     assert.equal(page.el('time').hidden, false, 'the row is as it was');
 });
+
+// ---- an answer that came and has no spend is said in a line of its own
+
+test('a reading with no spend has a message line that says so, muted and not red, beside the gray boxes', async () => {
+    const seat = { ...NO_USAGE_STATUS, usage: { ...NO_USAGE_STATUS.usage, otherLimits: true } };
+    const state = { config: CONFIG, status: seat };
+    const page = await load(backendOf(state));
+
+    assert.equal(page.el('note').hidden, false);
+    assert.equal(page.el('note').textContent, 'Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.');
+    assert.equal(page.el('note').className, 'note note-info');
+    assert.match(page.el('used').className, /skeleton/, 'the gray boxes stay');
+    assert.doesNotMatch(page.el('app').className, /stale/, 'it is a reading, not a failure');
+
+    state.status = NO_USAGE_STATUS;
+    await page.firePoll();
+    assert.equal(page.el('note').textContent, 'Received, but Anthropic reports no spend for this account (spend is not enabled).', 'with no other limits no kind of account is guessed');
+
+    state.status = SPEND_STATUS;
+    await page.firePoll();
+    assert.equal(page.el('note').hidden, true, 'and the line goes with a reading that has spend');
+});
+
+test('a failed refresh after a reading with no spend has its own red line in the place of the muted one', async () => {
+    const status = { ...NO_USAGE_STATUS, stale: true, error: { message: 'Anthropic returned HTTP 500.', at: NOW } };
+    const page = await load(backendOf({ config: CONFIG, status }));
+
+    assert.equal(page.el('note').className, 'note note-stale');
+    assert.match(page.el('note').textContent, /^Refresh failed at /);
+});

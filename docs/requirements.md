@@ -1187,6 +1187,31 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   change the window at once, and decided against: while the settings are shown the window has its title bar whatever
   the setting says, so a click could not be seen. It stays as Settings describes it.
 
+### An answer that came and has no spend is said explicitly
+
+- **When Anthropic answers and the answer has no spend, the row says so in a message line** below it, like the line of
+  a failed refresh, with the gray boxes of the amounts above it (since version 0.47). Before, the gray boxes and their
+  tooltips were all that said it, and the log said `Usage refresh succeeded`.
+- **What it is.** The answer is an HTTP 200 that the program reads without a fault, and whose `spend` is not enabled:
+  there is no amount used and no budget in it. It is not a response whose format cannot be processed, and writes no
+  error of that kind.
+- **A seat-based account is named as the likely cause.** When the answer has no spend and has limits of a session or of
+  a week, a list `limits` with something in it or one of the windows `five_hour` and `seven_day`, the line reads
+  `Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.` The
+  program does not show a seat-based account: it reads spend only (see Scope and limits).
+- **With no such limits no kind of account is guessed**: `Received, but Anthropic reports no spend for this account
+  (spend is not enabled).`
+- **The line is muted gray, not red**, since nothing failed: the gray of the notes, `#8a8f98`. It is otherwise a
+  message line like the others, and the window is taller by it.
+- **It goes with the next reading that has spend**, and it gives way to the red line of a failed refresh, which says
+  what failed; when that failure is over and the answer still has no spend, it is back.
+- **It is a reading, not a failure.** It is written to the history as a reading with no amounts, it is not in the error
+  log, the row is not marked as old, and the time is that of the reading.
+- **The log says it in the place of `Usage refresh succeeded`**, with the same text: as a **warning** when it begins,
+  which is the first such reading of a run and the first after a reading that had spend, and as **information** at the
+  refreshes that follow while it lasts, so that the log is not filled with warnings.
+- **The tooltips of the gray boxes** are as they were: `Credits used: no usage reported`.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1447,7 +1472,7 @@ These are things the program does that the sections above do not say, written do
   `Authorization: [redacted]`. Every occurrence is masked, on every line of an entry.
 - **The request line, exactly.** It is at the information level. The size is that of the body in bytes as UTF-8. The request id is the `request-id` header, written only if it is 1 to 100 characters of letters, digits, `_`
   and `-`. Inside the brackets the order is the size, the request id, the `retry-after`. A request cut short by the program stopping writes no request line at all.
-- **The lines of a refresh.** Every refresh that succeeded writes `Usage refresh succeeded`. A rejected token writes `The token was rejected (HTTP 401); acquiring a fresh one`. An HTTP 429 writes two warnings,
+- **The lines of a refresh.** Every refresh that succeeded writes `Usage refresh succeeded`, or, when the answer has no spend, the line that says so (see An answer that came and has no spend is said explicitly). A rejected token writes `The token was rejected (HTTP 401); acquiring a fresh one`. An HTTP 429 writes two warnings,
   `Rate limited; next try in <N s or N min>` and then the `Usage refresh failed: ...` line. A success while a back-off is still on writes `Easing the back-off; next try in <N s or N min>`, and the success that ends it
   `The back-off is over; back to the usual interval`. An unexpected fault writes the warning `Usage refresh failed unexpectedly` with its stack trace, and then the `Usage refresh failed: Unexpected error ...` line.
 - **The lines of the settings.** At startup, when the settings have been read: `Usage interval N s, poll interval M s`, with the values in force for the run. `There was no settings file; created <path> with the defaults`

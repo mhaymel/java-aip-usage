@@ -436,6 +436,9 @@ body {
 .note-stale,
 .note-error { color: var(--bad); }
 
+/* A line that says something of a reading which is no failure: that the answer came and had no spend. Muted, not red. */
+.note-info { color: var(--muted); }
+
 /*
  * The history and the log panel: small, condensed, like a log file. The one place text is under 14 px,
  * and regular weight, since it is a long list to scan rather than a figure to read. It keeps

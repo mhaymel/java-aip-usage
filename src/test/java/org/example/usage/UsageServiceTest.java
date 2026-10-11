@@ -955,4 +955,52 @@ class UsageServiceTest {
 
         assertThrows(IllegalStateException.class, () -> service.restore(snapshot(1)));
     }
+
+    @Test
+    void aReadingWithNoSpendIsAWarningWhenItBeginsAndInformationAfterThatAndIsNoFailure() {
+        List<String> lines = new CopyOnWriteArrayList<>();
+        java.util.logging.Handler capture = new java.util.logging.Handler() {
+            @Override
+            public void publish(java.util.logging.LogRecord record) {
+                lines.add(record.getLevel() + " " + record.getMessage());
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        java.util.logging.Logger root = java.util.logging.Logger.getLogger("");
+        root.addHandler(capture);
+        try {
+            UsageSnapshot seat = new UsageSnapshot(Instant.parse("2026-10-11T18:26:31Z"), null, true);
+            UsageSnapshot spent = new UsageSnapshot(Instant.parse("2026-10-11T18:28:31Z"), new Spend(186.02, 1000.0, "USD", 19, "normal"));
+            List<UsageSnapshot> answers = List.of(seat, seat, spent, seat);
+            AtomicInteger calls = new AtomicInteger();
+            UsageService service = start(() -> answers.get(calls.getAndIncrement()), HOUR);
+            for (int n = 1; n <= answers.size(); n++) {
+                int wanted = n;
+                await(() -> calls.get() == wanted && !service.state().refreshing());
+                if (n < answers.size()) {
+                    assertTrue(service.refreshNow());
+                }
+            }
+
+            assertEquals(List.of(
+                            "WARNING " + UsageSnapshot.NO_SPEND_SEAT_BASED,
+                            "INFO " + UsageSnapshot.NO_SPEND_SEAT_BASED,
+                            "INFO Usage refresh succeeded",
+                            "WARNING " + UsageSnapshot.NO_SPEND_SEAT_BASED),
+                    lines.stream().filter(line -> line.contains("Received, but") || line.contains("Usage refresh succeeded")).toList(),
+                    "a warning when it begins, information while it lasts, and a warning again when it comes back");
+            assertNull(service.state().error(), "it is a reading");
+            assertTrue(service.errors().newestFirst().isEmpty(), "and not in the error log");
+            assertSame(seat, service.state().snapshot());
+        } finally {
+            root.removeHandler(capture);
+        }
+    }
 }
