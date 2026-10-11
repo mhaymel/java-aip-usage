@@ -1403,6 +1403,24 @@ informs after that; it stays a reading and is no failure.
 .otherFailuresAreNotHeldBack` failed once in nine runs with `took 1464`, a limit of time, while the machine was
 compiling; it was not changed.
 
+### 60. The width of the row and of its message lines
+
+**Status: specified, not built (version 0.48).** Requirement: The width of the row and of its message lines. *Decided by the
+person:* every panel; with no panel a least width while a message is shown; the elements stay at the left.
+
+- **The cause.** `.top` is `width: max-content`, the row's own width, and a `.note` in it is `width: 0; min-width: 100%`,
+  so a message is as wide as the row and never makes it wider.
+- **With a panel.** `.top` is as wide as the app while the app has the class `open` or `fit`. `contentSize` measures the
+  row's width from `#top`, which would then be the window's: the width of the row is measured from the strip, or with
+  the stretch let go of for the moment of the measuring, as `formWidth` does for the form.
+- **With no panel.** While a message line is shown, `.top` has a least width of 300 pixels less its own padding, and the
+  size asked for follows from the box as now.
+- **Tests.** `layout.test.cjs` for the rules; `app.test.cjs` for the size asked for with a message and a narrow row, with
+  and without a panel; the on-request window test with every element off, a message line and the settings, the case of
+  `docs/img.png`.
+
+*Risk:* the size the page reports must not depend on the size the window has, or the window never shrinks again.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.37). What these mechanisms make the

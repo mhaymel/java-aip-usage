@@ -1304,6 +1304,32 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
+## The width of the row and of its message lines
+
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.47; where
+this section says otherwise, this section is what is to be built. It moves into the description of the program when it is
+built (see the implementation plan, phase 60).
+
+- **The fault.** A message line is as wide as the row, and a row can be as narrow as the gear. With the settings shown,
+  which are far wider, a message then stood in a column of the gear's width at the left of the window, a syllable to a
+  line, and pushed the settings out of sight below it (see `docs/img.png`: every element of the row switched off, and
+  the message of an answer with no spend).
+- **While a panel is shown the row is as wide as the window.** That holds for every panel: the settings, the debug
+  settings, the log, the usage history and the error log. The message lines below the row are as wide with it, so a
+  message breaks at the edge of the window and nowhere before.
+- **The window is no wider for it.** With the settings and the debug settings the window has the least width the view
+  needs, as before, and the row takes that width; with the other panels the window has the width it had.
+- **The elements of the row stay at the left**, in their places; the room that is added is at the right of the last
+  button.
+- **With no panel, a message line gives the window a least width.** While a message line is shown and no panel is, the
+  window is at least 300 pixels wide, which is room for about forty characters of the message in a line. A row that is
+  wider keeps its own width, and a window with no message line is as wide as its row, as before.
+- **Which lines count**: every message line below the row, that of a failed refresh, that of an answer with no spend,
+  the line of an HTTP 429 over the countdown, and `Lost contact with the application`.
+- **The height follows.** The window is as tall as the row and its message lines at the width they have then, so with
+  the least width a message takes fewer lines and the window is lower than it was.
+- The 900 pixels at which a row wraps are unchanged.
+
 ## Details of the behaviour
 
 These are things the program does that the sections above do not say, written down so that the requirements are the whole of it.
