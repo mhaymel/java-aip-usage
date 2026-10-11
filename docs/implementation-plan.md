@@ -1463,13 +1463,18 @@ interval of the search. Built **one at a time, small ones first**, a phase and a
 
 ### 62. Tooltips of 14 pixels
 
-**Status: specified, not built (version 0.50).**
+**Status: built (version 0.50).** Requirement: Bigger tooltips.
 
 - The tooltips are the `title` attributes of the page, which the `WebView` shows as tooltips of JavaFX; the page's style
-  sheet has no say in them. They are a control of the scene the view is in, so a style sheet of the scene for `.tooltip`
-  should reach them; the scene is made anew when the window is exchanged for the title bar, so it is given to each.
-- *Risk:* if the view's tooltips do not take the scene's style, the page draws its own, which cannot reach beyond the
-  window; that would be asked about before it is built.
+  sheet has no say in them. The scene has a style sheet of its own now, `window.css` in the resources, with one rule:
+  `.tooltip { -fx-font-size: 14px; }`. The scene is the same one when the window is exchanged for the title bar, so it
+  is given once, in `UsageApp.start`.
+- **The risk did not come true**: the view's tooltips take the scene's style, so the page draws none of its own.
+- **Tests.** `WindowStyleTest` for the file and its rule. In a real window (the on-request test) the mouse is moved onto
+  the amount used and left there: the tooltip that comes reads `Credits used, in USD` and its font is 14.0. It passes.
+
+**Not checked by a test.** The tooltips of the settings and of the history's lines, which are the same control. How it
+looks.
 
 ### 63. The program's icon
 

@@ -99,6 +99,9 @@ class TitleBarWindowTest {
         assertTrue(line(all, "settings-all").contains("/13 note:"), "one press: all thirteen on:\n" + all);
         assertTrue(line(all, "settings-narrow").contains("/0 note:"), "another: all off:\n" + all);
 
+        // The tooltip of the amount used comes when the mouse rests on it, and is 14 pixels.
+        assertEquals("PROBE tooltip=shown:[Credits used, in USD|14.0] sheets:1", line(all, "tooltip"), all);
+
         // The word of between the amount used and the budget: small, light and gray, and near the foot of the figures.
         assertTrue(line(all, "start").matches(".* of:\\[ of \\|14px\\|400\\|rgb\\(138, 143, 152\\)\\|[0-3]] .*"), all);
         assertTrue(line(all, "start").contains("187.39 of 1,000.00"), "the row reads so:\n" + all);

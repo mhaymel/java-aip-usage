@@ -45,6 +45,8 @@ public final class UsageAppProbe {
         try {
             Thread.sleep(5000);
             step("start", null);
+            // The mouse rests on the amount used: its tooltip comes, and is of the size the window's style sheet gives it.
+            hover("tooltip", "used");
             // No title bar: the window is moved by a drag that begins on a figure, and not by one that begins on a button.
             drag("drag-figure", "time");
             drag("drag-gap", null);
@@ -201,6 +203,49 @@ public final class UsageAppProbe {
         });
     }
 
+    /**
+     * Moves the mouse onto the middle of the named element and lets it rest there, then says what tooltip is shown: its
+     * text and the size of its font. The tooltip is a window of its own, so it is looked for among the windows.
+     */
+    private static void hover(String name, String id) throws InterruptedException {
+        onFx(() -> {
+            WebView view = page();
+            Object at = view.getEngine().executeScript(
+                    "(function () { var b = document.getElementById('" + id + "').getBoundingClientRect();"
+                            + " return Math.round(b.left + b.width / 2) + ',' + Math.round(b.top + b.height / 2); })()");
+            double x = Double.parseDouble(at.toString().split(",")[0]);
+            double y = Double.parseDouble(at.toString().split(",")[1]);
+            javafx.geometry.Point2D screen = view.localToScreen(x, y);
+            fire(view, javafx.scene.input.MouseEvent.MOUSE_ENTERED, x - 1, y, screen.getX() - 1, screen.getY(), false);
+            fire(view, javafx.scene.input.MouseEvent.MOUSE_MOVED, x - 1, y, screen.getX() - 1, screen.getY(), false);
+            fire(view, javafx.scene.input.MouseEvent.MOUSE_MOVED, x, y, screen.getX(), screen.getY(), false);
+        });
+        Thread.sleep(400);
+        onFx(() -> {
+            WebView view = page();
+            javafx.geometry.Point2D screen = view.localToScreen(5, 5);
+            // A second move, once the page has said its tooltip, as a mouse that is still settling makes.
+            Object at = view.getEngine().executeScript(
+                    "(function () { var b = document.getElementById('" + id + "').getBoundingClientRect();"
+                            + " return Math.round(b.left + b.width / 2 + 1) + ',' + Math.round(b.top + b.height / 2); })()");
+            double x = Double.parseDouble(at.toString().split(",")[0]);
+            double y = Double.parseDouble(at.toString().split(",")[1]);
+            fire(view, javafx.scene.input.MouseEvent.MOUSE_MOVED, x, y, screen.getX() + x - 5, screen.getY() + y - 5, false);
+        });
+        Thread.sleep(2500);
+        onFx(() -> {
+            String shown = Window.getWindows().stream()
+                    .filter(window -> window instanceof javafx.scene.control.Tooltip && window.isShowing())
+                    .map(window -> (javafx.scene.control.Tooltip) window)
+                    .map(tip -> tip.getText() + "|" + tip.getFont().getSize())
+                    .findFirst().orElse("none");
+            System.out.println("PROBE " + name + "=shown:[" + shown + "] sheets:" + page().getScene().getStylesheets().size());
+            System.out.flush();
+            fire(page(), javafx.scene.input.MouseEvent.MOUSE_EXITED, -5, -5, 0, 0, false);
+        });
+        Thread.sleep(300);
+    }
+
     private static void fire(WebView view, javafx.event.EventType<javafx.scene.input.MouseEvent> type, double x, double y,
             double screenX, double screenY, boolean down) {
         javafx.event.Event.fireEvent(view, new javafx.scene.input.MouseEvent(type, x, y, screenX, screenY,
@@ -208,7 +253,8 @@ public final class UsageAppProbe {
     }
 
     private static Stage window() {
-        return (Stage) Window.getWindows().stream().filter(Window::isShowing).findFirst().orElseThrow();
+        // A tooltip is a window too, and not this one.
+        return (Stage) Window.getWindows().stream().filter(window -> window.isShowing() && window instanceof Stage).findFirst().orElseThrow();
     }
 
     private static WebView page() {

@@ -1,0 +1,9 @@
+/*
+ * The style of what the window itself draws, outside the page. The tooltips of the page are drawn by the window: the page
+ * only says their text, so its own style sheet has no say in them.
+ *
+ * A tooltip is 14 pixels, the size of the message lines of the row; the 11 or so it has by default is hard to read.
+ */
+.tooltip {
+    -fx-font-size: 14px;
+}

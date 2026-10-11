@@ -1245,6 +1245,15 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   is dimmed with the old figures after a failed refresh.
 - Nothing else changes: the tooltips, the history, whose columns have no such sign, and the log.
 
+### Bigger tooltips
+
+- **Every tooltip of the window is 14 pixels**, the size of the message lines (since version 0.50; it was about 11 before): those of the row's
+  figures, gray boxes and buttons, those of the settings and the debug settings, and those of the lines of the history.
+- The texts of the tooltips are unchanged, and so is when a tooltip appears and goes.
+- A tooltip may reach beyond the window, as before: the window is often no larger than the row.
+- **The tooltips are drawn by the window, not by the page**: the page says their text, and the size is a style of the
+  window. Their typeface, their colours and their frame are the system's, as before.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1337,18 +1346,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## Bigger tooltips, the program's icon, the zoom of the lists, and the automatic interval
+## The program's icon, the zoom of the lists, and the automatic interval
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.49; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.50; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 62 to 65).
-
-### Bigger tooltips
-
-- **Every tooltip of the window is 14 pixels**, the size of the message lines, where it was 12: those of the row's
-  figures, gray boxes and buttons, those of the settings and the debug settings, and those of the lines of the history.
-- The texts of the tooltips are unchanged, and so is when a tooltip appears and goes.
-- A tooltip may reach beyond the window, as before: the window is often no larger than the row.
+when it is built (see the implementation plan, phases 63 to 65).
 
 ### An icon of the program's own
 

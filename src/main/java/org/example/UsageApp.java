@@ -101,6 +101,9 @@ public class UsageApp extends Application {
     /** True for the moment at startup in which the window is held on top to bring it to the front; the setting waits for it. */
     private boolean raising;
 
+    /** The style sheet of the window, for what it draws outside the page: the size of the tooltips. */
+    static final String WINDOW_STYLE = UsageApp.class.getResource("/window.css").toExternalForm();
+
     @Override
     public void start(Stage stage) throws Exception {
         LOG.log(Level.INFO, "Starting java-aip-usage v" + AppInfo.VERSION);
@@ -127,7 +130,11 @@ public class UsageApp extends Application {
             // The row alone, as configured; the style of a window is fixed before it is first shown.
             stage.initStyle(StageStyle.UNDECORATED);
         }
-        stage.setScene(new Scene(webView, INITIAL_WIDTH, INITIAL_HEIGHT));
+        Scene scene = new Scene(webView, INITIAL_WIDTH, INITIAL_HEIGHT);
+        // What the window draws outside the page, the tooltips, has its style here. The scene is the same one when the
+        // window is exchanged for the title bar, so it is given once.
+        scene.getStylesheets().add(WINDOW_STYLE);
+        stage.setScene(scene);
         // The window is as big as the page needs and no bigger, so there is nothing to drag,
         // except while a panel is shown; see resize, which sets the limits that say what may be dragged.
         stage.setResizable(true);
