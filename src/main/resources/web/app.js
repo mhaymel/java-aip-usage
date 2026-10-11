@@ -232,9 +232,6 @@
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
     var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
-    // The elements that Minimum view leaves in the row.
-    var MINIMUM = ['showTime', 'showUsed', 'showLimit', 'showRefresh', 'showCountdown'];
-
     var SETTING_FLAGS = MAIN_FLAGS.concat(['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']);
 
     /**
@@ -312,33 +309,61 @@
         });
     }
 
-    async function applySettings() {
+    /** Whether the form holds anything other than what the backend gave when the view was opened or last saved. */
+    function settingsChanged() {
         if (settingsShown === null) {
-            return;
+            return false;
         }
+        var form = readForm();
+        return Object.keys(form).some(function (key) { return form[key] !== settingsShown[key]; });
+    }
+
+    /**
+     * Sends what the form holds to the backend, which keeps and saves it. True when that was done; when a value is refused or the
+     * settings cannot be saved it says why in red and is false, and the caller leaves the view open.
+     */
+    async function saveSettings() {
         // Only that it is a number is checked here; whether it is in range is the backend's to say.
         if (!/^\d+$/.test($('set-usageIntervalSeconds').value.trim())) {
             setNote('settings-error', 'The interval must be a whole number of seconds.');
-            return;
+            return false;
         }
         try {
             var body = await postJson('/api/settings', readForm());
             settingsShown = body.settings;
             settingsDefaults = body.defaults;
-            // Applied: the view closes and the row shows the change at once. A panel whose button has just been switched off is not given back.
+            // A panel whose button has just been switched off is not given back.
             if (returnTo && body.settings[ICON_SETTINGS[returnTo]] === false) {
                 returnTo = null;
             }
-            // The row keeps what was previewed until the poll brings it back as applied, so that it does not flick to the old state.
-            var applied = preview;
-            if (openPanel === 'settings') {
-                togglePanel('settings');
-            }
+            return true;
+        } catch (e) {
+            setNote('settings-error', e.message);
+            return false;
+        }
+    }
+
+    /** Apply: saves, and then the view closes and the row shows the change at once. */
+    async function applySettings() {
+        if (settingsShown === null || !(await saveSettings())) {
+            return;
+        }
+        leaveSettings(null, true);
+    }
+
+    /**
+     * Leaves the settings for the named panel, or for what they replaced when none is named. After a save the row keeps what was
+     * previewed until the poll brings it back as applied, so that it does not flick to the old state; without one the row is the backend's again.
+     */
+    function leaveSettings(name, saved) {
+        var applied = saved ? preview : null;
+        var back = name || returnTo;
+        returnTo = null;
+        showPanelNamed(back);
+        if (saved) {
             preview = applied;
             render();
             pollNow();
-        } catch (e) {
-            setNote('settings-error', e.message);
         }
     }
 
@@ -350,19 +375,10 @@
         }
     }
 
-    /** Maximum view: every element of the row on. Minimum view: the time, the amounts, the refresh button and the countdown. The form and the preview only, until Apply. */
-    function setMainView(all) {
-        MAIN_FLAGS.forEach(function (key) {
-            $('set-' + key).checked = all || MINIMUM.indexOf(key) >= 0;
-        });
-        $('set-timeFormat').value = all ? 'hh:mm:ss' : 'hh:mm';
-        previewNow();
-    }
-
-    /** Cancel: closes the view and changes nothing; it asks nothing, since nothing was sent. */
+    /** Cancel: closes the view and changes nothing; it asks nothing, since nothing was sent. It is the one way to leave without saving. */
     function cancelSettings() {
         if (openPanel === 'settings') {
-            togglePanel('settings');
+            leaveSettings(null, false);
         }
     }
 
@@ -546,19 +562,24 @@
 
     /**
      * Opens the panel, or closes it if it is the one shown; opening one replaces the other. The settings are a panel that remembers
-     * what it replaced: leaving them (Apply, Cancel, the button again) shows that again, freshly loaded so that it has the new settings.
+     * what it replaced: leaving them by Apply, Cancel or the gear shows that again, freshly loaded so that it has the new settings.
      * Another panel's button while the settings are shown shows that one, and what the settings replaced is forgotten.
+     *
+     * Leaving the settings by a button of the row, the gear or another panel's, saves them first, as Apply does, when anything in
+     * them was changed. If that fails the settings stay, with the reason, and the other panel is not shown.
      */
-    function togglePanel(name) {
-        if (name === 'settings') {
-            if (openPanel === 'settings') {
-                var back = returnTo;
-                returnTo = null;
-                showPanelNamed(back);
-            } else {
-                returnTo = openPanel;
-                showPanelNamed('settings');
+    async function togglePanel(name) {
+        if (openPanel === 'settings') {
+            var changed = settingsChanged();
+            if (changed && !(await saveSettings())) {
+                return;
             }
+            leaveSettings(name === 'settings' ? null : name, changed);
+            return;
+        }
+        if (name === 'settings') {
+            returnTo = openPanel;
+            showPanelNamed('settings');
             return;
         }
         returnTo = null;
@@ -613,8 +634,9 @@
         var width = Math.ceil(box.width);
         var height = Math.ceil(box.height);
         if (openPanel === 'settings') {
-            // As tall as the row, its message lines and the settings need, whole; the flag says it is not resizable.
-            return width + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3';
+            // As tall as the row, its message lines and the settings need, whole, and never narrower than the settings need
+            // for every text to be on one line and the buttons in one row; the flag says it is not resizable.
+            return Math.max(width, settingsWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3';
         }
         // The last field names the panel, so that the host remembers the height of the history and of the log.
         if (openPanel === 'log') {
@@ -630,6 +652,23 @@
         }
         return width + ',' + height + ',0';
     };
+
+    /**
+     * How wide the window has to be for the settings: the form at the width of its own content, and the buttons of the view, each
+     * with the room there is at its left again at its right. The form is as wide as the window when the window is the wider, so it
+     * is let go of that for the moment of the measuring, and the answer does not depend on how wide the window happens to be.
+     */
+    function settingsWidth() {
+        var left = $('app').getBoundingClientRect().left || 0;
+        var form = $('settings-form');
+        form.style.minWidth = '0';
+        var widths = [form, $('settings-buttons')].map(function (element) {
+            var box = element.getBoundingClientRect();
+            return box.width + 2 * Math.max(0, (box.left || 0) - left);
+        });
+        form.style.minWidth = '';
+        return Math.ceil(Math.max(widths[0], widths[1]));
+    }
 
     /**
      * How wide the vertical scrollbar of the log and the history is, measured with a box that always has one. The
@@ -669,8 +708,6 @@
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
         $('settings-restore').addEventListener('click', restoreDefaults);
         $('settings-cancel').addEventListener('click', cancelSettings);
-        $('settings-maximum').addEventListener('click', function () { setMainView(true); });
-        $('settings-minimum').addEventListener('click', function () { setMainView(false); });
         MAIN_FLAGS.forEach(function (key) { $('set-' + key).addEventListener('change', previewNow); });
         $('set-timeFormat').addEventListener('change', previewNow);
         $('refresh').addEventListener('click', async function () {

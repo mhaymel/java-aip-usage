@@ -144,8 +144,9 @@ test('the settings view is in the panel area, below the strip, and starts hidden
     assert.ok(html.indexOf('id="settings-button"') < html.indexOf('id="settings-view"'));
 });
 
-test('the settings view has the three buttons, the two view buttons and a dropdown for the interval', () => {
-    for (const id of ['settings-apply', 'settings-restore', 'settings-cancel', 'settings-maximum', 'settings-minimum']) {
+test('the settings view has the three buttons and a box for the interval, and no buttons for the whole main view', () => {
+    assert.doesNotMatch(html, /settings-maximum|settings-minimum|Maximum view|Minimum view/);
+    for (const id of ['settings-apply', 'settings-restore', 'settings-cancel']) {
         assert.match(html, new RegExp('<button[^>]*id="' + id + '"'), id);
     }
     assert.match(html, /<input id="set-usageIntervalSeconds" type="text"/, 'a box to type any number in');
@@ -486,8 +487,20 @@ test('a checkbox and its text, and a label and its controls, are centred on each
     const rule = ruleOf('.settings label');
     assert.match(rule, /display:\s*flex/);
     assert.match(rule, /align-items:\s*center/);
-    assert.match(rule, /flex-wrap:\s*wrap/, 'a line that does not fit wraps, the controls staying centred');
     assert.match(css, /\.settings label input\[type="checkbox"\]\s*{[^}]*margin:\s*0/, 'no margin of the browser to push it off centre');
+});
+
+test('nothing in the settings wraps: every text on one line and the three buttons in one row', () => {
+    assert.match(ruleOf('.settings'), /white-space:\s*nowrap/);
+    for (const rule of ['.settings label', '.settings .line', '.settings .buttons']) {
+        assert.doesNotMatch(ruleOf(rule), /flex-wrap:\s*wrap/, rule);
+    }
+    assert.match(ruleOf('.settings .buttons'), /width:\s*max-content/, 'measured at its own width');
+    assert.match(ruleOf('#settings-form'), /width:\s*max-content/);
+    assert.match(ruleOf('#settings-form'), /min-width:\s*100%/, 'and as wide as the window when that is wider');
+    const buttons = html.slice(html.indexOf('<p id="settings-buttons" class="buttons">'), html.indexOf('</p>', html.indexOf('id="settings-buttons"')));
+    assert.deepEqual([...buttons.matchAll(/id="(settings-[a-z]+)"/g)].map(m => m[1]), ['settings-buttons', 'settings-apply', 'settings-restore', 'settings-cancel']);
+    assert.match(ruleOf('.settings .panel-error'), /white-space:\s*normal/, 'a message may break');
 });
 
 test('the history has two new switches, the date and the change columns after them, under the History view heading', () => {

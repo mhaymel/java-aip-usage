@@ -42,7 +42,7 @@ const scrollbarOf = { width: 0 };
 function element(id) {
     const el = {
         id, hidden: HIDDEN_AT_START.has(id), textContent: '', className: '', value: '', title: '', children: [], attrs: {}, listeners: {},
-        focused: false, scrollTop: 0, scrollHeight: 0, rect: id === 'table-probe' ? { width: 0, height: 0 } : { width: 399.2, height: 41.5 },
+        focused: false, scrollTop: 0, scrollHeight: 0, style: {}, rect: id === 'table-probe' ? { width: 0, height: 0 } : { width: 399.2, height: 41.5 },
         setAttribute(k, v) { this.attrs[k] = String(v); },
         removeAttribute(k) { delete this.attrs[k]; },
         addEventListener(type, fn) { this.listeners[type] = fn; },
@@ -941,42 +941,6 @@ test('Restore defaults fills in the defaults and sends nothing until Apply', asy
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), DEFAULT_SETTINGS);
 });
 
-test('Maximum view turns every main-view item on and Minimum view off, and nothing else changes', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('settings-button');
-    page.el('set-logResponse').checked = true;
-    page.el('set-historyDeltaUsed').checked = true;
-
-    await page.click('settings-maximum');
-    assert.equal(page.el('set-showPercentage').checked, true);
-    assert.equal(page.el('set-showInterval').checked, true);
-    assert.equal(page.el('set-showDeltaUsed').checked, true);
-    assert.equal(page.el('set-showDeltaTime').checked, true);
-    assert.equal(page.el('set-timeFormat').value, 'hh:mm:ss');
-
-    for (const key of ['showTime', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon']) {
-        assert.equal(page.el('set-' + key).checked, true, 'maximum: ' + key);
-    }
-
-    await page.click('settings-minimum');
-    for (const key of ['showTime', 'showUsed', 'showLimit', 'showRefresh', 'showCountdown']) {
-        assert.equal(page.el('set-' + key).checked, true, 'the minimum view keeps ' + key);
-    }
-    for (const key of ['showCurrency', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon']) {
-        assert.equal(page.el('set-' + key).checked, false, 'the minimum view has no ' + key);
-    }
-    assert.equal(page.el('set-showPercentage').checked, false, 'the minimum view has no percentage');
-    assert.equal(page.el('set-showInterval').checked, false);
-    assert.equal(page.el('set-showDeltaUsed').checked, false);
-    assert.equal(page.el('set-showDeltaTime').checked, false);
-    assert.equal(page.el('set-timeFormat').value, 'hh:mm');
-
-    assert.equal(page.el('set-logResponse').checked, true, 'the log setting is left alone');
-    assert.equal(page.el('set-historyDeltaUsed').checked, true, 'so are the history columns');
-    assert.equal(page.el('set-usageIntervalSeconds').value, '120', 'and the interval');
-    assert.equal(settingsPosts(page).length, 0, 'neither applies by itself');
-});
-
 test('if the settings cannot be read the view says so and has no form to edit', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 500, body: { error: 'Internal error; see the log.' } }) }));
 
@@ -1742,18 +1706,6 @@ test('Restore defaults switches the two history lines back on', async () => {
     assert.equal(page.el('set-historyFailedLines').checked, true);
 });
 
-test('Maximum view and Minimum view leave the two history lines alone', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('settings-button');
-    page.el('set-historyZeroLines').checked = false;
-
-    await page.click('settings-maximum');
-    await page.click('settings-minimum');
-
-    assert.equal(page.el('set-historyZeroLines').checked, false);
-    assert.equal(page.el('set-historyFailedLines').checked, true);
-});
-
 // ---- the buttons of the history, log and error log can be switched off; the gear never goes
 
 const withShow = (status, show) => ({ ...status, display: { ...status.display, show: { percentage: false, interval: false, deltaUsed: false, deltaTime: false, ...show } } });
@@ -1850,24 +1802,6 @@ test('the four new switches are in the form, posted, and Restore defaults gives 
     await page.click('settings-restore');
     assert.equal(page.el('set-showCurrency').checked, false);
     assert.equal(page.el('set-showLogIcon').checked, true);
-});
-
-test('Maximum view turns the symbol and the three icons on, Minimum view turns them off, and neither touches the history or the log', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('settings-button');
-    page.el('set-historyDate').checked = true;
-    page.el('set-logResponse').checked = true;
-
-    await page.click('settings-minimum');
-    for (const id of ['set-showCurrency', 'set-showHistoryIcon', 'set-showLogIcon', 'set-showErrorIcon', 'set-showPercentage', 'set-showInterval']) {
-        assert.equal(page.el(id).checked, false, 'minimum: ' + id);
-    }
-    await page.click('settings-maximum');
-    for (const id of ['set-showCurrency', 'set-showHistoryIcon', 'set-showLogIcon', 'set-showErrorIcon', 'set-showPercentage', 'set-showInterval']) {
-        assert.equal(page.el(id).checked, true, 'maximum: ' + id);
-    }
-    assert.equal(page.el('set-historyDate').checked, true, 'the history is left alone');
-    assert.equal(page.el('set-logResponse').checked, true, 'so is the log setting');
 });
 
 test('the amounts are shown as the backend gives them, with or without the symbol', async () => {
@@ -1986,7 +1920,9 @@ test('a click on a checkbox of the main view shows in the row at once, and nothi
     const everything = { percentage: true, interval: true, deltaUsed: true, deltaTime: true, historyIcon: true, logIcon: true, errorIcon: true };
     const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, everything) }));
     await page.click('settings-button');
-    await page.click('settings-maximum');
+    for (const key of Object.keys(ROW_ELEMENTS)) {
+        await change(page, 'set-' + key, true);
+    }
     const polls = page.calls.filter(c => c.url === '/api/status').length;
 
     for (const [key, id] of Object.entries(ROW_ELEMENTS)) {
@@ -1998,6 +1934,148 @@ test('a click on a checkbox of the main view shows in the row at once, and nothi
     }
     assert.equal(settingsPosts(page).length, 0, 'a preview sends nothing');
     assert.equal(page.calls.filter(c => c.url === '/api/status').length, polls, 'and needs no poll');
+});
+
+test('Restore defaults shows in the row at once as well', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
+    await page.click('settings-button');
+    assert.deepEqual(visible(page), ['settings-button']);
+
+    await page.click('settings-restore');
+
+    assert.deepEqual(visible(page), BUTTONS, 'the defaults have the three buttons');
+});
+
+test('there are no buttons that set the whole main view at once', () => {
+    assert.ok(!INDEX_IDS.includes('settings-maximum') && !INDEX_IDS.includes('settings-minimum'));
+});
+
+// ---- leaving the settings by a button of the row saves them
+
+test('the gear again saves what was changed, as Apply does, and closes the view', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    await change(page, 'set-showDeltaUsed', true);
+    page.el('set-usageIntervalSeconds').value = '300';
+
+    await page.click('settings-button');
+
+    assert.equal(settingsPosts(page).length, 1);
+    const sent = JSON.parse(settingsPosts(page)[0].body);
+    assert.equal(sent.showDeltaUsed, true);
+    assert.equal(sent.usageIntervalSeconds, 300);
+    assert.equal(page.el('settings-view').hidden, true);
+    assert.equal(page.el('panel').hidden, true);
+});
+
+test('the button of another panel saves the settings and then shows its panel', async () => {
+    for (const [button, title] of [['log-button', 'Hide the log'], ['history-button', 'Hide the usage history'], ['errors-button', 'Hide the error log']]) {
+        const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+        await page.click('settings-button');
+        page.el('set-logResponse').checked = true;
+
+        await page.click(button);
+
+        assert.equal(settingsPosts(page).length, 1, button);
+        assert.equal(JSON.parse(settingsPosts(page)[0].body).logResponse, true, button);
+        assert.equal(page.el('settings-view').hidden, true, button);
+        assert.equal(page.el(button).title, title, 'its panel is shown');
+    }
+});
+
+test('leaving settings in which nothing was changed sends nothing', async () => {
+    for (const button of ['settings-button', 'log-button']) {
+        const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+        await page.click('settings-button');
+
+        await page.click(button);
+
+        assert.equal(settingsPosts(page).length, 0, button);
+        assert.equal(page.el('settings-view').hidden, true, button);
+    }
+});
+
+test('when the save fails on leaving, the settings stay with the reason and the other panel is not shown', async () => {
+    const refusing = { config: CONFIG, status: SPEND_STATUS, postSettings: () => ({ status: 400, body: { error: 'The usage interval must be a whole number of seconds from 5 to 3600.' } }) };
+    for (const button of ['settings-button', 'history-button']) {
+        const page = await load(backendOf(refusing));
+        await page.click('settings-button');
+        page.el('set-usageIntervalSeconds').value = '4';
+
+        await page.click(button);
+
+        assert.equal(page.el('settings-view').hidden, false, button + ': the view stays');
+        assert.equal(page.el('settings-error').textContent, 'The usage interval must be a whole number of seconds from 5 to 3600.');
+        assert.equal(page.el('history-button').title, 'Show the usage history', 'no other panel');
+    }
+});
+
+test('an interval that is no number keeps the settings open on leaving, and sends nothing', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-usageIntervalSeconds').value = 'abc';
+
+    await page.click('log-button');
+
+    assert.equal(settingsPosts(page).length, 0);
+    assert.equal(page.el('settings-view').hidden, false);
+    assert.equal(page.el('settings-error').textContent, 'The interval must be a whole number of seconds.');
+    assert.equal(page.el('log-button').title, 'Show the log');
+});
+
+test('Cancel is the one way to leave without saving, whatever was changed', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    await change(page, 'set-showTime', false);
+    page.el('set-usageIntervalSeconds').value = '300';
+
+    await page.click('settings-cancel');
+
+    assert.equal(settingsPosts(page).length, 0);
+    assert.equal(page.el('settings-view').hidden, true);
+    assert.equal(page.el('time').hidden, false, 'and the row is as the backend has it');
+});
+
+test('after a save on leaving the row keeps what was previewed', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    await change(page, 'set-showTime', false);
+    state.status = withShow(withDisplay(SPEND_STATUS), { time: false });
+
+    await page.click('settings-button');
+
+    assert.equal(page.el('time').hidden, true);
+});
+
+// ---- the least width of the settings
+
+test('while the settings are shown the window is as wide as they need, when that is more than the row', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('app').rect = { left: 0, width: 400, height: 300 };
+    page.el('settings-form').rect = { left: 8, width: 500, height: 200 };
+    page.el('settings-buttons').rect = { left: 8, width: 260, height: 20 };
+
+    assert.equal(page.window.contentSize(), '516,300,3', 'the form and the room at its left again at its right');
+
+    page.el('settings-buttons').rect = { left: 8, width: 540, height: 20 };
+    assert.equal(page.window.contentSize(), '556,300,3', 'the buttons in one row, when they are the wider');
+    assert.equal(page.el('settings-form').style.minWidth, '', 'the form is given back its width after the measuring');
+});
+
+test('the settings never make the window narrower than the row, and the width goes back when they are left', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('app').rect = { left: 0, width: 400, height: 300 };
+    page.el('settings-form').rect = { left: 8, width: 200, height: 200 };
+    page.el('settings-buttons').rect = { left: 8, width: 200, height: 20 };
+
+    assert.equal(page.window.contentSize(), '400,300,3', 'the row is wider');
+
+    page.el('settings-form').rect = { left: 8, width: 900, height: 200 };
+    await page.click('settings-cancel');
+    assert.equal(page.window.contentSize(), '400,42,0', 'the row alone again');
 });
 
 test('the slash is there only when both amounts are, and the amounts go when all three of their figures are off', async () => {
@@ -2046,23 +2124,6 @@ test('Cancel gives the row back as the backend has it; Apply keeps what was prev
     await page.click('settings-apply');
     assert.equal(page.el('time').hidden, true, 'applied, and the backend says so as well');
     assert.equal(JSON.parse(settingsPosts(page)[0].body).showTime, false);
-});
-
-test('Maximum view, Minimum view and Restore defaults show in the row at once as well', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
-    await page.click('settings-button');
-
-    await page.click('settings-maximum');
-    assert.deepEqual(visible(page), BUTTONS);
-    assert.equal(page.el('delta-used').hidden, false);
-
-    await page.click('settings-minimum');
-    assert.deepEqual(visible(page), ['settings-button']);
-    assert.equal(page.el('delta-used').hidden, true);
-    assert.equal(page.el('time').hidden, false, 'the minimum view keeps the time');
-
-    await page.click('settings-restore');
-    assert.deepEqual(visible(page), BUTTONS, 'the defaults have the three buttons');
 });
 
 test('every element of the row can be switched off by the backend, down to the gear', async () => {

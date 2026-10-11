@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.32). What these mechanisms make the
+How the requirements are met today (version 0.33). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1386,7 +1386,7 @@ last:
 
 | Phase | Version | Piece |
 | --- | --- | --- |
-| 45 | 0.33 | The settings view: no `Maximum view` and `Minimum view`, a least width, leaving saves |
+| 45 | 0.33 | The settings view: no `Maximum view` and `Minimum view`, a least width, leaving saves (done) |
 | 46 | 0.34 | The request duration, a thirteenth element |
 | 47 | 0.35 | The window to the front at startup, and `Stay on top` |
 | 48 | 0.36 | The title bar, on and off while the program runs |
@@ -1398,27 +1398,39 @@ section is gone from the requirements when phase 49 is done.
 
 ### 45. The settings view: two buttons less, a least width, and leaving saves
 
-**Status: specified, not built (version 0.33).** Requirement: The settings view; Leaving a settings view saves it.
+**Status: done (version 0.33); how the view looks is for a person to judge.** Requirement: Settings (Leaving the settings by a
+button of the row saves them; The settings have a least width).
 
-- **The two buttons.** `settings-maximum` and `settings-minimum` go from `index.html`, with `setMainView`, `MINIMUM` and their
-  two listeners in `app.js`, the rule for `.settings fieldset .buttons` if nothing else uses it, and the tests of the two
-  buttons (`app.test.cjs`, `layout.test.cjs`).
-- **The least width.** While the settings are shown, `contentSize` reports the larger of the row's width and the width the
-  settings need. The need is measured in the page: `.settings label`, `.settings .line` and `.settings .buttons` get
-  `flex-wrap: nowrap` and `white-space: nowrap`, and the form is laid out as `width: max-content`, so its own width is the one
-  at which no text and no button wraps. `WindowFit` takes the width as it takes any other; nothing changes in the host.
-- **Leaving saves.** `togglePanel` is the one place every button of the row goes through. When the open panel is a settings
-  view and the button is not `Cancel`, it calls `applySettings` first and goes on, to close the view or to show the other
-  panel, only when that succeeded; `applySettings` already keeps the view open with the message in red when a value is refused
-  or the save fails. The form is compared with `settingsShown`, so a view in which nothing was changed sends nothing.
-  `cancelSettings` stays the one path that leaves without sending. Closing the window sends nothing, as now.
-- **Tests.** `app.test.cjs`: the gear again saves and closes; the button of another panel saves and shows its panel; a refused
-  value keeps the view open and the other panel shut; nothing changed sends nothing; Cancel sends nothing and gives the row
-  back. The tests that say the gear and another panel's button leave without saving are turned round. `layout.test.cjs`: no
-  such buttons, no wrapping in the three rules.
+- **The two buttons.** `settings-maximum` and `settings-minimum` are gone from `index.html`, with `setMainView`, `MINIMUM` and
+  their listeners in `app.js` and the rule for the buttons inside a group.
+- **The least width.** While the settings are shown `contentSize` reports the larger of the row's width and `settingsWidth()`.
+  Nothing in the view wraps (`white-space: nowrap` on `.settings`, no `flex-wrap` on its labels, lines and buttons), so an
+  element's own width is the width it needs. The buttons, `settings-buttons`, are `width: max-content`. The form is
+  `width: max-content` with `min-width: 100%`, so that its boxes still reach across a wider window; for the moment of the
+  measuring `settingsWidth` takes the `min-width` off by an inline style and puts it back, which makes the answer independent
+  of how wide the window happens to be. Without that the window, once wide, would never become narrower again. Each of the two is
+  given the room at its left again at its right. Nothing changed in the host: `WindowFit` takes the width as any other.
+- **Leaving saves.** `togglePanel` is asynchronous now. With the settings open it asks `settingsChanged`, which compares the
+  form with what the backend gave, and when something differs `saveSettings`, the half of the old `applySettings` that checks
+  the interval field and posts; only when that returned true does `leaveSettings` show the other panel or what the settings
+  replaced. `applySettings` is `saveSettings` and `leaveSettings`; `cancelSettings` calls `leaveSettings` alone and is the
+  one path that sends nothing. After a save the preview is kept until the next poll, as after Apply.
+- **Tests.** `app.test.cjs`: the gear saves and closes; each of the three panel buttons saves and shows its panel; nothing
+  changed sends nothing; a refused value and an interval that is no number keep the view open and the other panel shut; Cancel
+  sends nothing and gives the row back; the row keeps the preview after a save on leaving; the width reported for the settings,
+  from the form or from the buttons, never less than the row, and the row's again afterwards. The four tests of the two buttons
+  are deleted. `layout.test.cjs`: no such buttons, nothing that wraps, the three buttons in one element.
+- **Seen in a real window.** `PanelProbe` opens the settings in a real web view, switches every element of the row off so that
+  the row is the gear alone, makes the window as wide as the page asks, and reports: `PanelWindowTest` checks that the settings
+  ask for more than that row, the same whatever the window's width, that no text wraps, that the three buttons have the same
+  top, that nothing sticks out at the right, and that the width is the row's again afterwards. It passed. The test runs only
+  when asked for (`-Daipusage.windows=true`).
+- **Repaired on the way.** That test had gone stale without anyone noticing, since it is not in the ordinary run: it expected the
+  history with dates, which are off by default since the date setting, and the log newest first from lines that had no time, which
+  the page takes for one entry. Its expectations and the probe's lines are put right, and the probe prints only the beginning of
+  the log, since its longer lines filled the pipe the test reads at the end and the probe hung.
 
-*Risk:* small. The width is only right in the real window, so it is looked at there: every checkbox on one line, the three
-buttons in one row, with the row at its narrowest (every element hidden).
+*Assumed, easy to change:* `Apply` always sends, also when nothing was changed, as before.
 
 ### 46. The request duration, a thirteenth element
 

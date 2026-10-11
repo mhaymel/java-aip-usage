@@ -432,22 +432,38 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   columns, times and date, the row with its new items. If nothing was shown before, nothing is shown afterwards, as before.
   Pressing the button of another panel while the settings are shown shows that panel, and the settings are left without coming back
   to anything: what was shown before the settings is then forgotten.
+- **Leaving the settings by a button of the row saves them**, not only `Apply`: the gear pressed again, and the button of any
+  other panel, the log, the history or the error log, each save what the view holds, exactly as `Apply` does, and then do what
+  they do, close the view or show their panel. **`Cancel` is the one way to leave without saving**: it closes the view, nothing
+  is changed, and what the row previewed is taken back.
+- **When the save fails on leaving, the view stays.** If a value is refused, an interval that is no number or out of range, or
+  the settings cannot be saved, the view stays open with its message in red, as after `Apply`, and the other panel is not shown:
+  nothing is lost without a word, and `Cancel` is still there to leave.
+- **Nothing changed, nothing sent.** Leaving a view in which nothing was changed sends nothing to the backend. `Apply` always sends.
+- **Closing the window** while the settings are open does not save them.
 - **The window is exactly as tall as the row, its message lines and the settings need**, so the
   settings are shown whole, with no vertical scrollbar, and with no empty space below them. The height of the
   row counts: the settings are never clipped by it. The height follows the content: when the row changes,
   in particular when a message line such as an error appears, grows or goes, the window follows at once, so the
   settings stay whole and the window is no taller than needed. The window cannot be resized by hand while the
-  settings are shown. The width is the row's.
+  settings are shown.
+- **The settings have a least width.** Hiding elements makes the row, and with it the window, narrower. While the settings are
+  shown the window is never narrower than the settings need for two things: **every checkbox has its text on one line**, a
+  property beside it included, and **the buttons of the view, `Apply`, `Restore defaults` and `Cancel`, are in one row**. When
+  the row is wider than that, the window is as wide as the row. When the settings are left the window goes back to the width of
+  the row. The least width is worked out from the view itself, from its texts and controls as they are drawn, and is not a fixed
+  number of pixels, so it stays right when a text or the font changes. Nothing in the view wraps; only its message in red may
+  break over several lines.
 - The view shows every setting with its current value, which the frontend has just asked the backend for,
   each time the view is opened. The frontend keeps no setting of its own: what is shown is what the
   backend has.
-- Changes made in the view are sent and saved only when the **Apply** button is pressed. Those of `Main view` are shown in
-  the row at once, as a preview, and are taken back when the view is left without Apply (see The elements of the row); those of
-  the other sections take effect on Apply. Apply sends all the
+- Changes made in the view are sent and saved when the **Apply** button is pressed, or when the view is left by a button of the
+  row (above). Those of `Main view` are shown in the row at once, as a preview, and are taken back when the view is left by
+  `Cancel` (see The elements of the row); those of the other sections take effect when they are saved. Apply sends all the
   values to the backend, which keeps them and saves them in the settings file, and then **closes the
   view**; the main view shows the changes at once. A **Cancel** button closes the view, and no value
   is changed; it asks nothing. A **Restore defaults** button sets the fields to the defaults below; it
-  does not apply them, so Apply is still pressed to make them take effect. If the backend refuses a
+  does not save them: they are saved like any other change, by Apply or by leaving the view. If the backend refuses a
   value, or the settings cannot be saved, the view stays open and shows a brief message in red; nothing
   is changed.
 - The settings, with their defaults:
@@ -494,11 +510,6 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   covered by the arrow, nor cut off.
 - **The text of the view can be selected and copied.**
 - The view is arranged in sections: `Request`, `Main view`, `History view` and `Log`.
-- Two buttons set the switches of the main view together: **Maximum view** turns on all twelve elements of the row and the
-  currency symbol, and sets the time with seconds; **Minimum view** leaves the time, the amount used, the budget, the refresh button
-  and the countdown, turns the other seven and the currency symbol off, and sets the time to hours and minutes. The settings of the
-  history, the interval and the logging of the response are left as they are. They fill in the fields like Restore defaults does,
-  the row shows it at once, and Apply is still pressed to keep it.
 - Turning on logging of the response makes the application write, for each response, the JSON it was
   sent, pretty printed over several lines, in the log (see Non-functional requirements).
 - The command line still overrides the interval for the run, as before, until a value is applied here.
@@ -885,14 +896,13 @@ document uses for it. From left to right (see `docs/img_2.png`, where each is ma
 
 - **A click on a checkbox of `Main view` changes the row at once**, while the settings are still
   shown, so that it can be seen which element the checkbox belongs to. The same holds for the two
-  properties, and for `Maximum view`, `Minimum view` and `Restore defaults`, which fill in several at once.
-- **It is a preview.** Nothing is sent to the backend and nothing is saved until **Apply** is pressed.
-  **Cancel**, the gear, and leaving the settings by the button of another panel put the row back to
-  what the backend has. The settings of the other sections, `Request`, `History view` and `Log`, have
-  no preview: they take effect on Apply.
+  properties, and for `Restore defaults`, which fills in several at once.
+- **It is a preview.** Nothing is sent to the backend and nothing is saved until the view is saved, by **Apply** or by
+  leaving it through a button of the row (see Settings). **Cancel** puts the row back to what the backend has. The settings
+  of the other sections, `Request`, `History view` and `Log`, have no preview: they take effect when they are saved.
 - The preview is of the row's figures only: the time in the other format and the amounts with or without the symbol are the
   backend's own texts, which it sends in both forms. The time in a message line, `Refresh failed at ...`, changes on Apply.
-- After Apply the row keeps what was previewed until the next status says the same, so it does not go back to the old state for a moment.
+- After a save the row keeps what was previewed until the next status says the same, so it does not go back to the old state for a moment.
 - **The three panel buttons follow their checkboxes while the settings are shown too.** The button of a panel that is open
   still stays until the panel is closed.
 - An element that is switched on in the preview and has no value to show keeps its room.
@@ -920,33 +930,6 @@ document uses for it. From left to right (see `docs/img_2.png`, where each is ma
 this section differs from them, it is what the program is to do, and they are to be brought into line
 when it is built. Every decision taken for it is written here as a requirement; nothing in it is left as an assumption.
 
-### The settings view
-
-- **`Maximum view` and `Minimum view` are removed** from the `Main view` group. Nothing replaces them.
-- **The settings view has a least width.** Hiding elements makes the row, and with it the window, narrower. While the
-  settings are shown the window is never narrower than the settings need for two things: **every checkbox has its
-  text on one line**, a property beside it included, and **the buttons of the view, `Apply`, `Restore defaults` and
-  `Cancel`, are in one row**. When the row is wider than that, the window is as wide as the row, as now. When the
-  settings are left the window goes back to the width of the row.
-- **The least width is worked out from the view itself**, from its texts and controls as they are drawn, and is not a
-  fixed number of pixels, so it stays right when a text or the font changes.
-
-### Leaving a settings view saves it
-
-- **Changes made in the settings view are saved when the view is left by a button of the row**, not only by `Apply`:
-  the gear pressed again, and the button of any other panel, the log, the history, the error log or the debug button,
-  each save what the view holds, exactly as `Apply` does, and then do what they do, close the view or show their panel.
-- **The same holds for the debug settings view** and for any view of its kind: leaving it by its own button or by the
-  button of another panel saves it.
-- **`Cancel` is the one way to leave without saving.** It closes the view, nothing is changed, and what the row
-  previewed is taken back.
-- Today the gear and the other buttons leave the settings without saving, like `Cancel`; this replaces that.
-- **When the save fails on leaving, the view stays.** If a value is refused, an interval that is no number or out of
-  range, or the settings cannot be saved, the view stays open with its message in red, as after `Apply`, and the other
-  panel is not shown: nothing is lost without a word, and `Cancel` is still there to leave.
-- **Nothing changed, nothing sent.** Leaving a view in which nothing was changed sends nothing to the backend.
-- **Closing the window** while a settings view is open does not save it.
-
 ### Debug mode
 
 - **One command-line option, `--debug`, starts the program in debug mode.** It takes no value. Without it the program
@@ -968,6 +951,10 @@ when it is built. Every decision taken for it is written here as a requirement; 
   that can be hidden: in debug mode it is always there, like the gear, and without debug mode it is never there.
 - **The debug button's icon is a bug**, and its tooltip is `Debug mode: show the debug settings`, and `Debug mode: hide
   the debug settings` while the view is shown.
+- **Leaving the debug settings view saves it**, as leaving the settings view does (see Settings): by its own button or by
+  the button of another panel; `Cancel` is the one way to leave it without saving, a save that fails keeps it open, and a view
+  in which nothing was changed sends nothing. The debug button, pressed while the settings view is shown, saves the settings
+  like the button of any other panel.
 - **A click on it shows the debug settings view**, which is like the settings view: below the row, in the same place,
   with `Apply` and `Cancel` and no `Restore defaults`, one view at a time, and the button again closes it.
 - **The debug settings**, all kept in `settings.json` with the others:
@@ -1305,7 +1292,7 @@ These are things the program does that the sections above do not say, written do
 - The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.
-- The window title is `aip usage v0.32`; the program is called `java-aip-usage v0.32` in the log.
+- The window title is `aip usage v0.33`; the program is called `java-aip-usage v0.33` in the log.
 - **The program asks the page for its size about every 150 milliseconds** and gives the window a new size when the answer is a new one, so the window follows its content within a moment. The page measures its own content, never the window, so that giving the window that size does not change the answer; the same size is not set twice. The page says nothing but its size, what may be dragged and which panel is open, and the program tells the page nothing.
 - **What may be dragged.** With no panel, and with the settings, nothing. With the history, the height only, the width staying what the page asked for. With the log and the error log, the height and the width. Neither can be dragged below the size the window has with no panel open, which is the size the page last asked for with none; until there has been one, the size the panel opened at is the least.
 - **An answer of the page that is not a size is passed over**: one that is not text, one with a width or a height of 0 or of more than five digits, a panel name other than `history`, `log` and `errors`. A change of what may be dragged, or of the panel, with the same numbers, counts as a new size.
@@ -1322,8 +1309,8 @@ These are things the program does that the sections above do not say, written do
 - Under the row, in this order, there can be the message line, the line with the message of an HTTP 429 that shows while the pointer is over the countdown, and the red line `Lost contact with the application. Still trying.`. The last one is the window's own: it shows when a request to the
   program fails, including the one for the refresh button, keeps showing the last figures, and goes with the next answer. Before the program has answered at all the window asks again every 2 seconds, the row has neither figures nor a word, and the buttons do nothing until the first answer; every request to the program
   is given up after 10 seconds.
-- **The settings view:** the buttons are Apply, Restore defaults (tooltip `Fill in the defaults; Apply makes them take effect`) and Cancel (`Close without changing anything`), in that order; Apply and Restore defaults are disabled when the settings could not be read; Maximum view (`Show everything in the main view`) and Minimum view (`Show only the time, the amounts, the refresh button and the countdown`)
-  are inside the Main view group. The time format's two choices read `hh:mm` and `hh:mm:ss`. The interval field is 5 characters wide, right-aligned, with `s` after it. When Apply is pressed the window checks that the field is a whole number
+- **The settings view:** the buttons are Apply, Restore defaults (tooltip `Fill in the defaults; Apply makes them take effect`) and Cancel (`Close without changing anything`), in that order; Apply and Restore defaults are disabled when the settings could not be read.
+  The time format's two choices read `hh:mm` and `hh:mm:ss`. The interval field is 5 characters wide, right-aligned, with `s` after it. When Apply is pressed the window checks that the field is a whole number
   (`The interval must be a whole number of seconds.`) and sends nothing otherwise; whether it is within 5 to 3600 is for the backend. Nothing else is bound to the keyboard: there is no Enter to apply and no Escape to cancel; the panels' lines can be reached with Tab, and the buttons say
   whether their panel is open to a screen reader.
 - **The panels:** while a panel is on show it is read again when its content changes. The log and the error log are read at every poll of the status that was answered, so every second unless `--poll-interval` says otherwise, and not at all while contact is lost; the history whenever a row has been added to its file, a row of a failed refresh as well as a reading (the status carries a stamp of the file, `historyStamp`, which changes when a row is added; it is empty when there is no file). If nothing has changed the lines are left alone; when new lines come in above, what the person
@@ -1351,8 +1338,8 @@ These are things the program does that the sections above do not say, written do
   answer whose status is not a success, so an application that answers a poll with an error is "lost contact" too. The line goes with the next status that is answered. While it shows, an open panel is not read again.
 - **What the application's refusal reads as.** The reason a red line gives is the `error` text of the answer when it has one, else `The application answered HTTP <status>.` With the answers the panels' files give, the line reads `The usage history could not be read: The usage history could not be read.`, and the
   same for the log.
-- **The settings view, exactly.** The groups and their order: `Request`, with `Interval`, the field and `s`; `Main view`, with the twelve checkboxes of The elements of the row in the order of the row, the time format dropdown beside `Time` and `Currency symbol` beside `Amount used`, 12 pixels from it,
-  then `Maximum view` and `Minimum view`; `History view`, with `Date`, `Zero usage lines`, `Failed lines`, `Δ used`, `Δ time`; and `Log`, with `Log the response`. The text is bold, 12 pixels on a line of 1.45, in the system's own interface font, not condensed. Each group is a box with a thin gray border
+- **The settings view, exactly.** The groups and their order: `Request`, with `Interval`, the field and `s`; `Main view`, with the twelve checkboxes of The elements of the row in the order of the row, the time format dropdown beside `Time` and `Currency symbol` beside `Amount used`, 12 pixels from it;
+  `History view`, with `Date`, `Zero usage lines`, `Failed lines`, `Δ used`, `Δ time`; and `Log`, with `Log the response`. The text is bold, 12 pixels on a line of 1.45, in the system's own interface font, not condensed. Each group is a box with a thin gray border
   and its heading set in the border; each setting has a line of its own, the control 4 pixels from its text. The buttons are 6 pixels apart, with a gray border that takes the colour of the text under the pointer or with the focus; a disabled one is at half strength. `Apply` has no tooltip. The dropdown is at
   least 12 characters wide. The red line of the view is at its top, above the groups; it stays until the view is opened again, whatever is typed or pressed meanwhile. When the settings cannot be read it says `The settings could not be read: <reason>` and the groups are not shown at all, not shown empty; Cancel
   still works. A refusal of the backend is shown in its own words. The check of the interval field is: blanks at its ends aside, digits and nothing else, so ` 60 ` and `0060` are taken, the latter as 60, and `-5`, `5.0`, `1e3`, `60s` and an empty field are not. Apply sends all sixteen settings in one request.
@@ -1587,7 +1574,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - **A poll is cheap.** The window asks for the status every second for as long as the application runs, so that answer costs no more work than it has to: the figures it carries are the ones the refresh already worked out, and the history file is read again only when it has changed (its size or its time), not once a second. A panel that is open is read again on the same terms: the history when its file has changed, the log and the error log on the poll, and the lines on the page are replaced only when they differ from what is already there, so that what a person is reading does not move for an answer that says nothing new.
 - Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
-  (`Starting java-aip-usage v0.32`), and then a line that says which file the usage history CSV is written to, as a full path, for example
+  (`Starting java-aip-usage v0.33`), and then a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
   revealed to the window or any request (see The log panel). The line that says the program was started
   is the one the log panel marks as the start of a run (the log panel finds it by its wording, `Starting java-aip-usage`, so that wording and the form of the log line are part of this requirement).

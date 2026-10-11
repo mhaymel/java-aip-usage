@@ -232,6 +232,8 @@ body {
     /* The text of the settings can be selected and copied. */
     -webkit-user-select: text;
     user-select: text;
+    /* Nothing in the settings wraps: the text of a checkbox stays on one line and the buttons in one row. */
+    white-space: nowrap;
 }
 
 .settings fieldset {
@@ -248,19 +250,29 @@ body {
 
 /*
  * A checkbox and its text, or a label and its box and dropdown, are centred on each other vertically, so that nothing sits higher or
- * lower than its label. A line that does not fit wraps, the controls staying centred on one another.
+ * lower than its label.
  */
 .settings label {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 4px;
+}
+
+/* The form is as wide as its content at least, and as the window when that is wider; the window is measured to it (see contentSize). */
+#settings-form {
+    width: max-content;
+    min-width: 100%;
+    box-sizing: border-box;
+}
+
+/* A message may be long, and breaks. */
+.settings .panel-error {
+    white-space: normal;
 }
 
 /* An element of the row and its property, the time format or the currency symbol, in one line. */
 .settings .line {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
 }
@@ -269,15 +281,12 @@ body {
     margin: 0;
 }
 
+/* The buttons of the view, in one row and as wide as they are, which is what the window is measured to. */
 .settings .buttons {
     display: flex;
-    flex-wrap: wrap;
+    width: max-content;
     gap: 6px;
     margin: 4px 0 6px;
-}
-
-.settings fieldset .buttons {
-    margin: 2px 0 0;
 }
 
 .settings button {

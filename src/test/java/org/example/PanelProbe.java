@@ -37,9 +37,10 @@ public final class PanelProbe {
         AppFiles files = AppFiles.in(Path.of(args[0]));
         // More lines than the panel shows at once, so that what is at its top matters.
         List<String> logLines = new java.util.ArrayList<>();
-        logLines.add("probe log line one");
+        // In the form of the log, so that each is an entry of its own: the panel puts entries, not lines, newest first.
+        logLines.add(logLine(1, "one"));
         for (int i = 2; i <= 60; i++) {
-            logLines.add("probe log line " + (i == 60 ? "last" : String.valueOf(i)));
+            logLines.add(logLine(i, i == 60 ? "last" : String.valueOf(i)));
         }
         Files.write(files.log(), logLines);
         Files.write(files.history(), List.of(
@@ -56,6 +57,10 @@ public final class PanelProbe {
         } finally {
             runtime.close();
         }
+    }
+
+    private static String logLine(int second, String name) {
+        return String.format("2026-10-08 19:00:%02d INFO    [Probe] probe log line %s", second % 60, name);
     }
 
     /** The window side of the probe; kept apart from {@code main}, as in the application itself. */
@@ -104,12 +109,52 @@ public final class PanelProbe {
             click(page, "log-button");
             after(1.5, () -> {
                 System.out.println("PROBE log=" + size(page));
-                System.out.println("PROBE log-lines=" + lines(page));
+                // The first lines only: the test reads the output when the probe has ended, and a pipe holds little.
+                String shown = lines(page);
+                System.out.println("PROBE log-lines=" + shown.substring(0, Math.min(200, shown.length())));
                 System.out.println("PROBE log-scroll=" + page.executeScript("document.getElementById('panel-lines').scrollTop"));
                 System.out.println("PROBE log-top=" + page.executeScript(topRow()));
                 click(page, "log-button");
                 after(0.5, () -> {
                     System.out.println("PROBE closed-again=" + size(page));
+                    settings(page, main);
+                });
+            });
+        });
+    }
+
+    /**
+     * The settings: how wide the page says the window must be for them, and, with the window made that wide as the
+     * application would make it, whether any text wraps, whether the three buttons are in one row and whether anything
+     * sticks out at the right.
+     */
+    private static void settings(WebEngine page, Stage main) {
+        click(page, "settings-button");
+        after(1.5, () -> {
+            // Every element of the row off, as a person would click them, so that the row is at its narrowest: the gear alone.
+            page.executeScript(
+                    "Array.from(document.querySelectorAll('#settings-form input[id^=\"set-show\"]')).forEach(function (box) {"
+                            + " box.checked = false; box.dispatchEvent(new Event('change')); })");
+            System.out.println("PROBE settings-row=" + page.executeScript("Math.ceil(document.getElementById('top').getBoundingClientRect().width)"));
+            String size = size(page);
+            System.out.println("PROBE settings=" + size);
+            main.setWidth(main.getWidth() - main.getScene().getWidth() + Integer.parseInt(size.split(",")[0]));
+            after(0.7, () -> {
+                System.out.println("PROBE settings-fitted=" + size(page));
+                System.out.println("PROBE settings-lines=" + page.executeScript(
+                        "(function () { var one = document.getElementById('set-logResponse').parentElement.getBoundingClientRect().height;"
+                                + " return Array.from(document.querySelectorAll('#settings-view label, #settings-view .line'))"
+                                + ".filter(function (line) { return line.getBoundingClientRect().height > one * 1.5; }).length; })()"));
+                System.out.println("PROBE settings-buttons=" + page.executeScript(
+                        "['settings-apply', 'settings-restore', 'settings-cancel'].map(function (id) {"
+                                + " return Math.round(document.getElementById(id).getBoundingClientRect().top); }).join(',')"));
+                System.out.println("PROBE settings-overflow=" + page.executeScript(
+                        "Math.max(0, Math.ceil(Math.max.apply(null, Array.from(document.querySelectorAll('#settings-view label, #settings-view .line,"
+                                + " #settings-view button, #settings-view fieldset')).map(function (e) { return e.getBoundingClientRect().right; }))"
+                                + " - window.innerWidth))"));
+                click(page, "settings-cancel");
+                after(0.5, () -> {
+                    System.out.println("PROBE settings-closed=" + size(page));
                     report(main);
                 });
             });
