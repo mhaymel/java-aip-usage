@@ -1542,6 +1542,139 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
+## Hover on every gray box, less room in the row, the history's columns, the paths of About, a fake backend to configure, and cost control
+
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.57; where
+this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
+when it is built (see the implementation plan, phases 70 to 75).
+
+### The no-spend text is shown over every gray box
+
+- **While a reading has no spend, the line that says so is shown with the mouse on any gray box of the row**, not on
+  those of the amounts alone: the percentage, the amount used, the budget, the change in the amount used, the time
+  since the previous reading and the request duration, each while it is a gray box.
+- Nothing else of that line changes: its two texts, its colour, that the window is taller by it, and that it goes when
+  the mouse leaves the boxes. An element that shows a figure has no such line.
+
+### Less room is reserved in the row
+
+- **The fault.** The row keeps room for long values, so that its width does not change at every refresh: `+1,234.56`
+  for the change in the amount used, `120s` for the time since the previous reading, `1s034ms` for the request
+  duration. With the usual short values that room is empty, and the elements stand far apart (the clipboard picture of
+  the note: `60s`, `0.00`, `60s`, `4ms` with wide gaps between them and before the buttons).
+- **Room is kept for the usual values only:**
+
+  | Element | Room for | Before |
+  | --- | --- | --- |
+  | `Change in the amount used` | `+99.99` | `+1,234.56` |
+  | `Time since the previous reading` | `999s` | `1,200s` |
+  | `Request duration` | `999ms` | `1s034ms` |
+
+  The interval keeps its room for `300s` and the countdown its own.
+- **A longer value makes the row wider for as long as it is shown**, and the window with it; nothing is cut off. That
+  was so before for values longer than the room; it happens more often now, which is the price of the smaller gaps.
+- **A gray box is as wide as the room of its element**, so the boxes are narrower by as much.
+- The values stay at the left of their room, as before.
+
+### The usage history spreads its spare width over all columns
+
+- **The fault.** When the history is wider than its columns need, which it is whenever the row is wide, all the spare
+  width was given to the first column: the time stood at the left edge and the other columns far away at the right
+  (see `docs/img_7.png`).
+- **The spare width is shared out equally as room between the columns.** Each column is as wide as its content needs,
+  as before; the first is at the left edge of the list and the last at the right edge, and the gaps between
+  neighbouring columns are all the same.
+- **Within a column nothing changes**: the time at the left, the figures right-aligned so that they line up by their
+  last digit, the header over its column, and `failed` where the amount used would be.
+- **When there is no spare width** the table is as it was, and a table wider than the window scrolls sideways.
+
+### The paths of the About view are links, with a button to copy each
+
+- **The three paths of the About view are not bold**: regular weight, where the rest of the view has the weight of the
+  settings.
+- **Each path is a link**: in the blue of the notes, `#0969da` on the light theme and `#58a6ff` on the dark one,
+  underlined, with the pointer of a link. A click **opens the folder the file is in, with the file marked** where the
+  system can do that (the Explorer on Windows, the Finder on macOS); elsewhere it opens the folder. The file itself is
+  not opened: the log and the history are in use.
+- **When the file is not there yet**, as a log that was never written, the folder is opened without a file marked.
+- **Beside each path is a small button that copies it**: an icon with no text, two sheets one over the other, with the
+  tooltip `Copy the path`. A click puts the full path on the clipboard, as text.
+- **A copy is confirmed** in the button itself: its icon is a tick for a second and a half, and its tooltip `Copied`,
+  then it is the copy icon again.
+- **Nothing can be selected still.** The button is how a path is copied; the rule that no text of the window can be
+  selected stays as it is.
+- **The page names the file, never a path**: it asks for `settings`, `log` or `history` to be opened or copied, and
+  the program uses the path it knows. No request makes the program open or copy anything else.
+- **When it cannot be done**, the system refusing to open the folder or the clipboard not being there, a red line in
+  the view says `The folder could not be opened: <reason>` or `The path could not be copied: <reason>`.
+
+### A fake backend that can be configured
+
+- **The ordinary answer of the fake backend can be shaped**, in the debug settings view, beside the switch of the fake
+  backend and its scenario. The settings below are for the scenario `normal`; the other scenarios stay the fixed
+  test cases they are.
+- **The kind of account**, a dropdown `Account` with two values:
+
+  | Value | The answer |
+  | --- | --- |
+  | `Usage-based` | a usage document with spend: an amount used that grows, and a budget; the default |
+  | `Seat-based` | a usage document with no spend and the limits of a session and of a week, as such an account has |
+
+- **The scenario `seat-based` goes**, which was the one way to get the second kind since version 0.56: the account
+  takes its place. A settings file that still names it has `normal` with the account `Seat-based`.
+- **How much the amount used grows.** A field `Largest increase`, in **cents**: at each answer the amount used grows
+  by a whole number of cents drawn at random, evenly, from 0 to that value. 0 means it never grows. Default 137, which is the step
+  it grew by at every answer until now, from 0 to 100,000. It has no meaning for a seat-based account.
+- **The budget and the amount it starts with.** Two fields, in dollars with up to two decimals: `Budget`, the spend
+  limit the fake account reports, default 1,000.00; and `Starting amount`, the amount used it begins with, default
+  186.02. Both are what they were fixed at until now. The budget is from 0.01 to 1,000,000 and the starting amount
+  from 0 to the budget. They have no meaning for a seat-based account.
+- **The amount used begins at the starting amount** when the fake backend is switched on, at the start of the program
+  and whenever the starting amount is changed; a change of another setting lets it go on from where it is. It goes on
+  past the budget when it reaches it, as an account that has spent more than its limit, and the percentage with it.
+- **When the fake backend refuses.** A field `Refuse within`, in seconds: a request that comes less than that long
+  after the request before it that was answered gets an **HTTP 429**, with no `retry-after`; any other gets the usage
+  document. 0 means it never refuses. Default 0, from 0 to 3,600. A refused request does not count as answered, so a
+  client that keeps asking too soon is refused until it has waited long enough.
+- **How long an answer takes.** A field `Longest request`, in milliseconds: each answer, a 429 included, is held back
+  for a time drawn at random, evenly, from 0 to that value. 0 means it answers at once. Default 0, from 0 to 60,000.
+- **They are debug settings like the others**: saved in `settings.json`, under the keys `fakeAccount` (`usage` or
+  `seat`), `fakeIncreaseCents`, `fakeBudget`, `fakeStartAmount`, `fakeRefuseSeconds` and `fakeDelayMillis`; they take effect when the debug view is
+  saved, without a restart; and without `--debug` they count for nothing.
+- **A value that is not a whole number in its range** keeps the view open with the reason in red, as a wrong interval
+  does in the settings; such a value in the file has the default.
+- **What they are for**: the automatic interval can be tried against a backend that refuses requests that come too
+  soon, and the row against amounts that move by a known step.
+
+### Cost control: a monthly and a daily limit, as settings
+
+- **The settings have a group `Cost control`**, after `Request`, for an account that is billed by usage. It holds two
+  limits, in US dollars:
+
+  | Setting | What it is | Default |
+  | --- | --- | --- |
+  | `Monthly limit` | what may be spent in a month | none: the field is empty |
+  | `Daily limit` | what may be spent in a day | worked out from the monthly limit |
+
+- **The daily limit is worked out unless it is given.** Beside its field is a checkbox `Automatic`, on by default. On,
+  the field is disabled and shows the limit the program works out; off, the limit is typed in.
+- **How it is worked out**: the monthly limit divided by the number of **weekdays, Monday to Friday, of the current
+  month**, rounded down to the cent. October 2026 has 22 weekdays, so a monthly limit of 250.00 gives a daily limit of
+  11.36. With no monthly limit there is none to work out, and the field is empty.
+- **The month is the calendar month of the machine's clock**, and the figure in the field is worked out anew when the
+  settings are opened, so it changes with the month.
+- **The amounts** are typed in dollars with up to two decimals, `250` or `250.00`, with no sign, from 0.01 to
+  1,000,000; an empty monthly limit means there is none. Anything else keeps the view open with the reason in red.
+- **A daily limit that is typed in may not be more than the monthly limit**: the view stays open with `The daily limit
+  cannot be more than the monthly limit.` in red. With no monthly limit a daily limit may be any amount in the range.
+- **They are saved with the other settings**, when the view is saved, under the keys `costMonthlyLimit`,
+  `costDailyLimit` (both an amount, or nothing for none) and `costDailyAutomatic`.
+- **The program does nothing with the limits yet.** They are settings to be kept: the row shows nothing of them, nothing
+  is compared with them, and nothing warns. What is done with them is a later requirement.
+- **Decided for that later use, and not built now**, so that it is not asked again: what was spent today is counted
+  only while the program runs, from the first reading of the day in this run; what was spent in the month is the amount
+  used that Anthropic reports; and on a Saturday or a Sunday the daily limit is zero.
+
 ## Details of the behaviour
 
 These are things the program does that the sections above do not say, written down so that the requirements are the whole of it.

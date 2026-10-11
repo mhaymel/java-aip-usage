@@ -1647,6 +1647,63 @@ the settings are kept and `Back` returns to them.
 
 The requirements have no section "specified, not yet built" any more.
 
+### 70 to 75. Hover on every box, less room in the row, the history's columns, the paths of About, the fake backend, cost control
+
+Requirement: Hover on every gray box, less room in the row, the history's columns, the paths of About, a fake backend to
+configure, and cost control. *Decided by the person:* every gray box shows the no-spend line; room is reserved for the usual
+values only; the history's spare width is equal gaps between the columns; a click on a path opens its folder with the file
+marked; the fake backend is usage-based or seat-based, shaped in the debug view for the scenario `normal`, refuses a request
+that comes too soon after the one before, and delays by a random time in milliseconds; cost control is settings only for now. The fake
+backend's budget and starting amount can be set too; the scenario `seat-based` is removed; a daily limit above the monthly
+one is refused. Built **one at a time in the order of the table**, a phase and a version each.
+
+| Phase | Version | Piece |
+| --- | --- | --- |
+| 70 | 0.58 | The no-spend text over every gray box |
+| 71 | 0.59 | Less room reserved in the row |
+| 72 | 0.60 | The history spreads its spare width over all columns |
+| 73 | 0.61 | The paths of About: links, and a button to copy each |
+| 74 | 0.62 | A fake backend that can be configured |
+| 75 | 0.63 | Cost control: the two limits, as settings |
+
+### 70. The no-spend text over every gray box
+
+**Status: specified, not built (version 0.58).** The three elements the page listens on become six; the condition, that the
+element under the mouse is a gray box and the reading has no spend, is the one there is.
+
+### 71. Less room in the row
+
+**Status: specified, not built (version 0.59).** The three `min-width` of `.delta-used`, `.delta-time` and
+`.delta-duration`, and the tests that name the values they are for.
+
+### 72. The history's columns
+
+**Status: specified, not built (version 0.60).** A row of the history is a grid whose first track takes what room there is;
+the tracks become as wide as their content with the spare width between them. The table is measured on a copy for the window's
+width, which must give the same as before. *Risk:* the header and the rows are separate grids and must stay in line.
+
+### 73. The paths of About
+
+**Status: specified, not built (version 0.61).** Two requests that take the name of a file, never a path: one opens its folder
+(`explorer /select,` on Windows, `open -R` on macOS, the folder elsewhere), one puts the path on the clipboard, which is the
+window's to do, so the handler asks the window class. *Risk:* opening a folder starts a program of the system; the name is
+checked against the three, and nothing of the request reaches a command line.
+
+### 74. The fake backend to configure
+
+**Status: specified, not built (version 0.62).** Six more debug settings, the budget and the starting amount among them, in `Settings`, the store, `/api/debug` and the
+debug view; `FakeBackend` takes them with the scenario and can be given new ones while it runs, as it is given a scenario.
+The random numbers come from a source a test can fix. The scenario `seat-based` and its place in the lists go. The fixed step
+of 1.37 at each answer goes with it: the tests that read `187.39` after one answer are given a fake backend whose increase
+is fixed.
+
+### 75. Cost control
+
+**Status: specified, not built (version 0.63).** Three settings and a group of the settings view, with the check that a typed
+daily limit is not above the monthly one; the weekdays of a month are
+counted by a small function that is given the month, and tested for months that begin and end on each day of the week. Nothing
+reads the limits.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.37). What these mechanisms make the
