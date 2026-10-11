@@ -1432,6 +1432,63 @@ failed about one run in six. It waited 5 seconds for something that comes after 
 success, so the fourth call is 2.6 and 2.3 seconds after the second. The program is as it was; that wait is 15 seconds
 now. And the on-request window test looked for the end of the probe's line where the probe has since added to it.
 
+### 61 to 65. The word `of`, bigger tooltips, the icon, the zoom of the lists, the automatic interval
+
+Requirement: The word `of`, bigger tooltips, the program's icon, the zoom of the lists, and the automatic interval. *Decided by
+the person:* the word `of`; tooltips of 14 pixels; a gauge as the icon; one text size for the three lists, 10 to 20 pixels,
+with the buttons at the top of each list; the search closes its bounds in, takes the place of the doubling and still honours
+`retry-after`, is saved, and is moved only by an answer of Anthropic; `Automatic` is off by default and its field shows the
+interval of the search. Built **one at a time, small ones first**, a phase and a version each.
+
+| Phase | Version | Piece |
+| --- | --- | --- |
+| 61 | 0.49 | The word `of` in the place of the slash |
+| 62 | 0.50 | Tooltips of 14 pixels |
+| 63 | 0.51 | The program's icon |
+| 64 | 0.52 | The zoom of the lists |
+| 65 | 0.53 | The automatic interval |
+
+### 61. The word `of`
+
+**Status: specified, not built (version 0.49).** `#slash` in `index.html` and its rule; the tests that read ` / `.
+
+### 62. Tooltips of 14 pixels
+
+**Status: specified, not built (version 0.50).**
+
+- The tooltips are the `title` attributes of the page, which the `WebView` shows as tooltips of JavaFX; the page's style
+  sheet has no say in them. They are a control of the scene the view is in, so a style sheet of the scene for `.tooltip`
+  should reach them; the scene is made anew when the window is exchanged for the title bar, so it is given to each.
+- *Risk:* if the view's tooltips do not take the scene's style, the page draws its own, which cannot reach beyond the
+  window; that would be asked about before it is built.
+
+### 63. The program's icon
+
+**Status: specified, not built (version 0.51).** Four PNG files in the resources, drawn by a script kept with the sources;
+`Stage.getIcons` for the first window and in `StageSwap` for each window after it.
+
+### 64. The zoom of the lists
+
+**Status: specified, not built (version 0.52).** `listFontSize` in `Settings` and `settings.json`, with a request of its
+own or with the log's; a custom property of the style sheet for the size and the line height of `.panel`; the line of
+controls for the history and the error log; `measureTable` already measures the table as it is drawn.
+
+### 65. The automatic interval
+
+**Status: specified, not built (version 0.53).**
+
+- **The search** is a class of its own with no clock and no thread: the interval and the two bounds, a success, a 429.
+  It is tested by its arithmetic alone.
+- **`UsageService`** asks it in the place of `Backoff` while it is on; `RefreshSchedule` gets the interval as it gets one
+  from the settings. `retry-after` lengthens the one wait as it does now.
+- **`Settings`** gets `autoInterval`; the three figures of the search are kept beside the settings like the remembered
+  heights, since they change by themselves and are no choice of the settings view.
+- **The page.** The checkbox; the field disabled and filled from the interval in force, which the status already carries.
+- **Tests.** The search step by step, the reset, the bounds; the service with a scripted fetcher; the store; the page.
+
+*Risk:* the largest piece. A search that is wrong asks Anthropic too often, so the least interval and the steps are
+tested before anything is run against the real endpoint.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.37). What these mechanisms make the

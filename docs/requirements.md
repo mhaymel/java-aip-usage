@@ -1328,6 +1328,105 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
+## The word `of`, bigger tooltips, the program's icon, the zoom of the lists, and the automatic interval
+
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.48; where
+this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
+when it is built (see the implementation plan, phases 61 to 65).
+
+### The word `of` between the amount used and the budget
+
+- **The slash between the amount used and the budget is replaced by the word `of`**: `187.39 of 1,000.00`.
+- **The word is set back**, so that the two figures stand out: in the muted gray, `#8a8f98`, at 12 pixels and regular
+  weight, on the baseline of the figures, with the room of a blank either side.
+- **It is there when both figures are shown**, as the slash was, between two gray boxes as between two figures, and it
+  is dimmed with the old figures after a failed refresh.
+- Nothing else changes: the tooltips, the history, whose columns have no such sign, and the log.
+
+### Bigger tooltips
+
+- **Every tooltip of the window is 14 pixels**, the size of the message lines, where it was 12: those of the row's
+  figures, gray boxes and buttons, those of the settings and the debug settings, and those of the lines of the history.
+- The texts of the tooltips are unchanged, and so is when a tooltip appears and goes.
+- A tooltip may reach beyond the window, as before: the window is often no larger than the row.
+
+### An icon of the program's own
+
+- **The window has an icon of the program's own** in the place of the one Java gives every program: in the title bar
+  and in the taskbar, and wherever else the system shows the icon of a window.
+- **It is a gauge**: a half circle with a needle, in the green of the figures, `#1a7f37` with the lighter `#3fb950` for
+  the needle, on a dark rounded square, `#0d1117`. The needle points to the upper right, at about two thirds.
+- **It is given in several sizes**, 16, 32, 48 and 256 pixels, each drawn for its size and not scaled from another, so
+  that it is clear in the title bar as in a large view.
+- **Every window of the program has it**: the one with the title bar and the one without, which are exchanged for each
+  other.
+- The icon is a file of the program, drawn once and kept with its sources; it is not downloaded.
+
+### A zoom for the lists: the log, the usage history and the error log
+
+- **The text of the three lists can be made larger and smaller** with two small buttons, each an icon with no text: a
+  magnifying glass with a plus, and one with a minus. Their tooltips are `Larger text` and `Smaller text`.
+- **Where they are.** In a line at the top of each list, at its left, which stays while the list is scrolled: in the
+  log it is the line of `Level` and `Date`, after those two; the history and the error log get such a line for them.
+- **One size for all three lists.** A change made in one holds for the others.
+- **The sizes.** One press is one pixel. The text is 12 pixels by default, as it was, at least 10 and at most 20. At 10
+  the minus is disabled, at 20 the plus.
+- **Everything of a list follows**: its lines and their height, the header of a table, and the widths of the history's
+  columns, which are in characters and so grow with the text; the notes of the list and the line of the two controls
+  keep their size.
+- **The window follows where it is sized to the list**: with the history shown the window is as wide as the table
+  needs at the size chosen. The log and the error log keep their width, and their lines scroll sideways as before.
+- **A change takes effect at once and is saved at once**, in `settings.json` under the key `listFontSize`, a whole
+  number from 10 to 20; a value in the file that is not one has the default. So it holds when another list is shown,
+  and at the next start.
+- **The settings view does not have it**, and its `Restore defaults` leaves it as it is, like the two choices of the log.
+- **When it cannot be saved** it holds for the run, and a red line in the list says `The text size could not be saved:
+  <reason>`.
+
+### The automatic interval
+
+- **The group `Request` of the settings has a checkbox `Automatic`**, in the line of the interval, after the field and
+  its `s`. Its tooltip: `Lets the program find the shortest time between usage requests that Anthropic accepts, between
+  10 and 300 seconds.` It is **off by default**, saved under the key `autoInterval`, and takes effect when the settings
+  are saved, like the interval.
+- **Off, everything is as it was**: the program uses the configured interval and does not change it, and an HTTP 429
+  is answered by the back-off that doubles the wait.
+- **On, the field of the interval is disabled** and shows, grayed, the interval the search is using now; it follows the
+  search while the settings are shown. Switching `Automatic` off puts the configured interval back into the field,
+  which can be typed in again. The configured interval is kept while `Automatic` is on, and is in force again when it
+  is switched off.
+- **On, the program searches for the interval**, between a lower and an upper bound, in the manner of a binary search.
+  The least is **10 seconds** and the most **300 seconds**, both fixed in the program and not settings. The search
+  begins with a lower bound of 10, an upper bound of 300 and an interval of **60 seconds**.
+- **After a refresh that Anthropic answered without an HTTP 429** the interval was long enough: the upper bound becomes
+  the current interval, and the new interval is the middle of the lower bound and the current interval,
+  `(lower + current) / 2`.
+- **After an HTTP 429** the interval was too short: the lower bound becomes the current interval, and the new interval
+  is the middle of the upper bound and the current interval, `(upper + current) / 2`.
+- **When a 429 comes with the interval at the upper bound, or within a second of it**, the search has closed in on an
+  interval that no longer holds: the bounds are set back to 10 and 300, and the new interval is `(300 + current) / 2`.
+- **The middle is in whole seconds, rounded up**, and the interval is never less than 10 nor more than 300. So the
+  search settles a little above the shortest interval that Anthropic accepts: 60, 35, 23, 17 ... while nothing is
+  refused, and back up towards the upper bound when something is.
+- **Only an answer of Anthropic moves the search.** A refresh that fails in another way, an HTTP error that is not a
+  429, a timeout, a token that cannot be obtained, leaves the interval and the bounds as they are. A manual refresh
+  moves the search as a scheduled one does.
+- **The search takes the place of the back-off.** With `Automatic` on a 429 does not double the wait: the next request
+  comes after the new interval. A `retry-after` of the server is still honoured: when it is longer than the new
+  interval, that one wait is as long as the server says, within the limit there is for it; the search goes on from the
+  interval it had worked out.
+- **The row shows it as it shows the interval in force**: the element `Interval` has the interval of the search, the
+  countdown counts down to it, and a 429 is the red countdown or the message line as before.
+- **The search is remembered.** The interval and the two bounds are saved in `settings.json` whenever they change, under
+  the keys `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the next start goes on from them.
+  Values in the file that are not whole seconds from 10 to 300, or a lower bound above the upper one, or an interval
+  outside the two, begin the search anew at 60, 10 and 300. Switching `Automatic` off and on again goes on from what was
+  saved.
+- **The log says each step**, at the information level: `Automatic interval: <N> s (between <lower> s and <upper> s)`,
+  and `Automatic interval: the bounds are 10 s and 300 s again` before it when they were set back.
+- **`Restore defaults`** unchecks `Automatic` with the rest; the search that is saved is left as it is.
+- **The usage history** records for each row the interval in force, as before, which is that of the search.
+
 ## Details of the behaviour
 
 These are things the program does that the sections above do not say, written down so that the requirements are the whole of it.
