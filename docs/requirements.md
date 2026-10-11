@@ -1056,25 +1056,20 @@ backend switched while the program runs, and the mark that says its figures are 
   page, so it is inside the frame of the system; it is there with the title bar hidden as well, and round an open
   panel too. The window is larger by the border, so nothing in the row is covered. It is there while the figures are old
   as well, and is not dimmed with them.
-
-## The border round a settings view, a gray box for a figure that is not known, and the level and date of the log
-
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.37; where
-this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 50 to 52).
-
-### The red border goes round the whole window
-
-- **The border of the fake backend goes round everything the window shows**, whatever is shown: the row alone, a panel,
-  the settings view and the debug settings view. Its four sides are at the four edges of the window's content.
-- **It is never round the row alone while a view is shown below it.** In version 0.37, with the settings view or the debug
-  settings view wider than the row, the border was drawn as wide as the row and as tall as the window, so that it ran
+- **The border goes round everything the window shows**, whatever is shown: the row alone, a panel, the settings view and
+  the debug settings view. Its four sides are at the four edges of the window's content.
+- **It is never round the row alone while a view is shown below it.** Before version 0.38, with the settings view or the
+  debug settings view wider than the row, the border was drawn as wide as the row and as tall as the window, so that it ran
   down through the view, across its checkboxes and its `Apply` button, and the right part of the view was outside it
-  (see `docs/img_3.png`, taken with every element of the row hidden). That is the fault this passage puts right.
+  (see `docs/img_3.png`, taken with every element of the row hidden).
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
-- The rest of the border is as Debug mode says: 3 pixels, the red of errors, 4 seconds for one change, there for as long
-  as the fake backend is in use.
+
+## A gray box for a figure that is not known, and the level and date of the log
+
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.38; where
+this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
+when it is built (see the implementation plan, phases 51 and 52).
 
 ### A gray box for a figure that is not known, and a change of nothing written as a figure
 

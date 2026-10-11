@@ -122,6 +122,13 @@ class TitleBarWindowTest {
         // The debug settings are a panel: named, and with the title bar.
         assertTrue(line(all, "debug").contains(",3,debug "), all);
         assertTrue(line(all, "debug").contains("titleBar:true"), all);
+        // The border goes round the view, not round the row alone: its right side is at the right edge of the window, and
+        // the view is inside it.
+        for (String view : List.of("settings", "settings-narrow", "debug")) {
+            assertTrue(line(all, view).contains(" border:3px "), view + ":\n" + all);
+            assertTrue(line(all, view).contains(" gap:0 "), view + ": the border reaches the right edge of the window:\n" + all);
+            assertTrue(line(all, view).contains(" outside:0 "), view + ": and the view is inside it:\n" + all);
+        }
 
         // Switched off: no border, and the invented figures are gone with their source.
         assertTrue(line(all, "fake-off-settled").contains(" border:0px "), "the border goes with the fake backend:\n" + all);

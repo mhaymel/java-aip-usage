@@ -686,6 +686,13 @@ test('the debug settings are a view like the settings, with Apply and Cancel and
     assert.ok(line.indexOf('debug-fakeBackend') < line.indexOf('debug-fakeScenario'), 'the scenario is beside the switch of the fake backend');
 });
 
+test('with a settings view shown the app is as wide as the window, so that the red border goes round the view and not round the row alone', () => {
+    const rule = ruleOf('#app.fit');
+    assert.match(rule, /min-width:\s*100%/);
+    assert.doesNotMatch(rule, /height/, 'the height stays the content\'s own: the window is sized to it');
+    assert.match(ruleOf('#app.fake'), /box-sizing:\s*border-box/, 'and the border is inside that width');
+});
+
 test('the mark of the fake backend is a solid red border, three pixels, that fades to the background and back in four seconds', () => {
     const rule = ruleOf('#app.fake');
     assert.match(rule, /border:\s*3px solid var\(--bad\)/);

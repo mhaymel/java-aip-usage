@@ -93,6 +93,15 @@ body {
     50% { border-color: Canvas; }
 }
 
+/*
+ * While the settings or the debug settings are shown the app is as wide as the window, which is as wide as the wider of the
+ * row and the view: the view is inside the app then, and the red border round the app is round the view as well. The
+ * height stays the content's own, since the window is sized to it.
+ */
+#app.fit {
+    min-width: 100%;
+}
+
 #app.open {
     display: flex;
     flex-direction: column;

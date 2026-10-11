@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ### 50 to 52. The border round a view, the gray box for what is not known, the level and date of the log
 
-Requirement: The border round a settings view, a gray box for a figure that is not known, and the level and date of the log.
+Requirement: Debug mode (the border), and A gray box for a figure that is not known, and the level and date of the log.
 Three pieces that do not depend on one another. *Decided by the person:* they are built as phases 45 to 49 were, **one at a
 time, each a phase and a version of its own**, both suites green, its passage of the requirements moved out of "specified, not
 yet built", a commit. Also decided by the person: the frame in `docs/img_3.png` is the program's own border, misplaced;
@@ -1176,18 +1176,23 @@ yet built", a commit. Also decided by the person: the frame in `docs/img_3.png` 
 
 ### 50. The red border goes round the whole window
 
-**Status: specified, not built (version 0.38).**
+**Status: built (version 0.38).** Requirement: Debug mode.
 
-- **The fault.** `#app` is `width: max-content`, the width of the row, and `#app.fake` puts the border on it. The
-  settings and the debug view are made wider than the row by `formWidth`, so they stick out of `#app`, and the border is
-  drawn at the row's width through them.
-- **The repair.** While a form is shown `#app` is as wide as the window, as it is with the other panels (`#app.open`), so
-  that the border is on the box that holds everything. `contentSize` adds the 6 pixels of the border to the row's width
-  only; it has to add them to the form's as well (`formWidth`), or the form is cut by the border's width. `formWidth`
-  measures from the left edge of `#app`, which the border moves, so the measuring is looked at with the border on.
-- **Tests.** `layout.test.cjs` and `app.test.cjs` for the size asked for with the fake backend on and a form open; the
-  on-request window test of debug mode reports `overflow:0` with the settings open and every element hidden, the case of
-  `docs/img_3.png`.
+- **The fault.** `#app` is `width: max-content`, and the panel in it is `width: 0; min-width: 100%`, so that a panel never
+  makes the app wider: the app was as wide as the row. The settings and the debug view are made wider than the row by
+  `formWidth`, so they stuck out of `#app`, and `#app.fake` drew the border at the row's width through them.
+- **The repair.** One rule: `#app.fit { min-width: 100% }`. `fit` is the class the app has had all along while a form is
+  shown, and had no rule. The app is as wide as the window then, the form is inside it, and the border is on the box that
+  holds everything. Its height stays the content's own, which the window is sized to.
+- **Nothing to change in `contentSize`.** `formWidth` measures from the left edge of `#app`, outside its border, and
+  doubles the room at the left of the form, so the width it gives has the border of both sides in it already.
+- **Tests.** `layout.test.cjs` for the rule. The on-request window test of debug mode now opens the settings with every
+  element of the row hidden, the case of `docs/img_3.png`, and reports how far the app's right edge is from the window's
+  (`gap`) and how far the view sticks out of the border (`outside`): both 0 for the settings, the settings with the row
+  emptied (a window of 271 pixels) and the debug settings. Run in a real window; it passes.
+- **Also:** `java-aip-usage.fake.csv` is in `.gitignore`, as the real history file is; it was left out in phase 49.
+
+**Not checked by a test.** How it looks: the test measures the edges, not the picture.
 
 ### 51. A gray box for a figure that is not known
 

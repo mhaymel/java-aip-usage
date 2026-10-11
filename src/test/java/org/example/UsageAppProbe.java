@@ -45,6 +45,12 @@ public final class UsageAppProbe {
             step("log", "log-button");
             step("errors", "errors-button");
             step("errors-closed", "errors-button");
+            // The settings with every element of the row hidden: the view is far wider than the row then.
+            step("settings-again", "settings-button");
+            onFx(() -> page().getEngine().executeScript(
+                    "Array.prototype.forEach.call(document.querySelectorAll(\"#settings-form input[id^='set-show']\"), function (box) { if (box.checked && box.id !== 'set-showTitleBar' && box.id !== 'set-showCurrency') { box.click(); } });"));
+            step("settings-narrow", null);
+            step("settings-narrow-left", "settings-cancel");
             // Debug mode: the debug settings, and the fake backend switched off and on again while the program runs.
             step("debug", "debug-button");
             onFx(() -> page().getEngine().executeScript(
@@ -81,7 +87,17 @@ public final class UsageAppProbe {
                     + " used:[" + page().getEngine().executeScript(
                             "document.getElementById('spend').hidden ? '' : document.getElementById('used').textContent") + "]"
                     + " overflow:" + page().getEngine().executeScript(
-                            "Math.max(0, Math.ceil(document.getElementById('app').getBoundingClientRect().right - window.innerWidth))"));
+                            "Math.max(0, Math.ceil(document.getElementById('app').getBoundingClientRect().right - window.innerWidth))")
+                    // How far the right edge of the app, where its border is, is from the right edge of the window, and how far
+                    // the view that is shown sticks out of the app's border.
+                    + " gap:" + page().getEngine().executeScript(
+                            "Math.round(window.innerWidth - document.getElementById('app').getBoundingClientRect().right)")
+                    + " outside:" + page().getEngine().executeScript(
+                            "(function () { var a = document.getElementById('app').getBoundingClientRect(), out = 0;"
+                                    + " ['settings-form', 'debug-form'].forEach(function (id) { var f = document.getElementById(id);"
+                                    + " if (f.offsetParent !== null) { out = Math.max(out, Math.ceil(f.getBoundingClientRect().right - (a.right - 3))); } });"
+                                    + " return out; })()")
+                    + " end");
             System.out.flush();
         });
     }
