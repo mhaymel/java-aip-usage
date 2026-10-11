@@ -294,7 +294,7 @@ class ApiTest {
     private static String allSettings(int interval, boolean logResponse, String timeFormat) {
         return "{\"usageIntervalSeconds\": " + interval + ", \"logResponse\": " + logResponse
                 + ", \"showPercentage\": true, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": true, \"showDeltaUsed\": true, \"showDeltaTime\": false"
-                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true}";
+                + ", \"timeFormat\": \"" + timeFormat + "\", \"historyDeltaUsed\": false, \"historyDeltaTime\": true, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true}";
     }
 
     @Test
@@ -306,11 +306,42 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(16, body.get("settings").size());
+        assertEquals(21, body.get("settings").size());
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
         assertEquals(3600, body.at("/limits/usageIntervalSeconds/max").asInt());
+    }
+
+    @Test
+    void theFiveElementsThatWereAlwaysInTheRowAreSettingsTooAndTheStatusFollowsThem() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        JsonNode defaults = json(get(app, "/api/settings")).get("defaults");
+        for (String key : List.of("showTime", "showUsed", "showLimit", "showRefresh", "showCountdown")) {
+            assertTrue(defaults.get(key).asBoolean(), key + " is on by default");
+        }
+
+        String hidden = allSettings(60, false, "hh:mm")
+                .replace("\"showTime\": true", "\"showTime\": false")
+                .replace("\"showCountdown\": true", "\"showCountdown\": false");
+        assertEquals(200, post(app, "/api/settings", hidden).statusCode());
+
+        JsonNode show = json(get(app, "/api/status")).at("/display/show");
+        assertFalse(show.get("time").asBoolean());
+        assertFalse(show.get("countdown").asBoolean());
+        assertTrue(show.get("used").asBoolean());
+        assertTrue(show.get("limit").asBoolean());
+        assertTrue(show.get("refresh").asBoolean());
+    }
+
+    @Test
+    void aSettingOfTheRowThatIsMissingIsRefusedLikeAnyOther() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        HttpResponse<String> response = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace(", \"showRefresh\": true", ""));
+
+        assertEquals(400, response.statusCode());
+        assertEquals("The setting showRefresh is missing.", json(response).get("error").asText());
     }
 
     @Test
@@ -737,7 +768,7 @@ class ApiTest {
         await(() -> history(app).size() >= 2);
         post(app, "/api/settings", "{\"usageIntervalSeconds\": 120, \"logResponse\": false, \"showPercentage\": false, \"showCurrency\": false, \"showHistoryIcon\": true, \"showLogIcon\": true, \"showErrorIcon\": true, \"showInterval\": false,"
                 + " \"showDeltaUsed\": false, \"showDeltaTime\": false, \"timeFormat\": \"hh:mm\","
-                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true}");
+                + " \"historyDeltaUsed\": false, \"historyDeltaTime\": false, \"historyDate\": false, \"historyZeroLines\": true, \"historyFailedLines\": true, \"showTime\": true, \"showUsed\": true, \"showLimit\": true, \"showRefresh\": true, \"showCountdown\": true}");
         fail.set(false);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);

@@ -178,7 +178,7 @@ final class ApiHandler implements HttpHandler {
         return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showPercentage(), s.showCurrency(), s.showHistoryIcon(), s.showLogIcon(),
                 s.showErrorIcon(), s.showInterval(), s.showDeltaUsed(),
                 s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate(),
-                s.historyZeroLines(), s.historyFailedLines());
+                s.historyZeroLines(), s.historyFailedLines(), s.showTime(), s.showUsed(), s.showLimit(), s.showRefresh(), s.showCountdown());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -206,7 +206,12 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "historyDeltaTime"),
                     flag(body, "historyDate"),
                     flag(body, "historyZeroLines"),
-                    flag(body, "historyFailedLines"));
+                    flag(body, "historyFailedLines"),
+                    flag(body, "showTime"),
+                    flag(body, "showUsed"),
+                    flag(body, "showLimit"),
+                    flag(body, "showRefresh"),
+                    flag(body, "showCountdown"));
             settings.apply(given);
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
@@ -512,7 +517,12 @@ final class ApiHandler implements HttpHandler {
             boolean historyDeltaTime,
             boolean historyDate,
             boolean historyZeroLines,
-            boolean historyFailedLines) {
+            boolean historyFailedLines,
+            boolean showTime,
+            boolean showUsed,
+            boolean showLimit,
+            boolean showRefresh,
+            boolean showCountdown) {
     }
 
     record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits) {

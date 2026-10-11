@@ -126,6 +126,24 @@ body {
     text-align: left;
 }
 
+/*
+ * Before the first reading an element that is switched on is a gray box of about its usual width, with its tooltip:
+ * the row has its shape at once, and what will be where can be seen and asked.
+ */
+.skeleton {
+    display: inline-block;
+    line-height: 1.15;
+    color: transparent;
+    background: var(--muted);
+    border-radius: 3px;
+    opacity: 0.33;
+}
+
+#time.skeleton { min-width: 5ch; }
+#percent.skeleton { min-width: 3ch; }
+#used.skeleton { min-width: 6ch; }
+#limit.skeleton { min-width: 8ch; }
+
 .placeholder {
     color: var(--muted);
 }
@@ -237,6 +255,14 @@ body {
     flex-wrap: wrap;
     align-items: center;
     gap: 4px;
+}
+
+/* An element of the row and its property, the time format or the currency symbol, in one line. */
+.settings .line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
 }
 
 .settings label input[type="checkbox"] {

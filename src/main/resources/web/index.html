@@ -12,9 +12,9 @@
         <span id="time" class="time" title="Last update" hidden></span>
         <span id="spend" class="spend" hidden>
             <span id="percent" class="percent"></span>
-            <span class="amounts"><span id="used"></span> / <span id="limit"></span></span>
+            <span class="amounts"><span id="used"></span><span id="slash"> / </span><span id="limit"></span></span>
         </span>
-        <span id="placeholder" class="placeholder">Loading…</span>
+        <span id="placeholder" class="placeholder" hidden></span>
 
         <button id="refresh" class="icon" type="button" aria-label="Refresh now" title="Refresh now">
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7"
@@ -84,22 +84,30 @@
                 </fieldset>
                 <fieldset>
                     <legend>Main view</legend>
-                    <label><input id="set-showPercentage" type="checkbox"> Percentage spent</label>
-                    <label><input id="set-showCurrency" type="checkbox"> Currency symbol</label>
-                    <label><input id="set-showHistoryIcon" type="checkbox"> History icon</label>
-                    <label><input id="set-showLogIcon" type="checkbox"> Log icon</label>
-                    <label><input id="set-showErrorIcon" type="checkbox"> Error log icon</label>
-                    <label><input id="set-showInterval" type="checkbox"> Interval</label>
-                    <label><input id="set-showDeltaUsed" type="checkbox"> Change in the amount used</label>
-                    <label><input id="set-showDeltaTime" type="checkbox"> Time since the previous reading</label>
-                    <label>Time format
-                        <select id="set-timeFormat" aria-label="Time format">
+                    <span class="line">
+                        <label title="The time of day at which the usage shown was last read from Anthropic."><input id="set-showTime" type="checkbox"> Time</label>
+                        <select id="set-timeFormat" aria-label="Time format" title="Whether the time is shown with or without seconds.">
                             <option value="hh:mm">hh:mm</option>
                             <option value="hh:mm:ss">hh:mm:ss</option>
-                        </select></label>
+                        </select>
+                    </span>
+                    <label title="How much of the budget is spent, as a percentage, as Anthropic reports it."><input id="set-showPercentage" type="checkbox"> Percentage spent</label>
+                    <span class="line">
+                        <label title="What the account has spent in the current period, in the currency of the account."><input id="set-showUsed" type="checkbox"> Amount used</label>
+                        <label title="Puts the currency symbol before the amount used and the budget: the dollar sign for US dollars, the code for any other currency."><input id="set-showCurrency" type="checkbox"> Currency symbol</label>
+                    </span>
+                    <label title="The spend limit of the account: the most that can be spent in the current period."><input id="set-showLimit" type="checkbox"> Budget</label>
+                    <label title="A button that reads the usage now, without waiting for the next refresh."><input id="set-showRefresh" type="checkbox"> Refresh button</label>
+                    <label title="The seconds until the usage is read again. It is negative when a refresh is overdue, and red while Anthropic asks the program to slow down."><input id="set-showCountdown" type="checkbox"> Countdown</label>
+                    <label title="The time between two usage requests, in seconds, as set under Request, or the longer wait in force after Anthropic asked the program to slow down."><input id="set-showInterval" type="checkbox"> Interval</label>
+                    <label title="How much the amount used has changed since the reading before this one. Nothing is shown when it has not changed."><input id="set-showDeltaUsed" type="checkbox"> Change in the amount used</label>
+                    <label title="The seconds between this reading and the one before it."><input id="set-showDeltaTime" type="checkbox"> Time since the previous reading</label>
+                    <label title="A button that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log button</label>
+                    <label title="A button that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History button</label>
+                    <label title="A button that shows the failed refreshes of this run below the row, and hides it again."><input id="set-showErrorIcon" type="checkbox"> Error log button</label>
                     <span class="buttons">
                         <button id="settings-maximum" type="button" title="Show everything in the main view">Maximum view</button>
-                        <button id="settings-minimum" type="button" title="Show as little as possible in the main view">Minimum view</button>
+                        <button id="settings-minimum" type="button" title="Show only the time, the amounts, the refresh button and the countdown">Minimum view</button>
                     </span>
                 </fieldset>
                 <fieldset>

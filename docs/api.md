@@ -59,7 +59,12 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "historyDeltaTime": false,
     "historyDate": false,
     "historyZeroLines": true,
-    "historyFailedLines": true
+    "historyFailedLines": true,
+    "showTime": true,
+    "showUsed": true,
+    "showLimit": true,
+    "showRefresh": true,
+    "showCountdown": true
   },
   "defaults": { "...": "the same keys, with the defaults" },
   "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } }
@@ -154,6 +159,11 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
       "severityText": "normal"
     },
     "placeholder": null,
+    "loading": false,
+    "variants": {
+      "timeShort": "14:00", "timeLong": "14:00:00",
+      "usedPlain": "186.02", "usedSymbol": "$186.02", "limitPlain": "1,000.00", "limitSymbol": "$1,000.00"
+    },
     "countdown": { "text": "42s", "tooltip": "Seconds until the next refresh (negative when overdue)" },
     "countdownAlert": null,
     "interval": { "text": "60s", "tooltip": "Time between usage requests" },
@@ -162,7 +172,8 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
     "message": null,
     "show": {
       "percentage": false, "currency": false, "interval": false, "deltaUsed": false, "deltaTime": false,
-      "historyIcon": true, "logIcon": true, "errorIcon": true
+      "historyIcon": true, "logIcon": true, "errorIcon": true,
+      "time": true, "used": true, "limit": true, "refresh": true, "countdown": true
     }
   },
   "historyStamp": "48211-1791468293000"
@@ -179,11 +190,12 @@ texts are in the requirements (How the figures are written).
 - `display`: what the window shows, finished: the frontend does no calculation or formatting of readings.
   `time` (the local time of the last reading, `14:24` or `14:24:53` by the `timeFormat` setting) and `timeTooltip`
   (`Last update: 8 Oct 2026, 14:24:53`); `spend` (`percentText`, `percentTooltip`, `used`, `limit`, `usedTooltip`,
-  `limitTooltip`, `severityText`); `placeholder` (`Loading…`, `No data`, `No usage reported`);
+  `limitTooltip`, `severityText`); `placeholder` (`No data`, `No usage reported`); `loading` (`true` before the first reading and the first failure: the window then draws a gray box for each element that is switched on and has no value, and there is no placeholder);
+  `variants` (the time as `timeShort` and `timeLong`, and the amounts as `usedPlain`, `usedSymbol`, `limitPlain` and `limitSymbol`, whatever the settings say, so that the settings view can show a change of the time format or of the symbol in the row before it is applied; `null` with no reading, and the four amounts `null` with no spend);
   `countdown` (with `countdownAlert`, the message of an HTTP 429, which makes the countdown red and is shown when it is hovered; the 429
-  has no `message`), `interval` (the time between usage requests in force, `60s`), `deltaUsed` and `deltaTime` as
+  has no `message`; with the countdown switched off there is no `countdownAlert` and the 429 has a `message` like any other failure), `interval` (the time between usage requests in force, `60s`), `deltaUsed` and `deltaTime` as
   `{text, tooltip}` or `null` (the seconds of `countdown`, `interval` and `deltaTime` have no space before the `s`, and `deltaUsed` never has a currency symbol); `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
-  `deltaTime` the settings switch on (the countdown is always shown), and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
+  `deltaTime`, `time`, `used`, `limit`, `refresh` and `countdown` the settings switch on, and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
   the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language (the cells of the history are the exception: they are the file's own text, `1000.00`).
 - `historyStamp`: a text that changes whenever a row is added to the history file, a row of a failed refresh as well as a reading: the file's size in bytes, a `-`, and its time of last change in milliseconds.
@@ -233,7 +245,7 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.31", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.32", "..."]
 }
 ```
 

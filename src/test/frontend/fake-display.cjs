@@ -110,6 +110,8 @@ process.env.TZ = 'UTC';
             placeholder: null,
             countdown: describeCountdown(status.nextRefreshInSeconds),
             message: null,
+            loading: false,
+            variants: null,
             stale: Boolean(usage && error),
             refreshing: Boolean(status.refreshing)
         };
@@ -120,11 +122,20 @@ process.env.TZ = 'UTC';
             if (usage.spend) {
                 view.spend = describeSpend(usage.spend, options);
             }
+            // Both forms of the time and of the amounts, for the preview of the settings view.
+            var symbol = usage.spend && usage.spend.currency === 'USD' ? '$' : usage.spend && usage.spend.currency ? usage.spend.currency + ' ' : '';
+            view.variants = {
+                timeShort: view.time.slice(0, 5), timeLong: view.time,
+                usedPlain: view.spend ? view.spend.used : null, usedSymbol: view.spend ? symbol + view.spend.used : null,
+                limitPlain: view.spend ? view.spend.limit : null, limitSymbol: view.spend ? symbol + view.spend.limit : null
+            };
             if (!view.spend) {
                 view.placeholder = 'No usage reported';
             }
         } else {
-            view.placeholder = error ? 'No data' : 'Loading\u2026';
+            // Before the first reading there is no word: the page draws a gray box for each element that is switched on.
+            view.placeholder = error ? 'No data' : null;
+            view.loading = !error;
         }
 
         if (error) {
@@ -144,7 +155,7 @@ process.env.TZ = 'UTC';
         var d = describeStatus(status, Date.now(), { locale: 'en-US' });
         return Object.assign({}, status, {
             display: {
-                time: d.time, timeTooltip: d.timeTooltip, spend: d.spend, placeholder: d.placeholder,
+                time: d.time, timeTooltip: d.timeTooltip, spend: d.spend, placeholder: d.placeholder, loading: d.loading, variants: d.variants,
                 countdown: d.countdown, interval: { text: '60s', tooltip: 'Time between usage requests' }, deltaUsed: null, deltaTime: null,
                 show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false }, message: d.message
             }

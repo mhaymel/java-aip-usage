@@ -46,6 +46,16 @@ public final class SettingsStore {
 
     static final String TIME_FORMAT_KEY = "timeFormat";
 
+    static final String SHOW_TIME_KEY = "showTime";
+
+    static final String SHOW_USED_KEY = "showUsed";
+
+    static final String SHOW_LIMIT_KEY = "showLimit";
+
+    static final String SHOW_REFRESH_KEY = "showRefresh";
+
+    static final String SHOW_COUNTDOWN_KEY = "showCountdown";
+
     static final String HISTORY_DELTA_USED_KEY = "historyDeltaUsed";
 
     static final String HISTORY_DELTA_TIME_KEY = "historyDeltaTime";
@@ -119,7 +129,12 @@ public final class SettingsStore {
                 flag(root, HISTORY_DELTA_TIME_KEY, defaults.historyDeltaTime()),
                 flag(root, HISTORY_DATE_KEY, defaults.historyDate()),
                 flag(root, HISTORY_ZERO_LINES_KEY, defaults.historyZeroLines()),
-                flag(root, HISTORY_FAILED_LINES_KEY, defaults.historyFailedLines()));
+                flag(root, HISTORY_FAILED_LINES_KEY, defaults.historyFailedLines()),
+                flag(root, SHOW_TIME_KEY, defaults.showTime()),
+                flag(root, SHOW_USED_KEY, defaults.showUsed()),
+                flag(root, SHOW_LIMIT_KEY, defaults.showLimit()),
+                flag(root, SHOW_REFRESH_KEY, defaults.showRefresh()),
+                flag(root, SHOW_COUNTDOWN_KEY, defaults.showCountdown()));
     }
 
     /**
@@ -252,6 +267,11 @@ public final class SettingsStore {
         root.put(HISTORY_DATE_KEY, settings.historyDate());
         root.put(HISTORY_ZERO_LINES_KEY, settings.historyZeroLines());
         root.put(HISTORY_FAILED_LINES_KEY, settings.historyFailedLines());
+        root.put(SHOW_TIME_KEY, settings.showTime());
+        root.put(SHOW_USED_KEY, settings.showUsed());
+        root.put(SHOW_LIMIT_KEY, settings.showLimit());
+        root.put(SHOW_REFRESH_KEY, settings.showRefresh());
+        root.put(SHOW_COUNTDOWN_KEY, settings.showCountdown());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
 

@@ -85,7 +85,7 @@ test('the countdown comes right after the refresh button, and the settings butto
 });
 
 test('the amounts are two separate numbers, each able to carry its own tooltip', () => {
-    assert.match(html, /<span id="used"><\/span>\s*\/\s*<span id="limit"><\/span>/);
+    assert.match(html, /<span id="used"><\/span><span id="slash"> \/ <\/span><span id="limit"><\/span>/, 'the slash is an element of its own, to go when one amount does');
     assert.doesNotMatch(html, /id="amounts"/);
     assert.doesNotMatch(html, /\$/, 'no currency sign in the page');
 });
@@ -514,11 +514,59 @@ test('the currency is the right-most column of the history, with the change colu
     }
 });
 
-test('the four new settings are in the Main view group, with the texts of the requirements', () => {
-    const main = html.slice(html.indexOf('<legend>Main view</legend>'), html.indexOf('<legend>History view</legend>'));
-    for (const [id, text] of [['set-showCurrency', 'Currency symbol'], ['set-showHistoryIcon', 'History icon'], ['set-showLogIcon', 'Log icon'], ['set-showErrorIcon', 'Error log icon']]) {
-        assert.ok(main.includes('<input id="' + id + '" type="checkbox"> ' + text + '</label>'), id);
+const MAIN = html.slice(html.indexOf('<legend>Main view</legend>'), html.indexOf('<legend>History view</legend>'));
+const MAIN_CHECKBOXES = [
+    ['set-showTime', 'Time'], ['set-showPercentage', 'Percentage spent'], ['set-showUsed', 'Amount used'], ['set-showLimit', 'Budget'],
+    ['set-showRefresh', 'Refresh button'], ['set-showCountdown', 'Countdown'], ['set-showInterval', 'Interval'],
+    ['set-showDeltaUsed', 'Change in the amount used'], ['set-showDeltaTime', 'Time since the previous reading'],
+    ['set-showLogIcon', 'Log button'], ['set-showHistoryIcon', 'History button'], ['set-showErrorIcon', 'Error log button'],
+];
+
+test('the Main view group has a checkbox for each of the twelve elements, named as the requirements name them', () => {
+    for (const [id, text] of MAIN_CHECKBOXES) {
+        assert.ok(MAIN.includes('<input id="' + id + '" type="checkbox"> ' + text + '</label>'), id);
     }
+});
+
+test('the checkboxes are in the order of the row, from left to right', () => {
+    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
+    const inRow = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"', 'id="refresh"', 'id="countdown"', 'id="interval"', 'id="delta-used"',
+        'id="delta-time"', 'id="log-button"', 'id="history-button"', 'id="errors-button"'].map(id => strip.indexOf(id));
+    const inSettings = MAIN_CHECKBOXES.map(([id]) => MAIN.indexOf('id="' + id + '"'));
+    for (const positions of [inRow, inSettings]) {
+        assert.ok(positions.every(p => p >= 0));
+        assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+    }
+});
+
+test('each checkbox of the Main view has a tooltip on its text that says what the element shows', () => {
+    for (const [id, text] of [...MAIN_CHECKBOXES, ['set-showCurrency', 'Currency symbol']]) {
+        const label = MAIN.match(new RegExp('<label title="([^"]+)"><input id="' + id + '" type="checkbox"> ' + text + '</label>'));
+        assert.ok(label, id + ' has a title');
+        assert.ok(label[1].length >= 40 && label[1].endsWith('.'), id + ': a sentence, not a word: ' + label[1]);
+    }
+    assert.match(MAIN, /<select id="set-timeFormat"[^>]*title="[^"]{20,}"/);
+});
+
+test('the time format is beside the Time checkbox and the currency symbol beside Amount used, each in one line', () => {
+    const lines = [...MAIN.matchAll(/<span class="line">([\s\S]*?)<\/span>/g)].map(m => m[1]);
+    assert.equal(lines.length, 2);
+    assert.ok(lines[0].indexOf('id="set-showTime"') >= 0 && lines[0].indexOf('id="set-showTime"') < lines[0].indexOf('id="set-timeFormat"'));
+    assert.ok(lines[1].indexOf('id="set-showUsed"') >= 0 && lines[1].indexOf('id="set-showUsed"') < lines[1].indexOf('id="set-showCurrency"'));
+    assert.match(ruleOf('.settings .line'), /display:\s*flex/);
+    assert.match(ruleOf('.settings .line'), /align-items:\s*center/);
+});
+
+test('the gray box of an element with no value yet is light, rounded and has a width of its own', () => {
+    const rule = ruleOf('.skeleton');
+    assert.match(rule, /background:\s*var\(--muted\)/);
+    assert.match(rule, /opacity:\s*0\.33/);
+    assert.match(rule, /border-radius:\s*\d+px/);
+    assert.match(rule, /color:\s*transparent/);
+    for (const id of ['time', 'percent', 'used', 'limit']) {
+        assert.match(css, new RegExp('#' + id + '\\.skeleton\\s*{\\s*min-width:\\s*[0-9.]+ch'), id);
+    }
+    assert.match(html, /<span id="placeholder" class="placeholder" hidden><\/span>/, 'and the page starts with no word');
 });
 
 test('the highlighted note is blue, in a colour of its own for each theme, and comes after the plain note rule', () => {

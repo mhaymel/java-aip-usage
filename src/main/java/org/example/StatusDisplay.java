@@ -2,6 +2,7 @@ package org.example;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.example.settings.Settings;
+import org.example.settings.TimeFormat;
 import org.example.usage.Spend;
 import org.example.usage.UsageSnapshot;
 import org.example.usage.UsageState;
@@ -30,10 +31,18 @@ final class StatusDisplay {
     record Message(String kind, String text) {
     }
 
-    /** Which optional items of the row are switched on. The countdown is not optional. */
+    /** Which elements of the row are switched on; all twelve can be hidden, and {@code currency} is the symbol of the amounts. */
     record Show(
             boolean percentage, boolean currency, boolean interval, boolean deltaUsed, boolean deltaTime,
-            boolean historyIcon, boolean logIcon, boolean errorIcon) {
+            boolean historyIcon, boolean logIcon, boolean errorIcon,
+            boolean time, boolean used, boolean limit, boolean refresh, boolean countdown) {
+    }
+
+    /**
+     * The time in both formats and the amounts with and without the symbol, whatever the settings say, so that the settings view
+     * can show a change of the time format or of the symbol in the row before it is applied. A member is {@code null} with its figure.
+     */
+    record Variants(String timeShort, String timeLong, String usedPlain, String usedSymbol, String limitPlain, String limitSymbol) {
     }
 
     @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -42,6 +51,8 @@ final class StatusDisplay {
             String timeTooltip,
             SpendView spend,
             String placeholder,
+            boolean loading,
+            Variants variants,
             Tip countdown,
             String countdownAlert,
             Tip interval,
@@ -72,11 +83,23 @@ final class StatusDisplay {
                 placeholder = "No usage reported";
             }
         } else {
-            placeholder = state.error() != null ? "No data" : "Loading…";
+            // Before the first reading the row has no word: the page draws a gray box for each element that is switched on.
+            placeholder = state.error() != null ? "No data" : null;
         }
+        boolean loading = usage == null && state.error() == null;
+        Spend amounts = usage == null ? null : usage.spend();
+        Variants variants = usage == null ? null : new Variants(
+                Formatting.time(usage.fetchedAt(), TimeFormat.HOURS_MINUTES, zone),
+                Formatting.time(usage.fetchedAt(), TimeFormat.HOURS_MINUTES_SECONDS, zone),
+                amounts == null ? null : amountText(amounts.used(), amounts.currency(), false),
+                amounts == null ? null : amountText(amounts.used(), amounts.currency(), true),
+                amounts == null ? null : amountText(amounts.limit(), amounts.currency(), false),
+                amounts == null ? null : amountText(amounts.limit(), amounts.currency(), true));
 
-        // An HTTP 429 has no message line: the countdown is red and carries the message for its hover line instead.
-        Message message = state.error() == null || state.rateLimited() ? null : new Message(
+        // An HTTP 429 has no message line while the countdown is shown: the countdown is red and carries the message for its
+        // hover line instead. With the countdown hidden there is nothing to be red, so the 429 has a line like any other failure.
+        boolean alert = state.rateLimited() && settings.showCountdown();
+        Message message = state.error() == null || alert ? null : new Message(
                 usage != null ? "stale" : "error",
                 "Refresh failed at " + Formatting.time(state.errorAt(), settings.timeFormat(), zone) + ": " + state.error());
 
@@ -85,10 +108,12 @@ final class StatusDisplay {
                 timeTooltip,
                 spend,
                 placeholder,
+                loading,
+                variants,
                 countdown.isPresent()
                         ? new Tip(Formatting.rowSeconds(countdown.getAsLong()), "Seconds until the next refresh (negative when overdue)")
                         : null,
-                state.rateLimited() ? state.error() : null,
+                alert ? state.error() : null,
                 new Tip(Formatting.rowSeconds(settings.usageIntervalSeconds()), "Time between usage requests"),
                 deltaUsed(change, usage),
                 change == null || change.deltaTime() == null ? null
@@ -97,7 +122,8 @@ final class StatusDisplay {
                 message,
                 new Show(
                         settings.showPercentage(), settings.showCurrency(), settings.showInterval(), settings.showDeltaUsed(),
-                        settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon()));
+                        settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon(),
+                        settings.showTime(), settings.showUsed(), settings.showLimit(), settings.showRefresh(), settings.showCountdown()));
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {

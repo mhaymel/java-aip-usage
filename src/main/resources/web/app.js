@@ -33,6 +33,8 @@
     var scrollbarWidth = 0;
     // How wide the history table needs to be, as last measured; kept while the panel is closed so that it opens at once as wide as it was.
     var tableWidth = 0;
+    // What the settings view shows of the row before it is applied: {show, timeFormat}, or null when the row is the backend's.
+    var preview = null;
 
     function $(id) {
         return document.getElementById(id);
@@ -90,6 +92,10 @@
         polling = true;
         try {
             lastStatus = await request('/api/status');
+            // What was applied is in this status; a preview is for the open settings only.
+            if (openPanel !== 'settings') {
+                preview = null;
+            }
             show('connection', false);
             render();
             refreshPanel();
@@ -118,53 +124,77 @@
             return;
         }
         var v = view.describeStatus(lastStatus);
+        // The settings view shows a change in the row before it is applied; then its switches count, not the backend's.
+        var s = preview ? preview.show : v.show;
+        var variants = preview && v.variants ? v.variants : null;
+        var loading = v.loading;
 
         lastStale = v.stale;
         applyAppClass();
+        show('refresh', on(s.refresh));
         $('refresh').className = 'icon' + (v.refreshing ? ' busy' : '');
 
-        show('time', Boolean(v.time));
-        $('time').textContent = v.time || '';
-        $('time').title = v.timeTooltip || 'Last update';
+        var timeText = variants ? (preview.timeFormat === 'hh:mm:ss' ? variants.timeLong : variants.timeShort) : v.time;
+        figure('time', 'time', on(s.time) && (loading || Boolean(timeText)), timeText, v.timeTooltip || 'Last update', loading);
 
-        show('spend', Boolean(v.spend));
-        if (v.spend) {
-            show('percent', Boolean(v.show.percentage && v.spend.percentText));
-            $('percent').textContent = v.spend.percentText || '';
-            $('percent').title = v.spend.percentTooltip;
-            $('used').textContent = v.spend.used;
-            $('used').title = v.spend.usedTooltip;
-            $('limit').textContent = v.spend.limit;
-            $('limit').title = v.spend.limitTooltip;
-        }
+        var spend = v.spend;
+        var percentShown = Boolean(s.percentage) && (loading || Boolean(spend && spend.percentText));
+        var usedShown = on(s.used) && (loading || Boolean(spend));
+        var limitShown = on(s.limit) && (loading || Boolean(spend));
+        show('spend', percentShown || usedShown || limitShown);
+        figure('percent', 'percent', percentShown, spend && spend.percentText, spend ? spend.percentTooltip : 'Share of the budget spent', loading);
+        figure('used', 'used', usedShown, spend && amount(spend.used, variants, 'used', s.currency), spend ? spend.usedTooltip : 'Credits used', loading);
+        figure('limit', 'limit', limitShown, spend && amount(spend.limit, variants, 'limit', s.currency), spend ? spend.limitTooltip : 'Credit budget', loading);
+        show('slash', usedShown && limitShown);
 
         show('placeholder', Boolean(v.placeholder));
         $('placeholder').textContent = v.placeholder || '';
 
-        show('countdown', Boolean(v.countdown));
-        $('countdown').textContent = v.countdown ? v.countdown.text : '';
-        $('countdown').title = v.countdown ? v.countdown.tooltip : '';
         // While the server asks us to slow down (HTTP 429) the countdown is red and, hovered, says why in bold red.
-        $('countdown').className = 'countdown' + (v.countdownAlert ? ' alert' : '');
+        figure('countdown', 'countdown' + (v.countdownAlert ? ' alert' : ''), on(s.countdown) && (loading || Boolean(v.countdown)),
+            v.countdown && v.countdown.text, v.countdown ? v.countdown.tooltip : 'Seconds until the next refresh (negative when overdue)',
+            loading && !v.countdown);
         setNote('alert-note', hoveringCountdown && v.countdownAlert ? v.countdownAlert : '');
-        renderOptional('interval', v.show.interval, v.interval);
-        renderButtons(v.show);
-        renderOptional('delta-used', v.show.deltaUsed, v.deltaUsed);
-        renderOptional('delta-time', v.show.deltaTime, v.deltaTime);
+        renderOptional('interval', s.interval, v.interval, false, '');
+        renderButtons(s);
+        renderOptional('delta-used', s.deltaUsed, v.deltaUsed, loading, 'Change in the amount used since the previous reading');
+        renderOptional('delta-time', s.deltaTime, v.deltaTime, loading, 'Time since the previous reading');
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
     }
 
+    /** A switch of the row is on unless it says otherwise: the five elements that were always there are shown when nothing is said. */
+    function on(flag) {
+        return flag !== false;
+    }
+
     /**
-     * The buttons of the history, the log and the error log are there when their settings say so; the gear never goes. While the settings are
-     * shown all of them are there, so that every panel can be reached from them, and the button of the panel that is shown is always there,
-     * so that the panel can be closed: a button that is switched off is never taken away from a panel that is open.
+     * A figure of the row: there or not, with its text and tooltip. Before the first reading it is a gray box instead, with the
+     * tooltip that needs no value, so that the row has its shape from the start.
+     */
+    function figure(id, className, visible, text, tooltip, skeleton) {
+        show(id, visible);
+        $(id).className = className + (skeleton ? ' skeleton' : '');
+        $(id).textContent = skeleton ? '\u00a0' : (text || '');
+        $(id).title = tooltip || '';
+    }
+
+    /** An amount as the backend wrote it, or, while the settings preview the symbol, the one of its two forms the checkbox asks for. */
+    function amount(text, variants, name, withSymbol) {
+        var form = variants && variants[name + (withSymbol ? 'Symbol' : 'Plain')];
+        return form === null || form === undefined ? text : form;
+    }
+
+    /**
+     * The buttons of the history, the log and the error log are there when their settings say so; the gear never goes. They follow
+     * their switches while the settings are shown as well, so that a click on a checkbox is seen in the row. The button of the panel
+     * that is shown is always there, so that the panel can be closed: a button that is switched off is never taken away from a panel
+     * that is open.
      */
     function renderButtons(show) {
         var flags = { history: show.historyIcon, log: show.logIcon, errors: show.errorIcon };
-        var settingsOpen = openPanel === 'settings';
         Object.keys(flags).forEach(function (name) {
-            $(PANELS[name].button).hidden = !(flags[name] !== false || settingsOpen || openPanel === name);
+            $(PANELS[name].button).hidden = !(flags[name] !== false || openPanel === name);
         });
     }
 
@@ -176,11 +206,12 @@
      * backend has no value for it (a change of zero, an unknown time): it is then empty and invisible, so that the row does not change width
      * from one refresh to the next.
      */
-    function renderOptional(id, wanted, item) {
+    function renderOptional(id, wanted, item, loading, tooltip) {
+        var skeleton = Boolean(loading && !item);
         show(id, Boolean(wanted));
-        $(id).className = OPTIONAL_CLASSES[id] + (item ? '' : ' empty');
-        $(id).textContent = item ? item.text : '';
-        $(id).title = item ? item.tooltip : '';
+        $(id).className = OPTIONAL_CLASSES[id] + (item ? '' : skeleton ? ' skeleton' : ' empty');
+        $(id).textContent = item ? item.text : skeleton ? '\u00a0' : '';
+        $(id).title = item ? item.tooltip : skeleton ? tooltip : '';
     }
 
     function applyAppClass() {
@@ -199,7 +230,33 @@
     // The setting that switches the button of each panel on and off; the settings have none, as their button is always there.
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon' };
 
-    var SETTING_FLAGS = ['showPercentage', 'showCurrency', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse'];
+    // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
+    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
+    // The elements that Minimum view leaves in the row.
+    var MINIMUM = ['showTime', 'showUsed', 'showLimit', 'showRefresh', 'showCountdown'];
+
+    var SETTING_FLAGS = MAIN_FLAGS.concat(['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse']);
+
+    /**
+     * Shows in the row what the main-view part of the form says, at once and before Apply, so that it can be seen which element a
+     * checkbox belongs to. Nothing is sent: leaving the settings without Apply gives the row back as the backend has it.
+     */
+    function previewNow() {
+        if (openPanel !== 'settings' || settingsShown === null) {
+            return;
+        }
+        var checked = function (key) { return Boolean($('set-' + key).checked); };
+        preview = {
+            timeFormat: $('set-timeFormat').value,
+            show: {
+                time: checked('showTime'), percentage: checked('showPercentage'), used: checked('showUsed'), currency: checked('showCurrency'),
+                limit: checked('showLimit'), refresh: checked('showRefresh'), countdown: checked('showCountdown'),
+                interval: checked('showInterval'), deltaUsed: checked('showDeltaUsed'), deltaTime: checked('showDeltaTime'),
+                logIcon: checked('showLogIcon'), historyIcon: checked('showHistoryIcon'), errorIcon: checked('showErrorIcon')
+            }
+        };
+        render();
+    }
 
     /** The interval is one entry field for a whole number of seconds; it shows the value in force, which is what the backend has. */
     function fillInterval(current) {
@@ -272,9 +329,13 @@
             if (returnTo && body.settings[ICON_SETTINGS[returnTo]] === false) {
                 returnTo = null;
             }
+            // The row keeps what was previewed until the poll brings it back as applied, so that it does not flick to the old state.
+            var applied = preview;
             if (openPanel === 'settings') {
                 togglePanel('settings');
             }
+            preview = applied;
+            render();
             pollNow();
         } catch (e) {
             setNote('settings-error', e.message);
@@ -285,15 +346,17 @@
     function restoreDefaults() {
         if (settingsDefaults) {
             fillForm(settingsDefaults);
+            previewNow();
         }
     }
 
-    /** The main-view switches all on, or all off; the form only, until Apply. */
+    /** Maximum view: every element of the row on. Minimum view: the time, the amounts, the refresh button and the countdown. The form and the preview only, until Apply. */
     function setMainView(all) {
-        ['showPercentage', 'showCurrency', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showInterval', 'showDeltaUsed', 'showDeltaTime'].forEach(function (key) {
-            $('set-' + key).checked = all;
+        MAIN_FLAGS.forEach(function (key) {
+            $('set-' + key).checked = all || MINIMUM.indexOf(key) >= 0;
         });
         $('set-timeFormat').value = all ? 'hh:mm:ss' : 'hh:mm';
+        previewNow();
     }
 
     /** Cancel: closes the view and changes nothing; it asks nothing, since nothing was sent. */
@@ -505,6 +568,8 @@
     /** Shows the named panel, or none for null, in the one panel area, loading what it shows afresh. */
     function showPanelNamed(name) {
         openPanel = name;
+        // A preview belongs to the settings as they were opened: it ends when they are left, and a new one begins with the first click.
+        preview = null;
         panelKey = null;
         // Nothing of this panel has been read yet, whatever stamp the one before was read at.
         panelMark = null;
@@ -606,6 +671,8 @@
         $('settings-cancel').addEventListener('click', cancelSettings);
         $('settings-maximum').addEventListener('click', function () { setMainView(true); });
         $('settings-minimum').addEventListener('click', function () { setMainView(false); });
+        MAIN_FLAGS.forEach(function (key) { $('set-' + key).addEventListener('change', previewNow); });
+        $('set-timeFormat').addEventListener('change', previewNow);
         $('refresh').addEventListener('click', async function () {
             try {
                 await postJson('/api/refresh', {});

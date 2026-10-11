@@ -83,6 +83,29 @@ class SettingsStoreTest {
     }
 
     @Test
+    void theFiveSwitchesOfTheRowThatAreOnByDefaultComeBackAsSaved() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        Settings some = Settings.defaults().withRowElements(false, true, false, true, false);
+
+        store.save(some);
+
+        assertEquals(some, store.load());
+        assertFalse(store.load().showTime());
+        assertTrue(store.load().showUsed());
+    }
+
+    @Test
+    void aFileFromBeforeTheFiveSwitchesHasThemAllOn() throws IOException {
+        Files.writeString(file(), "{\"usageIntervalSeconds\": 90, \"showPercentage\": true}");
+
+        Settings loaded = new SettingsStore(file()).load();
+
+        assertEquals(90, loaded.usageIntervalSeconds());
+        assertTrue(loaded.showTime() && loaded.showUsed() && loaded.showLimit() && loaded.showRefresh() && loaded.showCountdown(),
+                "what was always shown is still shown");
+    }
+
+    @Test
     void savingReplacesTheWholeFile() throws IOException {
         SettingsStore store = new SettingsStore(file());
         store.save(interval(45));
@@ -93,14 +116,15 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFileHoldsTheSixteenSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
+    void theFileHoldsTheTwentyOneSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
         JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "historyHeight", "logHeight"),
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown",
+                        "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }

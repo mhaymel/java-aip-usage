@@ -1162,7 +1162,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.31). What these mechanisms make the
+How the requirements are met today (version 0.32). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1328,6 +1328,54 @@ figures; the dash of a missing amount green.
 
 **Not checked by a test.** How the green of five figures reads beside the black of the time and the countdown, in both themes,
 and whether the new least widths still keep the row from moving: for a person to look at in the window.
+
+### 44. Twelve named elements, a checkbox for each with a preview, and gray boxes at the start
+
+**Status: done (version 0.32); how it looks is for a person to judge.** Requirement: The elements of the row (and Compact window,
+Settings, Countdown).
+
+*Decided by the person:* all twelve elements marked in `docs/img_2.png` can be hidden, the gear alone staying; a click on a
+checkbox is a preview in the row, kept by Apply and taken back by Cancel; the gray box is for the start only; the amount used and
+the budget have a checkbox each.
+
+- **Settings.** Five switches, `showTime`, `showUsed`, `showLimit`, `showRefresh` and `showCountdown`, at the end of the
+  `Settings` record and of the file, on by default. The sixteen-argument constructor stays, with the five on, so the positional
+  calls of the tests stand; every `with...` method carries the five, and `withRowElements` sets them. `POST /api/settings`
+  requires them like every other key, checked last.
+- **The status.** `StatusDisplay.Show` has the five flags. The view has `loading`, true with no reading and no failure, when the
+  placeholder is now `null` and no longer `Loading…`; and `variants`, the time in both formats and the two amounts with and
+  without the symbol, so that the page can preview the time format and the symbol and still format nothing itself. An HTTP 429
+  with the countdown hidden is no `countdownAlert` but a message line.
+- **The row (`app.js`).** `render` takes its switches from the preview when there is one, else from the status; a switch the
+  backend does not name counts as on. `figure` shows a figure or its gray box, `amount` picks the previewed form of an amount,
+  and the slash between the amounts is an element of its own, `slash`, there only with both. `renderButtons` no longer shows
+  every panel button while the settings are open.
+- **The preview.** `previewNow` reads the main-view part of the form into `preview` at a `change` of any of its controls and after
+  `Maximum view`, `Minimum view` and `Restore defaults`. `showPanelNamed` drops it, so Cancel, the gear and another panel give
+  the row back; Apply keeps it until the next poll has the status that says the same.
+- **The settings view (`index.html`).** The twelve checkboxes in the order of the row, each label with its tooltip as `title`;
+  the time format and `Currency symbol` in a `line` with `Time` and `Amount used`. `Minimum view` keeps the five that used to
+  be fixed.
+- **The gray box (`app.css`).** The class `skeleton`: the muted gray at 0.33, 3 pixels of rounding, transparent text of one
+  no-break space for its height, and a least width for the time, the percentage and the two amounts; the countdown and the two
+  changes keep the widths they have.
+- **Tests.** `StatusDisplayTest`: `loading`, `variants`, the five flags each by itself, the 429 with the countdown hidden.
+  `SettingsStoreTest`: the five saved and read back, and an older file having them on. `ApiTest`: the five in the settings and in
+  the status, and a missing one refused. `app.test.cjs`: every element taken away and brought back by its checkbox with nothing
+  sent, the slash, the preview of the time format and of the symbol, Cancel and Apply, the three buttons filling the row at once,
+  every element off by the backend, the gray boxes with their tooltips and their going. `layout.test.cjs`: the twelve checkboxes
+  and their texts, their order against the order of the row, the tooltips, the two lines with a property, the gray box.
+- **Docs.** The requirements (the section, and the passages on the row, the countdown, the settings and the start that it
+  changes), `api.md`.
+
+*Assumed, easy to change:* the names, in particular `Log button`, `History button` and `Error log button` for what the checkboxes
+called icons; the texts of the tooltips; one `Currency symbol` for both amounts; a 429 as a message line when the countdown is
+hidden; what `Minimum view` keeps; that the panel buttons follow their switches while the settings are open; the gray and the
+widths of the boxes.
+
+**Not checked by a test.** How the settings view looks with its two lines that hold a property, how the gray boxes look, and
+whether the row is steady while checkboxes are clicked: for a person to look at in the window. A start against the fake backend
+loaded the page and fitted the window, which is all that was seen.
 
 ## Validation
 

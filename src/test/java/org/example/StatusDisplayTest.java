@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.OptionalLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -158,10 +159,47 @@ class StatusDisplayTest {
     }
 
     @Test
-    void beforeTheFirstReadingTheRowIsLoadingOrHasNoData() {
-        assertEquals("Loading…", build(state(null, null, null)).placeholder());
-        assertEquals("No data", build(state(null, "boom", FETCHED)).placeholder());
-        assertNull(build(state(null, null, null)).time());
+    void beforeTheFirstReadingTheRowIsLoadingWithoutAWordOrHasNoData() {
+        StatusDisplay.View waiting = build(state(null, null, null));
+        assertTrue(waiting.loading(), "the page draws its gray boxes from this");
+        assertNull(waiting.placeholder(), "and there is no word");
+        assertNull(waiting.time());
+        assertNull(waiting.variants());
+
+        StatusDisplay.View failed = build(state(null, "boom", FETCHED));
+        assertEquals("No data", failed.placeholder());
+        assertFalse(failed.loading(), "a failure is not loading");
+        assertFalse(build(state(spend(SPEND), null, null)).loading());
+    }
+
+    @Test
+    void theTimeAndTheAmountsAreSentInBothFormsForThePreviewOfTheSettings() {
+        StatusDisplay.Variants v = build(state(spend(SPEND), null, null)).variants();
+
+        assertEquals("14:24", v.timeShort());
+        assertEquals("14:24:53", v.timeLong());
+        assertEquals("186.02", v.usedPlain());
+        assertEquals("$186.02", v.usedSymbol());
+        assertEquals("1,000.00", v.limitPlain());
+        assertEquals("$1,000.00", v.limitSymbol());
+
+        StatusDisplay.Variants none = build(state(new UsageSnapshot(FETCHED, null), null, null)).variants();
+        assertEquals("14:24", none.timeShort(), "a reading with no spend still has its time");
+        assertNull(none.usedPlain());
+        assertNull(none.limitSymbol());
+    }
+
+    @Test
+    void withTheCountdownHiddenAnHttp429HasAMessageLineLikeAnyOtherFailure() {
+        String message = "Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.";
+        UsageState limited = new UsageState(spend(SPEND), message, Instant.parse("2026-10-08T14:25:01Z"), false, true);
+        Settings hidden = Settings.defaults().withRowElements(true, true, true, true, false);
+
+        StatusDisplay.View v = build(limited, OptionalLong.of(120), null, hidden);
+
+        assertNull(v.countdownAlert(), "there is no countdown to be red");
+        assertEquals("Refresh failed at 14:25: " + message, v.message().text());
+        assertFalse(v.show().countdown());
     }
 
     @Test
@@ -262,7 +300,29 @@ class StatusDisplayTest {
     void theSettingsSayWhichOptionalItemsAreSwitchedOn() {
         Settings on = new Settings(60, false, true, false, true, true, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false, false, true, true);
 
-        assertEquals(new StatusDisplay.Show(true, false, true, true, false, true, true, true), build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
-        assertEquals(new StatusDisplay.Show(false, false, false, false, false, true, true, true), build(state(spend(SPEND), null, null)).show(), "all off by default");
+        assertEquals(
+                new StatusDisplay.Show(true, false, true, true, false, true, true, true, true, true, true, true, true),
+                build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
+        assertEquals(
+                new StatusDisplay.Show(false, false, false, false, false, true, true, true, true, true, true, true, true),
+                build(state(spend(SPEND), null, null)).show(), "the optional ones off by default, the five that were always there on");
+    }
+
+    @Test
+    void theFiveElementsThatWereAlwaysThereCanBeSwitchedOffEachByItself() {
+        boolean[][] cases = {
+                {false, true, true, true, true}, {true, false, true, true, true}, {true, true, false, true, true},
+                {true, true, true, false, true}, {true, true, true, true, false}};
+        for (boolean[] c : cases) {
+            Settings settings = Settings.defaults().withRowElements(c[0], c[1], c[2], c[3], c[4]);
+
+            StatusDisplay.Show show = build(state(spend(SPEND), null, null), OptionalLong.empty(), null, settings).show();
+
+            assertEquals(c[0], show.time());
+            assertEquals(c[1], show.used());
+            assertEquals(c[2], show.limit());
+            assertEquals(c[3], show.refresh());
+            assertEquals(c[4], show.countdown());
+        }
     }
 }

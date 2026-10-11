@@ -15,12 +15,15 @@
      *   spend        {percentText, percentTooltip, used, limit, usedTooltip, limitTooltip,
      *                 severityText}, or null
      *   placeholder  text for a row with nothing else to show, or null
+     *   loading      no reading and no failure yet: the elements that are switched on are drawn as gray boxes
+     *   variants     {timeShort, timeLong, usedPlain, usedSymbol, limitPlain, limitSymbol} for the preview of the settings, or null
      *   countdown    {text, tooltip} for the seconds to the next refresh, or null
      *   countdownAlert  the message of an HTTP 429, for the red countdown and its hover line, or null
      *   interval     {text, tooltip} for the time between usage requests
      *   deltaUsed    {text, tooltip} for the change in the amount used, or null
      *   deltaTime    {text, tooltip} for the time since the previous reading, or null
-     *   show         {percentage, currency, interval, deltaUsed, deltaTime, historyIcon, logIcon, errorIcon}: which optional items and buttons there are
+     *   show         {percentage, currency, interval, deltaUsed, deltaTime, historyIcon, logIcon, errorIcon, time, used, limit,
+     *                 refresh, countdown}: which elements of the row there are; one the backend does not name is shown
      *   message      {kind: 'error'|'stale', text} for the line under the row, or null
      *   stale        the figures predate a failed refresh
      *   refreshing   a refresh is running
@@ -32,6 +35,8 @@
             timeTooltip: d.timeTooltip || null,
             spend: d.spend || null,
             placeholder: d.placeholder || null,
+            loading: Boolean(d.loading),
+            variants: d.variants || null,
             countdown: d.countdown || null,
             countdownAlert: d.countdownAlert || null,
             interval: d.interval || null,
