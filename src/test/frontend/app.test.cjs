@@ -3228,3 +3228,29 @@ test('the About view is as wide as the settings were, and the settings are measu
     page.el('settings-buttons').rect = { left: 8, width: 260, height: 20 };
     assert.match(page.window.contentSize(), /^536,/);
 });
+
+// ---- the no-spend line is shown over every gray box of the row
+
+test('with no spend the line is shown over the gray boxes of the two changes and of the request duration too', async () => {
+    const status = withShow(withDisplay(NO_USAGE_STATUS), { percentage: true, deltaUsed: true, deltaTime: true, duration: true });
+    const page = await load(backendOf({ config: CONFIG, status }));
+
+    for (const id of ['percent', 'used', 'limit', 'delta-used', 'delta-time', 'duration']) {
+        assert.match(page.el(id).className, /skeleton/, id + ' is a gray box');
+        await hover(page, id, 'mouseenter');
+        assert.equal(page.el('hover-note').hidden, false, id);
+        await hover(page, id, 'mouseleave');
+        assert.equal(page.el('hover-note').hidden, true, id);
+    }
+});
+
+test('an element of the row that shows a figure has no such line, though the reading has no spend', async () => {
+    const base = withShow(withDisplay(NO_USAGE_STATUS), { duration: true, deltaTime: true });
+    const status = { ...base, display: { ...base.display, duration: { text: '87ms', tooltip: 'How long the latest usage request took' } } };
+    const page = await load(backendOf({ config: CONFIG, status }));
+
+    await hover(page, 'duration', 'mouseenter');
+    assert.equal(page.el('hover-note').hidden, true, 'the duration is a figure');
+    await hover(page, 'delta-time', 'mouseenter');
+    assert.equal(page.el('hover-note').hidden, false, 'the time since the previous reading is a box');
+});

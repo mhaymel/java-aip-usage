@@ -40,7 +40,7 @@
     var panelHasHeader = false;
     // Whether the pointer is over the countdown, which then shows the message of an HTTP 429 under the row.
     var hoveringCountdown = false;
-    // Which of the gray boxes of the amounts the mouse is on, by its id, or null: the line of a reading with no spend is
+    // Which of the gray boxes of the row the mouse is on, by its id, or null: the line of a reading with no spend is
     // shown for as long as it is on one.
     var hoveringBox = null;
     // The panel that was shown when the settings were opened, which they give back when they are left; null if none.
@@ -1131,7 +1131,8 @@
         $('errors-button').addEventListener('click', function () { togglePanel('errors'); });
         $('countdown').addEventListener('mouseenter', function () { hoveringCountdown = true; render(); });
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
-        ['percent', 'used', 'limit'].forEach(function (id) {
+        // Every element of the row that can be a gray box: the amounts, the two changes and the request duration.
+        ['percent', 'used', 'limit', 'delta-used', 'delta-time', 'duration'].forEach(function (id) {
             $(id).addEventListener('mouseenter', function () { hoveringBox = id; render(); });
             $(id).addEventListener('mouseleave', function () {
                 // The mouse may be on the next box already: only the box it leaves is given up.

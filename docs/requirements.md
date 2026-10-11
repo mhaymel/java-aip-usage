@@ -1450,6 +1450,15 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The paths are given to the window alone.** The requests for the log and the history still say nothing of where a
   file is; the About view is where the program says it, to the person in front of it.
 
+### The no-spend text is shown over every gray box
+
+- **While a reading has no spend, the line that says so is shown with the mouse on any gray box of the row** (since
+  version 0.58), not on
+  those of the amounts alone: the percentage, the amount used, the budget, the change in the amount used, the time
+  since the previous reading and the request duration, each while it is a gray box.
+- Nothing else of that line changes: its two texts, its colour, that the window is taller by it, and that it goes when
+  the mouse leaves the boxes. An element that shows a figure has no such line.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1542,19 +1551,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## Hover on every gray box, less room in the row, the history's columns, the paths of About, a fake backend to configure, and cost control
+## Less room in the row, the history's columns, the paths of About, a fake backend to configure, and cost control
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.57; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.58; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 70 to 75).
-
-### The no-spend text is shown over every gray box
-
-- **While a reading has no spend, the line that says so is shown with the mouse on any gray box of the row**, not on
-  those of the amounts alone: the percentage, the amount used, the budget, the change in the amount used, the time
-  since the previous reading and the request duration, each while it is a gray box.
-- Nothing else of that line changes: its two texts, its colour, that the window is taller by it, and that it goes when
-  the mouse leaves the boxes. An element that shows a figure has no such line.
+when it is built (see the implementation plan, phases 71 to 75).
 
 ### Less room is reserved in the row
 

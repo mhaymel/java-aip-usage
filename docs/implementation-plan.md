@@ -1668,8 +1668,9 @@ one is refused. Built **one at a time in the order of the table**, a phase and a
 
 ### 70. The no-spend text over every gray box
 
-**Status: specified, not built (version 0.58).** The three elements the page listens on become six; the condition, that the
-element under the mouse is a gray box and the reading has no spend, is the one there is.
+**Status: built (version 0.58).** The three elements the page listens on are six: the amounts, the two changes and the
+request duration. The condition, that the element under the mouse is a gray box and the reading has no spend, is the one
+there was. Tests in `app.test.cjs`: each of the six as a box, and a figure among them that has no line.
 
 ### 71. Less room in the row
 
