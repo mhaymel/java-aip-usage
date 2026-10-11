@@ -2770,34 +2770,85 @@ test('the button does nothing before the settings have been read', async () => {
     assert.equal(page.el('time').hidden, false, 'the row is as it was');
 });
 
-// ---- an answer that came and has no spend is said in a line of its own
+// ---- an answer that came and has no spend says so while the mouse is on one of its gray boxes
 
-test('a reading with no spend has a message line that says so, muted and not red, beside the gray boxes', async () => {
+const SEAT = 'Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.';
+const hover = async (page, id, type) => { page.el(id).listeners[type](); await settle(); };
+
+test('a reading with no spend has no line of its own until the mouse is on a gray box, and loses it when the mouse leaves', async () => {
     const seat = { ...NO_USAGE_STATUS, usage: { ...NO_USAGE_STATUS.usage, otherLimits: true } };
     const state = { config: CONFIG, status: seat };
     const page = await load(backendOf(state));
 
-    assert.equal(page.el('note').hidden, false);
-    assert.equal(page.el('note').textContent, 'Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.');
-    assert.equal(page.el('note').className, 'note note-info');
-    assert.match(page.el('used').className, /skeleton/, 'the gray boxes stay');
-    assert.doesNotMatch(page.el('app').className, /stale/, 'it is a reading, not a failure');
+    assert.equal(page.el('hover-note').hidden, true, 'nothing is said while the mouse is elsewhere');
+    assert.equal(page.el('note').hidden, true, 'and it is no message that is always shown');
+    assert.match(page.el('used').className, /skeleton/, 'the gray boxes are there');
+    assert.equal(page.el('top').className, 'top');
+
+    await hover(page, 'used', 'mouseenter');
+    assert.equal(page.el('hover-note').hidden, false);
+    assert.equal(page.el('hover-note').textContent, SEAT);
+    assert.equal(page.el('hover-note').className, 'note note-info', 'muted, not red');
+    assert.equal(page.el('top').className, 'top noted', 'a message line is shown, so the window has its least width');
+
+    await hover(page, 'used', 'mouseleave');
+    assert.equal(page.el('hover-note').hidden, true);
+    assert.equal(page.el('top').className, 'top');
+});
+
+test('each gray box of the amounts shows the line, and going from one to the next keeps it', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: NO_USAGE_STATUS }));
+
+    for (const id of ['percent', 'used', 'limit']) {
+        await hover(page, id, 'mouseenter');
+        assert.equal(page.el('hover-note').textContent, 'Received, but Anthropic reports no spend for this account (spend is not enabled).', id);
+        await hover(page, id, 'mouseleave');
+        assert.equal(page.el('hover-note').hidden, true, id);
+    }
+    // The mouse is on the next box before the one it left has said so: the line stays.
+    await hover(page, 'used', 'mouseenter');
+    await hover(page, 'limit', 'mouseenter');
+    await hover(page, 'used', 'mouseleave');
+    assert.equal(page.el('hover-note').hidden, false);
+});
+
+test('a figure has no such line, and the line goes when the reading under the mouse has spend again', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    await hover(page, 'used', 'mouseenter');
+    assert.equal(page.el('hover-note').hidden, true, 'the amount used is a figure: there is nothing to say');
 
     state.status = NO_USAGE_STATUS;
     await page.firePoll();
-    assert.equal(page.el('note').textContent, 'Received, but Anthropic reports no spend for this account (spend is not enabled).', 'with no other limits no kind of account is guessed');
+    assert.equal(page.el('hover-note').hidden, false, 'the mouse is still there, and the box has come under it');
 
     state.status = SPEND_STATUS;
     await page.firePoll();
-    assert.equal(page.el('note').hidden, true, 'and the line goes with a reading that has spend');
+    assert.equal(page.el('hover-note').hidden, true);
 });
 
-test('a failed refresh after a reading with no spend has its own red line in the place of the muted one', async () => {
+test('a gray box at the start and one with no data have no such line', async () => {
+    const waiting = { refreshing: true, stale: false, nextRefreshInSeconds: null, error: null, usage: null };
+    const start = await load(backendOf({ config: CONFIG, status: waiting }));
+    await hover(start, 'used', 'mouseenter');
+    assert.equal(start.el('hover-note').hidden, true);
+
+    const failed = { refreshing: false, stale: false, usage: null, error: { message: 'Claude Code could not be found on the PATH.', at: NOW } };
+    const none = await load(backendOf({ config: CONFIG, status: failed }));
+    await hover(none, 'used', 'mouseenter');
+    assert.equal(none.el('hover-note').hidden, true);
+    assert.equal(none.el('note').hidden, false, 'the failure has its own red line, which is always there');
+});
+
+test('a failed refresh after a reading with no spend has its red line, and the hover line beside it while the mouse is on a box', async () => {
     const status = { ...NO_USAGE_STATUS, stale: true, error: { message: 'Anthropic returned HTTP 500.', at: NOW } };
     const page = await load(backendOf({ config: CONFIG, status }));
 
     assert.equal(page.el('note').className, 'note note-stale');
     assert.match(page.el('note').textContent, /^Refresh failed at /);
+    assert.equal(page.el('hover-note').hidden, true);
+    await hover(page, 'limit', 'mouseenter');
+    assert.equal(page.el('hover-note').hidden, false);
 });
 
 // ---- the row's box says when a message line is shown, and its own width is measured with the stretch of a panel let go
@@ -2817,7 +2868,12 @@ test('the row says that a message line is shown, for each of the three lines, an
 
     state.status = NO_USAGE_STATUS;
     await page.firePoll();
-    assert.equal(page.el('top').className, 'top noted', 'the line of an answer with no spend counts too');
+    assert.equal(page.el('top').className, 'top', 'an answer with no spend has no line while the mouse is elsewhere');
+    await page.el('used').listeners.mouseenter();
+    await settle();
+    assert.equal(page.el('top').className, 'top noted', 'and its line counts while the mouse is on a gray box');
+    await page.el('used').listeners.mouseleave();
+    await settle();
 
     state.status = SPEND_STATUS;
     state.down = true;

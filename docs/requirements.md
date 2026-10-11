@@ -1191,7 +1191,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 ### An answer that came and has no spend is said explicitly
 
 - **When Anthropic answers and the answer has no spend, the row says so in a message line** below it, like the line of
-  a failed refresh, with the gray boxes of the amounts above it (since version 0.47). Before, the gray boxes and their
+  a failed refresh, with the gray boxes of the amounts above it (since version 0.47). Since version 0.56 the line is
+  shown only while the mouse is on one of those boxes (see The text of an answer with no spend is shown while the mouse
+  is on a gray box). Before, the gray boxes and their
   tooltips were all that said it, and the log said `Usage refresh succeeded`.
 - **What it is.** The answer is an HTTP 200 that the program reads without a fault, and whose `spend` is not enabled:
   there is no amount used and no budget in it. It is not a response whose format cannot be processed, and writes no
@@ -1390,6 +1392,24 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   field to type in.
 - Nothing else changes: a click on a button, the tooltips, and dragging the window that has no title bar.
 
+### The text of an answer with no spend is shown while the mouse is on a gray box
+
+- **The line that says an answer came and has no spend is not always there** (since version 0.56; it was, in 0.47 to
+  0.55). It is shown below the row **while the
+  mouse pointer is over one of the gray boxes** of the amounts, the percentage, the amount used or the budget, and it
+  goes when the pointer leaves them.
+- **It is the line there was**: the same two texts, in the muted gray, below the row, and the window is taller by it
+  while it is shown, as for the line of an HTTP 429 over the countdown.
+- **Only in that state**: a reading with no spend. A gray box at the start, and one with no data, has no such line; the
+  failure with no data has its own red line, which is always there.
+- **The tooltips of the boxes are as they were**, `Credits used: no usage reported`.
+- **The log is as it was**: the text in the place of `Usage refresh succeeded`, as a warning when it begins.
+- **The least width a message line gives the window** holds for this line while it is shown.
+- **Going from one gray box to the next keeps the line**, and it goes at once when the reading under the mouse has spend
+  again.
+- **After a failed refresh** that follows a reading with no spend, the red line of the failure is there as always, and
+  this line beside it while the mouse is on a box.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1482,24 +1502,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## The no-spend text on hover, and the About view
+## The About view
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.55; where
-this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 68 and 69).
-
-### The text of an answer with no spend is shown while the mouse is on a gray box
-
-- **The line that says an answer came and has no spend is not always there.** It is shown below the row **while the
-  mouse pointer is over one of the gray boxes** of the amounts, the percentage, the amount used or the budget, and it
-  goes when the pointer leaves them.
-- **It is the line there was**: the same two texts, in the muted gray, below the row, and the window is taller by it
-  while it is shown, as for the line of an HTTP 429 over the countdown.
-- **Only in that state**: a reading with no spend. A gray box at the start, and one with no data, has no such line; the
-  failure with no data has its own red line, which is always there.
-- **The tooltips of the boxes are as they were**, `Credits used: no usage reported`.
-- **The log is as it was**: the text in the place of `Usage refresh succeeded`, as a warning when it begins.
-- **The least width a message line gives the window** holds for this line while it is shown.
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.56; where
+this section says otherwise, this section is what is to be built. It moves into the description of the program
+when it is built (see the implementation plan, phase 69).
 
 ### The About view
 
@@ -1578,7 +1585,7 @@ These are things the program does that the sections above do not say, written do
 - **The URL, more exactly.** The scheme is read without regard to case, so `HTTP://127.0.0.1:8080` is accepted, and kept as typed. One
   trailing slash is dropped, not several. The message of a bad URL gives it trimmed.
 - **The scenario names** of the fake backend, which the debug settings offer, are `normal`, `http-401`, `http-403`, `http-429`,
-  `http-429-retry-after`, `http-500`, `not-json`, `empty`, `no-spend-no-windows`, `trailing-text`, `slow` and `hang` (see Fake
+  `http-429-retry-after`, `http-500`, `not-json`, `empty`, `no-spend-no-windows`, `seat-based`, `trailing-text`, `slow` and `hang` (see Fake
   backend for what each answers).
 - **The usage text** is this, word for word. The default URL in it is the one the program uses, so the text cannot say one thing and
   the program do another:
@@ -1919,6 +1926,7 @@ mode); nothing else is needed and nothing else has to be started.
   | `not-json` | 200 | the text `this is not JSON, it is a sentence` |
   | `empty` | 200 | no body |
   | `no-spend-no-windows` | 200 | `{"detail": "this is not a usage document", "limits": [], "member_dashboard_available": false}` |
+  | `seat-based` | 200 | what Anthropic answers for a seat-based account, cut down: the limits of a session and of a week, and a `spend` that is there with `"enabled": false`; the program reads it as a reading with no spend |
   | `trailing-text` | 200 | the usage document, and on a line after it `and then some text that has no business here` |
   | `slow` | 200 | the usage document, after 25 seconds |
   | `hang` | none | nothing: the request is held for up to 5 minutes and then closed without an answer |

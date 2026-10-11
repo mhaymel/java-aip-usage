@@ -273,3 +273,8 @@ test('the window has its title bar unless the backend says the setting is off', 
     assert.equal(view.describeStatus({ display: { ...DISPLAY, titleBar: true } }).titleBar, true);
     assert.equal(view.describeStatus({ display: { ...DISPLAY, titleBar: false } }).titleBar, false);
 });
+
+test('what is said of a reading with no spend is passed on as it is, and is nothing for any other reading', () => {
+    assert.equal(view.describeStatus({ display: { ...DISPLAY, noSpend: 'Received, but ...' } }).noSpend, 'Received, but ...');
+    assert.equal(view.describeStatus({ display: { ...DISPLAY } }).noSpend, null);
+});

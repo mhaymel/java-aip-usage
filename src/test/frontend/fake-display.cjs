@@ -138,10 +138,10 @@ process.env.TZ = 'UTC';
             view.loading = !error;
         }
 
-        if (!error && usage && !usage.spend) {
-            view.message = { kind: 'info', text: usage.otherLimits
+        if (usage && !usage.spend) {
+            view.noSpend = usage.otherLimits
                 ? 'Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.'
-                : 'Received, but Anthropic reports no spend for this account (spend is not enabled).' };
+                : 'Received, but Anthropic reports no spend for this account (spend is not enabled).';
         }
         if (error) {
             view.message = {
@@ -162,7 +162,7 @@ process.env.TZ = 'UTC';
             display: {
                 time: d.time, timeTooltip: d.timeTooltip, spend: d.spend, placeholder: d.placeholder, loading: d.loading, variants: d.variants,
                 countdown: d.countdown, interval: { text: '60s', tooltip: 'Time between usage requests' }, deltaUsed: null, deltaTime: null,
-                show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false }, message: d.message
+                show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false }, message: d.message, noSpend: d.noSpend || null
             }
         });
     }

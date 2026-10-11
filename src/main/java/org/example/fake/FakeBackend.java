@@ -131,6 +131,7 @@ public final class FakeBackend implements AutoCloseable {
             case NOT_JSON -> send(exchange, 200, "this is not JSON, it is a sentence", 0);
             case EMPTY -> send(exchange, 200, "", 0);
             case NO_SPEND_NO_WINDOWS -> send(exchange, 200, UsageDocument.neitherSpendNorWindows(), 0);
+            case SEAT_BASED -> send(exchange, 200, UsageDocument.seatBased(), 0);
             case TRAILING_TEXT -> send(exchange, 200, document.withTrailingText(clock.instant()), 0);
             case SLOW -> {
                 if (hold(SLOW_ANSWER)) {

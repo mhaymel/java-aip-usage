@@ -233,4 +233,14 @@ class FakeBackendTest {
             return http.send(request, HttpResponse.BodyHandlers.ofString());
         }
     }
+
+    @Test
+    void theSeatBasedScenarioIsAReadingWithNoSpendAndTheLimitsOfSuchAnAccount() throws Exception {
+        org.example.usage.UsageSnapshot reading = fetch(start(Scenario.SEAT_BASED));
+
+        assertTrue(reading.isEmpty(), "spend is there and not enabled");
+        assertTrue(reading.otherLimits(), "with the limits of a session and of a week");
+        assertEquals(org.example.usage.UsageSnapshot.NO_SPEND_SEAT_BASED, reading.noSpendMessage());
+        assertEquals("seat-based", Scenario.SEAT_BASED.optionName());
+    }
 }

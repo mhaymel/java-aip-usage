@@ -35,6 +35,12 @@ public enum Scenario {
     /** A JSON object that is some other document: no {@code spend}, no window. */
     NO_SPEND_NO_WINDOWS("no-spend-no-windows"),
 
+    /**
+     * The answer of a seat-based account: a usage document whose spend is not enabled, with the limits of a session and
+     * of a week. The program reads it without a fault and has nothing to show of it.
+     */
+    SEAT_BASED("seat-based"),
+
     /** A usage document with text after it, which a strict reader must refuse. */
     TRAILING_TEXT("trailing-text"),
 

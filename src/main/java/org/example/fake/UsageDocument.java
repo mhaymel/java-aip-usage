@@ -99,6 +99,21 @@ final class UsageDocument {
                 """;
     }
 
+    /**
+     * What Anthropic answers for a seat-based account, cut down to what the program looks at: the limits of a session and
+     * of a week, and a spend that is there and not enabled.
+     */
+    static String seatBased() {
+        return """
+                {"five_hour": {"utilization": 4.0, "resets_at": "2026-10-11T13:40:00+00:00"},
+                 "seven_day": {"utilization": 4.0, "resets_at": "2026-10-16T09:00:00+00:00"},
+                 "limits": [{"kind": "session", "group": "session", "percent": 4, "severity": "normal"},
+                            {"kind": "weekly_all", "group": "weekly", "percent": 4, "severity": "normal"}],
+                 "spend": {"used": {"amount_minor": 0, "currency": "USD", "exponent": 2}, "limit": null, "percent": 0,
+                           "severity": "normal", "enabled": false, "disabled_reason": null}}
+                """;
+    }
+
     /** An error body of the kind a real endpoint sends with a 4xx, which is not a usage document. */
     static String error(String type) {
         return String.format(

@@ -61,7 +61,8 @@ final class StatusDisplay {
             Tip duration,
             Message message,
             Show show,
-            boolean titleBar) {
+            boolean titleBar,
+            String noSpend) {
     }
 
     /**
@@ -107,10 +108,6 @@ final class StatusDisplay {
         Message message = state.error() == null || alert ? null : new Message(
                 usage != null ? "stale" : "error",
                 "Refresh failed at " + Formatting.time(state.errorAt(), settings.timeFormat(), zone) + ": " + state.error());
-        if (message == null && state.error() == null && usage != null && usage.noSpendMessage() != null) {
-            // The response came and has nothing the row can show: said in a line of its own, which is no failure.
-            message = new Message("info", usage.noSpendMessage());
-        }
 
         return new View(
                 time,
@@ -137,7 +134,10 @@ final class StatusDisplay {
                         settings.showDuration()),
                 // Whether the setting gives the window its title bar. The page draws a border round a window that has none,
                 // which is one with this off and no panel open.
-                settings.showTitleBar());
+                settings.showTitleBar(),
+                // What is to be said of a reading that came and has no spend. It is no message that is always shown: the
+                // page shows it below the row while the mouse is on one of the gray boxes of the amounts.
+                usage == null ? null : usage.noSpendMessage());
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {

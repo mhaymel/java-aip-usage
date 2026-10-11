@@ -297,6 +297,11 @@ test('the heading of Main view has a small button with an icon and no text that 
     assert.match(rule, /margin-left:\s*\d+px/, 'at the right of the heading');
 });
 
+test('the line of an answer with no spend is an element of its own below the row, after the line of a 429', () => {
+    assert.match(html, /<p id="alert-note" class="note note-alert" role="status" hidden><\/p>\s*<p id="hover-note" class="note note-info" role="status" hidden><\/p>/);
+    assert.ok(html.indexOf('id="hover-note"') < html.indexOf('<div id="panel"'), 'in the row\'s box, so the window is sized by it');
+});
+
 test('the line that says an answer had no spend is muted, and the lines of a failure are red', () => {
     assert.match(ruleOf('.note-info'), /color:\s*var\(--muted\)/);
     assert.match(css, /\.note-stale,\s*\.note-error\s*{\s*color:\s*var\(--bad\)/);

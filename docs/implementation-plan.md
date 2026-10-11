@@ -1603,9 +1603,23 @@ about; the style that forbids it is the one the test reads.
 
 ### 68. The no-spend text on hover
 
-**Status: specified, not built (version 0.56).** The backend still gives the text, as a line of its own kind and no longer
-as the message that is always shown; the page shows it while the mouse is on a gray box of the amounts, as it shows the
-line of a 429 while the mouse is on the countdown. Tests in `StatusDisplayTest` and `app.test.cjs`.
+**Status: built (version 0.56).** Requirement: The text of an answer with no spend is shown while the mouse is on a gray box.
+
+- **The backend** gives the text as `display.noSpend`, and no longer as the `message` of the kind `info`, which is always
+  shown.
+- **The page** has an element for it, `hover-note`, and shows it while the mouse is on `percent`, `used` or `limit` and
+  that element is a gray box, as it shows the line of a 429 while the mouse is on the countdown. It counts as a message
+  line for the least width of the window.
+- **A scenario of the fake backend, `seat-based`**, was added for it: the answer of such an account, cut down. Until now
+  the fake backend had no reading with no spend, so this state could be seen in no window but against Anthropic.
+- **Tests.** `StatusDisplayTest`, `view.test.cjs`: the field. `app.test.cjs`: no line until the mouse is on a box, for each
+  of the three boxes, from one box to the next, not on a figure, not at the start nor with no data, and beside the red
+  line of a failure. `FakeBackendTest` for the scenario.
+- **In a real window** (the on-request test), with the fake backend answering `seat-based`: gray boxes and a window of 40
+  pixels; with the mouse on the amount used the line is there, in the muted gray, and the window is 79 pixels tall; with
+  the mouse on the refresh button the line is gone and the window 40 again. It passes.
+
+**Not checked by a test.** A real mouse: the moves are made by the test.
 
 ### 69. The About view
 

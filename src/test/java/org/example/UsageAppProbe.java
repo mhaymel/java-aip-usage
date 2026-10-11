@@ -93,6 +93,16 @@ public final class UsageAppProbe {
             step("settings-narrow-left", "settings-cancel");
             // Debug mode: the debug settings, and the fake backend switched off and on again while the program runs.
             step("debug", "debug-button");
+            // The fake backend answers as for a seat-based account: gray boxes, and the line that says so only while the
+            // mouse is on one of them.
+            onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeScenario').value = 'seat-based';"));
+            step("seat-applied", "debug-apply");
+            Thread.sleep(2500);
+            step("seat", null);
+            point("seat-hover", "used");
+            point("seat-away", "refresh");
+            step("debug-seat", "debug-button");
+            onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeScenario').value = 'normal';"));
             onFx(() -> page().getEngine().executeScript(
                     "document.getElementById('debug-fakeBackend').checked = false; document.getElementById('debug-fakeToken').checked = true;"));
             step("fake-off", "debug-apply");
@@ -317,6 +327,41 @@ public final class UsageAppProbe {
                             + " + '/' + getComputedStyle(document.getElementById('set-usageIntervalSeconds')).webkitUserSelect; })()");
             System.out.println("PROBE " + name + "=dragged:" + dragged[0] + " all:" + all + " styles:" + styles);
             System.out.flush();
+        });
+    }
+
+    /**
+     * Moves the mouse onto the middle of the named element, lets the page follow, and says what the line of a reading
+     * with no spend shows and how tall the window is.
+     */
+    private static void point(String name, String id) throws InterruptedException {
+        for (int nudge = 0; nudge < 3; nudge++) {
+            int by = nudge;
+            onFx(() -> {
+                WebView view = page();
+                Object at = view.getEngine().executeScript(
+                        "(function () { var b = document.getElementById('" + id + "').getBoundingClientRect();"
+                                + " return Math.round(b.left + b.width / 2) + ',' + Math.round(b.top + b.height / 2); })()");
+                double x = Double.parseDouble(at.toString().split(",")[0]) + by - 1;
+                double y = Double.parseDouble(at.toString().split(",")[1]);
+                javafx.geometry.Point2D screen = view.localToScreen(x, y);
+                if (by == 0) {
+                    fire(view, javafx.scene.input.MouseEvent.MOUSE_ENTERED, x, y, screen.getX(), screen.getY(), false);
+                }
+                fire(view, javafx.scene.input.MouseEvent.MOUSE_MOVED, x, y, screen.getX(), screen.getY(), false);
+            });
+            Thread.sleep(200);
+        }
+        Thread.sleep(900);
+        onFx(() -> {
+            System.out.println("PROBE " + name + "=line:[" + page().getEngine().executeScript(
+                    "(function () { var n = document.getElementById('hover-note'); return n.hidden ? '' : n.textContent; })()") + "]"
+                    + " colour:" + page().getEngine().executeScript("getComputedStyle(document.getElementById('hover-note')).color")
+                    + " used:" + page().getEngine().executeScript("document.getElementById('used').className")
+                    + " height:" + Math.round(window().getScene().getHeight())
+                    + " width:" + Math.round(window().getScene().getWidth()));
+            System.out.flush();
+            Window.getWindows().stream().filter(window -> window instanceof javafx.scene.control.Tooltip).toList().forEach(Window::hide);
         });
     }
 

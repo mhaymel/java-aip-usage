@@ -40,6 +40,9 @@
     var panelHasHeader = false;
     // Whether the pointer is over the countdown, which then shows the message of an HTTP 429 under the row.
     var hoveringCountdown = false;
+    // Which of the gray boxes of the amounts the mouse is on, by its id, or null: the line of a reading with no spend is
+    // shown for as long as it is on one.
+    var hoveringBox = null;
     // The panel that was shown when the settings were opened, which they give back when they are left; null if none.
     var returnTo = null;
     // The height the window has while a log or history is shown, and the width the vertical scrollbar of their panel takes.
@@ -175,6 +178,9 @@
             v.countdown && v.countdown.text, v.countdown ? v.countdown.tooltip : 'Seconds until the next refresh (negative when overdue)',
             loading && !v.countdown);
         setNote('alert-note', hoveringCountdown && v.countdownAlert ? v.countdownAlert : '');
+        // A reading that came and has no spend says so while the mouse is on one of its gray boxes, and not otherwise.
+        var onBox = hoveringBox !== null && !$(hoveringBox).hidden && /\bskeleton\b/.test($(hoveringBox).className);
+        setNote('hover-note', onBox && v.noSpend ? v.noSpend : '', 'note note-info');
         renderOptional('interval', s.interval, v.interval, 'Time between usage requests');
         renderButtons(s);
         renderOptional('delta-used', s.deltaUsed, v.deltaUsed, 'Change in the amount used since the previous reading');
@@ -195,7 +201,7 @@
      * of few elements.
      */
     function markNoted() {
-        var noted = ['note', 'alert-note', 'connection'].some(function (id) { return !$(id).hidden; });
+        var noted = ['note', 'alert-note', 'hover-note', 'connection'].some(function (id) { return !$(id).hidden; });
         $('top').className = 'top' + (noted ? ' noted' : '');
     }
 
@@ -1077,6 +1083,16 @@
         $('errors-button').addEventListener('click', function () { togglePanel('errors'); });
         $('countdown').addEventListener('mouseenter', function () { hoveringCountdown = true; render(); });
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
+        ['percent', 'used', 'limit'].forEach(function (id) {
+            $(id).addEventListener('mouseenter', function () { hoveringBox = id; render(); });
+            $(id).addEventListener('mouseleave', function () {
+                // The mouse may be on the next box already: only the box it leaves is given up.
+                if (hoveringBox === id) {
+                    hoveringBox = null;
+                }
+                render();
+            });
+        });
         $('settings-restore').addEventListener('click', restoreDefaults);
         $('set-all').addEventListener('click', selectAllOrNone);
         // The key that selects everything is passed over, except in the field to type in: nothing of the window is to be selected.

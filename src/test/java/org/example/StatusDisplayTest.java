@@ -359,16 +359,27 @@ class StatusDisplayTest {
     }
 
     @Test
-    void aReadingWithNoSpendHasALineThatSaysTheAnswerCameAndWhatItLacks() {
+    void aReadingWithNoSpendSaysSoInAFieldOfItsOwnAndNotAsAMessageThatIsAlwaysShown() {
         UsageState seat = state(new UsageSnapshot(FETCHED, null, true), null, null);
         StatusDisplay.View v = build(seat);
-        assertEquals("info", v.message().kind());
-        assertEquals("Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.", v.message().text());
+        assertNull(v.message(), "no line that is always there");
+        assertEquals("Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.", v.noSpend());
         assertEquals("No usage reported", v.placeholder(), "the gray boxes and their tooltips are as before");
 
         UsageState plain = state(new UsageSnapshot(FETCHED, null, false), null, null);
-        assertEquals("Received, but Anthropic reports no spend for this account (spend is not enabled).", build(plain).message().text());
+        assertEquals("Received, but Anthropic reports no spend for this account (spend is not enabled).", build(plain).noSpend());
 
-        assertNull(build(state(spend(SPEND), null, null)).message(), "a reading with spend has no such line");
+        assertNull(build(state(spend(SPEND), null, null)).noSpend(), "a reading with spend has nothing to say of it");
+        assertNull(build(state(null, null, null)).noSpend(), "nor has the row before any reading");
+    }
+
+    @Test
+    void aFailureAfterAReadingWithNoSpendHasItsMessageAndTheReadingStillSaysWhatItLacks() {
+        UsageState failed = state(new UsageSnapshot(FETCHED, null, true), "Anthropic returned HTTP 500.", FETCHED);
+
+        StatusDisplay.View v = build(failed);
+
+        assertEquals("stale", v.message().kind());
+        assertEquals(UsageSnapshot.NO_SPEND_SEAT_BASED, v.noSpend());
     }
 }

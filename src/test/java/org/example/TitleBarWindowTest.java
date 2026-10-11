@@ -226,6 +226,16 @@ class TitleBarWindowTest {
         Matcher wide = Pattern.compile(" size:(\\d+),").matcher(line(all, "message-wide-row"));
         assertTrue(wide.find() && Integer.parseInt(wide.group(1)) > 400, "every element on: the row's own width:\n" + all);
 
+        // A seat-based account: gray boxes and no line; the line that says so while the mouse is on a box, muted, and the
+        // window taller by it; and gone again, with the window as tall as it was, when the mouse is elsewhere.
+        assertTrue(line(all, "seat").contains("Credits used: no usage reported"), all);
+        assertEquals("PROBE seat-hover=line:[Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.]"
+                + " colour:rgb(138, 143, 152) used:used skeleton", line(all, "seat-hover").replaceAll(" height:.*", ""), all);
+        assertTrue(line(all, "seat-away").startsWith("PROBE seat-away=line:[] "), "the mouse is on the refresh button: no line:\n" + all);
+        int with = Integer.parseInt(line(all, "seat-hover").replaceAll(".* height:(\\d+) .*", "$1"));
+        int without = Integer.parseInt(line(all, "seat-away").replaceAll(".* height:(\\d+) .*", "$1"));
+        assertTrue(with > without + 15, "the window is taller by the line while it is shown: " + with + " and " + without);
+
         // Switched on again, by leaving the debug settings through their own button, which saves them.
         assertTrue(line(all, "fake-on-settled").contains(" border:3px "), all);
         assertTrue(line(all, "fake-on-settled").matches(".* used:\\[\\d+\\.\\d\\d\\] .*"), all);
