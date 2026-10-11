@@ -82,7 +82,7 @@ Example token output:
 - The default backend usage-fetch interval is 60 seconds. Configure it in seconds in the settings view (see Settings), and nowhere else: there is no command-line option for it. The settings file and the settings view accept values from 5 through 3600 seconds, the settings view in a single entry field. The default is a minute because the usage endpoint appears to accept about one request a minute over the long run: a faster pace, such as 30 seconds, is allowed but draws HTTP 429 after roughly ten minutes.
 - Save a usage-fetch interval changed in the frontend to the settings file (see Settings). A committed valid frontend value is sent to the backend and is in force at once.
 - Changing the backend usage-fetch interval does not cancel a request already in progress. Apply the new interval to the next scheduled request, measuring the interval from when the current/most recent request was triggered. If the new interval has already elapsed, start the next request as soon as no request is running; otherwise wait until the interval elapses. Changing the interval does not otherwise trigger an extra immediate request.
-- If a refresh fails, keep the last successful data visible, mark it as stale, and show the error. Resume normal display after the next successful refresh.
+  - If a refresh fails, keep the last successful data visible, mark it as stale, and show the error. Resume normal display after the next successful refresh.
 - If Anthropic answers HTTP 429 (rate limited), the application slows down instead of
   carrying on at the same pace. The next scheduled request waits twice the usage
   interval, and each further 429 in a row doubles the wait, up to 5 minutes, or the
@@ -1159,6 +1159,115 @@ backend switched while the program runs, and the mark that says its figures are 
   (see `docs/img_3.png`, taken with every element of the row hidden).
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
+
+## Gray boxes for no usage, a border and dragging without the title bar, debug lines, the format error, and select all
+
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.40; where
+this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
+when it is built (see the implementation plan, phases 53 to 58).
+
+### Gray boxes in the place of `No usage reported` and `No data`, and a green border round every gray box
+
+- **The row no longer says `No usage reported`.** When Anthropic reports no usage, the elements of the amounts that
+  are switched on, the percentage, the amount used and the budget, are each shown as a gray box, as at the start. An
+  element that is switched off is not there, as always.
+- **Nor does it say `No data`.** When there is no reading at all, the first request having failed, the same elements
+  are gray boxes as well, and so is the time, which has no value then. That a refresh failed is said by the message
+  line, or by the red countdown for an HTTP 429, as before.
+- **The time, with no usage reported, is the time of the reading**, as before: that reading was taken.
+- **The slash between the amount used and the budget** is there when both are shown, between the two boxes as between
+  the two figures.
+- **The tooltip of such a box says why it is one**: the element's own short tooltip, a colon, and `no usage reported`
+  or `no data`. So `Credits used: no usage reported`, `Credit budget: no data`, `Share of the budget spent: no usage
+  reported`, `Last update: no data`. A box at the start, and the box of a figure that is not known, keep the tooltip
+  they have.
+- **Every gray box of the row has a thin green border**: 1 pixel, in the green of the figures, at its full strength
+  while the gray inside stays at a third. That holds for every gray box, at the start, for a figure that is not known,
+  and for no usage and no data alike. The box is as wide and as tall as it was: the border is inside it.
+- **The boxes are not dimmed** after a failed refresh, border included.
+- **The two changes and the request duration** are as A gray box for a figure that is not known says; with no usage
+  and with no data the two changes are gray boxes, since there is nothing to compare.
+- **Nothing else says `No usage reported` in the window.** The log still records each reading as it does.
+
+### A border round the window that has no title bar
+
+- **While the window has no title bar it has a border**: a rectangle all the way round its content, 1 pixel wide, drawn
+  by the page. It shows where the window ends, which the frame of the system does when there is a title bar.
+- **Its colour is that of the text**: black on the light theme, and the light colour of the text on the dark one, where
+  black would not be seen.
+- **It is there exactly while the window has no title bar**: the setting `Title bar` is off and no panel is shown.
+  With the title bar shown, by the setting or because a panel is open, there is no such border.
+- **It is left out while the red border of the fake backend is shown**, which is round the window then. In debug mode
+  with the fake backend off, and no title bar, the black border is there.
+- **The window is larger by the border**, 1 pixel on every side, so nothing in the row is covered.
+
+### Dragging the window that has no title bar
+
+- **While the window has no title bar it is moved by dragging it**: the mouse button pressed anywhere inside the
+  window, and the mouse moved with the button held, moves the window with it; releasing the button leaves it there.
+- **The buttons are as they were.** A press on a button of the row, the refresh button, the log, history and error log
+  buttons, the gear and the debug button, does what the button does and never begins a drag.
+- **A press with no movement does nothing**: the window does not move, and no tooltip, hover or countdown line is lost
+  by it.
+- **Anywhere else inside the border begins a drag**: the figures, the gray boxes, the room between the elements, a
+  message line, and the border itself, the red one of the fake backend included.
+- **Only without the title bar.** With the title bar the window is moved by it, and a drag inside the window moves
+  nothing; so nothing changes while a panel is shown.
+- **The window stays where it was dropped** for the run, also when the title bar comes and goes for a panel. Where it
+  was is not remembered for the next start: the program starts where it always does. (Remembering the position was
+  considered and decided against.)
+
+### Debug lines in the log
+
+- **The program writes debug lines.** They are written to the log file and to the console in every run, with
+  `--debug` and without it, whatever level the log panel shows.
+- **The log panel shows them with `Debug` only**, so with the default, `Info`, they are not seen. `Debug` now shows
+  more than `Info` does.
+- **Three lines are debug lines**, which were written at the information level; their wording is unchanged:
+
+  | Line | Written when |
+  | --- | --- |
+  | `Window fitted to <width>x<height>`, with what follows it | the window is sized to the page |
+  | `The <panel> window height is now <N> px` | the height of the history or of the log is remembered |
+  | `The window has its title bar` and `The window has no title bar` | the title bar comes or goes |
+
+- **Every other line keeps its level**, the two lines of each refresh, `GET ... -> HTTP 200 in ... ms` and `Usage
+  refresh succeeded`, among them: they are information.
+- **Which lines are debug lines** is said here, line by line; a line that is not in the table is not one.
+- A debug line has `FINE` as the word for its level in the file, which is how the logging of Java writes it.
+
+### An error in the log when the response has a format the program cannot process
+
+- **When a usage response cannot be processed because of its format, an error is written to the log**, at the error
+  level: `The usage response could not be processed: <reason>`, and after it the beginning of the response.
+- **The cases** are those in which the program reads the response and cannot make a reading of it: it is empty, it is
+  not JSON, it is not a JSON object, or what it holds of the spend is not in the form the program knows. A response
+  that is an HTTP error, a timeout, and a failure to obtain a token are not among them.
+- **The response is written with it**: the first 2,000 characters of the body, masked like everything the log gets,
+  on the lines after the first, so that the new format can be seen in the log. A longer body is cut there and the line
+  says how long it was, `(the first 2000 of N characters)`; an empty one is written as `(empty)`.
+- **The warning stays.** `Usage refresh failed: <the message>` is written as for every failed refresh, the row shows
+  the failure as before, and the error log panel has its one entry.
+- It is written whether or not `Log the response` is on.
+
+### A button that selects every element of `Main view`, or none
+
+- **The group `Main view` of the settings has a small button** in the line of its heading, at the right of the
+  heading. It is an icon with no text: a small square with a tick in it, drawn like the icons of the row, and the same
+  whatever is selected. Its tooltip is `Select every element, or none`.
+- **A click switches the thirteen checkboxes of the elements**: when every one of them is on, all are switched off;
+  otherwise all are switched on.
+- **The two properties are not touched**: `Currency symbol` and the time format stay as they are.
+- **It is a click like any other in `Main view`**: the row shows it at once, as a preview, and it is saved when the
+  view is saved, by `Apply` or by leaving through a button of the row; `Cancel` puts the row back.
+- **The three panel buttons follow as for a click on their own checkbox**: the button of a panel that is open stays
+  until the panel is closed.
+
+### The title bar is not previewed
+
+- **`Title bar` takes effect when the settings are saved, not when it is clicked.** It was considered to let a click
+  change the window at once, and decided against: while the settings are shown the window has its title bar whatever
+  the setting says, so a click could not be seen. It stays as Settings describes it.
 
 ## Details of the behaviour
 

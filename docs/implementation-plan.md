@@ -1244,6 +1244,87 @@ gives the row a reading with no change, which is the same path.
 
 **Not checked by a test.** How the line looks, and the dropdown on the dark theme.
 
+### 53 to 58. Gray boxes for no usage, the border and the dragging without title bar, debug lines, the format error, select all
+
+Requirement: Gray boxes for no usage, a border and dragging without the title bar, debug lines, the format error, and select
+all. *Decided by the person:* every gray box has the green border; `No data` becomes gray boxes too; the black border is left
+out only while the red one is shown, and has the colour of the text; debug lines are always written and shown with `Debug`;
+the format error is a line of its own with the beginning of the response; the button switches the thirteen elements, all on, or
+all off when all are on; and `Title bar` stays as it is, not previewed. Three lines become debug lines: the window's size, a remembered height, and
+the title bar coming and going; the lines of a refresh stay information. The position of the window is not remembered. The icon
+of the button is a ticked box, always the same. Built **one at a time, in the order of the table**, a phase and a version each.
+
+| Phase | Version | Piece |
+| --- | --- | --- |
+| 53 | 0.41 | Gray boxes in the place of `No usage reported` and `No data`; a green border round every gray box |
+| 54 | 0.42 | A border round the window that has no title bar |
+| 55 | 0.43 | Dragging the window that has no title bar |
+| 56 | 0.44 | Debug lines in the log: the window's size, a remembered height, the title bar |
+| 57 | 0.45 | An error in the log for a response whose format cannot be processed |
+| 58 | 0.46 | The button of `Main view` that selects every element, or none |
+
+### 53. Gray boxes for no usage and no data, and the green border
+
+**Status: specified, not built (version 0.41).**
+
+- **The backend.** `StatusDisplay` gives `No usage reported` and `No data` as `placeholder`; it gives the state as a
+  word instead, which the page turns into boxes and their tooltips.
+- **The page.** `figure` draws the box for the time and the amounts in the two states; the element `placeholder` and its
+  rule go if nothing else uses them.
+- **The border.** `.skeleton` has its gray by `opacity`, which would fade a border with it: the gray becomes a colour with
+  its own strength, and the border is `var(--ok)` at full strength, with `box-sizing: border-box`.
+- **Tests.** `StatusDisplayTest`, `app.test.cjs`, `layout.test.cjs`; the tests that read the two texts are turned round.
+
+### 54. A border round the window that has no title bar
+
+**Status: specified, not built (version 0.42).**
+
+- **The page** knows the setting and whether a panel is open, so it knows when the window has no title bar: `#app` gets a
+  class for it, with a 1 pixel border in `CanvasText`, not together with `fake`; `contentSize` adds 2 pixels as it adds 6
+  for the red border.
+- **Tests.** `app.test.cjs` for the class and the size in each case; the on-request window test for the border's width with
+  the title bar off, with a panel, and with the fake backend.
+
+### 55. Dragging the window that has no title bar
+
+**Status: specified, not built (version 0.43).**
+
+- **The host moves the window.** `UsageApp` listens to the mouse on the `WebView`: pressed, it notes where; dragged, it
+  moves the stage by the difference, only while the stage has no title bar. Whether the press was on a button is asked of
+  the page, or the page tells the host that a drag may begin; which of the two is decided when it is built.
+- **Tests.** The part that decides is tested without a window; the on-request window test moves the window.
+
+*Risk:* the WebView takes mouse events for the page; a drag must not swallow the clicks of the buttons.
+
+### 56. Debug lines
+
+**Status: specified, not built (version 0.44).**
+
+- **`Logging`** sets the root level to information; it is lowered so that debug lines reach the file and the console. Lines
+  of other libraries at that level would come with them, so the level is lowered for the program's own loggers only.
+- **The three lines**: `Window fitted to` and the two of the title bar in `UsageApp`, and `The <panel> window height is
+  now` in `IntervalSettings`, are written at debug.
+- **Tests.** `LoggingTest` for a debug line in the file; `LogTailTest` has the level already; the tests that look for
+  the three lines among the information lines (the on-request window tests read the title bar's from the log).
+
+### 57. The format error
+
+**Status: specified, not built (version 0.45).**
+
+- **Where.** `UsageParser` throws `UsageParseException` and `UsageService.fetch` turns it into a failure; the error is
+  written where the body is still at hand, masked by `Redaction`.
+- **Tests.** For each case of the parser, the line and the beginning of the body; the cut at 2,000 characters; that an HTTP
+  error writes none.
+
+### 58. Select every element, or none
+
+**Status: specified, not built (version 0.46).**
+
+- **The page.** A button in the legend of `Main view`, with an icon of its own, a square with a tick; it sets the thirteen checkboxes of `MAIN_FLAGS` that are elements and
+  calls the preview. The settings' least width is measured with it.
+- **Tests.** `app.test.cjs`: all on from a mixed state, all off from all on, the two properties untouched, the preview, the
+  save and `Cancel`. `layout.test.cjs`: where the button is, that it has no text and has its tooltip.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.37). What these mechanisms make the
