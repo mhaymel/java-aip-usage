@@ -295,6 +295,10 @@
     var configuredInterval = null;
     // Whether the field of the interval is disabled, for Automatic: the page's own note of what it did to the field.
     var intervalLocked = false;
+    // Whether the About view is shown in the place of the settings form, which is only hidden meanwhile and keeps what it holds.
+    var aboutShown = false;
+    // How wide the settings were when they were last measured: the About view is as wide, and has no width of its own.
+    var settingsWidth = 0;
 
     // The setting that switches the button of each panel on and off; the settings have none, as their button is always there.
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon' };
@@ -514,6 +518,42 @@
             configuredInterval = settingsDefaults.usageIntervalSeconds;
             syncIntervalField();
             previewNow();
+        }
+    }
+
+    /**
+     * Shows the About view in the place of the settings form, or the form again. Nothing of the settings is saved or lost:
+     * the form is hidden, not emptied, and the preview in the row stays.
+     */
+    function showAbout(shown) {
+        aboutShown = shown;
+        show('settings-form', !shown && settingsShown !== null);
+        show('settings-buttons', !shown);
+        show('about-view', shown);
+        if (shown) {
+            loadAbout();
+        }
+    }
+
+    /** Reads what the About view says; the logo, the name and the version are there even when the rest cannot be read. */
+    async function loadAbout() {
+        setNote('about-error', '');
+        $('about-version').textContent = '';
+        try {
+            var about = await request('/api/about');
+            $('about-name').textContent = about.name;
+            $('about-version').textContent = 'v' + about.version;
+            $('about-settings').textContent = about.files.settings;
+            $('about-log').textContent = about.files.log;
+            $('about-history').textContent = about.files.history;
+            $('about-java').textContent = about.java;
+            $('about-javafx').textContent = about.javafx;
+            $('about-system').textContent = about.system;
+            $('about-debug').textContent = !about.debug ? 'off' : about.fake ? 'on, the fake backend is in use' : 'on';
+            show('about-details', true);
+        } catch (e) {
+            show('about-details', false);
+            setNote('about-error', 'The details could not be read: ' + e.message);
         }
     }
 
@@ -929,6 +969,10 @@
         show('panel', panelIsOpen());
         // The settings are a form in the same place, not lines; the others are lines.
         show('settings-view', openPanel === 'settings');
+        // The settings are shown as their form each time, never as the About view they were left in.
+        aboutShown = false;
+        show('about-view', false);
+        show('settings-buttons', true);
         show('debug-view', openPanel === 'debug');
         if (openPanel === 'debug') {
             show('panel-lines', false);
@@ -999,7 +1043,11 @@
         if (openPanel === 'settings') {
             // As tall as the row, its message lines and the settings need, whole, and never narrower than the settings need
             // for every text to be on one line and the buttons in one row; the flag says it is not resizable, and the name that a panel is open.
-            return Math.max(width, formWidth('settings-form', 'settings-buttons')) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,settings';
+            // The About view has no width of its own: it is as wide as the settings were when they were last measured.
+            if (!aboutShown) {
+                settingsWidth = formWidth('settings-form', 'settings-buttons');
+            }
+            return Math.max(width, settingsWidth) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,settings';
         }
         // The last field names the panel, so that the host remembers the height of the history and of the log.
         if (openPanel === 'log') {
@@ -1095,6 +1143,8 @@
         });
         $('settings-restore').addEventListener('click', restoreDefaults);
         $('set-all').addEventListener('click', selectAllOrNone);
+        $('settings-about').addEventListener('click', function () { showAbout(true); });
+        $('about-back').addEventListener('click', function () { showAbout(false); });
         // The key that selects everything is passed over, except in the field to type in: nothing of the window is to be selected.
         if (document.addEventListener) {
             document.addEventListener('keydown', function (event) {

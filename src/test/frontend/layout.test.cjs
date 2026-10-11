@@ -354,6 +354,34 @@ test('the group Request has the checkbox Automatic in the line of the interval, 
     assert.match(css, /\.settings input\[type="text"\]\[disabled\]\s*{\s*opacity:\s*0\.5/, 'the field is grayed while it is not to be typed in');
 });
 
+test('the settings have a button About at the right end of their row of buttons, set apart from the three', () => {
+    const buttons = html.slice(html.indexOf('<p id="settings-buttons" class="buttons">'), html.indexOf('</p>', html.indexOf('id="settings-buttons"')));
+    assert.match(buttons, /<button id="settings-about" class="about-button" type="button" title="About this program">About<\/button>\s*$/, 'the last of the row');
+    assert.match(ruleOf('.settings .about-button'), /margin-left:\s*1[0-9]px/, 'more room before it than between the others');
+    assert.doesNotMatch(html.slice(html.indexOf('<div id="top"'), html.indexOf('<div id="panel"')), /about/i, 'the row of the window has no button for it');
+});
+
+test('the About view has the logo at 96 pixels, the name and the version, a table of two columns and one button, Back', () => {
+    const view = html.slice(html.indexOf('<div id="about-view"'), html.indexOf('<div id="debug-view"'));
+    assert.match(view, /^<div id="about-view" class="about" hidden>/, 'hidden until it is asked for');
+    assert.ok(html.indexOf('id="about-view"') > html.indexOf('id="settings-view"') && html.indexOf('id="about-view"') < html.indexOf('id="debug-view"'), 'a part of the settings view');
+    assert.match(view, /<img id="about-logo" class="about-logo" src="icon\.png" width="96" height="96" alt="[^"]+">/);
+    assert.match(view, /<p id="about-name" class="about-name">aip usage<\/p>\s*<p id="about-version" class="about-version"><\/p>/);
+    assert.deepEqual([...view.matchAll(/<span class="about-label">([^<]+)<\/span><span id="(about-[a-z]+)"><\/span>/g)].map(m => m[1] + ':' + m[2]),
+        ['Settings:about-settings', 'Log:about-log', 'Usage history:about-history', 'Java:about-java', 'JavaFX:about-javafx', 'System:about-system', 'Debug mode:about-debug']);
+    assert.deepEqual([...view.matchAll(/<button id="([a-z-]+)"[^>]*>([^<]+)<\/button>/g)].map(m => m[1] + ':' + m[2]), ['about-back:Back']);
+
+    assert.match(ruleOf('.about-logo'), /width:\s*96px/);
+    assert.match(ruleOf('.about-logo'), /height:\s*96px/);
+    assert.match(ruleOf('.about'), /text-align:\s*center/, 'the logo, the name and the version in the middle');
+    assert.match(ruleOf('.about'), /width:\s*0/, 'it never makes the window wider');
+    assert.match(ruleOf('.about'), /min-width:\s*100%/);
+    assert.match(ruleOf('.about-details'), /grid-template-columns:\s*max-content minmax\(0, 1fr\)/);
+    assert.match(ruleOf('.about-label'), /color:\s*var\(--muted\)/);
+    assert.match(css, /\.about-details span:not\(\.about-label\)\s*{\s*overflow-wrap:\s*anywhere/, 'a long path breaks');
+    assert.doesNotMatch(css.slice(css.indexOf('.about {'), css.indexOf('.settings button {')), /user-select/, 'nothing of it can be selected, like the rest of the window');
+});
+
 test('an error in the panel is red', () => {
     assert.match(ruleOf('.panel-error'), /color:\s*var\(--bad\)/);
 });
@@ -607,7 +635,7 @@ test('nothing in the settings wraps: every text on one line and the three button
     assert.match(ruleOf('#settings-form,\n#debug-form'), /width:\s*max-content/);
     assert.match(ruleOf('#settings-form,\n#debug-form'), /min-width:\s*100%/, 'and as wide as the window when that is wider');
     const buttons = html.slice(html.indexOf('<p id="settings-buttons" class="buttons">'), html.indexOf('</p>', html.indexOf('id="settings-buttons"')));
-    assert.deepEqual([...buttons.matchAll(/id="(settings-[a-z]+)"/g)].map(m => m[1]), ['settings-buttons', 'settings-apply', 'settings-restore', 'settings-cancel']);
+    assert.deepEqual([...buttons.matchAll(/id="(settings-[a-z]+)"/g)].map(m => m[1]), ['settings-buttons', 'settings-apply', 'settings-restore', 'settings-cancel', 'settings-about']);
     assert.match(ruleOf('.settings .panel-error'), /white-space:\s*normal/, 'a message may break');
 });
 

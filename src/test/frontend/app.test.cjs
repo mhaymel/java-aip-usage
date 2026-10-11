@@ -148,6 +148,7 @@ function backendOf(state) {
         }
         if (call.url.split('?')[0] === '/api/log') return state.log ? state.log(call) : { status: 200, body: LOG };
         if (call.url === '/api/text-size') return state.postTextSize ? state.postTextSize(JSON.parse(call.body)) : { status: 200, body: JSON.parse(call.body) };
+        if (call.url === '/api/about') return state.about ? state.about() : { status: 200, body: ABOUT };
         if (call.url === '/api/errors') return state.errors ? state.errors() : { status: 200, body: ERRORS };
         if (call.url === '/api/history') return state.history ? state.history() : { status: 200, body: HISTORY };
         return { status: 404, body: { error: 'No such endpoint.' } };
@@ -191,6 +192,13 @@ const HISTORY = {
 const LOG = {
     file: 'java-aip-usage.log', exists: true, truncated: false, hidden: false, level: 'info', date: true,
     lines: ['2026-10-08 19:00:00 INFO    [UsageApp] Starting', '2026-10-08 19:00:01 INFO    [UsageService] Usage refresh succeeded'],
+};
+
+// What the backend says for the About view.
+const ABOUT = {
+    name: 'aip usage', version: '0.57',
+    files: { settings: 'C:\\work\\aip\\settings.json', log: 'C:\\work\\aip\\java-aip-usage.log', history: 'C:\\work\\aip\\java-aip-usage.csv' },
+    java: '25.0.1', javafx: '25.0.4', system: 'Windows 11 10.0', debug: false, fake: false,
 };
 
 const accepting = body => ({ status: 200, body: { ...CONFIG, ...body } });
@@ -3105,4 +3113,118 @@ test('a selection that the mouse begins is refused, except in the field to type 
     assert.equal(begin({ tagName: 'DIV' }), true);
     assert.equal(begin({ tagName: 'INPUT', type: 'text' }), false);
     assert.equal(begin(null), true, 'with nothing under it, nothing is selected');
+});
+
+// ---- the About view: opened from the settings, shown in the place of their form, and left by Back
+
+test('About shows the view in the place of the settings form, with what the backend says of the program', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.el('about-view').hidden, true, 'the settings are shown as their form');
+    assert.equal(page.calls.filter(c => c.url === '/api/about').length, 0, 'nothing is asked before the view is');
+
+    await page.click('settings-about');
+
+    assert.equal(page.el('about-view').hidden, false);
+    assert.equal(page.el('settings-form').hidden, true, 'in the place of the form');
+    assert.equal(page.el('settings-buttons').hidden, true, 'and of its buttons');
+    assert.equal(page.el('settings-view').hidden, false, 'it is a part of the settings view');
+    assert.equal(page.el('about-name').textContent, 'aip usage');
+    assert.equal(page.el('about-version').textContent, 'v0.57');
+    assert.equal(page.el('about-settings').textContent, 'C:\\work\\aip\\settings.json');
+    assert.equal(page.el('about-log').textContent, 'C:\\work\\aip\\java-aip-usage.log');
+    assert.equal(page.el('about-history').textContent, 'C:\\work\\aip\\java-aip-usage.csv');
+    assert.equal(page.el('about-java').textContent, '25.0.1');
+    assert.equal(page.el('about-javafx').textContent, '25.0.4');
+    assert.equal(page.el('about-system').textContent, 'Windows 11 10.0');
+    assert.equal(page.el('about-debug').textContent, 'off');
+    assert.match(page.window.contentSize(), /,3,settings$/, 'for the window it is the settings still: the title bar, and no resizing');
+});
+
+test('the line of debug mode says off, on, or on with the fake backend in use', async () => {
+    for (const [about, text] of [[{ debug: false, fake: false }, 'off'], [{ debug: true, fake: false }, 'on'], [{ debug: true, fake: true }, 'on, the fake backend is in use']]) {
+        const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, about: () => ({ status: 200, body: { ...ABOUT, ...about } }) }));
+        await page.click('settings-button');
+        await page.click('settings-about');
+        assert.equal(page.el('about-debug').textContent, text);
+    }
+});
+
+test('Back shows the settings form again with what was changed and not saved still in it, and nothing was sent', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.type('set-usageIntervalSeconds', '45');
+    await change(page, 'set-showDeltaUsed', true);
+    assert.equal(page.el('delta-used').hidden, false, 'the row previews the change');
+
+    await page.click('settings-about');
+    assert.equal(page.el('delta-used').hidden, false, 'the preview stays while About is shown');
+    await page.click('about-back');
+
+    assert.equal(page.el('about-view').hidden, true);
+    assert.equal(page.el('settings-form').hidden, false);
+    assert.equal(page.el('settings-buttons').hidden, false);
+    assert.equal(page.el('set-usageIntervalSeconds').value, '45', 'what was typed is still there');
+    assert.equal(page.el('set-showDeltaUsed').checked, true);
+    assert.equal(page.calls.filter(c => c.method === 'POST').length, 0, 'About saved nothing');
+
+    await page.click('settings-cancel');
+    assert.equal(page.el('delta-used').hidden, true, 'and Cancel still gives the row back');
+    assert.equal(page.calls.filter(c => c.method === 'POST').length, 0);
+});
+
+test('a button of the row pressed while About is shown saves the settings as from the form, and the next opening shows the form', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.type('set-usageIntervalSeconds', '45');
+    await page.click('settings-about');
+
+    await page.click('settings-button');
+
+    const sent = page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST').map(c => JSON.parse(c.body));
+    assert.equal(sent.length, 1, 'the gear saves, as it does from the form');
+    assert.equal(sent[0].usageIntervalSeconds, 45);
+    assert.equal(page.el('panel').hidden, true);
+
+    await page.click('settings-button');
+    assert.equal(page.el('about-view').hidden, true, 'the settings open as their form, not as About');
+    assert.equal(page.el('settings-buttons').hidden, false);
+});
+
+test('when the details cannot be read the logo, the name and the version line are there and a red line says why', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS, about: () => ({ status: 500, body: { error: 'Internal error; see the log.' } }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+
+    await page.click('settings-about');
+
+    assert.equal(page.el('about-view').hidden, false);
+    assert.equal(page.el('about-details').hidden, true);
+    assert.equal(page.el('about-error').hidden, false);
+    assert.equal(page.el('about-error').textContent, 'The details could not be read: Internal error; see the log.');
+    assert.equal(page.el('about-name').textContent, '', 'the name is the page\'s own text in the real page; here nothing replaced it');
+
+    state.about = null;
+    await page.click('about-back');
+    await page.click('settings-about');
+    assert.equal(page.el('about-error').hidden, true, 'asked again at each opening');
+    assert.equal(page.el('about-details').hidden, false);
+});
+
+test('the About view is as wide as the settings were, and the settings are measured again once it is left', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('settings-form').rect = { left: 8, width: 500, height: 600 };
+    page.el('settings-buttons').rect = { left: 8, width: 260, height: 20 };
+    assert.match(page.window.contentSize(), /^516,/, 'the form and its sides');
+
+    await page.click('settings-about');
+    page.el('settings-form').rect = { left: 0, width: 0, height: 0 };
+    page.el('settings-buttons').rect = { left: 0, width: 0, height: 0 };
+    assert.match(page.window.contentSize(), /^516,/, 'the hidden form is not measured: the width is the one it had');
+
+    await page.click('about-back');
+    page.el('settings-form').rect = { left: 8, width: 520, height: 600 };
+    page.el('settings-buttons').rect = { left: 8, width: 260, height: 20 };
+    assert.match(page.window.contentSize(), /^536,/);
 });

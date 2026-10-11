@@ -398,6 +398,56 @@ body {
     margin: 4px 0 6px;
 }
 
+/* The button that shows the About view: at the right end of the row of buttons, set apart from the three that act on the settings. */
+.settings .about-button {
+    margin-left: 18px;
+}
+
+/*
+ * The About view, in the place of the settings form: the logo, the name and the version in the middle, and below them a
+ * table of two columns. It is as wide as the settings were and never wider: a long path breaks.
+ */
+.about {
+    width: 0;
+    min-width: 100%;
+    white-space: normal;
+    text-align: center;
+}
+
+.about-logo {
+    display: block;
+    width: 96px;
+    height: 96px;
+    margin: 6px auto 4px;
+}
+
+.about-name {
+    margin: 0;
+    font-size: 15px;
+}
+
+.about-version {
+    margin: 0 0 8px;
+    color: var(--muted);
+}
+
+.about-details {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 2px 10px;
+    margin: 0 0 6px;
+    text-align: left;
+}
+
+.about-label {
+    color: var(--muted);
+}
+
+/* What a thing is, at the right of its name: a path is long, and breaks wherever it has to. */
+.about-details span:not(.about-label) {
+    overflow-wrap: anywhere;
+}
+
 .settings button {
     padding: 1px 8px;
     font: inherit;

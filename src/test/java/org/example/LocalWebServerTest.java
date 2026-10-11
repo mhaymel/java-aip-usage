@@ -144,4 +144,16 @@ class LocalWebServerTest {
     private HttpResponse<String> get(URI uri) throws Exception {
         return client.send(HttpRequest.newBuilder(uri).build(), HttpResponse.BodyHandlers.ofString());
     }
+
+    @Test
+    void theLogoOfTheAboutViewIsTheProgramsIconAtItsLargest() throws Exception {
+        try (java.io.InputStream in = LocalWebServer.class.getResourceAsStream(LocalWebServer.LOGO_RESOURCE)) {
+            org.junit.jupiter.api.Assertions.assertNotNull(in, "the file the page is given as " + LocalWebServer.LOGO_PATH);
+            java.awt.image.BufferedImage logo = javax.imageio.ImageIO.read(in);
+            assertEquals(256, logo.getWidth());
+            assertEquals(256, logo.getHeight());
+        }
+        assertEquals("/icon.png", LocalWebServer.LOGO_PATH);
+        assertEquals(AppIcons.resource(256), LocalWebServer.LOGO_RESOURCE);
+    }
 }

@@ -1623,20 +1623,29 @@ about; the style that forbids it is the one the test reads.
 
 ### 69. The About view
 
-**Status: specified, not built (version 0.57).** Requirement: The About view. *Decided by the person:* it is opened by a button
-`About` in the button row of the settings; it shows where the files are, Java and the system, and debug mode, with a logo of
-96 pixels; the settings are kept and `Back` returns to them.
+**Status: built (version 0.57).** Requirement: The About view. *Decided by the person:* it is opened by a button `About` in
+the button row of the settings; it shows where the files are, Java and the system, and debug mode, with a logo of 96 pixels;
+the settings are kept and `Back` returns to them.
 
-- **A request of its own**, `GET /api/about`: the version, the three paths, the versions of Java, JavaFX and the system,
-  and the two facts of debug mode. The paths are absolute, which no other request gives; the server listens on the
-  loopback address only.
-- **The logo** is the icon of 256 pixels, which the local server serves to the page beside its other files, drawn at 96.
-- **The page.** A part of the settings view that is shown in the place of the form; `openPanel` stays `settings`, so the
-  title bar, the saving by a button of the row and the size of the window are those of the settings, and the form keeps
-  its values because it is only hidden.
-- **Tests.** `ApiTest` for the request, with and without debug mode and the fake backend; `app.test.cjs` for opening,
-  `Back` with unsaved changes kept, a button of the row saving, a request that fails; `layout.test.cjs` for the button
-  and the view; the on-request window test for the logo's size and the window's width.
+- **A request of its own**, `GET /api/about`: the name and version, the three full paths, the versions of Java, JavaFX and
+  the system, and the two facts of debug mode.
+- **The logo** is the icon of 256 pixels, which `LocalWebServer` gives the page as `/icon.png`, the one file it serves that
+  is not among the page's own; the page draws it at 96.
+- **The page.** `about-view` is a part of the settings view and is shown in the place of the form and its buttons, which
+  are hidden and not emptied; `openPanel` stays `settings`, so the title bar, the saving by a button of the row and the
+  kind of window are those of the settings. The view has no width of its own: the window keeps the width the settings
+  were last measured at.
+- **Tests.** `ApiTest`: the request, and that the log and the history still say nothing of where a file is.
+  `LocalWebServerTest`: the logo. `app.test.cjs`: opening, the three texts of debug mode, `Back` with unsaved changes and
+  the preview kept, a button of the row saving, a request that fails, the width. `layout.test.cjs`: the button and the view.
+- **In a real window** (the on-request test, in debug mode with the fake backend): the view is shown in the place of the
+  form, the logo is drawn at 96 by 96 from a file of 256, the version is that of the program, the line of debug mode reads
+  `on, the fake backend is in use`, the history is the file of the invented readings, the window is as wide as with the
+  settings and less tall, nothing reaches past its edge, and `Back` gives the form at the size it had. It passes.
+
+**Not checked by a test.** How the view looks: the test measures it.
+
+The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built
 

@@ -23,6 +23,7 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `GET` | `/api/history` | The usage history, as finished lines (read-only) |
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 | `POST` | `/api/text-size` | Save the size of the text of the three lists |
+| `GET` | `/api/about` | What the About view says: the version, where the files are, what the program runs on |
 
 Only a path that begins `/api/` is the API's; a query on it is not looked at. Any
 other path under `/api/` is `404` with `{"error":"No such endpoint."}`. Any other
@@ -294,7 +295,7 @@ do (for example log in with Claude Code).
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.56", "..."],
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.57", "..."],
   "hidden": false,
   "level": "info",
   "date": false
@@ -334,6 +335,36 @@ that is saved, `{"size": 14}`; `GET /api/config` says it from then on. A `size` 
 out of the range is `400` with `The size must be a whole number of pixels from 10 to 20.`, and nothing is saved; a file
 that cannot be written is `500` with `The text size could not be saved: <reason>`. The settings of `/api/settings` do
 not have the size, and saving them leaves it as it is. Any other method is `405`.
+
+## `GET /api/about`
+
+Read-only. What the About view of the settings shows.
+
+```json
+{
+  "name": "aip usage",
+  "version": "0.57",
+  "files": {
+    "settings": "C:\\work\\aip\\settings.json",
+    "log": "C:\\work\\aip\\java-aip-usage.log",
+    "history": "C:\\work\\aip\\java-aip-usage.csv"
+  },
+  "java": "25.0.1",
+  "javafx": "25.0.4",
+  "system": "Windows 11 10.0",
+  "debug": false,
+  "fake": false
+}
+```
+
+- `files`: the **full paths** of the three files. This is the one request that says where a file is; `/api/log` and
+  `/api/history` still give a name at most. The server listens on the loopback address only. `history` is the file in
+  use, so that of the invented readings while the fake backend is.
+- `java`, `javafx`, `system`: the versions of the runtime and of JavaFX, and the name and version of the operating
+  system. `javafx` is `unknown` in a run with no window.
+- `debug`, `fake`: whether the program was started with `--debug`, and whether the fake backend is in use.
+
+The logo of the view is the program's icon at 256 pixels, which the server gives the page as `/icon.png`.
 
 ## `GET /api/history`
 

@@ -58,6 +58,9 @@ public final class UsageAppProbe {
             step("settings-auto", null);
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-autoInterval').click()"));
             step("settings-manual", null);
+            // The About view, in the place of the form, and the form again.
+            step("about", "settings-about");
+            step("about-back", "about-back");
             step("settings-left", "settings-cancel");
             step("history", "history-button");
             // The zoom: eight presses make the text of the list as large as it gets, and the window as wide as the table needs then.
@@ -212,6 +215,14 @@ public final class UsageAppProbe {
                     + " auto:[" + page().getEngine().executeScript(
                             "(function () { var f = document.getElementById('set-usageIntervalSeconds'), a = document.getElementById('set-autoInterval');"
                                     + " return a.checked + '|' + f.disabled + '|' + f.value + '|' + Math.round(Math.abs(a.getBoundingClientRect().top - f.getBoundingClientRect().top)); })()") + "]"
+                    // The About view: whether it is shown, how large the logo is drawn and how large its file is, the version, the
+                    // line of debug mode, the end of the path of the settings, and how wide the view is.
+                    + " about:[" + page().getEngine().executeScript(
+                            "(function () { var v = document.getElementById('about-view'), i = document.getElementById('about-logo'), b = i.getBoundingClientRect();"
+                                    + " return !v.hidden + '|' + Math.round(b.width) + 'x' + Math.round(b.height) + '|' + i.naturalWidth + '|' + document.getElementById('about-version').textContent"
+                                    + " + '|' + document.getElementById('about-debug').textContent + '|' + document.getElementById('about-settings').textContent.slice(-13)"
+                                    + " + '|' + document.getElementById('about-history').textContent.slice(-23) + '|' + !document.getElementById('settings-form').hidden"
+                                    + " + '|' + Math.round(v.getBoundingClientRect().width) + '/' + window.innerWidth + '|' + (document.documentElement.scrollWidth - window.innerWidth); })()") + "]"
                     + " end");
             System.out.flush();
         });

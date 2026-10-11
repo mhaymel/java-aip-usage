@@ -1410,6 +1410,46 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **After a failed refresh** that follows a reading with no spend, the red line of the failure is there as always, and
   this line beside it while the mouse is on a box.
 
+### The About view
+
+- **The program has an About view** (since version 0.57), which says what the program is and shows its logo larger than an icon can.
+- **It is opened from the settings.** The row of buttons of the settings view, `Apply`, `Restore defaults` and
+  `Cancel`, has a fourth button with the text `About`, at the right end of the row and set apart from the three. Its
+  tooltip is `About this program`. There is no button for it in the row of the window, and no window of its own.
+- **It is shown in the place of the settings form**, in the panel area below the row: the groups of the settings and
+  their three buttons are not shown while it is, and the window is as tall as the row and the About view need and as
+  wide as it was with the settings.
+- **What it shows**, from the top:
+  - the **logo**, the gauge of the program's icon, **96 pixels** wide and tall, drawn from the largest file of the icon;
+  - the **name**, `aip usage`, and under it the **version**, as the title bar has it: `v0.57` in the version that brought it;
+  - **where the files are**, each with its full path: `Settings`, `Log` and `Usage history`. The history is the file
+    in use, so in debug mode with the fake backend it is the file of the invented readings;
+  - **Java and system**: `Java` with the version of the runtime, `JavaFX` with its version, and `System` with the
+    name and the version of the operating system;
+  - **`Debug mode`**: `off`; or `on` when the program was started with `--debug`; or `on, the fake backend is in
+    use` while it is.
+- **The lines are a table of two columns**, the name of a thing at the left in the muted gray and what it is at the
+  right, in the type of the settings view. The logo, the name and the version are centred above it.
+- **The text cannot be selected**, like everything in the window (see Nothing in the window can be selected); the
+  paths are there to be read. A path that is longer than the view is wide is broken over lines; it never makes the
+  window wider.
+- **It has one button, `Back`**, which shows the settings form again.
+- **The settings are kept as they were.** Pressing `About` saves nothing and loses nothing: what was changed in the form
+  and not saved is still in it after `Back`, the preview in the row stays as it was, and `Apply`, `Restore defaults`
+  and `Cancel` do then what they always do.
+- **A button of the row pressed while About is shown** does what it does from the settings: the settings are saved, as
+  they stand in the form, and the gear closes the view, or the other panel is shown. So the About view is left by
+  `Back` or by a button of the row, and there is no way out of it that loses the changes but `Back` and then `Cancel`.
+- **Opening the settings shows the form, not About**, each time.
+- **`Back` has the tooltip `Back to the settings`.**
+- **`JavaFX` is `unknown`** in a run that has no window, as some tests are; a window is what gives it its version.
+- **While it is shown the window has its title bar**, as with the settings, of which it is a part.
+- **The figures are read when the view is opened**, so the path of the history and the line of debug mode say what
+  holds at that moment. If they cannot be read, the logo, the name and the version are shown and a red line says
+  `The details could not be read: <reason>`.
+- **The paths are given to the window alone.** The requests for the log and the history still say nothing of where a
+  file is; the About view is where the program says it, to the person in front of it.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1501,50 +1541,6 @@ backend switched while the program runs, and the mark that says its figures are 
   (see `docs/img_3.png`, taken with every element of the row hidden).
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
-
-## The About view
-
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.56; where
-this section says otherwise, this section is what is to be built. It moves into the description of the program
-when it is built (see the implementation plan, phase 69).
-
-### The About view
-
-- **The program has an About view**, which says what the program is and shows its logo larger than an icon can.
-- **It is opened from the settings.** The row of buttons of the settings view, `Apply`, `Restore defaults` and
-  `Cancel`, has a fourth button with the text `About`, at the right end of the row and set apart from the three. Its
-  tooltip is `About this program`. There is no button for it in the row of the window, and no window of its own.
-- **It is shown in the place of the settings form**, in the panel area below the row: the groups of the settings and
-  their three buttons are not shown while it is, and the window is as tall as the row and the About view need and as
-  wide as it was with the settings.
-- **What it shows**, from the top:
-  - the **logo**, the gauge of the program's icon, **96 pixels** wide and tall, drawn from the largest file of the icon;
-  - the **name**, `aip usage`, and under it the **version**, as the title bar has it: `v0.57`;
-  - **where the files are**, each with its full path: `Settings`, `Log` and `Usage history`. The history is the file
-    in use, so in debug mode with the fake backend it is the file of the invented readings;
-  - **Java and system**: `Java` with the version of the runtime, `JavaFX` with its version, and `System` with the
-    name and the version of the operating system;
-  - **`Debug mode`**: `off`; or `on` when the program was started with `--debug`; or `on, the fake backend is in
-    use` while it is.
-- **The lines are a table of two columns**, the name of a thing at the left in the muted gray and what it is at the
-  right, in the type of the settings view. The logo, the name and the version are centred above it.
-- **The text cannot be selected**, like everything in the window (see Nothing in the window can be selected); the
-  paths are there to be read. A path that is longer than the view is wide is broken over lines; it never makes the
-  window wider.
-- **It has one button, `Back`**, which shows the settings form again.
-- **The settings are kept as they were.** Pressing `About` saves nothing and loses nothing: what was changed in the form
-  and not saved is still in it after `Back`, the preview in the row stays as it was, and `Apply`, `Restore defaults`
-  and `Cancel` do then what they always do.
-- **A button of the row pressed while About is shown** does what it does from the settings: the settings are saved, as
-  they stand in the form, and the gear closes the view, or the other panel is shown. So the About view is left by
-  `Back` or by a button of the row, and there is no way out of it that loses the changes but `Back` and then `Cancel`.
-- **Opening the settings shows the form, not About**, each time.
-- **While it is shown the window has its title bar**, as with the settings, of which it is a part.
-- **The figures are read when the view is opened**, so the path of the history and the line of debug mode say what
-  holds at that moment. If they cannot be read, the logo, the name and the version are shown and a red line says
-  `The details could not be read: <reason>`.
-- **The paths are given to the window alone.** The requests for the log and the history still say nothing of where a
-  file is; the About view is where the program says it, to the person in front of it.
 
 ## Details of the behaviour
 

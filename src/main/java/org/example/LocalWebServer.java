@@ -43,7 +43,13 @@ final class LocalWebServer implements AutoCloseable {
             "css", "text/css; charset=utf-8",
             "js", "text/javascript; charset=utf-8",
             "json", "application/json; charset=utf-8",
-            "svg", "image/svg+xml");
+            "svg", "image/svg+xml",
+            "png", "image/png");
+
+    /** The one file the page is given that is not among its own: the program's icon at its largest, as the logo of the About view. */
+    static final String LOGO_PATH = "/icon.png";
+
+    static final String LOGO_RESOURCE = "/icons/icon-256.png";
 
     private final HttpServer server;
 
@@ -86,7 +92,7 @@ final class LocalWebServer implements AutoCloseable {
                 path = "/" + INDEX;
             }
             // Only ever read from the bundled resources, never the filesystem.
-            String resource = RESOURCE_ROOT + path;
+            String resource = path.equals(LOGO_PATH) ? LOGO_RESOURCE : RESOURCE_ROOT + path;
             if (path.contains("..")) {
                 respondNotFound(exchange);
                 return;

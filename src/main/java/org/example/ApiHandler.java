@@ -151,6 +151,12 @@ final class ApiHandler implements HttpHandler {
                 }
                 updateTextSize(exchange);
             }
+            case "/api/about" -> {
+                if (!method.equals("GET")) {
+                    throw new ApiException(405, "Use GET.", "GET");
+                }
+                send(exchange, 200, about());
+            }
             case "/api/errors" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
@@ -363,6 +369,28 @@ final class ApiHandler implements HttpHandler {
             throw new ApiException(500, "The text size could not be saved: " + e.getCause().getMessage(), null);
         }
         send(exchange, 200, new TextSizeBody(settings.current().listFontSize()));
+    }
+
+    /**
+     * What the About view says of the program: its name and version, where its files are, what it runs on, and whether it
+     * is in debug mode. The paths are full ones, which no other request gives: this is where the program says them, to
+     * the person in front of it.
+     */
+    private AboutBody about() {
+        return new AboutBody(
+                AppInfo.NAME,
+                AppInfo.VERSION,
+                new AboutFiles(absolute(files.settings()), absolute(files.log()), absolute(sources.history())),
+                System.getProperty("java.version", "unknown"),
+                // Set by JavaFX once its toolkit runs; a run with no window, as in a test, has none.
+                System.getProperty("javafx.runtime.version", "unknown"),
+                (System.getProperty("os.name", "unknown") + " " + System.getProperty("os.version", "")).trim(),
+                sources.debug(),
+                sources.fake());
+    }
+
+    private static String absolute(java.nio.file.Path file) {
+        return file.toAbsolutePath().normalize().toString();
     }
 
     /** The level a request for the log names in its query, {@code level=warning}; none if it names none. */
@@ -645,6 +673,14 @@ final class ApiHandler implements HttpHandler {
     }
 
     record TextSizeBody(int size) {
+    }
+
+    /** @param fake whether the fake backend is in use, which it can be only in debug mode */
+    record AboutBody(String name, String version, AboutFiles files, String java, String javafx, String system, boolean debug, boolean fake) {
+    }
+
+    /** The full paths of the three files; the history is the one in use, that of the invented readings while the fake backend is. */
+    record AboutFiles(String settings, String log, String history) {
     }
 
     record DebugValues(boolean fakeBackend, String fakeScenario, boolean fakeToken) {

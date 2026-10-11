@@ -133,6 +133,20 @@ class TitleBarWindowTest {
         // none, and the style says so for the row and for a line of the list; the field to type in is the exception.
         assertEquals("PROBE select-history=dragged:0 all:0 styles:none/none/text", line(all, "select-history"), all);
 
+        // The About view: in the place of the settings form, with the logo drawn at 96 pixels from its file of 256, the
+        // version, the line of debug mode, the paths, the window as wide as with the settings and nothing past its edge;
+        // and Back gives the form again.
+        Matcher about = Pattern.compile(" size:(\\d+),(\\d+),3,settings .* about:\\[true\\|96x96\\|256\\|v" + Pattern.quote(AppInfo.VERSION)
+                + "\\|on, the fake backend is in use\\|settings\\.json\\|java-aip-usage\\.fake\\.csv\\|false\\|(\\d+)/(\\d+)\\|0]").matcher(line(all, "about"));
+        assertTrue(about.find(), all);
+        Matcher form = Pattern.compile(" size:(\\d+),(\\d+),3,settings ").matcher(line(all, "settings-manual"));
+        assertTrue(form.find(), all);
+        assertEquals(form.group(1), about.group(1), "as wide as the settings were:\n" + all);
+        assertTrue(Integer.parseInt(about.group(2)) < Integer.parseInt(form.group(2)), "and as tall as it needs, which is less:\n" + all);
+        assertTrue(line(all, "about").contains("titleBar:true"), all);
+        assertTrue(line(all, "about-back").contains(" about:[false|") && line(all, "about-back").contains("|true|0/"), "Back: the form again:\n" + all);
+        assertTrue(line(all, "about-back").contains(" size:" + form.group(1) + "," + form.group(2) + ",3,settings "), "at the size it had:\n" + all);
+
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.
         assertTrue(line(all, "log").contains(" logControls:true "), all);
         assertTrue(line(all, "log").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), "information is shown, and the lines begin with the time:\n" + all);

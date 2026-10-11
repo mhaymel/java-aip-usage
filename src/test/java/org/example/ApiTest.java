@@ -2139,4 +2139,35 @@ class ApiTest {
         }
         throw new AssertionError("the search was not saved at " + seconds + " s: " + Files.readString(dir.resolve("settings.json")));
     }
+
+    // ---- the About view
+
+    @Test
+    void aboutSaysTheNameTheVersionWhereTheFilesAreAndWhatTheProgramRunsOn() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        JsonNode about = json(get(app, "/api/about"));
+
+        assertEquals("aip usage", about.get("name").asText());
+        assertEquals(AppInfo.VERSION, about.get("version").asText());
+        assertEquals(dir.resolve("settings.json").toAbsolutePath().normalize().toString(), about.at("/files/settings").asText(), "the full path");
+        assertEquals(AppFiles.in(dir).log().toAbsolutePath().normalize().toString(), about.at("/files/log").asText());
+        assertEquals(AppFiles.in(dir).history().toAbsolutePath().normalize().toString(), about.at("/files/history").asText());
+        assertEquals(System.getProperty("java.version"), about.get("java").asText());
+        assertFalse(about.get("javafx").asText().isBlank());
+        assertTrue(about.get("system").asText().startsWith(System.getProperty("os.name")), about.get("system").asText());
+        assertFalse(about.get("debug").asBoolean());
+        assertFalse(about.get("fake").asBoolean());
+        assertEquals(405, post(app, "/api/about", "{}").statusCode(), "there is nothing to change there");
+    }
+
+    @Test
+    void theLogAndTheHistoryStillSayNothingOfWhereAFileIs() throws Exception {
+        writeLog("2026-10-11 13:24:01 INFO    [A] one");
+        AppRuntime app = start(new FakeFetch());
+
+        assertFalse(get(app, "/api/log").body().contains(dir.toString()));
+        assertFalse(get(app, "/api/history").body().contains(dir.toString()));
+        assertTrue(get(app, "/api/about").body().contains(dir.getFileName().toString()), "the About view is where it is said");
+    }
 }
