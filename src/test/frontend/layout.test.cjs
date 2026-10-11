@@ -382,6 +382,15 @@ test('the About view has the logo at 96 pixels, the name and the version, a tabl
     assert.doesNotMatch(css.slice(css.indexOf('.about {'), css.indexOf('.settings button {')), /user-select/, 'nothing of it can be selected, like the rest of the window');
 });
 
+test('the row keeps room for the usual values only, so that its elements do not stand far apart', () => {
+    assert.match(ruleOf('.delta-used'), /min-width:\s*4\.5ch/, 'the change in the amount used: +9.99');
+    assert.match(ruleOf('.delta-time'), /min-width:\s*3ch/, 'the time since the previous reading: 99s');
+    assert.match(ruleOf('.delta-duration'), /min-width:\s*5ch/, 'the request duration: 999ms');
+    assert.match(ruleOf('.delta-interval'), /min-width:\s*4ch/, 'the interval is as it was: 300s');
+    assert.match(ruleOf('.countdown'), /min-width:\s*3\.5ch/, 'and so is the countdown');
+    assert.doesNotMatch(ruleOf('.delta'), /max-width|overflow/, 'a longer value is not cut off: the row is wider for it');
+});
+
 test('an error in the panel is red', () => {
     assert.match(ruleOf('.panel-error'), /color:\s*var\(--bad\)/);
 });
@@ -761,7 +770,7 @@ test('the history\'s start line is green text with no background and no bold; th
 test('the seconds of the row have room for their usual values without the space: 99s, 120s, 3600s', () => {
     assert.match(ruleOf('.countdown'), /min-width:\s*3\.5ch/);
     assert.match(ruleOf('.delta-interval'), /min-width:\s*4ch/);
-    assert.match(ruleOf('.delta-time'), /min-width:\s*5\.5ch/);
+    assert.match(ruleOf('.delta-time'), /min-width:\s*3ch/);
 });
 
 test('the request duration is the last of the figures, before the buttons, with room for 1s034ms', () => {
@@ -769,7 +778,7 @@ test('the request duration is the last of the figures, before the buttons, with 
     assert.ok(strip.indexOf('id="delta-time"') < strip.indexOf('id="duration"'));
     assert.ok(strip.indexOf('id="duration"') < strip.indexOf('id="log-button"'));
     assert.match(html, /<span id="duration" class="delta delta-duration" hidden><\/span>/, 'hidden until the backend says it is on');
-    assert.match(ruleOf('.delta-duration'), /min-width:\s*7\.5ch/);
+    assert.match(ruleOf('.delta-duration'), /min-width:\s*5ch/);
 });
 
 test('the percentage, the amounts, the two changes and the request duration are one fixed green, and no severity colours anything', () => {

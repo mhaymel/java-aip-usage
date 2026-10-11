@@ -1674,8 +1674,11 @@ there was. Tests in `app.test.cjs`: each of the six as a box, and a figure among
 
 ### 71. Less room in the row
 
-**Status: specified, not built (version 0.59).** The three `min-width` of `.delta-used`, `.delta-time` and
-`.delta-duration`, and the tests that name the values they are for.
+**Status: built (version 0.59).** The three `min-width`: `.delta-used` 4.5ch for `+9.99` (it was 5.5), `.delta-time` 3ch
+for `99s` (5.5), `.delta-duration` 5ch for `999ms` (7.5). The requirement was written from a guess at what the room
+had been; the figures built are the ones that take the gaps of the picture away, and the requirement says so. Tests in
+`layout.test.cjs`. In a real window (the on-request test) the row with every element switched on is 593 pixels wide,
+where it was 636 with the room there was before.
 
 ### 72. The history's columns
 

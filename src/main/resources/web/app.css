@@ -305,16 +305,20 @@ body {
     min-width: 4ch; /* "120s" */
 }
 
+/*
+ * Room for the usual values and no more, so that the elements do not stand far apart: a longer value makes the row wider
+ * for as long as it is shown.
+ */
 .delta-used {
-    min-width: 5.5ch; /* "+12.34" */
+    min-width: 4.5ch; /* "+9.99" */
 }
 
 .delta-time {
-    min-width: 5.5ch; /* "3600s" */
+    min-width: 3ch; /* "99s" */
 }
 
 .delta-duration {
-    min-width: 7.5ch; /* "1s034ms" */
+    min-width: 5ch; /* "999ms" */
 }
 
 /* The settings: a form in the panel area, in the row's own readable type rather than the log's small one. */

@@ -965,7 +965,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **It is off by default and green**, the green of the other figures, and its tooltip in the row is `How long the latest
   usage request took`.
 - **It behaves like the other figures:** it is dimmed with the old figures after a failed refresh, it is a gray box at
-  the start until a request has ended, and its room is that of `1s034ms`.
+  the start until a request has ended, and its room is that of `999ms`.
   A reading taken from the history at startup has no request behind it, so until the first request has ended the element is
   still a gray box, beside the figures of that reading.
 
@@ -1459,6 +1459,28 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - Nothing else of that line changes: its two texts, its colour, that the window is taller by it, and that it goes when
   the mouse leaves the boxes. An element that shows a figure has no such line.
 
+### Less room is reserved in the row
+
+- **The fault that was** (before version 0.59). The row kept room for long values, so that its width does not change at
+  every refresh: `+12.34` for the change in the amount used, `3600s` for the time since the previous reading, `1s034ms`
+  for the request duration. With the usual short values that room was empty, and the elements stood far apart (the clipboard picture of
+  the note: `60s`, `0.00`, `60s`, `4ms` with wide gaps between them and before the buttons).
+- **Room is kept for the usual values only:**
+
+  | Element | Room for | Before |
+  | --- | --- | --- |
+  | `Change in the amount used` | `+9.99` | `+12.34` |
+  | `Time since the previous reading` | `99s` | `3600s` |
+  | `Request duration` | `999ms` | `1s034ms` |
+
+  The interval keeps its room for `300s` and the countdown its own. (The requirement was first written with `+99.99`
+  and `999s`, which would have been no less room than before for the first and little less for the second; the
+  figures here are the ones that close the gaps of the picture.)
+- **A longer value makes the row wider for as long as it is shown**, and the window with it; nothing is cut off. That
+  was so before for values longer than the room; it happens more often now, which is the price of the smaller gaps.
+- **A gray box is as wide as the room of its element**, so the boxes are narrower by as much.
+- The values stay at the left of their room, as before.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1551,31 +1573,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## Less room in the row, the history's columns, the paths of About, a fake backend to configure, and cost control
+## The history's columns, the paths of About, a fake backend to configure, and cost control
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.58; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.59; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 71 to 75).
-
-### Less room is reserved in the row
-
-- **The fault.** The row keeps room for long values, so that its width does not change at every refresh: `+1,234.56`
-  for the change in the amount used, `120s` for the time since the previous reading, `1s034ms` for the request
-  duration. With the usual short values that room is empty, and the elements stand far apart (the clipboard picture of
-  the note: `60s`, `0.00`, `60s`, `4ms` with wide gaps between them and before the buttons).
-- **Room is kept for the usual values only:**
-
-  | Element | Room for | Before |
-  | --- | --- | --- |
-  | `Change in the amount used` | `+99.99` | `+1,234.56` |
-  | `Time since the previous reading` | `999s` | `1,200s` |
-  | `Request duration` | `999ms` | `1s034ms` |
-
-  The interval keeps its room for `300s` and the countdown its own.
-- **A longer value makes the row wider for as long as it is shown**, and the window with it; nothing is cut off. That
-  was so before for values longer than the room; it happens more often now, which is the price of the smaller gaps.
-- **A gray box is as wide as the room of its element**, so the boxes are narrower by as much.
-- The values stay at the left of their room, as before.
+when it is built (see the implementation plan, phases 72 to 75).
 
 ### The usage history spreads its spare width over all columns
 
@@ -1956,7 +1958,7 @@ These are things the program does that the sections above do not say, written do
 - **The buttons.** The refresh button is 24 by 24 pixels with an icon of 14, a line of 1.7, in the colour of the text, and it is never green. The log, history and error log icons are 12 pixels with a line of 1.6; the gear is 13, drawn on a finer grid with a line of 2, which becomes 3.3 when its panel is open
   (the 2.2 of the others at its scale). The button of the open panel takes back the 4 pixels it grew by on every side, so that the row is neither wider nor taller and nothing beside it moves. An icon button has corners rounded by 4 pixels and no focus ring of the browser's; the border that shows is its sign of
   focus. The refresh icon turns once a second, at an even speed.
-- **The room of the items that change.** The countdown has room for `-3s` to `99s`; the interval for `120s`; the change in the amount for `+12.34`; the time since the previous reading for `3600s`; the request duration for `1s034ms`. A longer value, such as a countdown of `120s` during a back-off, makes the row wider for
+- **The room of the items that change.** The countdown has room for `-3s` to `99s`; the interval for `120s`; the change in the amount for `+9.99`; the time since the previous reading for `99s`; the request duration for `999ms` (see Less room is reserved in the row). A longer value, such as a countdown of `120s` during a back-off, makes the row wider for
   as long as it shows. The time, the amounts and the percentage have no room kept for them: their digits are of equal width, so a change of a digit moves nothing, and a figure that gains a digit, `99.99` becoming `100.00`, makes the row that much wider. An item whose switch is on and which has no
   value keeps that least width, not the width of the value it lacks. The percentage is the exception among the optional items: with its switch on and no percentage sent, it is not there and takes no room. A countdown the backend did not send is likewise not there.
 - **Colours not said elsewhere.** The line of a 429 that shows over the countdown is weight 800, heavier than the 700 of the other message lines. A message line is 3
