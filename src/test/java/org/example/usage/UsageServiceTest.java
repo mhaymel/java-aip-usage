@@ -160,7 +160,8 @@ class UsageServiceTest {
         await(() -> fetcher.calls.get() == 1);
 
         service.restart(null);
-        await(() -> fetcher.calls.get() == 2);
+        // The refresh the restart began has ended: one that is still under way would have the next one refused.
+        await(() -> fetcher.calls.get() == 2 && !service.state().refreshing());
         assertTrue(service.refreshNow());
 
         await(() -> fetcher.calls.get() == 3);

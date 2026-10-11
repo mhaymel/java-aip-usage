@@ -79,6 +79,17 @@
 </div>
 
     <div id="panel" class="panel" hidden>
+        <div id="log-controls" class="log-controls" hidden>
+            <label title="The least severe level that is shown; the more severe ones are shown with it. It changes what is shown, not what is written to the log.">Level
+                <select id="log-level" aria-label="The level of the log lines that are shown">
+                    <option value="error">Error</option>
+                    <option value="warning">Warning</option>
+                    <option value="info">Info</option>
+                    <option value="debug">Debug</option>
+                </select></label>
+            <label title="Shows the date before the time of each line."><input id="log-date" type="checkbox"> Date</label>
+        </div>
+        <p id="log-error" class="panel-error" role="alert" hidden></p>
         <p id="panel-note" class="panel-note" hidden></p>
         <p id="panel-error" class="panel-error" role="alert" hidden></p>
         <div id="panel-lines" class="panel-lines" tabindex="0" aria-label="Newest first"></div>

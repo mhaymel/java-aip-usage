@@ -26,6 +26,13 @@ public final class UsageAppProbe {
     public static void main(String[] args) throws Exception {
         // The fake backend is a debug setting now, and counts only in debug mode.
         Files.writeString(Path.of("settings.json"), "{\"showTitleBar\": false, \"fakeBackend\": true}");
+        // The probe starts the window class itself, which logs to the console only, so the log panel gets a file of its own.
+        Files.writeString(Path.of("java-aip-usage.log"), String.join("\n",
+                "2026-10-11 13:24:01 INFO    [A] one",
+                "2026-10-11 13:24:02 WARNING [A] two",
+                "\tat a.B.c(B.java:1)",
+                "2026-10-11 13:24:03 SEVERE  [A] three",
+                "2026-10-11 13:24:04 INFO    [A] four") + "\n");
         Thread driver = new Thread(UsageAppProbe::drive, "probe-driver");
         driver.setDaemon(true);
         driver.start();
@@ -43,6 +50,17 @@ public final class UsageAppProbe {
             step("history", "history-button");
             step("history-closed", "history-button");
             step("log", "log-button");
+            // The two choices of the log panel: the date on, then warnings and worse only.
+            onFx(() -> page().getEngine().executeScript(
+                    "var d = document.getElementById('log-date'); d.checked = true; d.dispatchEvent(new Event('change'));"));
+            step("log-date", null);
+            onFx(() -> page().getEngine().executeScript(
+                    "var l = document.getElementById('log-level'); l.value = 'warning'; l.dispatchEvent(new Event('change'));"));
+            step("log-warning", null);
+            onFx(() -> page().getEngine().executeScript(
+                    "var l = document.getElementById('log-level'); l.value = 'info'; l.dispatchEvent(new Event('change'));"
+                            + " var d = document.getElementById('log-date'); d.checked = false; d.dispatchEvent(new Event('change'));"));
+            step("log-back", null);
             step("errors", "errors-button");
             step("errors-closed", "errors-button");
             // The settings with every element of the row hidden: the view is far wider than the row then.
@@ -97,6 +115,13 @@ public final class UsageAppProbe {
                                     + " ['settings-form', 'debug-form'].forEach(function (id) { var f = document.getElementById(id);"
                                     + " if (f.offsetParent !== null) { out = Math.max(out, Math.ceil(f.getBoundingClientRect().right - (a.right - 3))); } });"
                                     + " return out; })()")
+                    // The log panel: whether its line of choices is shown, how many lines it has, how many of them are
+                    // information, and how the newest begins.
+                    + " logControls:" + page().getEngine().executeScript("!document.getElementById('log-controls').hidden")
+                    + " logLines:" + page().getEngine().executeScript(
+                            "(function () { var rows = document.querySelectorAll('#panel-lines .row'), info = 0;"
+                                    + " Array.prototype.forEach.call(rows, function (r) { if (/ INFO /.test(r.textContent)) { info++; } });"
+                                    + " return rows.length + '/' + info + '/' + (rows.length ? rows[0].textContent.slice(0, 11) : ''); })()")
                     + " end");
             System.out.flush();
         });

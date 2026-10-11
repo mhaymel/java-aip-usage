@@ -317,6 +317,7 @@ body {
     gap: 12px;
 }
 
+.log-controls label input[type="checkbox"],
 .settings label input[type="checkbox"] {
     margin: 0;
 }
@@ -351,6 +352,7 @@ body {
 }
 
 /* A dropdown is as wide as its longest value, plus room for its arrow, so the arrow never covers the value. */
+.log-controls select,
 .settings select {
     min-width: 12ch;
     padding: 1px 2.2em 1px 4px;
@@ -417,6 +419,32 @@ body {
     padding: 0 8px 4px;
     font: 400 12px/15px ui-monospace, SFMono-Regular, Menlo, monospace;
     letter-spacing: -0.02em;
+}
+
+/*
+ * The line of the log panel with its two choices, the level and the date: at the left, above the lines, in the type of the
+ * settings. It is not part of what scrolls, so it stays where it is.
+ */
+.log-controls {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 3px;
+    font: 700 12px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    letter-spacing: normal;
+    white-space: nowrap;
+}
+
+/* `hidden` must win over the display above. */
+.log-controls[hidden] {
+    display: none;
+}
+
+.log-controls label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .panel-lines {

@@ -86,6 +86,15 @@ class TitleBarWindowTest {
             assertTrue(line(all, open).contains("titleBar:true"), open + ": a panel is open, so the title bar is there:\n" + all);
             assertTrue(line(all, open).contains("," + open + " "), open + ": and the page names it:\n" + all);
         }
+        // The log panel has its line of two choices, and each takes effect on the lines that are shown.
+        assertTrue(line(all, "log").contains(" logControls:true "), all);
+        assertTrue(line(all, "log").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), "information is shown, and the lines begin with the time:\n" + all);
+        assertTrue(line(all, "log-date").matches(".* logLines:\\d+/\\d+/\\d{4}-\\d\\d-\\d\\d .*"), "with the date switched on they begin with it:\n" + all);
+        assertTrue(line(all, "log-warning").matches(".* logLines:\\d+/0/.*"), "warnings and worse: no line of information:\n" + all);
+        assertTrue(line(all, "log-back").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), all);
+        for (String without : List.of("start", "history", "errors", "settings")) {
+            assertTrue(line(all, without).contains(" logControls:false "), without + " has no such line:\n" + all);
+        }
         assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" windows:1 ")).count(),
                 "one window at every step:\n" + all);
         assertTrue(!all.contains("PROBE failed"), all);

@@ -18,7 +18,8 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `POST` | `/api/settings` | Apply a full set of settings |
 | `GET` | `/api/status` | The latest usage reading and refresh outcome, raw and finished for display (read-only) |
 | `POST` | `/api/refresh` | Start a usage fetch now |
-| `GET` | `/api/log` | The end of the log file (read-only) |
+| `GET` | `/api/log` | The end of the log file, at the level the log panel shows |
+| `POST` | `/api/log` | Save the two choices of the log panel, the level and the date |
 | `GET` | `/api/history` | The usage history, as finished lines (read-only) |
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 
@@ -267,16 +268,19 @@ Before the first reading, `usage` is `null`: with `error` also `null` the first
 fetch is still running; with `error` set it failed, and the message says what to
 do (for example log in with Claude Code).
 
-## `GET /api/log`
+## `GET /api/log` and `POST /api/log`
 
-Read-only. The end of the log file, for the panel the log button shows in the main window. The lines are oldest first; the panel shows them newest first. It names the file, never its path.
+`GET` gives the end of the log file, for the panel the log button shows in the main window, at the level saved for the panel, or at the one a query names: `GET /api/log?level=warning`, with `error`, `warning`, `info` or `debug`; any other name is `400`. The lines are oldest first; the panel shows them newest first. It names the file, never its path.
 
 ```json
 {
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.39", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.40", "..."],
+  "hidden": false,
+  "level": "info",
+  "date": false
 }
 ```
 
@@ -284,12 +288,26 @@ A line is `yyyy-MM-dd HH:mm:ss LEVEL [Name] message` in local time. A client tha
 entry, or marks where a run starts, goes by that form: an entry begins with a line that begins with the date
 and time, and a run with the line that has `] Starting java-aip-usage`.
 
-- `lines`: the last 1,000 lines at most, oldest first, so the newest is last. Only the last 512
-  kilobytes of the file are read, since the log is never rotated.
+- `lines`: the last 1,000 lines at most of the level, oldest first, so the newest is last. Only the last 512
+  kilobytes of the file are read, since the log is never rotated. A level gives its own lines and those of the more
+  severe ones; the lines of an entry, a stack trace or a response's JSON, come or stay away with the line that begins
+  it; the level is the word after the date and time (`SEVERE` is an error, `FINE` a debug line, a word that is not
+  known counts as debug); lines before the first entry of what was read come with `info` and `debug`. The lines are
+  as the file has them, the date included.
+- `hidden`: `true` when the file has lines and none of the level, so that `lines` is empty.
+- `level` and `date`: the two choices saved for the panel, `info` and `false` by default; `level` is the saved
+  one also when the query asked for another. Whether the date is shown is the page's to do: with `date` false it
+  cuts the first 11 characters of each line that begins an entry.
 - `truncated`: `true` when earlier lines were left out. When the file is larger than the 512 kilobytes the
   first line of what was read is dropped, so that none is ever shown half.
 - `exists`: `false`, with no lines, when there is no log yet, or what is there is not an ordinary file.
 - `500` with `{"error": "The log could not be read."}` if the file cannot be read.
+
+`POST` saves the two choices, in `settings.json` under `logLevel` and `logDate`, and answers with them. Both must
+be given: `{"level": "warning", "date": true}`. A level that is none of the four, a `date` that is not `true` or
+`false`, or one of them missing is `400`, and nothing is saved; a file that cannot be written is `500` with
+`The log settings could not be saved: <reason>`. The settings of `/api/settings` do not have the two, and saving
+them leaves the two as they are.
 
 ## `GET /api/history`
 

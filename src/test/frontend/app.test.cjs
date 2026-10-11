@@ -138,7 +138,10 @@ function backendOf(state) {
         }
         if (call.url === '/api/status') return { status: 200, body: withDisplay(state.status) };
         if (call.url === '/api/refresh') return { status: 202, body: { started: true } };
-        if (call.url === '/api/log') return state.log ? state.log() : { status: 200, body: LOG };
+        if (call.url.split('?')[0] === '/api/log' && call.method === 'POST') {
+            return state.postLog ? state.postLog(JSON.parse(call.body)) : { status: 200, body: JSON.parse(call.body) };
+        }
+        if (call.url.split('?')[0] === '/api/log') return state.log ? state.log(call) : { status: 200, body: LOG };
         if (call.url === '/api/errors') return state.errors ? state.errors() : { status: 200, body: ERRORS };
         if (call.url === '/api/history') return state.history ? state.history() : { status: 200, body: HISTORY };
         return { status: 404, body: { error: 'No such endpoint.' } };
@@ -180,7 +183,7 @@ const HISTORY = {
 };
 
 const LOG = {
-    file: 'java-aip-usage.log', exists: true, truncated: false,
+    file: 'java-aip-usage.log', exists: true, truncated: false, hidden: false, level: 'info', date: true,
     lines: ['2026-10-08 19:00:00 INFO    [UsageApp] Starting', '2026-10-08 19:00:01 INFO    [UsageService] Usage refresh succeeded'],
 };
 
@@ -2448,4 +2451,154 @@ test('the border stays while a panel is open and while the figures are old', asy
     await page.click('history-button');
     assert.match(page.el('app').className, /open/);
     assert.match(page.el('app').className, /\bfake\b/);
+});
+
+// ---- the log panel: the level and the date, chosen in the panel and saved at once
+
+const LEVEL_LINES = {
+    error: ['2026-10-08 19:00:03 SEVERE  [A] three'],
+    warning: ['2026-10-08 19:00:02 WARNING [A] two', '2026-10-08 19:00:03 SEVERE  [A] three'],
+    info: ['2026-10-08 19:00:01 INFO    [A] one', '2026-10-08 19:00:02 WARNING [A] two', '2026-10-08 19:00:03 SEVERE  [A] three'],
+};
+LEVEL_LINES.debug = LEVEL_LINES.info;
+
+/** A backend that keeps the two choices as the real one does, and gives the lines of the level saved or asked for. */
+function logBackend(saved, extra = {}) {
+    const state = {
+        config: CONFIG, status: SPEND_STATUS, saved,
+        log: call => {
+            const asked = /\?level=(\w+)/.exec(call.url);
+            return { status: 200, body: { ...LOG, level: state.saved.level, date: state.saved.date, lines: LEVEL_LINES[asked ? asked[1] : state.saved.level] } };
+        },
+        postLog: body => { state.saved = body; return { status: 200, body }; },
+        ...extra,
+    };
+    return state;
+}
+const logPosts = page => page.calls.filter(c => c.url === '/api/log' && c.method === 'POST');
+
+test('the log panel comes up with the level and the date that are saved, and the line of the two is shown only with the log', async () => {
+    const page = await load(backendOf(logBackend({ level: 'warning', date: false })));
+    assert.equal(page.el('log-controls').hidden, true, 'no panel, no line');
+
+    await page.click('log-button');
+
+    assert.equal(page.el('log-controls').hidden, false);
+    assert.equal(page.el('log-level').value, 'warning');
+    assert.equal(page.el('log-date').checked, false);
+    assert.deepEqual(lines(page), ['19:00:03 SEVERE  [A] three', '19:00:02 WARNING [A] two'], 'the lines of the level, newest first, with no date');
+    assert.equal(logPosts(page).length, 0, 'showing the panel saves nothing');
+
+    await page.click('history-button');
+    assert.equal(page.el('log-controls').hidden, true, 'the history has no such line');
+    await page.click('errors-button');
+    assert.equal(page.el('log-controls').hidden, true, 'nor has the error log');
+    await page.click('errors-button');
+    assert.equal(page.el('log-controls').hidden, true);
+});
+
+test('a level that is chosen takes effect at once on the log that is shown, is saved, and the log stands at its newest line', async () => {
+    const state = logBackend({ level: 'info', date: false });
+    const page = await load(backendOf(state));
+    await page.click('log-button');
+    assert.equal(lines(page).length, 3);
+    page.el('panel-lines').scrollTop = 30;
+
+    await change(page, 'log-level', 'error');
+
+    assert.deepEqual(lines(page), ['19:00:03 SEVERE  [A] three']);
+    assert.equal(page.el('panel-lines').scrollTop, 0);
+    assert.deepEqual(JSON.parse(logPosts(page)[0].body), { level: 'error', date: false }, 'both are sent, at once, with no button');
+    assert.deepEqual(state.saved, { level: 'error', date: false });
+    assert.equal(page.el('log-error').hidden, true);
+
+    await page.firePoll();
+    assert.deepEqual(lines(page), ['19:00:03 SEVERE  [A] three'], 'and the polls that follow keep to it');
+    assert.equal(logPosts(page).length, 1, 'without saving again');
+});
+
+test('the date is switched on and off at once, and saved', async () => {
+    const state = logBackend({ level: 'error', date: false });
+    const page = await load(backendOf(state));
+    await page.click('log-button');
+    assert.deepEqual(lines(page), ['19:00:03 SEVERE  [A] three']);
+    page.el('panel-lines').scrollTop = 30;
+
+    await change(page, 'log-date', true);
+
+    assert.deepEqual(lines(page), ['2026-10-08 19:00:03 SEVERE  [A] three']);
+    assert.equal(page.el('panel-lines').scrollTop, 0, 'at the newest line again');
+    assert.deepEqual(state.saved, { level: 'error', date: true });
+
+    await change(page, 'log-date', false);
+    assert.deepEqual(lines(page), ['19:00:03 SEVERE  [A] three']);
+});
+
+test('the choices are there again when the panel is shown the next time', async () => {
+    const page = await load(backendOf(logBackend({ level: 'info', date: false })));
+    await page.click('log-button');
+    await change(page, 'log-level', 'warning');
+    await change(page, 'log-date', true);
+    await page.click('log-button');
+    assert.equal(page.el('panel').hidden, true);
+
+    await page.click('log-button');
+
+    assert.equal(page.el('log-level').value, 'warning');
+    assert.equal(page.el('log-date').checked, true);
+    assert.deepEqual(lines(page), ['2026-10-08 19:00:03 SEVERE  [A] three', '2026-10-08 19:00:02 WARNING [A] two']);
+});
+
+test('a choice that cannot be saved holds for the panel as it is shown, and a red line says so', async () => {
+    const state = logBackend({ level: 'info', date: false }, {
+        postLog: () => ({ status: 500, body: { error: 'The log settings could not be saved: disk full' } }),
+    });
+    const page = await load(backendOf(state));
+    await page.click('log-button');
+
+    await change(page, 'log-level', 'error');
+
+    assert.equal(page.el('log-error').hidden, false);
+    assert.equal(page.el('log-error').textContent, 'The log settings could not be saved: disk full');
+    assert.deepEqual(lines(page), ['19:00:03 SEVERE  [A] three'], 'the level is asked for by name, since the saved one is another');
+    assert.equal(page.el('log-level').value, 'error');
+    await page.firePoll();
+    assert.deepEqual(lines(page), ['19:00:03 SEVERE  [A] three'], 'and at the polls that follow');
+
+    // The next change is saved: the line goes.
+    state.postLog = body => { state.saved = body; return { status: 200, body }; };
+    await change(page, 'log-level', 'warning');
+    assert.equal(page.el('log-error').hidden, true);
+    assert.equal(lines(page).length, 2);
+});
+
+test('a level with no lines says so in blue, and the line of the two choices stays', async () => {
+    const state = logBackend({ level: 'error', date: false });
+    state.log = () => ({ status: 200, body: { ...LOG, level: 'error', date: false, hidden: true, lines: [] } });
+    const page = await load(backendOf(state));
+
+    await page.click('log-button');
+
+    assert.equal(page.el('panel-note').textContent, 'The log has no lines at this level.');
+    assert.match(page.el('panel-note').className, /highlight/);
+    assert.equal(page.el('panel-lines').hidden, true);
+    assert.equal(page.el('log-controls').hidden, false);
+});
+
+test('the settings left for the log bring it back with its saved choices, and the settings do not send them', async () => {
+    const state = logBackend({ level: 'warning', date: true });
+    const page = await load(backendOf(state));
+    await page.click('log-button');
+    await page.click('settings-button');
+    assert.equal(page.el('log-controls').hidden, true, 'the settings have no such line');
+    page.el('set-logResponse').checked = true;
+
+    await page.click('settings-button');
+
+    const sent = JSON.parse(page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST')[0].body);
+    assert.equal('logLevel' in sent, false);
+    assert.equal('logDate' in sent, false);
+    assert.equal(page.el('log-controls').hidden, false);
+    assert.equal(page.el('log-level').value, 'warning');
+    assert.equal(page.el('log-date').checked, true);
 });

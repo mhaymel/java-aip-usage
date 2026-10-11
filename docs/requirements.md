@@ -586,6 +586,71 @@ The log is shown the way the usage history is: inside the main window, not in a 
   added to and never rotated or overwritten, kept out of version control, and its text comes from
   the application through a read-only request that reveals nothing about where the file is.
 
+**The level and the date of the log panel** (since version 0.40)
+
+- **The log panel has a line of its own at the top**, above the lines of the log, with two controls: a dropdown
+  `Level` and a checkbox `Date`. The line stays where it is while the log is scrolled. It is in the log panel only:
+  the settings view does not have the two, and the error log and the history have no such line.
+- **The dropdown has four levels**, `Error`, `Warning`, `Info` and `Debug`, in that order, from the most severe
+  to the least. The one selected is the least severe level shown, and the more severe ones are shown with it:
+
+  | Selected | Shown |
+  | --- | --- |
+  | `Error` | errors |
+  | `Warning` | errors and warnings |
+  | `Info` | errors, warnings and information |
+  | `Debug` | errors, warnings, information and debug lines: everything the file has |
+
+- **The two controls are at the left of their line**, in this order: the label `Level`, the dropdown, and the
+  checkbox with its text `Date`, written and spaced like the controls of the settings view.
+- **The dropdown has the same four levels in every run**, with `--debug` and without it. The level `Debug` has
+  nothing to do with debug mode.
+- **After a change of the level or of the date the log stands at the top**, at its newest line, whatever it was
+  scrolled to before.
+- **`Debug` is in the list although the program writes no debug lines today.** It writes at three levels, error,
+  warning and information, so for now `Debug` shows what `Info` shows. The level is there so that a debug line, once
+  the program writes one, can be shown and can be left out; it is not shown with `Info`, which is the default.
+- **The level of a line is the word after its date and time.** The file is written through the logging of Java, which
+  calls an error `SEVERE` and a debug line `FINE`: `SEVERE` and `ERROR` are errors, `WARNING` and `WARN` warnings,
+  `INFO` and `CONFIG` information, and every other word, should the file ever hold one, is shown with `Debug` only.
+- **The dropdown chooses what is shown, not what is written.** It does not make the program log more or less.
+
+- **A selection takes effect at once**, on the log that is shown, without a button to press and without closing the
+  panel.
+- **An entry is shown or left out whole.** The lines that belong to an entry, a stack trace or the response JSON, go
+  with the line that begins it. Lines the panel cannot give a level, those before the first entry of what was read
+  (see The log, exactly), are shown with `Info` and with `Debug`, and with neither of the other two.
+- **The 1,000 lines are 1,000 lines of the level selected.** The filter comes first: of the last 512 kilobytes of the
+  file, the newest 1,000 lines that the level lets through are shown, so `Error` shows up to 1,000 lines of errors
+  and not what is left of the newest 1,000 of everything. The note above the lines, `Showing the newest N lines of
+  the log.`, counts the lines shown and is there when lines of the level were left out, and, as before, when the file is
+  larger than what is read of it.
+- **When the file has lines and none of the level**, the panel says `The log has no lines at this level.` in the
+  blue of its other notes.
+- **The checkbox `Date` shows or hides the date of each line.** Off, the line begins with its time:
+  `2026-10-11 13:24:05 INFO    [Name] message` is shown as `13:24:05 INFO    [Name] message`. On, the line is as
+  it is in the file. The time is always there. The lines that follow in an entry have no date and are not changed.
+  Like the level, it takes effect at once.
+- **Only what is shown changes.** The log file is written as before, every level and the full date; the line that
+  begins a run is marked as before, with or without its date.
+- **The defaults are `Info` and the date off.** So the panel shows every line the program writes today, as before,
+  and, other than before, without the date.
+- **Both are remembered.** A change is saved at once, in `settings.json` with the other settings, under the keys
+  `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate` (true or false), and the next time the
+  panel is shown, in this run or the next, it comes up with what was saved. A value in the file that is none of the
+  four has the default, as any other value that is out of range. There is no `Apply` and no `Cancel` for them.
+- **The settings view leaves them alone**: they are not in it, saving it does not change them, and its
+  `Restore defaults` does not put them back.
+- **When a change cannot be saved**, it still holds for the panel as it is shown, and a red line below the two controls
+  says `The log settings could not be saved: <reason>`. The line goes with the next change that is saved. When the panel
+  is shown the next time it comes up with what is saved, which is then not what was chosen.
+- **The two controls are shown when the panel has its first answer**, which says what is saved; a log that does not
+  exist yet, or is empty, has them too.
+- **The error log panel is not changed by this.** It lists the failed refreshes of the run, as before, whatever level
+  is selected for the log, and its times have no date, as before.
+- **The window is not sized to the line**: the log panel is as wide and as tall as before, and the line of the two
+  controls takes its height from the lines of the log.
+
 **The usage history panel**
 
 The history is shown inside the main window, not in a window of its own.
@@ -1095,72 +1160,6 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## The level and date of the log
-
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.39; where
-this section says otherwise, this section is what is to be built. It moves into the description of the program
-when it is built (see the implementation plan, phase 52).
-
-### The log panel: a level to choose and the date to switch on and off
-
-- **The log panel has a line of its own at the top**, above the lines of the log, with two controls: a dropdown
-  `Level` and a checkbox `Date`. The line stays where it is while the log is scrolled. It is in the log panel only:
-  the settings view does not have the two, and the error log and the history have no such line.
-- **The dropdown has four levels**, `Error`, `Warning`, `Info` and `Debug`, in that order, from the most severe
-  to the least. The one selected is the least severe level shown, and the more severe ones are shown with it:
-
-  | Selected | Shown |
-  | --- | --- |
-  | `Error` | errors |
-  | `Warning` | errors and warnings |
-  | `Info` | errors, warnings and information |
-  | `Debug` | errors, warnings, information and debug lines: everything the file has |
-
-- **The two controls are at the left of their line**, in this order: the label `Level`, the dropdown, and the
-  checkbox with its text `Date`, written and spaced like the controls of the settings view.
-- **The dropdown has the same four levels in every run**, with `--debug` and without it. The level `Debug` has
-  nothing to do with debug mode.
-- **After a change of the level or of the date the log stands at the top**, at its newest line, whatever it was
-  scrolled to before.
-- **`Debug` is in the list although the program writes no debug lines today.** It writes at three levels, error,
-  warning and information, so for now `Debug` shows what `Info` shows. The level is there so that a debug line, once
-  the program writes one, can be shown and can be left out; it is written to the file like every other level, whatever
-  the dropdown says, and is not shown with `Info`, which is the default.
-- **A line of a level that is none of the four**, should the file ever hold one, is shown with `Debug` only.
-- **The dropdown chooses what is shown, not what is written.** It does not make the program log more or less.
-
-- **A selection takes effect at once**, on the log that is shown, without a button to press and without closing the
-  panel.
-- **An entry is shown or left out whole.** The lines that belong to an entry, a stack trace or the response JSON, go
-  with the line that begins it. Lines the panel cannot give a level, those before the first entry of what was read
-  (see The log, exactly), are shown with `Info` and with `Debug`, and with neither of the other two.
-- **The 1,000 lines are 1,000 lines of the level selected.** The filter comes first: of the last 512 kilobytes of the
-  file, the newest 1,000 lines that the level lets through are shown, so `Error` shows up to 1,000 lines of errors
-  and not what is left of the newest 1,000 of everything. The note above the lines, `Showing the newest N lines of
-  the log.`, counts the lines shown and is there when lines of the level were left out.
-- **When the file has lines and none of the level**, the panel says `The log has no lines at this level.` in the
-  blue of its other notes.
-- **The checkbox `Date` shows or hides the date of each line.** Off, the line begins with its time:
-  `2026-10-11 13:24:05 INFO    [Name] message` is shown as `13:24:05 INFO    [Name] message`. On, the line is as
-  it is in the file. The time is always there. The lines that follow in an entry have no date and are not changed.
-  Like the level, it takes effect at once.
-- **Only what is shown changes.** The log file is written as before, every level and the full date; the line that
-  begins a run is marked as before, with or without its date.
-- **The defaults are `Info` and the date off.** So the panel shows every line the program writes today, as before,
-  and, other than before, without the date.
-- **Both are remembered.** A change is saved at once, in `settings.json` with the other settings, under the keys
-  `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate` (true or false), and the next time the
-  panel is shown, in this run or the next, it comes up with what was saved. A value in the file that is none of the
-  four has the default, as any other value that is out of range. There is no `Apply` and no `Cancel` for them.
-- **The settings view leaves them alone**: they are not in it, saving it does not change them, and its
-  `Restore defaults` does not put them back.
-- **When a change cannot be saved**, it still holds for the panel as it is shown, and a red line says
-  `The log settings could not be saved: <reason>`.
-- **The error log panel is not changed by this.** It lists the failed refreshes of the run, as before, whatever level
-  is selected for the log, and its times have no date, as before.
-- **The window is not sized to the line**: the log panel is as wide and as tall as before, and the line of the two
-  controls takes its height from the lines of the log.
-
 ## Details of the behaviour
 
 These are things the program does that the sections above do not say, written down so that the requirements are the whole of it.
@@ -1469,7 +1468,7 @@ These are things the program does that the sections above do not say, written do
   there is a line. The table is measured on a copy that is not seen, holding the header and the three lines with the most characters, each time the program asks for the size; the width last measured is kept while the panel is closed. The width asked for is the larger of the row's and the table's with 16 pixels
   for the panel's sides, and the scrollbar's width.
 - **The log, exactly.** A line begins an entry when it begins with a date, a time and a blank, `yyyy-MM-dd HH:mm:ss `; every other line belongs to the entry before it. Lines at the beginning of what was read that come before the first such line, the end of an entry the 512 kilobytes cut, are kept together and
-  shown at the very bottom. The start of a run is a line that has `] Starting java-aip-usage` followed by a blank or by the end of the line. The number in `Showing the newest N lines of the log.` is the number of lines received.
+  shown at the very bottom. The start of a run is a line that has `] Starting java-aip-usage` followed by a blank or by the end of the line. The number in `Showing the newest N lines of the log.` is the number of lines received, which are the lines of the level chosen. The date that is cut from a line with `Date` off is its first 11 characters, `yyyy-MM-dd `, and only of a line that begins an entry.
 - **The error log, exactly.** The time is 8 characters wide and the message as wide as its text, 8 pixels apart, both at the left; its header, `time` and `message`, stays at the top and is bold. `There are no errors in this run.` is the page's own text.
 - **The sizes the page asks for, exactly.** The width and the height of the row are those of the row with its message lines and the room round them, each rounded up to a whole pixel. The height of a panel is ten times that height as it is at the moment the panel is shown, a message line that shows then
   included, and it is taken again when one panel replaces another and when the settings give one back. The log's width is three times the row's rounded width, and the scrollbar's; the error log's is one and a half times it, rounded up, and the scrollbar's. The settings are as tall as the whole page and as wide
@@ -1706,7 +1705,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, and the two heights
   `historyHeight` and `logHeight`. Where this document says "in the project root, beside `gradlew`", the files are in the working directory the program was
   started from, which is the project root for `./gradlew run` and for an IDE run configuration set as the notes say.
 - **The settings file as written.** One JSON object, printed over several lines, with the keys always in the order above, the two heights last and always there, as `0` when none is remembered. Every save writes the whole file

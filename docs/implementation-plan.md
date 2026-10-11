@@ -1215,20 +1215,34 @@ gives the row a reading with no change, which is the same path.
 
 ### 52. The log panel: a level and the date
 
-**Status: specified, not built (version 0.40).**
+**Status: built (version 0.40).** Requirement: The log panel (the level and the date of the log panel).
 
-- **The levels.** Four: error, warning, info and debug. Nothing is written at debug today, so the reader is tested
-  with a file that has such lines.
-- **Settings.** `logLevel` and `logDate` in `Settings` and `settings.json`, after the keys there are; they are not
-  part of what the settings view reads and sends, and have a request of their own (`docs/api.md`).
-- **The backend filters.** `/api/log` gives the newest 1,000 lines (`LOG_LINES`) of the level saved, out of the last 512
-  kilobytes (`LOG_BYTES`), entries whole; the count it reports is of the lines given. `LogTail` reads the bytes as now, and
-  the level of an entry is read from its first line, the word after the date and the time.
-- **The page.** A line with the dropdown and the checkbox at the top of the log panel; the date is cut from the lines as they
-  are drawn; a change is sent at once and the panel read again.
-- **Tests.** The log reader for each level, an entry of several lines, the fragment before the first entry and the limit;
-  the settings for the two keys and a value out of range; `app.test.cjs` for the two controls, the saved values at the
-  next opening, and the failed save.
+- **The levels.** `LogLevel`, in the settings package: error, warning, info, debug, with the word each has in the file
+  (`SEVERE` for an error and `FINE` for a debug line, as `java.util.logging` writes them). The root logger is at
+  information, so a debug line is not written today.
+- **Settings.** `logLevel` and `logDate` in `Settings` (`withLog`) and in `settings.json`, after the debug settings
+  and before the two heights. `POST /api/settings` keeps them as they are, as it keeps the debug settings.
+- **The backend filters.** `LogTail.read` takes a level: it reads the last 512 kilobytes as before, keeps the entries the
+  level lets through, whole, and then takes the newest 1,000 lines. It also says when the file has lines and none of the
+  level (`hidden`). `GET /api/log` reads at the saved level, or at the one its query names; `POST /api/log` saves the
+  two choices.
+- **The page.** A line at the top of the panel, `log-controls`, shown when the first answer after the panel was opened
+  has said what is saved. A change is sent at once and the panel is read again, and stands at the top. The date is cut
+  in `view.describeLog`, from the lines that begin an entry. The page asks for a level by name only after a save that
+  failed, since then the saved one is not the one chosen. A read that was begun for another level than the one chosen
+  meanwhile is not shown.
+- **Tests.** `LogTailTest`: each level, an entry of several lines, the lines before the first entry, an unknown word,
+  the limit counted in lines of the level, `hidden`. `SettingsStoreTest`: the two keys, the defaults, a level that is
+  none of the four. `ApiTest`: the saved level, the query, the save, the refusals, the settings leaving the two alone.
+  `view.test.cjs`: the date cut, the note. `app.test.cjs`: the controls come up as saved and only with the log; a
+  level and the date at once, saved, at the top; again at the next showing; the failed save; the settings left for the
+  log. `layout.test.cjs`: the line, its order, its four levels, its type.
+- **In a real window** (the on-request test): the line is there with the log and with no other panel; with the date off
+  the newest line begins with its time, with it on with its date; `Warning` leaves no line of information. It passes.
+- **Also:** `UsageServiceTest.theServiceGoesOnRefreshingAfterARestart`, from phase 49, asked for a refresh while the one
+  the restart began could still be under way, and failed now and then; it waits for that one to end.
+
+**Not checked by a test.** How the line looks, and the dropdown on the dark theme.
 
 ## Implementation notes, as built
 

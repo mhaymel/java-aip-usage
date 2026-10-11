@@ -9,6 +9,7 @@ import com.sun.net.httpserver.HttpHandler;
 import org.example.settings.IntervalRange;
 import org.example.settings.IntervalSettings;
 import org.example.settings.InvalidSettingException;
+import org.example.settings.LogLevel;
 import org.example.settings.Settings;
 import org.example.settings.SettingsException;
 import org.example.settings.TimeFormat;
@@ -136,10 +137,13 @@ final class ApiHandler implements HttpHandler {
                 send(exchange, 200, status(service.state()));
             }
             case "/api/log" -> {
-                if (!method.equals("GET")) {
-                    throw new ApiException(405, "Use GET.", "GET");
+                if (method.equals("GET")) {
+                    send(exchange, 200, log(levelAsked(exchange.getRequestURI().getQuery())));
+                } else if (method.equals("POST")) {
+                    updateLog(exchange);
+                } else {
+                    throw new ApiException(405, "Use GET or POST.", "GET, POST");
                 }
-                send(exchange, 200, log());
             }
             case "/api/errors" -> {
                 if (!method.equals("GET")) {
@@ -266,10 +270,11 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showDuration"),
                     flag(body, "stayOnTop"),
                     flag(body, "showTitleBar"),
-                    false, org.example.fake.Scenario.NORMAL, false);
-            // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone.
+                    false, org.example.fake.Scenario.NORMAL, false, LogLevel.INFO, false);
+            // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone. Nor are
+            // the two choices of the log panel, which POST /api/log changes.
             Settings kept = settings.current();
-            settings.apply(given.withDebug(kept.fakeBackend(), kept.fakeScenario(), kept.fakeToken()));
+            settings.apply(given.withDebug(kept.fakeBackend(), kept.fakeScenario(), kept.fakeToken()).withLog(kept.logLevel(), kept.logDate()));
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
         } catch (SettingsException e) {
@@ -312,14 +317,56 @@ final class ApiHandler implements HttpHandler {
 
     // ---- /api/log and /api/history: read-only views of the two files
 
-    private LogBody log() {
+    /**
+     * The end of the log at the level asked for, or at the saved one when none is asked for, with the two saved choices of
+     * the panel: the page takes them when it shows the panel, and asks for the level it has chosen after that.
+     */
+    private LogBody log(LogLevel asked) {
+        Settings now = settings.current();
         try {
-            LogTail.Tail tail = LogTail.read(files.log(), LOG_LINES, LOG_BYTES);
-            return new LogBody(files.log().getFileName().toString(), tail.exists(), tail.truncated(), tail.lines());
+            LogTail.Tail tail = LogTail.read(files.log(), LOG_LINES, LOG_BYTES, asked != null ? asked : now.logLevel());
+            return new LogBody(files.log().getFileName().toString(), tail.exists(), tail.truncated(), tail.lines(), tail.hidden(),
+                    now.logLevel().json(), now.logDate());
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Could not read the log: " + e.getMessage());
             throw new ApiException(500, "The log could not be read.", null);
         }
+    }
+
+    /** The level a request for the log names in its query, {@code level=warning}; none if it names none. */
+    private static LogLevel levelAsked(String query) {
+        if (query == null) {
+            return null;
+        }
+        for (String part : query.split("&")) {
+            if (part.startsWith("level=")) {
+                return LogLevel.fromJson(part.substring("level=".length()))
+                        .orElseThrow(() -> new ApiException(400, "The level must be one of " + LogLevel.names() + ".", null));
+            }
+        }
+        return null;
+    }
+
+    /** The two choices of the log panel, both of which must be given. They are saved at once, and the other settings are left as they are. */
+    private void updateLog(HttpExchange exchange) throws IOException {
+        requireJson(exchange);
+        JsonNode body = readJson(exchange);
+        LogLevel level;
+        try {
+            JsonNode name = body.get("level");
+            if (name == null || name.isNull()) {
+                throw new InvalidSettingException("The setting level is missing.");
+            }
+            level = (name.isTextual() ? LogLevel.fromJson(name.textValue()) : java.util.Optional.<LogLevel>empty())
+                    .orElseThrow(() -> new InvalidSettingException("The setting level must be one of " + LogLevel.names() + "."));
+            settings.apply(settings.current().withLog(level, flag(body, "date")));
+        } catch (InvalidSettingException e) {
+            throw new ApiException(400, e.getMessage(), null);
+        } catch (SettingsException e) {
+            throw new ApiException(500, "The log settings could not be saved: " + e.getCause().getMessage(), null);
+        }
+        Settings now = settings.current();
+        send(exchange, 200, new LogSettingsBody(now.logLevel().json(), now.logDate()));
     }
 
     /**
@@ -603,7 +650,15 @@ final class ApiHandler implements HttpHandler {
     record RefreshBody(boolean started) {
     }
 
-    record LogBody(String file, boolean exists, boolean truncated, List<String> lines) {
+    /**
+     * @param hidden whether the file has lines and none of the level asked for
+     * @param level the level saved for the panel, whatever level was asked for
+     * @param date whether the panel shows the date of each line, as saved
+     */
+    record LogBody(String file, boolean exists, boolean truncated, List<String> lines, boolean hidden, String level, boolean date) {
+    }
+
+    record LogSettingsBody(String level, boolean date) {
     }
 
     /** What changed since the row before: the amount used, and the seconds; either is null if it cannot be worked out. */

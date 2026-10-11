@@ -248,11 +248,33 @@ test('with the history open the page fills the window, in a column; the row and 
     assert.match(html, /<div id="top"[\s\S]*id="note"[\s\S]*id="connection"[^>]*>[^<]*<\/p>\s*<\/div>\s*<div id="panel"/);
 });
 
-test('the panels and the settings view are the only text under 14 px', () => {
+test('the panels, the line of the log\'s two choices and the settings view are the only text under 14 px', () => {
     const small = [...css.matchAll(/([^{}]+){([^}]*)}/g)]
         .filter(rule => [...rule[2].matchAll(/font(?:-size)?:\s*(?:[a-z0-9 ]*\s)?([0-9.]+)px/g)].some(m => Number(m[1]) < 14))
         .map(rule => rule[1].trim().split('\n').pop().trim());
-    assert.deepEqual([...small].sort(), ['.panel', '.settings', '.table-probe']); // the probe is the panel's text, never seen
+    assert.deepEqual([...small].sort(), ['.log-controls', '.panel', '.settings', '.table-probe']); // the probe is the panel's text, never seen
+});
+
+test('the log panel has a line at its top with the level and the date, at the left, in that order', () => {
+    const line = html.slice(html.indexOf('<div id="log-controls"'), html.indexOf('<p id="panel-note"'));
+    assert.match(line, /^<div id="log-controls" class="log-controls" hidden>/, 'hidden until the log is shown');
+    assert.ok(html.indexOf('id="log-controls"') > html.indexOf('<div id="panel"'), 'in the panel');
+    assert.ok(html.indexOf('id="log-controls"') < html.indexOf('id="panel-lines"'), 'above the lines');
+    assert.match(line, /<label[^>]*>Level\s*<select id="log-level"/, 'the label, then the dropdown');
+    assert.deepEqual([...line.matchAll(/<option value="([a-z]+)">([A-Za-z]+)<\/option>/g)].map(m => m[1] + ':' + m[2]),
+        ['error:Error', 'warning:Warning', 'info:Info', 'debug:Debug'], 'four levels, the most severe first');
+    assert.match(line, /<input id="log-date" type="checkbox"> Date<\/label>/);
+    assert.ok(line.indexOf('log-level') < line.indexOf('log-date'), 'the level first');
+    assert.match(line, /<p id="log-error" class="panel-error" role="alert" hidden><\/p>/, 'and a red line for a save that failed');
+    assert.doesNotMatch(html.slice(html.indexOf('id="settings-view"')), /log-level|log-date/, 'the settings view does not have the two');
+
+    const rule = ruleOf('.log-controls');
+    assert.match(rule, /display:\s*flex/);
+    assert.match(rule, /flex:\s*none/, 'it does not scroll or shrink with the lines');
+    assert.doesNotMatch(rule, /justify-content/, 'at the left');
+    assert.match(rule, /font:\s*700 12px\/1\.45 system-ui/, 'written like the settings view');
+    assert.match(css, /\.log-controls\[hidden\]\s*{\s*display:\s*none/, 'hidden wins over the flex');
+    assert.match(css, /\.log-controls select,\s*\.settings select\s*{/, 'and its dropdown is the settings\' dropdown');
 });
 
 test('an error in the panel is red', () => {

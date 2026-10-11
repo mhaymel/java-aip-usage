@@ -56,6 +56,9 @@
         return /\] Starting java-aip-usage( |$)/.test(line);
     }
 
+    /** How much of a line that begins an entry is its date, with the blank after it: `2026-10-08 `. */
+    var DATE_LENGTH = 11;
+
     /** Whether a log line begins an entry: it starts with its time, `2026-10-08 16:24:53`. The others continue the one before. */
     function beginsEntry(line) {
         return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} /.test(line);
@@ -65,15 +68,20 @@
      * What the log panel shows, from GET /api/log, which sends the lines oldest first: the same
      * lines, newest entry first, each a row of one cell. An entry can take several lines (a response's JSON,
      * a stack trace); they stay together and in the order they were written, so only the entries are reversed.
-     * @returns {note, header, rows, marks}: a line of explanation or null, no header, the rows, and which are marked
+     * With `date` false the date is cut from the line that begins an entry, which then begins with its time; the lines that
+     * follow it have none and are as written. `hidden` says that the file has lines and none of the level that was asked for.
+     * @returns {note, noteHighlight, header, rows, marks}: a line of explanation or null, no header, the rows, and which are marked
      */
     function describeLog(data) {
         if (!data.exists) {
             return { note: 'There is no log file yet.', header: null, rows: [] };
         }
         if (data.lines.length === 0) {
-            return { note: 'The log is empty.', header: null, rows: [] };
+            return data.hidden
+                ? { note: 'The log has no lines at this level.', noteHighlight: true, header: null, rows: [] }
+                : { note: 'The log is empty.', header: null, rows: [] };
         }
+        var cut = data.date === false ? DATE_LENGTH : 0;
         var entries = [];
         data.lines.forEach(function (line) {
             if (beginsEntry(line) || entries.length === 0) {
@@ -86,7 +94,7 @@
         return {
             note: data.truncated ? 'Showing the newest ' + data.lines.length + ' lines of the log.' : null,
             header: null,
-            rows: ordered.map(function (line) { return [line]; }),
+            rows: ordered.map(function (line) { return [cut && beginsEntry(line) ? line.slice(cut) : line]; }),
             marks: ordered.map(isRunStart),
             // The log's start line has a light gray background; the history's is in green text (see describeHistory).
             markClass: 'mark'

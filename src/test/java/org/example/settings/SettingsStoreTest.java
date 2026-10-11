@@ -183,7 +183,7 @@ class SettingsStoreTest {
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken",
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "logLevel", "logDate",
                         "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
@@ -337,5 +337,38 @@ class SettingsStoreTest {
     void aPanelThatIsNeitherTheHistoryNorTheLogHasNoHeight() {
         assertEquals(0, new SettingsStore.Heights(640, 500).of("errors"));
         assertThrows(IllegalArgumentException.class, () -> SettingsStore.Heights.NONE.withHeight("errors", 300));
+    }
+
+    @Test
+    void theLogPanelShowsEverythingAndNoDateByDefaultAndItsChoicesComeBackAsSaved() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        Settings defaults = Settings.defaults();
+        assertEquals(LogLevel.INFO, defaults.logLevel());
+        assertFalse(defaults.logDate());
+        assertEquals(defaults, store.load(), "no file: the defaults");
+
+        store.save(defaults.withLog(LogLevel.WARNING, true));
+
+        Settings loaded = store.load();
+        assertEquals(LogLevel.WARNING, loaded.logLevel());
+        assertTrue(loaded.logDate());
+        assertTrue(Files.readString(file()).contains("\"logLevel\" : \"warning\""), "the level by its name: " + Files.readString(file()));
+        for (LogLevel level : LogLevel.values()) {
+            store.save(defaults.withLog(level, false));
+            assertEquals(level, store.load().logLevel());
+        }
+    }
+
+    @Test
+    void aLogLevelThatIsNoneOfTheFourHasTheDefaultAndTheOtherKeysAreKept() throws IOException {
+        for (String bad : List.of("\"trace\"", "\"INFO\"", "3", "true")) {
+            Files.writeString(file(), "{\"logLevel\": " + bad + ", \"logDate\": true, \"usageIntervalSeconds\": 90}");
+
+            Settings loaded = new SettingsStore(file()).load();
+
+            assertEquals(LogLevel.INFO, loaded.logLevel(), bad);
+            assertTrue(loaded.logDate(), bad);
+            assertEquals(90, loaded.usageIntervalSeconds(), bad);
+        }
     }
 }

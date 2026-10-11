@@ -1749,14 +1749,103 @@ class ApiTest {
     }
 
     @Test
-    void theLogAndHistoryAreReadOnly() throws Exception {
+    void theHistoryIsReadOnlyAndTheLogTakesNothingButItsTwoChoices() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
-        for (String path : new String[] {"/api/log", "/api/history"}) {
-            HttpResponse<String> response = post(app, path, "{}");
-            assertEquals(405, response.statusCode(), path);
-            assertEquals("GET", response.headers().firstValue("Allow").orElse(""), path);
+        HttpResponse<String> response = post(app, "/api/history", "{}");
+        assertEquals(405, response.statusCode());
+        assertEquals("GET", response.headers().firstValue("Allow").orElse(""));
+
+        HttpResponse<String> put = send(app, "/api/log", HttpRequest.newBuilder().PUT(HttpRequest.BodyPublishers.ofString("{}")));
+        assertEquals(405, put.statusCode());
+        assertEquals("GET, POST", put.headers().firstValue("Allow").orElse(""));
+    }
+
+    private static final String[] LEVELS = {
+        "2026-10-11 13:24:01 INFO    [A] one",
+        "2026-10-11 13:24:02 WARNING [A] two",
+        "\tat a.B.c(B.java:1)",
+        "2026-10-11 13:24:03 SEVERE  [A] three",
+    };
+
+    private static List<String> linesOf(JsonNode log) {
+        return java.util.stream.StreamSupport.stream(log.get("lines").spliterator(), false).map(JsonNode::asText).toList();
+    }
+
+    @Test
+    void theLogComesAtTheSavedLevelWhichIsInfoAndNoDateByDefault() throws Exception {
+        writeLog(LEVELS);
+        AppRuntime app = start(new FakeFetch());
+
+        JsonNode log = json(get(app, "/api/log"));
+
+        assertEquals("info", log.get("level").asText());
+        assertFalse(log.get("date").asBoolean());
+        assertFalse(log.get("hidden").asBoolean());
+        assertEquals(List.of(LEVELS), linesOf(log), "the lines as the file has them, the date included: the page cuts it");
+    }
+
+    @Test
+    void theTwoChoicesOfTheLogPanelAreSavedAtOnceAndTheLogComesAtTheNewLevel() throws Exception {
+        writeLog(LEVELS);
+        AppRuntime app = start(new FakeFetch());
+
+        HttpResponse<String> saved = post(app, "/api/log", "{\"level\": \"warning\", \"date\": true}");
+
+        assertEquals(200, saved.statusCode(), saved.body());
+        assertEquals("warning", json(saved).get("level").asText());
+        assertTrue(json(saved).get("date").asBoolean());
+        JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+        assertEquals("warning", file.get("logLevel").asText());
+        assertTrue(file.get("logDate").asBoolean());
+
+        JsonNode log = json(get(app, "/api/log"));
+        assertEquals("warning", log.get("level").asText());
+        assertTrue(log.get("date").asBoolean());
+        assertEquals(List.of(LEVELS[1], LEVELS[2], LEVELS[3]), linesOf(log), "the warning with its stack trace, and the error");
+
+        post(app, "/api/log", "{\"level\": \"error\", \"date\": false}");
+        assertEquals(List.of(LEVELS[3]), linesOf(json(get(app, "/api/log"))));
+    }
+
+    @Test
+    void aLevelNamedInTheRequestIsTheOneGivenAndTheSavedOneIsStillSaid() throws Exception {
+        writeLog(LEVELS[0]);
+        AppRuntime app = start(new FakeFetch());
+
+        JsonNode errors = json(get(app, "/api/log?level=error"));
+
+        assertEquals(0, errors.get("lines").size());
+        assertTrue(errors.get("hidden").asBoolean(), "the file has lines, and none is an error");
+        assertEquals("info", errors.get("level").asText(), "what is saved, not what was asked for");
+        assertEquals(1, json(get(app, "/api/log?level=debug")).get("lines").size());
+        assertEquals(400, get(app, "/api/log?level=loud").statusCode());
+    }
+
+    @Test
+    void aLogChoiceThatIsNotOneIsRefusedAndNothingIsSaved() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        for (String body : new String[] {"{\"level\": \"trace\", \"date\": false}", "{\"date\": false}", "{\"level\": \"info\"}",
+                "{\"level\": \"info\", \"date\": \"no\"}", "{\"level\": 2, \"date\": false}"}) {
+            assertEquals(400, post(app, "/api/log", body).statusCode(), body);
         }
+        assertEquals("info", json(get(app, "/api/log")).get("level").asText());
+    }
+
+    @Test
+    void savingTheSettingsLeavesTheChoicesOfTheLogPanelAsTheyAre() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        post(app, "/api/log", "{\"level\": \"error\", \"date\": true}");
+
+        JsonNode settings = json(get(app, "/api/settings"));
+        assertFalse(settings.get("settings").has("logLevel"), "the settings view does not have them");
+        assertFalse(settings.get("defaults").has("logDate"));
+        assertEquals(200, post(app, "/api/settings", settings.get("defaults").toString()).statusCode(), "Restore defaults, saved");
+
+        JsonNode log = json(get(app, "/api/log"));
+        assertEquals("error", log.get("level").asText());
+        assertTrue(log.get("date").asBoolean());
     }
 
     @Test

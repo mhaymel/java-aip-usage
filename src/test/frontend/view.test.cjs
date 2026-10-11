@@ -240,3 +240,25 @@ test('the history marks its first lines with the green class and the log with th
     assert.equal(view.describeHistory({ exists: true, columns: ['time'], total: 1, lines: [{ cells: ['14:00:00'], start: true, failed: false, title: '' }] }).markClass, 'start');
     assert.equal(view.describeLog({ exists: true, truncated: false, lines: ['2026-10-08 13:20:56 INFO    [Main] Starting java-aip-usage'] }).markClass, 'mark');
 });
+
+// ---- the log panel: the date switched off, and a level with no lines
+
+test('with the date off a line that begins an entry begins with its time, and the lines that follow it are as written', () => {
+    const lines = ['  }', '2026-10-08 13:20:01 INFO    [Main] Starting java-aip-usage v0.40', '2026-10-08 13:20:02 WARNING [X] failed', '\tat a.B.c(B.java:1)'];
+
+    const off = view.describeLog({ exists: true, truncated: false, date: false, lines });
+    assert.deepEqual(off.rows.map(r => r[0]), ['13:20:02 WARNING [X] failed', '\tat a.B.c(B.java:1)', '13:20:01 INFO    [Main] Starting java-aip-usage v0.40', '  }']);
+    assert.deepEqual(off.marks, [false, false, true, false], 'the start of a run is marked without its date as well');
+
+    const on = view.describeLog({ exists: true, truncated: false, date: true, lines });
+    assert.deepEqual(on.rows.map(r => r[0]), ['2026-10-08 13:20:02 WARNING [X] failed', '\tat a.B.c(B.java:1)', '2026-10-08 13:20:01 INFO    [Main] Starting java-aip-usage v0.40', '  }']);
+    assert.deepEqual(on.marks, off.marks);
+});
+
+test('a log with lines and none of the level says so, in the colour of the notes that tell something is left out', () => {
+    const none = view.describeLog({ exists: true, truncated: false, hidden: true, lines: [] });
+    assert.equal(none.note, 'The log has no lines at this level.');
+    assert.equal(none.noteHighlight, true);
+    assert.deepEqual(none.rows, []);
+    assert.equal(view.describeLog({ exists: true, truncated: false, hidden: false, lines: [] }).note, 'The log is empty.');
+});

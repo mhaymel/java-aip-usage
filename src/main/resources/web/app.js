@@ -17,6 +17,15 @@
     // Which panel is shown below the strip: 'history', 'log', or none.
     var openPanel = null;
     var panelLoading = false;
+    // The two choices of the log panel: the least severe level shown and whether the lines have their date. They are the
+    // backend's, saved in the settings file; the page has them from the first answer after the panel was opened.
+    var logLevel = null;
+    var logDate = false;
+    var logKnown = false;
+    // A choice the backend could not save still holds for the panel: the level is then asked for by name.
+    var logUnsaved = false;
+    // After a change of either the log stands at its newest line again.
+    var logToTop = false;
     // Which reading the history panel shows up to: a new one means it is read again.
     var panelMark = null;
     // What the panel shows, to leave it alone when a read finds nothing new.
@@ -532,11 +541,23 @@
         var name = openPanel;
         var spec = PANELS[name];
         var stamp = historyStamp();
+        var level = logLevel;
         panelLoading = true;
         try {
-            var shown = spec.describe(await request(spec.path));
-            if (name === openPanel) {
+            var body = await request(spec.path + (name === 'log' && logUnsaved ? '?level=' + level : ''));
+            if (name === 'log') {
+                takeLogChoices(body);
+                // The date is the page's to cut: the lines come as the file has them.
+                body = Object.assign({}, body, { date: logDate });
+            }
+            var shown = spec.describe(body);
+            // A read that was begun for another level than the one chosen meanwhile is not shown: the one that follows is.
+            if (name === openPanel && !(name === 'log' && level !== null && level !== logLevel)) {
                 showPanel(shown);
+                if (name === 'log' && logToTop) {
+                    $('panel-lines').scrollTop = 0;
+                    logToTop = false;
+                }
                 // Noted only now that the read has been shown: a read that failed, or was for a panel that
                 // has gone, leaves the mark as it was, so the history is read again at the next poll.
                 panelMark = stamp;
@@ -549,9 +570,46 @@
         } finally {
             panelLoading = false;
         }
-        // Another panel was opened while this read was under way and could not start its own: it starts now.
-        if (name !== openPanel) {
+        // Another panel was opened while this read was under way and could not start its own: it starts now. So does the
+        // read for a level that was chosen while this one was under way.
+        if (name !== openPanel || (name === 'log' && level !== null && level !== logLevel)) {
             loadPanel();
+        }
+    }
+
+    /** Takes the two choices of the log panel from the first answer after it was opened, and shows them in its controls. */
+    function takeLogChoices(body) {
+        if (logKnown || openPanel !== 'log') {
+            return;
+        }
+        logKnown = true;
+        logLevel = body.level || 'info';
+        logDate = Boolean(body.date);
+        $('log-level').value = logLevel;
+        $('log-date').checked = logDate;
+        show('log-controls', true);
+    }
+
+    /**
+     * A choice of the log panel was changed: it takes effect at once, on the log that is shown, which stands at its newest
+     * line again, and it is saved. If it cannot be saved it holds all the same, for as long as the panel is shown.
+     */
+    async function changeLogChoices() {
+        logLevel = $('log-level').value;
+        logDate = Boolean($('log-date').checked);
+        logToTop = true;
+        try {
+            await postJson('/api/log', { level: logLevel, date: logDate });
+            logUnsaved = false;
+            setNote('log-error', '');
+        } catch (e) {
+            logUnsaved = true;
+            setNote('log-error', /^The log settings could not be saved: /.test(e.message) ? e.message : 'The log settings could not be saved: ' + e.message);
+        }
+        if (openPanel === 'log') {
+            // Read again whatever was read last: the lines are other ones, or are drawn another way.
+            panelKey = null;
+            await loadPanel();
         }
     }
 
@@ -696,6 +754,13 @@
         $('panel-lines').replaceChildren();
         setNote('panel-note', '');
         setNote('panel-error', '');
+        // The log panel comes up with what is saved: its controls are shown when the first answer has said what that is.
+        logKnown = false;
+        logUnsaved = false;
+        logToTop = false;
+        logLevel = null;
+        show('log-controls', false);
+        setNote('log-error', '');
         labelButtons();
         show('panel', panelIsOpen());
         // The settings are a form in the same place, not lines; the others are lines.
@@ -814,6 +879,8 @@
         $('debug-cancel').addEventListener('click', cancelDebug);
 
         $('log-button').addEventListener('click', function () { togglePanel('log'); });
+        $('log-level').addEventListener('change', changeLogChoices);
+        $('log-date').addEventListener('change', changeLogChoices);
         $('history-button').addEventListener('click', function () { togglePanel('history'); });
         $('settings-button').addEventListener('click', function () { togglePanel('settings'); });
         $('settings-apply').addEventListener('click', applySettings);

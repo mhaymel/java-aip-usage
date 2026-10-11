@@ -68,6 +68,10 @@ public final class SettingsStore {
 
     static final String FAKE_TOKEN_KEY = "fakeToken";
 
+    static final String LOG_LEVEL_KEY = "logLevel";
+
+    static final String LOG_DATE_KEY = "logDate";
+
     static final String HISTORY_DELTA_USED_KEY = "historyDeltaUsed";
 
     static final String HISTORY_DELTA_TIME_KEY = "historyDeltaTime";
@@ -152,7 +156,9 @@ public final class SettingsStore {
                 flag(root, SHOW_TITLE_BAR_KEY, defaults.showTitleBar()),
                 flag(root, FAKE_BACKEND_KEY, defaults.fakeBackend()),
                 scenario(root, defaults.fakeScenario()),
-                flag(root, FAKE_TOKEN_KEY, defaults.fakeToken()));
+                flag(root, FAKE_TOKEN_KEY, defaults.fakeToken()),
+                logLevel(root, defaults.logLevel()),
+                flag(root, LOG_DATE_KEY, defaults.logDate()));
     }
 
     /**
@@ -237,6 +243,20 @@ public final class SettingsStore {
         return named.get();
     }
 
+    /** The level the log panel shows, by its name; a name that is none of them is logged and passed over. */
+    private LogLevel logLevel(JsonNode root, LogLevel fallback) {
+        JsonNode node = root.get(LOG_LEVEL_KEY);
+        if (node == null || node.isNull()) {
+            return fallback;
+        }
+        java.util.Optional<LogLevel> named = node.isTextual() ? LogLevel.fromJson(node.textValue()) : java.util.Optional.empty();
+        if (named.isEmpty()) {
+            LOG.log(System.Logger.Level.WARNING, "Ignoring " + LOG_LEVEL_KEY + " in " + file + ": it must be one of " + LogLevel.names());
+            return fallback;
+        }
+        return named.get();
+    }
+
     private int interval(JsonNode root, int fallback) {
         JsonNode node = root.get(USAGE_KEY);
         if (node == null || node.isNull()) {
@@ -312,6 +332,8 @@ public final class SettingsStore {
         root.put(FAKE_BACKEND_KEY, settings.fakeBackend());
         root.put(FAKE_SCENARIO_KEY, settings.fakeScenario().optionName());
         root.put(FAKE_TOKEN_KEY, settings.fakeToken());
+        root.put(LOG_LEVEL_KEY, settings.logLevel().json());
+        root.put(LOG_DATE_KEY, settings.logDate());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
 
