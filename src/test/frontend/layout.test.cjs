@@ -653,12 +653,14 @@ test('the log\'s start line has a gray for each theme, a light one and a dark on
     assert.ok(css.indexOf('--mark: #30363d') > css.indexOf('prefers-color-scheme: dark'), 'the second is in the dark block');
 });
 
-test('an optional item of the row that is empty keeps its room and is not seen', () => {
-    assert.match(ruleOf('.delta.empty'), /visibility:\s*hidden/);
-    assert.doesNotMatch(ruleOf('.delta.empty'), /display\s*:\s*none/, 'it must not leave the layout');
-    for (const rule of ['.delta-used', '.delta-time', '.delta-interval']) {
-        assert.match(ruleOf(rule), /min-width:\s*[0-9.]+ch/, rule + ' has a width of its own, which it keeps empty');
+test('an optional item of the row with no value is a gray box of the item\'s own width, never an unseen gap, and is not dimmed', () => {
+    assert.doesNotMatch(css, /\.delta\.empty/, 'nothing is kept unseen any more');
+    for (const rule of ['.delta-used', '.delta-time', '.delta-duration', '.delta-interval']) {
+        assert.match(ruleOf(rule), /min-width:\s*[0-9.]+ch/, rule + ' has a width of its own, which its gray box has too');
     }
+    assert.match(ruleOf('.stale .skeleton'), /opacity:\s*0\.33/, 'the strength of the box, not that of the old figures');
+    assert.ok(css.indexOf('.stale .skeleton') > css.indexOf('.stale .delta-duration'), 'after the rule that dims, so that it wins');
+    assert.match(html, /0\.00 when it has not changed\./, 'the tooltip of the checkbox says what an unchanged amount shows');
 });
 
 // ---- debug mode

@@ -223,7 +223,7 @@ texts are in the requirements (How the figures are written).
   `variants` (the time as `timeShort` and `timeLong`, and the amounts as `usedPlain`, `usedSymbol`, `limitPlain` and `limitSymbol`, whatever the settings say, so that the settings view can show a change of the time format or of the symbol in the row before it is applied; `null` with no reading, and the four amounts `null` with no spend);
   `countdown` (with `countdownAlert`, the message of an HTTP 429, which makes the countdown red and is shown when it is hovered; the 429
   has no `message`; with the countdown switched off there is no `countdownAlert` and the 429 has a `message` like any other failure), `interval` (the time between usage requests in force, `60s`), `deltaUsed` and `deltaTime` as
-  `{text, tooltip}` or `null` (the seconds of `countdown`, `interval` and `deltaTime` have no space before the `s`, and `deltaUsed` never has a currency symbol); `duration` (how long the latest usage request that has ended took, a failed one included, as the history file has it: `87ms`, and `1s034ms` from a second on; `null` until one has ended); `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
+  `{text, tooltip}` or `null` (the seconds of `countdown`, `interval` and `deltaTime` have no space before the `s`, and `deltaUsed` never has a currency symbol; an unchanged amount is `0.00`, with no sign, and `deltaUsed` is `null` only when the change is not known, which the row shows as a gray box, as it does a `deltaTime` and a `duration` of `null`); `duration` (how long the latest usage request that has ended took, a failed one included, as the history file has it: `87ms`, and `1s034ms` from a second on; `null` until one has ended); `message` as `{kind, text}` or `null`; and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
   `deltaTime`, `time`, `used`, `limit`, `refresh`, `countdown` and `duration` the settings switch on, and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
   the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language (the cells of the history are the exception: they are the file's own text, `1000.00`).
@@ -276,7 +276,7 @@ Read-only. The end of the log file, for the panel the log button shows in the ma
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.38", "..."]
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.39", "..."]
 }
 ```
 

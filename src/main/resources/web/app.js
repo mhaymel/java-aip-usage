@@ -157,9 +157,9 @@
         setNote('alert-note', hoveringCountdown && v.countdownAlert ? v.countdownAlert : '');
         renderOptional('interval', s.interval, v.interval, false, '');
         renderButtons(s);
-        renderOptional('delta-used', s.deltaUsed, v.deltaUsed, loading, 'Change in the amount used since the previous reading');
-        renderOptional('delta-time', s.deltaTime, v.deltaTime, loading, 'Time since the previous reading');
-        renderOptional('duration', s.duration, v.duration, loading, 'How long the latest usage request took');
+        renderOptional('delta-used', s.deltaUsed, v.deltaUsed, 'Change in the amount used since the previous reading');
+        renderOptional('delta-time', s.deltaTime, v.deltaTime, 'Time since the previous reading');
+        renderOptional('duration', s.duration, v.duration, 'How long the latest usage request took');
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
     }
@@ -199,20 +199,19 @@
         });
     }
 
-    // The classes of the optional items of the row, which keep their room when they have no value.
+    // The classes of the optional items of the row, which are a gray box of their own width when they have no value.
     var OPTIONAL_CLASSES = { 'interval': 'delta delta-interval', 'delta-used': 'delta delta-used', 'delta-time': 'delta delta-time', 'duration': 'delta delta-duration' };
 
     /**
-     * An optional item of the row. Its setting off, it is not there and takes no room. Its setting on, it keeps its room even when the
-     * backend has no value for it (a change of zero, an unknown time): it is then empty and invisible, so that the row does not change width
-     * from one refresh to the next.
+     * An optional item of the row. Its setting off, it is not there and takes no room. Its setting on, it is its value, or, when the
+     * backend has none for it (no reading before this one, no request that has ended), a gray box with its tooltip: at the start
+     * and at any time after. The box is as wide as the item's room, so the row does not change width from one refresh to the next.
      */
-    function renderOptional(id, wanted, item, loading, tooltip) {
-        var skeleton = Boolean(loading && !item);
+    function renderOptional(id, wanted, item, tooltip) {
         show(id, Boolean(wanted));
-        $(id).className = OPTIONAL_CLASSES[id] + (item ? '' : skeleton ? ' skeleton' : ' empty');
-        $(id).textContent = item ? item.text : skeleton ? '\u00a0' : '';
-        $(id).title = item ? item.tooltip : skeleton ? tooltip : '';
+        $(id).className = OPTIONAL_CLASSES[id] + (item ? '' : ' skeleton');
+        $(id).textContent = item ? item.text : '\u00a0';
+        $(id).title = item ? item.tooltip : tooltip;
     }
 
     /** Whether the backend says that the fake backend is in use, so that the figures are invented. */

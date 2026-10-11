@@ -132,13 +132,15 @@ final class StatusDisplay {
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {
-        if (change == null || change.deltaUsed() == null || change.deltaUsedText() == null) {
+        if (change == null || change.deltaUsed() == null) {
             return null;
         }
+        // A change of nothing has no text of its own, so that the history leaves its cell empty; the row writes it, as 0.00.
+        String text = change.deltaUsedText() != null ? change.deltaUsedText() : Formatting.amount(0.0);
         String currency = usage != null && usage.spend() != null && usage.spend().currency() != null
                 ? ", in " + usage.spend().currency() : "";
         return new Tip(
-                change.deltaUsedText(),
+                text,
                 "Change in the amount used since the previous reading" + currency);
     }
 

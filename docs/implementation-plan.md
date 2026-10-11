@@ -1196,16 +1196,22 @@ yet built", a commit. Also decided by the person: the frame in `docs/img_3.png` 
 
 ### 51. A gray box for a figure that is not known
 
-**Status: specified, not built (version 0.39).**
+**Status: built (version 0.39).** Requirement: A gray box for a figure that is not known.
 
-- **The page.** `renderOptional` draws the gray box whenever the element is wanted and has no item, not only while
-  `loading`; the class `empty` and its rule go.
-- **The backend.** The status carries the change in the amount used when it is zero as well, as `0.00`, where it carried
-  nothing; it carries nothing only when there is no reading before or no amount. The change comes from `HistoryDeltas`
-  through `LatestChangeCache`, and the history panel takes its `Δ used` from the same place (`delta_used_text`), where
-  an unchanged amount has to stay empty: the `0.00` is made where the status is put together, not in `HistoryDeltas`.
-- **Tests.** The view and status tests that expect nothing for an unchanged amount are turned round; `app.test.cjs` for the
-  gray box after the start, in `No usage reported` and `No data`.
+- **The page.** `renderOptional` draws the gray box whenever the element is wanted and has no item, with the tooltip of the
+  element; it no longer asks whether the row is still loading. The class `empty` and its rule are gone. A rule after the one
+  that dims old figures, `.stale .skeleton`, keeps the box at its own strength.
+- **The backend.** `StatusDisplay` writes `0.00` for a change that is there and has no text, which is a change of nothing,
+  a change that rounds to nothing included; it gives no item only when the change is not known. `DeltaBody` is as it was,
+  with no text for a change of nothing, so the history panel's `Δ used` is empty for it as before.
+- **The tooltip** of the checkbox in `index.html`.
+- **Tests.** `StatusDisplayTest`: `0.00` for a change of 0, of 0.004 and of -0.004, no item for a change that is not known,
+  and no text in `DeltaBody`. `app.test.cjs`: the gray box with its tooltip beside a reading's figures, for the changes and
+  for the request duration; the figure back when the value returns; `0.00` shown as a figure. `layout.test.cjs`: no
+  `.delta.empty`, the widths, the rule that keeps the box from being dimmed, the tooltip.
+
+**Not checked by a test.** The row in a real window in `No usage reported`, the case of `docs/img_4.png`: the page test
+gives the row a reading with no change, which is the same path.
 
 ### 52. The log panel: a level and the date
 

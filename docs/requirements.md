@@ -270,7 +270,7 @@ snug against the button, so they read as one group:
 they are switched and what the row shows before the first reading.
 
 **An item of the row whose switch is on keeps its room.** The interval, the two changes and the request duration (the percentage is part of the figures) are in the row when their
-switches are on, and when the program has no value for one at that moment, for instance a change of zero or a time that cannot be worked out, the item is empty and not seen but keeps the width it would have, so the row does not change width from
+switches are on, and when the program has no value for one at that moment, for instance a time that cannot be worked out, the item is a gray box of the width it would have (see A gray box for a figure that is not known), so the row does not change width from
 one refresh to the next. An item whose switch is off is not there and takes no room.
 
 A button that is switched off is not shown and takes no room, so the row is narrower by it (the window follows when the
@@ -900,9 +900,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **It is off by default and green**, the green of the other figures, and its tooltip in the row is `How long the latest
   usage request took`.
 - **It behaves like the other figures:** it is dimmed with the old figures after a failed refresh, it is a gray box at
-  the start until a request has ended, and with its switch on and no value it keeps its room, which is that of `1s034ms`.
+  the start until a request has ended, and its room is that of `1s034ms`.
   A reading taken from the history at startup has no request behind it, so until the first request has ended the element is
-  empty.
+  still a gray box, beside the figures of that reading.
 
 ### A checkbox for each element, in the order of the row
 
@@ -929,7 +929,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   | `Refresh button` | `A button that reads the usage now, without waiting for the next refresh.` |
   | `Countdown` | `The seconds until the usage is read again. It is negative when a refresh is overdue, and red while Anthropic asks the program to slow down.` |
   | `Interval` | `The time between two usage requests, in seconds, as set under Request, or the longer wait in force after Anthropic asked the program to slow down.` |
-  | `Change in the amount used` | `How much the amount used has changed since the reading before this one. Nothing is shown when it has not changed.` |
+  | `Change in the amount used` | `How much the amount used has changed since the reading before this one. 0.00 when it has not changed.` |
   | `Time since the previous reading` | `The seconds between this reading and the one before it.` |
   | `Request duration` | `How long the latest usage request to Anthropic took, in milliseconds, and in seconds and milliseconds from one second on.` |
   | `Log button` | `A button that shows the log of the program below the row, and hides it again.` |
@@ -953,7 +953,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - After a save the row keeps what was previewed until the next status says the same, so it does not go back to the old state for a moment.
 - **The three panel buttons follow their checkboxes while the settings are shown too.** The button of a panel that is open
   still stays until the panel is closed.
-- An element that is switched on in the preview and has no value to show keeps its room.
+- An element that is switched on in the preview and has no value to show is a gray box in its room.
 
 ### A placeholder at the start
 
@@ -968,10 +968,40 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   request duration. The
   interval is known from the settings and the buttons are drawn at once, so they have none; a countdown that already has a value
   shows it. A reading taken from the history at startup is a reading, so the row then has its figures and no gray box.
-- It is for the start only. Once a reading or a failure has arrived the row is as described above: the
-  figures, or `No data`, or `No usage reported`, and an element with no value keeps its room unseen.
+- For the time, the percentage, the amount used, the budget and the countdown it is for the start only. Once a reading or
+  a failure has arrived the row has the figures, or `No data`, or `No usage reported`. The two changes and the request
+  duration are a gray box whenever they have no value (see below).
 - Before the page has its first answer from the application it does not know which elements are switched on, so for that moment
   it shows only the refresh button and the panel buttons.
+
+### A gray box for a figure that is not known
+
+- **The gray box is not for the start only.** At any time, an element of the row that is switched on, and whose value
+  is not known, is shown as the gray box of A placeholder at the start, with the tooltip it has there. Before version 0.39 it
+  kept its room and was not seen.
+- **Which elements, and when their value is not known:**
+
+  | Element | Not known when |
+  | --- | --- |
+  | `Change in the amount used` | there is no reading before this one to compare with, or the row has no amount used: `No data`, `No usage reported` |
+  | `Time since the previous reading` | there is no reading before this one, or the application has no time for either of the two |
+  | `Request duration` | no usage request of this run has ended yet, as when the reading shown was taken from the history at startup |
+
+  `docs/img_4.png` is the case that brought this up: `No usage reported`, both changes switched on, and, before, an empty gap
+  where the two are; there are two gray boxes there now.
+- **The other elements are as they were.** The time, the percentage, the amount used, the budget and the countdown are
+  gray boxes at the start only; after that the row has their figures, or `No data` or `No usage reported` in the
+  place of the amounts, and the percentage is not there when Anthropic reports none.
+- **A change of nothing is written, not left out.** When the amount used is the same as that of the reading before, the
+  `Change in the amount used` shows `0.00`: no sign, no currency symbol, two decimals, in the green of the other
+  figures. Before version 0.39 the element was empty then. A rise is `+1.37` and a fall `-1.37`, as before.
+- **There is no empty, unseen element.** A switched-on figure of the row is its value or a gray box. The row
+  still does not change its width from one refresh to the next: the gray box of an element is as wide as the room the
+  element kept before.
+- **The gray box is not dimmed with the old figures** after a failed refresh; it has no figure to be old.
+- **The tooltip of the checkbox `Change in the amount used`** in the settings reads `How much the amount used has
+  changed since the reading before this one. 0.00 when it has not changed.`
+- **The history panel is not changed by this**: its columns `Δ used` and `Δ time` are as they were.
 
 ## Debug mode
 
@@ -1065,40 +1095,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## A gray box for a figure that is not known, and the level and date of the log
+## The level and date of the log
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.38; where
-this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 51 and 52).
-
-### A gray box for a figure that is not known, and a change of nothing written as a figure
-
-- **The gray box is not for the start only.** At any time, an element of the row that is switched on, and whose value
-  is not known, is shown as the gray box of A placeholder at the start, with the tooltip it has there. It no longer
-  keeps its room unseen.
-- **Which elements, and when their value is not known:**
-
-  | Element | Not known when |
-  | --- | --- |
-  | `Change in the amount used` | there is no reading before this one to compare with, or the row has no amount used: `No data`, `No usage reported` |
-  | `Time since the previous reading` | there is no reading before this one, or the application has no time for either of the two |
-  | `Request duration` | no usage request of this run has ended yet, as when the reading shown was taken from the history at startup |
-
-  `docs/img_4.png` is the case that brought this up: `No usage reported`, both changes switched on, and an empty gap
-  where the two are; there are two gray boxes there now.
-- **The other elements are as they were.** The time, the percentage, the amount used, the budget and the countdown are
-  gray boxes at the start only; after that the row has their figures, or `No data` or `No usage reported` in the
-  place of the amounts, and the percentage is not there when Anthropic reports none.
-- **A change of nothing is written, not left out.** When the amount used is the same as that of the reading before, the
-  `Change in the amount used` shows `0.00`: no sign, no currency symbol, two decimals, in the green of the other
-  figures. Before, the element was empty then. A rise is `+1.37` and a fall `-1.37`, as before.
-- **So an empty, unseen element is no more.** A switched-on figure of the row is its value or a gray box. The row
-  still does not change its width from one refresh to the next: the gray box of an element is as wide as the room the
-  element kept before.
-- **The gray box is not dimmed with the old figures** after a failed refresh; it has no figure to be old.
-- **The tooltip of the checkbox `Change in the amount used`** in the settings reads `How much the amount used has
-  changed since the reading before this one. 0.00 when it has not changed.`
-- **The history panel is not changed by this**: its columns `Δ used` and `Δ time` are as they were.
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.39; where
+this section says otherwise, this section is what is to be built. It moves into the description of the program
+when it is built (see the implementation plan, phase 52).
 
 ### The log panel: a level to choose and the date to switch on and off
 

@@ -1110,17 +1110,19 @@ test('turning the settings on shows the items at the next poll, as the backend s
     assert.equal(page.el('delta-time').title, 'Time since the previous reading');
 });
 
-test('an item the backend could not work out is left out even though its setting is on', async () => {
+test('an item the backend could not work out is a gray box with its tooltip, at any time and not only at the start', async () => {
     const status = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, deltaUsed: null, show: { interval: true, deltaUsed: true, deltaTime: true } } };
     const page = await load(backendOf({ config: CONFIG, status }));
 
-    assert.equal(page.el('delta-used').textContent, '', 'it has nothing to say');
-    assert.match(page.el('delta-used').className, /\bempty\b/, 'and is empty and invisible');
+    assert.equal(page.el('delta-used').textContent.trim(), '', 'it has nothing to say');
+    assert.equal(page.el('delta-used').className, 'delta delta-used skeleton', 'and is a gray box, though a reading is there');
+    assert.equal(page.el('delta-used').title, 'Change in the amount used since the previous reading');
     assert.equal(page.el('delta-time').hidden, false);
-    assert.doesNotMatch(page.el('delta-time').className, /\bempty\b/);
+    assert.doesNotMatch(page.el('delta-time').className, /\bskeleton\b/, 'the one that has a value shows it');
+    assert.doesNotMatch(page.el('used').className, /\bskeleton\b/, 'and the amounts are figures');
 });
 
-test('an optional item whose setting is on keeps its room when it has no value, so the row does not change width; with the setting off it takes none', async () => {
+test('an optional item whose setting is on is a gray box in its room when it has no value, so the row does not change width; with the setting off it takes none', async () => {
     const withValue = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { interval: true, deltaUsed: true, deltaTime: true } } };
     const state = { config: CONFIG, status: withValue };
     const page = await load(backendOf(state));
@@ -1130,8 +1132,9 @@ test('an optional item whose setting is on keeps its room when it has no value, 
     await page.firePoll();
     for (const id of ['delta-used', 'delta-time']) {
         assert.equal(page.el(id).hidden, false, id + ' is still in the row');
-        assert.match(page.el(id).className, /\bempty\b/, id);
-        assert.equal(page.el(id).title, '');
+        assert.match(page.el(id).className, /\bskeleton\b/, id);
+        assert.doesNotMatch(page.el(id).className, /\bempty\b/, id);
+        assert.notEqual(page.el(id).title, '', id + ' has its tooltip');
     }
 
     state.status = { ...withValue, display: { ...withValue.display, deltaUsed: null, deltaTime: null, show: { interval: true, deltaUsed: false, deltaTime: false } } };
@@ -1140,17 +1143,22 @@ test('an optional item whose setting is on keeps its room when it has no value, 
     assert.equal(page.el('delta-time').hidden, true);
 });
 
-test('the item comes back with its text and loses the empty class when the value returns', async () => {
+test('the item comes back with its text and is no gray box when the value returns, and an unchanged amount is a figure', async () => {
     const withValue = { ...WITH_CHANGE, display: { ...WITH_CHANGE.display, show: { interval: false, deltaUsed: true, deltaTime: false } } };
     const state = { config: CONFIG, status: { ...withValue, display: { ...withValue.display, deltaUsed: null } } };
     const page = await load(backendOf(state));
-    assert.match(page.el('delta-used').className, /empty/);
+    assert.match(page.el('delta-used').className, /skeleton/);
 
     state.status = withValue;
     await page.firePoll();
 
     assert.equal(page.el('delta-used').textContent, '+0.05');
-    assert.doesNotMatch(page.el('delta-used').className, /empty/);
+    assert.doesNotMatch(page.el('delta-used').className, /skeleton/);
+
+    state.status = { ...withValue, display: { ...withValue.display, deltaUsed: { text: '0.00', tooltip: 'Change in the amount used since the previous reading, in USD' } } };
+    await page.firePoll();
+    assert.equal(page.el('delta-used').textContent, '0.00', 'what the backend writes for a change of nothing');
+    assert.doesNotMatch(page.el('delta-used').className, /skeleton/);
     assert.match(page.el('delta-used').className, /\bdelta-used\b/, 'its own class is kept');
 });
 
@@ -2103,12 +2111,13 @@ test('the request duration is in the row when its switch is on, as the backend w
     assert.equal(shown.el('duration').className, 'delta delta-duration');
 });
 
-test('the request duration with its switch on and no value keeps its room and is not seen', async () => {
+test('the request duration with its switch on and no request ended yet is a gray box, with a reading on show as well', async () => {
     const page = await load(backendOf({ config: CONFIG, status: withShow(withDisplay(SPEND_STATUS), { duration: true }) }));
 
     assert.equal(page.el('duration').hidden, false);
-    assert.equal(page.el('duration').className, 'delta delta-duration empty');
-    assert.equal(page.el('duration').textContent, '');
+    assert.equal(page.el('duration').className, 'delta delta-duration skeleton');
+    assert.equal(page.el('duration').textContent.trim(), '');
+    assert.equal(page.el('duration').title, 'How long the latest usage request took');
 });
 
 test('Stay on top is a setting of the window: sent with the others, and not previewed in the row', async () => {

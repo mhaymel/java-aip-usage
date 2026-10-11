@@ -156,7 +156,8 @@ body {
 
 /*
  * Before the first reading an element that is switched on is a gray box of about its usual width, with its tooltip:
- * the row has its shape at once, and what will be where can be seen and asked.
+ * the row has its shape at once, and what will be where can be seen and asked. The two changes and the request duration
+ * are one at any time they have no value, after the start as well.
  */
 .skeleton {
     display: inline-block;
@@ -183,6 +184,11 @@ body {
 .stale .delta-time,
 .stale .delta-duration {
     opacity: 0.6;
+}
+
+/* A gray box has no figure to be old, so it is not dimmed with them: it keeps its own strength. */
+.stale .skeleton {
+    opacity: 0.33;
 }
 
 .icon {
@@ -598,7 +604,3 @@ body {
     stroke-width: 3.3;
 }
 
-/* An optional item of the row with its setting on and no value keeps its room, and is not seen. */
-.delta.empty {
-    visibility: hidden;
-}

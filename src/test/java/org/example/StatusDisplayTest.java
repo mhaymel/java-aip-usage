@@ -283,15 +283,21 @@ class StatusDisplayTest {
     }
 
     @Test
-    void aChangeOfZeroHasNoItemInTheRowButItsTimeStillHas() {
+    void aChangeOfZeroIsWrittenInTheRowWithoutASignAndAChangeThatIsNotKnownHasNoItem() {
         UsageState s = state(spend(SPEND), null, null);
 
         StatusDisplay.View none = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.0, 60L), Settings.defaults());
-        assertNull(none.deltaUsed(), "no 0.00");
+        assertEquals("0.00", none.deltaUsed().text(), "written, with no sign and no currency symbol");
+        assertEquals("Change in the amount used since the previous reading, in USD", none.deltaUsed().tooltip());
         assertEquals("60s", none.deltaTime().text(), "in seconds, never minutes");
+        assertNull(ApiHandler.DeltaBody.of(0.0, 60L).deltaUsedText(), "the history's cell stays empty for it");
 
-        assertNull(build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.004, 60L), Settings.defaults()).deltaUsed(),
+        assertEquals("0.00", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.004, 60L), Settings.defaults()).deltaUsed().text(),
                 "rounds to zero");
+        assertEquals("0.00", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(-0.004, 60L), Settings.defaults()).deltaUsed().text(),
+                "and never -0.00");
+        assertNull(build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(null, 60L), Settings.defaults()).deltaUsed(),
+                "no reading before, or no amount: not known, which the row shows as a gray box");
         assertEquals("+0.01", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.01, 60L), Settings.defaults()).deltaUsed().text());
         assertEquals("-0.01", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(-0.01, 60L), Settings.defaults()).deltaUsed().text());
     }
