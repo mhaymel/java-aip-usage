@@ -169,6 +169,16 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/*
+ * The word between the amount used and the budget, "187.39 of 1,000.00": set back, a pixel smaller (14 px, the least any text of the row has), lighter and gray, so that the two
+ * figures stand out. It is on their baseline, and the blank either side of it is its own.
+ */
+.of {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--muted);
+}
+
 /* One green for the amounts, the percentage, the two changes and the request duration: fixed, and never a sign of the severity. */
 .delta-used,
 .delta-time,

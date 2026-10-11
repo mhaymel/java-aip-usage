@@ -85,7 +85,12 @@ test('the countdown comes right after the refresh button, and the settings butto
 });
 
 test('the amounts are two separate numbers, each able to carry its own tooltip', () => {
-    assert.match(html, /<span id="used"><\/span><span id="slash"> \/ <\/span><span id="limit"><\/span>/, 'the slash is an element of its own, to go when one amount does');
+    assert.match(html, /<span id="used"><\/span><span id="of" class="of"> of <\/span><span id="limit"><\/span>/, 'the word of is an element of its own, with a blank either side, and there is no slash');
+    assert.doesNotMatch(html, /id="slash"/);
+    const of = ruleOf('.of');
+    assert.match(of, /font-size:\s*14px/, 'smaller than the figures, and no smaller than any text of the row may be');
+    assert.match(of, /font-weight:\s*400/, 'and lighter');
+    assert.match(of, /color:\s*var\(--muted\)/, 'and gray, so that the two figures stand out');
     assert.doesNotMatch(html, /id="amounts"/);
     assert.doesNotMatch(html, /\$/, 'no currency sign in the page');
 });

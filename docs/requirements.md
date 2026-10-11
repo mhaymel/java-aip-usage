@@ -949,7 +949,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   by default, so a settings file that says nothing of them changes nothing.
 - Every element can be hidden, so the row can be emptied down to the gear. An element that is hidden
   is not there and takes no room.
-- The slash between the amount used and the budget is there only when both are shown.
+- The word `of` between the amount used and the budget is there only when both are shown.
 - **With the refresh button hidden** there is no manual refresh in the window; the scheduled one goes on.
 - **With the countdown hidden** an HTTP 429 is shown in a message line (see Countdown).
 
@@ -1091,7 +1091,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   are gray boxes as well, and so is the time, which has no value then. That a refresh failed is said by the message
   line, or by the red countdown for an HTTP 429, as before.
 - **The time, with no usage reported, is the time of the reading**, as before: that reading was taken.
-- **The slash between the amount used and the budget** is there when both are shown, between the two boxes as between
+- **The word `of` between the amount used and the budget** is there when both are shown, between the two boxes as between
   the two figures.
 - **The tooltip of such a box says why it is one**: the element's own short tooltip, a colon, and `no usage reported`
   or `no data`. So `Credits used: no usage reported`, `Credit budget: no data`, `Share of the budget spent: no usage
@@ -1236,6 +1236,15 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The least width is of the page**, 300 pixels of its content; the border of a window with no title bar, and the red
   border of the fake backend, are added to it as to any width.
 
+### The word `of` between the amount used and the budget
+
+- **Between the amount used and the budget is the word `of`**: `187.39 of 1,000.00`. Before version 0.49 it was a slash.
+- **The word is set back**, so that the two figures stand out: in the muted gray, `#8a8f98`, at 14 pixels, which is the least any text of the row has, and regular
+  weight, on the baseline of the figures, with the room of a blank either side.
+- **It is there when both figures are shown**, as the slash was, between two gray boxes as between two figures, and it
+  is dimmed with the old figures after a failed refresh.
+- Nothing else changes: the tooltips, the history, whose columns have no such sign, and the log.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1328,20 +1337,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## The word `of`, bigger tooltips, the program's icon, the zoom of the lists, and the automatic interval
+## Bigger tooltips, the program's icon, the zoom of the lists, and the automatic interval
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.48; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.49; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 61 to 65).
-
-### The word `of` between the amount used and the budget
-
-- **The slash between the amount used and the budget is replaced by the word `of`**: `187.39 of 1,000.00`.
-- **The word is set back**, so that the two figures stand out: in the muted gray, `#8a8f98`, at 12 pixels and regular
-  weight, on the baseline of the figures, with the room of a blank either side.
-- **It is there when both figures are shown**, as the slash was, between two gray boxes as between two figures, and it
-  is dimmed with the old figures after a failed refresh.
-- Nothing else changes: the tooltips, the history, whose columns have no such sign, and the log.
+when it is built (see the implementation plan, phases 62 to 65).
 
 ### Bigger tooltips
 

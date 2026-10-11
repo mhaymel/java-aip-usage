@@ -1450,7 +1450,16 @@ interval of the search. Built **one at a time, small ones first**, a phase and a
 
 ### 61. The word `of`
 
-**Status: specified, not built (version 0.49).** `#slash` in `index.html` and its rule; the tests that read ` / `.
+**Status: built (version 0.49).** Requirement: The word `of` between the amount used and the budget.
+
+- `#slash` is `#of` in `index.html`, with the text ` of `, and `.of` sets it back: regular weight and the muted gray.
+- **14 pixels, not 12.** The requirement was written with 12; the page has a rule, and a test of it, that nothing of the row
+  is under 14 pixels, which is there for the same reason the tooltips and the lists are being made larger. The word has
+  the least the rule allows, a pixel under the figures.
+- **Tests.** `layout.test.cjs`, `app.test.cjs`. In a real window (the on-request test) the row reads `187.39 of
+  1,000.00`, the word is 14 pixels, of weight 400, gray, and its foot is level with that of the amount.
+
+**Not checked by a test.** How it looks.
 
 ### 62. Tooltips of 14 pixels
 

@@ -163,7 +163,7 @@
         figure('percent', 'percent', percentShown, spend && spend.percentText, spend ? spend.percentTooltip : 'Share of the budget spent' + why, spendBoxes);
         figure('used', 'used', usedShown, spend && amount(spend.used, variants, 'used', s.currency), spend ? spend.usedTooltip : 'Credits used' + why, spendBoxes);
         figure('limit', 'limit', limitShown, spend && amount(spend.limit, variants, 'limit', s.currency), spend ? spend.limitTooltip : 'Credit budget' + why, spendBoxes);
-        show('slash', usedShown && limitShown);
+        show('of', usedShown && limitShown);
 
         // While the server asks us to slow down (HTTP 429) the countdown is red and, hovered, says why in bold red.
         figure('countdown', 'countdown' + (v.countdownAlert ? ' alert' : ''), on(s.countdown) && (loading || Boolean(v.countdown)),

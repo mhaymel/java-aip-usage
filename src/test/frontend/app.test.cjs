@@ -341,7 +341,7 @@ test('a reading with no usage shows the countdown and its time, and gray boxes f
         assert.equal(page.el(id).textContent.trim(), '', id);
         assert.equal(page.el(id).title, tooltip + ': no usage reported', 'the tooltip says why it is a box');
     }
-    assert.equal(page.el('slash').hidden, false, 'between the two boxes as between the two figures');
+    assert.equal(page.el('of').hidden, false, 'between the two boxes as between the two figures');
     assert.doesNotMatch(INDEX_HTML, /id="placeholder"/, 'the row has no place for the words any more');
 });
 
@@ -351,7 +351,7 @@ test('with no usage an amount that is switched off has no box, and the figures a
     assert.equal(page.el('used').hidden, true);
     assert.equal(page.el('percent').hidden, true, 'off by default');
     assert.match(page.el('limit').className, /skeleton/);
-    assert.equal(page.el('slash').hidden, true);
+    assert.equal(page.el('of').hidden, true);
 
     state.status = SPEND_STATUS;
     await page.firePoll();
@@ -2191,13 +2191,13 @@ test('the page names every open panel in its size, the settings too, so that the
     }
 });
 
-test('the slash is there only when both amounts are, and the amounts go when all three of their figures are off', async () => {
+test('the word of is there only when both amounts are, and the amounts go when all three of their figures are off', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    assert.equal(page.el('slash').hidden, false);
+    assert.equal(page.el('of').hidden, false);
     await page.click('settings-button');
 
     await change(page, 'set-showUsed', false);
-    assert.equal(page.el('slash').hidden, true);
+    assert.equal(page.el('of').hidden, true);
     assert.equal(page.el('limit').hidden, false, 'the budget alone');
 
     await change(page, 'set-showLimit', false);

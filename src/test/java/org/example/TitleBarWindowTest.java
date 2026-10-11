@@ -99,6 +99,10 @@ class TitleBarWindowTest {
         assertTrue(line(all, "settings-all").contains("/13 note:"), "one press: all thirteen on:\n" + all);
         assertTrue(line(all, "settings-narrow").contains("/0 note:"), "another: all off:\n" + all);
 
+        // The word of between the amount used and the budget: small, light and gray, and near the foot of the figures.
+        assertTrue(line(all, "start").matches(".* of:\\[ of \\|14px\\|400\\|rgb\\(138, 143, 152\\)\\|[0-3]] .*"), all);
+        assertTrue(line(all, "start").contains("187.39 of 1,000.00"), "the row reads so:\n" + all);
+
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.
         assertTrue(line(all, "log").contains(" logControls:true "), all);
         assertTrue(line(all, "log").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), "information is shown, and the lines begin with the time:\n" + all);
