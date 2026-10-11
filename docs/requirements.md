@@ -1147,6 +1147,25 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   not: their lines are written from the information level up, as before.
 - Nothing finer than a debug line is written.
 
+### An error in the log when the response has a format the program cannot process
+
+- **When a usage response cannot be processed because of its format, an error is written to the log** (since version
+  0.45), at the error level: `The usage response could not be processed: <reason>`, and after it the beginning of the response.
+- **The cases** are those in which the program reads the response and cannot make a reading of it: it is empty, it is
+  not JSON, it is not a JSON object, or what it holds of the spend is not in the form the program knows. A response
+  that is an HTTP error, a timeout, and a failure to obtain a token are not among them.
+- **The response is written with it**: the first 2,000 characters of the body, masked like everything the log gets,
+  on the lines after the first, so that the new format can be seen in the log. A longer body is cut there and the first
+  line says so after the reason, ` (the first 2000 of N characters)`; an empty one is written as `(empty)`.
+- **The warning stays.** `Usage refresh failed: <the message>` is written as for every failed refresh, the row shows
+  the failure as before, and the error log panel has its one entry.
+- It is written whether or not `Log the response` is on.
+- **The reasons** are the messages the row shows for these failures: `The usage response is not valid JSON: <what the
+  reader said>`, `The usage response is not a JSON object.`, `The usage response has no "spend" object; its format may
+  have changed.` and `The usage response enables spend but reports neither "used" nor "limit"; its format may have
+  changed.`
+- In the file the word for the level of an error is `SEVERE`; the log panel shows the line at every level.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1239,25 +1258,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## The format error, and select all
+## Select all
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.44; where
-this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 57 and 58).
-
-### An error in the log when the response has a format the program cannot process
-
-- **When a usage response cannot be processed because of its format, an error is written to the log**, at the error
-  level: `The usage response could not be processed: <reason>`, and after it the beginning of the response.
-- **The cases** are those in which the program reads the response and cannot make a reading of it: it is empty, it is
-  not JSON, it is not a JSON object, or what it holds of the spend is not in the form the program knows. A response
-  that is an HTTP error, a timeout, and a failure to obtain a token are not among them.
-- **The response is written with it**: the first 2,000 characters of the body, masked like everything the log gets,
-  on the lines after the first, so that the new format can be seen in the log. A longer body is cut there and the line
-  says how long it was, `(the first 2000 of N characters)`; an empty one is written as `(empty)`.
-- **The warning stays.** `Usage refresh failed: <the message>` is written as for every failed refresh, the row shows
-  the failure as before, and the error log panel has its one entry.
-- It is written whether or not `Log the response` is on.
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.45; where
+this section says otherwise, this section is what is to be built. It moves into the description of the program
+when it is built (see the implementation plan, phase 58).
 
 ### A button that selects every element of `Main view`, or none
 

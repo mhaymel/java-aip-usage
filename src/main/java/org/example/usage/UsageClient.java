@@ -141,7 +141,32 @@ public final class UsageClient implements UsageSource {
         if (status / 100 != 2) {
             throw new UsageFetchException(describe(status), status, retryAfter(response));
         }
-        return parser.parse(response.body(), clock.instant());
+        try {
+            return parser.parse(response.body(), clock.instant());
+        } catch (UsageParseException e) {
+            logUnprocessed(e, response.body());
+            throw e;
+        }
+    }
+
+    /** How much of a response that could not be processed is written to the log with the error. */
+    static final int UNPROCESSED_CHARACTERS = 2000;
+
+    /**
+     * An error for a response the program read and could not make a reading of, because of its format: the reason, and
+     * on the lines after it the beginning of the body, so that a format that has changed can be seen in the log. The log
+     * masks anything shaped like a credential on its way out, as for every line. It is written whether or not the
+     * responses are logged; the failed refresh has its own line, a warning, as every failed refresh has.
+     */
+    private static void logUnprocessed(UsageParseException reason, String body) {
+        String text = body == null || body.isEmpty() ? "(empty)" : body;
+        String cut = "";
+        if (text.length() > UNPROCESSED_CHARACTERS) {
+            cut = " (the first " + UNPROCESSED_CHARACTERS + " of " + text.length() + " characters)";
+            text = text.substring(0, UNPROCESSED_CHARACTERS);
+        }
+        LOG.log(System.Logger.Level.ERROR,
+                "The usage response could not be processed: " + reason.getMessage() + cut + System.lineSeparator() + text);
     }
 
     /**

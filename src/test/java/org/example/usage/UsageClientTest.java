@@ -182,6 +182,65 @@ class UsageClientTest {
         assertThrows(UsageParseException.class, () -> client(uri).fetch(TOKEN));
     }
 
+    private List<String> errors() {
+        return logLines.stream().filter(line -> line.startsWith("SEVERE ")).toList();
+    }
+
+    @Test
+    void aResponseWhoseFormatCannotBeProcessedIsAnErrorInTheLogWithTheReasonAndTheResponse() throws Exception {
+        URI uri = serve("/usage", exchange -> reply(exchange, 200, "<html>captive portal</html>"));
+
+        assertThrows(UsageParseException.class, () -> client(uri).fetch(TOKEN));
+
+        assertEquals(1, errors().size(), logLines.toString());
+        String error = errors().get(0);
+        assertTrue(error.startsWith("SEVERE The usage response could not be processed: The usage response is not valid JSON: "), error);
+        assertTrue(error.endsWith(System.lineSeparator() + "<html>captive portal</html>"), "the response on the lines after: " + error);
+        assertFalse(error.contains("characters)"), "nothing was cut: " + error);
+    }
+
+    @Test
+    void everyFormatTheProgramCannotMakeAReadingOfIsSuchAnError() throws Exception {
+        java.util.Map<String, String> cases = new java.util.LinkedHashMap<>();
+        cases.put("[1, 2]", "The usage response is not a JSON object.");
+        cases.put("{\"error\": \"moved\"}", "The usage response has no \"spend\" object; its format may have changed.");
+        cases.put("{\"spend\": {\"enabled\": true}}", "The usage response enables spend but reports neither \"used\" nor \"limit\"; its format may have changed.");
+        for (java.util.Map.Entry<String, String> one : cases.entrySet()) {
+            logLines.clear();
+            URI uri = serve("/usage", exchange -> reply(exchange, 200, one.getKey()));
+
+            assertThrows(UsageParseException.class, () -> client(uri).fetch(TOKEN), one.getKey());
+
+            assertEquals(List.of("SEVERE The usage response could not be processed: " + one.getValue() + System.lineSeparator() + one.getKey()),
+                    errors(), one.getKey());
+        }
+    }
+
+    @Test
+    void anEmptyResponseIsWrittenAsEmptyAndALongOneIsCutAndSaysHowLongItWas() throws Exception {
+        URI empty = serve("/usage", exchange -> reply(exchange, 200, ""));
+        assertThrows(UsageParseException.class, () -> client(empty).fetch(TOKEN));
+        assertTrue(errors().get(0).endsWith(System.lineSeparator() + "(empty)"), errors().toString());
+
+        logLines.clear();
+        String body = "x".repeat(1999) + "YZ" + "w".repeat(499);
+        URI big = serve("/usage", exchange -> reply(exchange, 200, body));
+        assertThrows(UsageParseException.class, () -> client(big).fetch(TOKEN));
+        String error = errors().get(0);
+        assertTrue(error.contains(" (the first 2000 of 2500 characters)" + System.lineSeparator()), error);
+        assertTrue(error.endsWith(System.lineSeparator() + "x".repeat(1999) + "Y"), "the first 2,000 characters and no more");
+    }
+
+    @Test
+    void aGoodResponseAndAnHttpErrorWriteNoSuchError() throws Exception {
+        URI good = serve("/usage", exchange -> reply(exchange, 200, fixture("usage-credits.json")));
+        client(good).fetch(TOKEN);
+        URI refused = serve("/usage", exchange -> reply(exchange, 500, "<html>oops</html>"));
+        assertThrows(UsageFetchException.class, () -> client(refused).fetch(TOKEN));
+
+        assertEquals(List.of(), errors(), "an HTTP error is not a fault of the format");
+    }
+
     @Test
     void doesNotFollowRedirectsSoTheTokenCannotBeForwarded() throws Exception {
         AtomicInteger redirectTargetHits = new AtomicInteger();

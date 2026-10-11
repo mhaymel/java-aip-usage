@@ -1349,12 +1349,18 @@ the program's logging, so its log is the console's.
 
 ### 57. The format error
 
-**Status: specified, not built (version 0.45).**
+**Status: built (version 0.45).** Requirement: An error in the log when the response has a format the program cannot
+process.
 
-- **Where.** `UsageParser` throws `UsageParseException` and `UsageService.fetch` turns it into a failure; the error is
-  written where the body is still at hand, masked by `Redaction`.
-- **Tests.** For each case of the parser, the line and the beginning of the body; the cut at 2,000 characters; that an HTTP
-  error writes none.
+- **Where.** `UsageClient.fetch` is where the body is at hand: it catches the `UsageParseException` of the parser, writes
+  the error with the reason and the first 2,000 characters of the body (`UNPROCESSED_CHARACTERS`), and throws it on, so
+  everything after is as it was: the failed refresh, its warning, the row, the error log.
+- **Masking** is the log's own, as for every line (`Logging`, `Redaction`); nothing is done to the body here.
+- **Tests.** `UsageClientTest`, against a server of its own: a body that is not JSON, one that is not an object, one with
+  no `spend`, one whose `spend` has neither amount, each with its reason and the body after it; an empty body as
+  `(empty)`; a body of 2,500 characters cut at 2,000 with the note; no such error for a good response or an HTTP 500.
+
+**Not checked by a test.** The line in the log file of a real run, with the fake backend's `not-json` scenario.
 
 ### 58. Select every element, or none
 
