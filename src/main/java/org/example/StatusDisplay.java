@@ -60,7 +60,8 @@ final class StatusDisplay {
             Tip deltaTime,
             Tip duration,
             Message message,
-            Show show) {
+            Show show,
+            boolean titleBar) {
     }
 
     /**
@@ -129,7 +130,10 @@ final class StatusDisplay {
                         settings.showPercentage(), settings.showCurrency(), settings.showInterval(), settings.showDeltaUsed(),
                         settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon(),
                         settings.showTime(), settings.showUsed(), settings.showLimit(), settings.showRefresh(), settings.showCountdown(),
-                        settings.showDuration()));
+                        settings.showDuration()),
+                // Whether the setting gives the window its title bar. The page draws a border round a window that has none,
+                // which is one with this off and no panel open.
+                settings.showTitleBar());
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {

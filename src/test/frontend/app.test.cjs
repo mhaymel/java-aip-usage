@@ -2634,3 +2634,47 @@ test('the settings left for the log bring it back with its saved choices, and th
     assert.equal(page.el('log-level').value, 'warning');
     assert.equal(page.el('log-date').checked, true);
 });
+
+// ---- a window with no title bar has a border of the page's own
+
+const bareStatus = status => { const s = withDisplay(status); return { ...s, display: { ...s.display, titleBar: false } }; };
+
+test('with the title bar off and no panel the window has its border, and is larger by it; a panel takes it away', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: bareStatus(SPEND_STATUS) }));
+
+    assert.match(page.el('app').className, /\bbare\b/);
+    assert.equal(page.window.contentSize(), '402,44,0', '1 pixel of border on every side');
+
+    for (const button of ['history-button', 'log-button', 'errors-button', 'settings-button']) {
+        await page.click(button);
+        assert.doesNotMatch(page.el('app').className, /\bbare\b/, button + ': a panel is shown, so the window has its title bar');
+    }
+    await page.click('settings-cancel');
+    await page.click('errors-button');
+    assert.match(page.el('app').className, /\bbare\b/, 'and it is back when the panel is closed');
+    assert.equal(page.window.contentSize(), '402,44,0');
+});
+
+test('with the title bar on, or with nothing said of it, there is no such border', async () => {
+    const on = { ...withDisplay(SPEND_STATUS) };
+    on.display = { ...on.display, titleBar: true };
+    for (const status of [on, SPEND_STATUS]) {
+        const page = await load(backendOf({ config: CONFIG, status }));
+        assert.doesNotMatch(page.el('app').className, /\bbare\b/);
+        assert.equal(page.window.contentSize(), '400,42,0');
+    }
+});
+
+test('the border of a window with no title bar is left out while the red border of the fake backend is shown', async () => {
+    const state = { config: DEBUG_CONFIG, status: { ...bareStatus(SPEND_STATUS), fake: true } };
+    const page = await load(backendOf(state));
+    assert.match(page.el('app').className, /\bfake\b/);
+    assert.doesNotMatch(page.el('app').className, /\bbare\b/);
+    assert.equal(page.window.contentSize(), '406,48,0', 'the red border alone');
+
+    state.status = bareStatus(SPEND_STATUS);
+    await page.firePoll();
+    assert.match(page.el('app').className, /\bbare\b/, 'in debug mode with the fake backend off it is there');
+    assert.doesNotMatch(page.el('app').className, /\bfake\b/);
+    assert.equal(page.window.contentSize(), '402,44,0');
+});

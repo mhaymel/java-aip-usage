@@ -140,8 +140,16 @@ class TitleBarWindowTest {
         }
 
         // Switched off: no border, and the invented figures are gone with their source.
-        assertTrue(line(all, "fake-off-settled").contains(" border:0px "), "the border goes with the fake backend:\n" + all);
-        assertTrue(line(all, "fake-off-settled").contains(" app:[] "), all);
+        // The red border goes with the fake backend. The title bar is off and no panel is shown, so the window has the border
+        // of a window with no title bar instead: one pixel, and the window is larger by it and no more.
+        assertTrue(line(all, "fake-off-settled").contains(" border:1px "), "the thin border of a window with no title bar:\n" + all);
+        assertTrue(line(all, "fake-off-settled").contains(" app:[bare] "), all);
+        for (String bordered : List.of("start", "fake-off-settled", "fake-on-settled")) {
+            assertTrue(line(all, bordered).contains(" gap:0 below:0 "), bordered + ": the border is at the right and the bottom edge of the window:\n" + all);
+        }
+        assertTrue(line(all, "fake-off-settled").contains("titleBar:false"), all);
+        assertTrue(line(all, "debug-again").contains(" border:0px "), "a panel is shown and the title bar is there: no border of the page:\n" + all);
+        assertTrue(line(all, "debug-again").contains("titleBar:true"), all);
         assertTrue(line(all, "fake-off-settled").contains(" used:[] "), "nothing invented is shown as real:\n" + all);
         // Nothing listens at the address, so there is no reading at all: gray boxes with a thin green border and their tooltip,
         // and no word in the row.

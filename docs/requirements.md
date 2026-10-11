@@ -1092,6 +1092,21 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   and with no data the two changes are gray boxes, since there is nothing to compare.
 - **Nothing else says `No usage reported` in the window.** The log still records each reading as it does.
 
+### A border round the window that has no title bar
+
+- **While the window has no title bar it has a border**: a rectangle all the way round its content, 1 pixel wide, drawn
+  by the page. It shows where the window ends, which the frame of the system does when there is a title bar.
+- **Its colour is that of the text**: black on the light theme, and the light colour of the text on the dark one, where
+  black would not be seen.
+- **It is there exactly while the window has no title bar**: the setting `Title bar` is off and no panel is shown.
+  With the title bar shown, by the setting or because a panel is open, there is no such border.
+- **It is left out while the red border of the fake backend is shown**, which is round the window then. In debug mode
+  with the fake backend off, and no title bar, the black border is there.
+- **The window is larger by the border**, 1 pixel on every side, so nothing in the row is covered.
+- **The border is at the edges of the window**, the right and the bottom one as well as the left and the top one, not a
+  fraction of a pixel inside them; the same holds for the red border of the fake backend round the row.
+- It is there since version 0.42.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1184,23 +1199,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## A border and dragging without the title bar, debug lines, the format error, and select all
+## Dragging without the title bar, debug lines, the format error, and select all
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.41; where
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.42; where
 this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 54 to 58).
-
-### A border round the window that has no title bar
-
-- **While the window has no title bar it has a border**: a rectangle all the way round its content, 1 pixel wide, drawn
-  by the page. It shows where the window ends, which the frame of the system does when there is a title bar.
-- **Its colour is that of the text**: black on the light theme, and the light colour of the text on the dark one, where
-  black would not be seen.
-- **It is there exactly while the window has no title bar**: the setting `Title bar` is off and no panel is shown.
-  With the title bar shown, by the setting or because a panel is open, there is no such border.
-- **It is left out while the red border of the fake backend is shown**, which is round the window then. In debug mode
-  with the fake backend off, and no title bar, the black border is there.
-- **The window is larger by the border**, 1 pixel on every side, so nothing in the row is covered.
+when it is built (see the implementation plan, phases 55 to 58).
 
 ### Dragging the window that has no title bar
 

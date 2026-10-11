@@ -110,6 +110,9 @@ public final class UsageAppProbe {
                     // the view that is shown sticks out of the app's border.
                     + " gap:" + page().getEngine().executeScript(
                             "Math.round(window.innerWidth - document.getElementById('app').getBoundingClientRect().right)")
+                    // How far the bottom edge of the app is from that of the window.
+                    + " below:" + page().getEngine().executeScript(
+                            "Math.round(window.innerHeight - document.getElementById('app').getBoundingClientRect().bottom)")
                     + " outside:" + page().getEngine().executeScript(
                             "(function () { var a = document.getElementById('app').getBoundingClientRect(), out = 0;"
                                     + " ['settings-form', 'debug-form'].forEach(function (id) { var f = document.getElementById(id);"

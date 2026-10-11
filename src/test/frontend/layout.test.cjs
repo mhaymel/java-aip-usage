@@ -721,6 +721,20 @@ test('with a settings view shown the app is as wide as the window, so that the r
     assert.match(ruleOf('#app.fake'), /box-sizing:\s*border-box/, 'and the border is inside that width');
 });
 
+test('an app with a border fills the window, so that the border is at its edges, but not while a settings view is measured', () => {
+    const rule = ruleOf('#app.bare,\n#app.fake:not(.fit)');
+    assert.match(rule, /min-width:\s*100%/);
+    assert.match(rule, /min-height:\s*100%/);
+    assert.doesNotMatch(ruleOf('#app.fit'), /height/, 'the height of a settings view is the content\'s own');
+});
+
+test('a window with no title bar has a border of one pixel in the colour of the text, inside its size', () => {
+    const rule = ruleOf('#app.bare');
+    assert.match(rule, /border:\s*1px solid CanvasText/, 'black on the light theme, light on the dark one');
+    assert.match(rule, /box-sizing:\s*border-box/);
+    assert.doesNotMatch(rule, /animation/, 'it does not fade');
+});
+
 test('the mark of the fake backend is a solid red border, three pixels, that fades to the background and back in four seconds', () => {
     const rule = ruleOf('#app.fake');
     assert.match(rule, /border:\s*3px solid var\(--bad\)/);

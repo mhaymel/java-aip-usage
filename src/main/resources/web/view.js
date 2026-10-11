@@ -46,6 +46,8 @@
             duration: d.duration || null,
             show: d.show || { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true },
             message: d.message || null,
+            // Whether the setting gives the window its title bar; when the backend does not say, it has one.
+            titleBar: d.titleBar !== false,
             stale: Boolean(status.stale),
             refreshing: Boolean(status.refreshing)
         };

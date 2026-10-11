@@ -349,4 +349,12 @@ class StatusDisplayTest {
             assertEquals(c[4], show.countdown());
         }
     }
+
+    @Test
+    void theViewSaysWhetherTheSettingGivesTheWindowItsTitleBar() {
+        UsageState s = state(spend(SPEND), null, null);
+
+        assertTrue(build(s, OptionalLong.empty(), null, Settings.defaults()).titleBar(), "on by default");
+        assertFalse(build(s, OptionalLong.empty(), null, Settings.defaults().withShowTitleBar(false)).titleBar());
+    }
 }

@@ -1289,13 +1289,25 @@ that state was seen by the page test only. How the green border looks on the gra
 
 ### 54. A border round the window that has no title bar
 
-**Status: specified, not built (version 0.42).**
+**Status: built (version 0.42).** Requirement: A border round the window that has no title bar.
 
-- **The page** knows the setting and whether a panel is open, so it knows when the window has no title bar: `#app` gets a
-  class for it, with a 1 pixel border in `CanvasText`, not together with `fake`; `contentSize` adds 2 pixels as it adds 6
-  for the red border.
-- **Tests.** `app.test.cjs` for the class and the size in each case; the on-request window test for the border's width with
-  the title bar off, with a panel, and with the fake backend.
+- **The backend** says in the status, as `display.titleBar`, whether the setting gives the window its title bar; the page
+  did not know the setting outside the settings view.
+- **The page.** `bare()`: the setting off, no panel shown, the fake backend not in use. `#app` then has the class `bare`,
+  a border of 1 pixel in `CanvasText`, and `contentSize` adds 2 pixels as it adds 6 for the red border.
+- **At the edges.** The app was as wide as the row and the window as wide as the row rounded up, so the right and the bottom
+  side of a border could be a fraction of a pixel inside the window. While it has a border and no settings view is shown
+  the app fills the window (`min-width` and `min-height` of 100%), for the red border as well.
+- **Tests.** `StatusDisplayTest`, `view.test.cjs`: the flag. `app.test.cjs`: the class and the size with the title bar
+  off, with each panel, with the title bar on, and with the fake backend on and off. `layout.test.cjs`: the two rules.
+- **In a real window** (the on-request test, title bar off): with the fake backend switched off the app has the border of 1
+  pixel and the window is larger by 2; with a panel shown it has none; the right and the bottom side of the border are at
+  the edges of the window, for the red border too. It passes.
+
+**Not checked by a test.** The colour on the dark theme, and how the border looks.
+
+*Seen and left:* with the debug settings shown and the red border on, the bottom side of the border was 2 pixels above the
+bottom edge of the window in the probe; the window of a settings view is rounded up from the page's own height.
 
 ### 55. Dragging the window that has no title bar
 

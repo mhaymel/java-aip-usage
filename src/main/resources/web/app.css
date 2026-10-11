@@ -82,6 +82,26 @@ body {
  * While the fake backend is in use the figures are invented, and the window says so where it cannot be overlooked: a
  * solid red border all the way round, which changes slowly from red to the background and back, for as long as that lasts.
  */
+/*
+ * A window with no title bar has no frame of the system, so the page draws where it ends: a border of one pixel in the colour
+ * of the text, black on the light theme and light on the dark one. It is not there with the red border below.
+ */
+#app.bare {
+    box-sizing: border-box;
+    border: 1px solid CanvasText;
+}
+
+/*
+ * A border of the page is at the edges of the window, not a fraction of a pixel inside them: the window's size is the
+ * row's rounded up, so the app, which is as wide as the row, fills the window while it has a border. Not while a settings
+ * view is shown, where the window's height is measured from the app's own (see contentSize).
+ */
+#app.bare,
+#app.fake:not(.fit) {
+    min-width: 100%;
+    min-height: 100%;
+}
+
 #app.fake {
     box-sizing: border-box;
     border: 3px solid var(--bad);

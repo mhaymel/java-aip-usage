@@ -267,3 +267,9 @@ test('the two states with no amounts are passed on as the word for them, which t
     assert.equal(view.describeStatus({ display: { ...DISPLAY, spend: null, placeholder: 'No usage reported' } }).placeholder, 'No usage reported');
     assert.equal(view.describeStatus({ display: { ...DISPLAY, spend: null, placeholder: null } }).placeholder, null);
 });
+
+test('the window has its title bar unless the backend says the setting is off', () => {
+    assert.equal(view.describeStatus({ display: { ...DISPLAY } }).titleBar, true);
+    assert.equal(view.describeStatus({ display: { ...DISPLAY, titleBar: true } }).titleBar, true);
+    assert.equal(view.describeStatus({ display: { ...DISPLAY, titleBar: false } }).titleBar, false);
+});

@@ -240,7 +240,17 @@
             + (openPanel === 'log' || openPanel === 'history' || openPanel === 'errors' ? ' open' : '')
             + (FORMS[openPanel] ? ' fit' : '')
             // The readings are invented while the fake backend is in use: the red border says so.
-            + (fakeInUse() ? ' fake' : '');
+            + (fakeInUse() ? ' fake' : '')
+            // A window with no title bar has no frame of the system to show where it ends: the page draws one.
+            + (bare() ? ' bare' : '');
+    }
+
+    /**
+     * Whether the window has no title bar and the page draws its border: the setting is off and no panel is shown, since a
+     * panel brings the title bar back. Not while the red border of the fake backend is round the window.
+     */
+    function bare() {
+        return Boolean(lastStatus && lastStatus.display && lastStatus.display.titleBar === false) && !openPanel && !fakeInUse();
     }
 
     // ---- the settings view: a form the backend fills in each time it is opened
@@ -807,7 +817,8 @@
     window.contentSize = function () {
         var box = $('top').getBoundingClientRect();
         // The red border of the fake backend is round everything: the window is larger by it, so that nothing is covered.
-        var edge = fakeInUse() ? 6 : 0;
+        // So is the border of a window with no title bar, which is one pixel.
+        var edge = fakeInUse() ? 6 : bare() ? 2 : 0;
         var width = Math.ceil(box.width) + edge;
         var height = Math.ceil(box.height) + edge;
         if (openPanel === 'debug') {
