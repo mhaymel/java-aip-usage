@@ -297,6 +297,17 @@ test('the line that says an answer had no spend is muted, and the lines of a fai
     assert.match(css, /\.note-stale,\s*\.note-error\s*{\s*color:\s*var\(--bad\)/);
 });
 
+test('while a panel is shown the row is as wide as the window, and with none a message line gives it a least width', () => {
+    const stretched = ruleOf('#app.open .top,\n#app.fit .top');
+    assert.match(stretched, /width:\s*auto/, 'the width of the app, which is the window\'s then');
+    assert.match(stretched, /max-width:\s*none/, 'not held at the 900 pixels of a row');
+    assert.match(css, /#app:not\(\.open\):not\(\.fit\) \.top\.noted\s*{\s*min-width:\s*300px/, 'with no panel, and only while a message is shown');
+    assert.match(ruleOf('.top'), /width:\s*max-content/, 'with no panel and no message the row is as wide as its elements');
+    assert.match(ruleOf('.top'), /max-width:\s*900px/);
+    assert.match(ruleOf('.note'), /min-width:\s*100%/, 'a message is as wide as the row\'s box, whatever that is');
+    assert.doesNotMatch(ruleOf('.strip'), /justify-content/, 'the elements stay at the left');
+});
+
 test('an error in the panel is red', () => {
     assert.match(ruleOf('.panel-error'), /color:\s*var\(--bad\)/);
 });

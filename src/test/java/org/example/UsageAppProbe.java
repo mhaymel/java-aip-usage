@@ -84,6 +84,15 @@ public final class UsageAppProbe {
             step("fake-off", "debug-apply");
             Thread.sleep(2500);
             step("fake-off-settled", null);
+            // A failed refresh has a message line. With every element of the row hidden the row is the gear and the debug
+            // button: the message must not stand in a column of that width, with the settings shown or with no panel.
+            step("message-settings", "settings-button");
+            onFx(() -> page().getEngine().executeScript("document.getElementById('set-all').click(); document.getElementById('set-all').click();"));
+            step("message-narrow-settings", null);
+            step("message-narrow-row", "settings-apply");
+            step("message-settings-again", "settings-button");
+            onFx(() -> page().getEngine().executeScript("document.getElementById('set-all').click();"));
+            step("message-wide-row", "settings-apply");
             step("debug-again", "debug-button");
             onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeBackend').checked = true;"));
             step("fake-on", "debug-button");
@@ -143,6 +152,12 @@ public final class UsageAppProbe {
                             "(function () { var b = document.getElementById('set-all').getBoundingClientRect(), l = document.getElementById('set-all').parentNode.getBoundingClientRect();"
                                     + " return Math.round(b.width) + 'x' + Math.round(b.height) + '/' + Math.round(Math.abs((b.top + b.bottom) / 2 - (l.top + l.bottom) / 2)) + '/' + Math.round(l.height)"
                                     + " + '/' + document.querySelectorAll('#settings-form input[id^=set-show]:checked').length; })()")
+                    // The message line: how wide and how tall it is, how wide the row's box and its elements are, and the window.
+                    + " note:[" + page().getEngine().executeScript(
+                            "(function () { var n = document.getElementById('note'), t = document.getElementById('top').getBoundingClientRect(),"
+                                    + " s = document.querySelector('.strip'), last = s.querySelector('.tools').getBoundingClientRect(), b = n.getBoundingClientRect();"
+                                    + " return (n.hidden ? 'none' : Math.round(b.width) + 'x' + Math.round(b.height)) + '|top:' + Math.round(t.width)"
+                                    + " + '|elements:' + Math.round(last.right - s.getBoundingClientRect().left) + '|window:' + window.innerWidth; })()") + "]"
                     + " end");
             System.out.flush();
         });

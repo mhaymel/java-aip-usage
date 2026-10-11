@@ -2793,3 +2793,52 @@ test('a failed refresh after a reading with no spend has its own red line in the
     assert.equal(page.el('note').className, 'note note-stale');
     assert.match(page.el('note').textContent, /^Refresh failed at /);
 });
+
+// ---- the row's box says when a message line is shown, and its own width is measured with the stretch of a panel let go
+
+test('the row says that a message line is shown, for each of the three lines, and no longer when it is gone', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    assert.equal(page.el('top').className, 'top', 'no message, no least width');
+
+    state.status = { ...SPEND_STATUS, stale: true, error: { message: 'Anthropic returned HTTP 500.', at: NOW } };
+    await page.firePoll();
+    assert.equal(page.el('top').className, 'top noted');
+
+    state.status = SPEND_STATUS;
+    await page.firePoll();
+    assert.equal(page.el('top').className, 'top');
+
+    state.status = NO_USAGE_STATUS;
+    await page.firePoll();
+    assert.equal(page.el('top').className, 'top noted', 'the line of an answer with no spend counts too');
+
+    state.status = SPEND_STATUS;
+    state.down = true;
+    await page.firePoll();
+    assert.equal(page.el('connection').hidden, false);
+    assert.equal(page.el('top').className, 'top noted', 'and so does the line of lost contact');
+
+    state.down = false;
+    await page.firePoll();
+    assert.equal(page.el('top').className, 'top');
+});
+
+test('with a panel shown the row\'s width is measured with its stretch let go of, and the stretch is given back', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    const top = page.el('top');
+    const seen = [];
+    top.getBoundingClientRect = function () { seen.push(this.style.width + '/' + this.style.maxWidth); return this.rect; };
+
+    page.window.contentSize();
+    assert.deepEqual(seen, ['undefined/undefined'], 'no panel: the row is its own width already');
+
+    for (const button of ['settings-button', 'history-button', 'log-button', 'errors-button']) {
+        await page.click(button);
+        seen.length = 0;
+        page.window.contentSize();
+        assert.equal(seen[0], 'max-content/900px', button + ': measured as a row of its own width');
+        assert.equal(top.style.width, '', button + ': and stretched again afterwards');
+        assert.equal(top.style.maxWidth, '');
+    }
+});

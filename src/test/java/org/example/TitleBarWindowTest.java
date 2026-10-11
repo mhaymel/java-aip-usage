@@ -174,6 +174,24 @@ class TitleBarWindowTest {
         assertTrue(line(all, "start").contains(" usedBox:[used|0px|"), "a figure has no such border:\n" + all);
         assertTrue(line(all, "fake-off-settled").contains(" debugButton:true "), "the debug button is the one sign of debug mode then:\n" + all);
 
+        // The message line of the failed refresh with a row of two buttons. With the settings shown the row's box and the
+        // message are as wide as the window, not as the two buttons, and the message is a few lines, not a column.
+        Matcher narrow = Pattern.compile(" note:\\[(\\d+)x(\\d+)\\|top:(\\d+)\\|elements:(\\d+)\\|window:(\\d+)]").matcher(line(all, "message-narrow-settings"));
+        assertTrue(narrow.find(), all);
+        assertTrue(Integer.parseInt(narrow.group(4)) < 80, "the row is two buttons:\n" + all);
+        assertEquals(narrow.group(5), narrow.group(3), "its box is as wide as the window:\n" + all);
+        assertTrue(Integer.parseInt(narrow.group(1)) > 200, "and so is the message, less the room at its sides:\n" + all);
+        assertTrue(Integer.parseInt(narrow.group(2)) < 100, "which is a few lines tall:\n" + all);
+        // With no panel the window has the least width a message gives it: 300 pixels, and the border of a window with no title bar.
+        Matcher bare = Pattern.compile(" size:(\\d+),(\\d+),0 .* note:\\[(\\d+)x(\\d+)\\|top:(\\d+)\\|").matcher(line(all, "message-narrow-row"));
+        assertTrue(bare.find(), all);
+        assertEquals("302", bare.group(1), "300 pixels and the border:\n" + all);
+        assertEquals("300", bare.group(5), all);
+        assertTrue(Integer.parseInt(bare.group(4)) < 100, "the message is a few lines, and the window as tall as it needs:\n" + all);
+        // A row that is wider than that keeps its own width.
+        Matcher wide = Pattern.compile(" size:(\\d+),").matcher(line(all, "message-wide-row"));
+        assertTrue(wide.find() && Integer.parseInt(wide.group(1)) > 400, "every element on: the row's own width:\n" + all);
+
         // Switched on again, by leaving the debug settings through their own button, which saves them.
         assertTrue(line(all, "fake-on-settled").contains(" border:3px "), all);
         assertTrue(line(all, "fake-on-settled").matches(".* used:\\[\\d+\\.\\d\\d\\] .*"), all);

@@ -1405,21 +1405,27 @@ compiling; it was not changed.
 
 ### 60. The width of the row and of its message lines
 
-**Status: specified, not built (version 0.48).** Requirement: The width of the row and of its message lines. *Decided by the
-person:* every panel; with no panel a least width while a message is shown; the elements stay at the left.
+**Status: built (version 0.48).** Requirement: The width of the row and of its message lines. *Decided by the person:*
+every panel; with no panel a least width while a message is shown; the elements stay at the left.
 
 - **The cause.** `.top` is `width: max-content`, the row's own width, and a `.note` in it is `width: 0; min-width: 100%`,
   so a message is as wide as the row and never makes it wider.
-- **With a panel.** `.top` is as wide as the app while the app has the class `open` or `fit`. `contentSize` measures the
-  row's width from `#top`, which would then be the window's: the width of the row is measured from the strip, or with
-  the stretch let go of for the moment of the measuring, as `formWidth` does for the form.
-- **With no panel.** While a message line is shown, `.top` has a least width of 300 pixels less its own padding, and the
-  size asked for follows from the box as now.
-- **Tests.** `layout.test.cjs` for the rules; `app.test.cjs` for the size asked for with a message and a narrow row, with
-  and without a panel; the on-request window test with every element off, a message line and the settings, the case of
-  `docs/img.png`.
+- **With a panel.** `#app.open .top` and `#app.fit .top` are `width: auto` with no largest width, so the row's box is as
+  wide as the app, which is the window then. `contentSize` took the row's width from that box: it sets the box back to
+  `max-content` and 900 pixels for the moment of the measuring and lets go again, so the size asked for does not follow
+  from the size the window has.
+- **With no panel.** The page puts the class `noted` on the row's box while one of the three message lines is shown
+  (`markNoted`, after each drawing of the row, each change of the line of lost contact, and each time the size is asked
+  for), and the style sheet gives that box 300 pixels at least when no panel is shown.
+- **Tests.** `layout.test.cjs` for the rules. `app.test.cjs`: the class for each of the three lines and without them;
+  the measuring with the stretch let go of, for each panel, and the stretch given back.
+- **In a real window** (the on-request test), with the message of a failed refresh and every element of the row hidden,
+  the case of `docs/img.png`: with the settings shown the row is 42 pixels of buttons, its box is as wide as the window
+  (265), and the message is 249 pixels wide and two lines tall; with no panel the window is 302 pixels wide, 300 and the
+  border, and the message two lines; with every element on the window is as wide as the row, 636. It passes.
 
-*Risk:* the size the page reports must not depend on the size the window has, or the window never shrinks again.
+**Not checked by a test.** The log, the history and the error log with a message and a narrow row, in a real window: the
+rule is the one of the settings. How it looks.
 
 ## Implementation notes, as built
 

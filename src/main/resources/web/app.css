@@ -129,6 +129,25 @@ body {
     height: 100%;
 }
 
+/*
+ * While a panel is shown the row is as wide as the window, and its message lines with it, so that a message breaks at the
+ * edge of the window: the panel makes the window wider than the row, and a message as wide as a row of the gear alone
+ * would stand in a column of that width. The row's own width is still what the window is sized by (see contentSize).
+ */
+#app.open .top,
+#app.fit .top {
+    width: auto;
+    max-width: none;
+}
+
+/*
+ * With no panel the window is as wide as the row. While a message line is shown it is 300 pixels at least, which is room
+ * for about forty characters of the message in a line; a row that is wider keeps its own width.
+ */
+#app:not(.open):not(.fit) .top.noted {
+    min-width: 300px;
+}
+
 .strip {
     display: flex;
     flex-wrap: wrap;
@@ -420,8 +439,9 @@ body {
 }
 
 /*
- * A message never makes the window wider: it adds no width of its own (width 0, at least as wide as
- * the row) and wraps, so it takes more lines instead.
+ * A message never makes the window wider than the least width a message gives it: it adds no width of its own (width 0,
+ * at least as wide as the row, which is as wide as the window while a panel is shown) and wraps, so it takes more lines
+ * instead.
  */
 .note {
     width: 0;

@@ -105,11 +105,11 @@
             if (openPanel !== 'settings') {
                 preview = null;
             }
-            show('connection', false);
+            showConnection(false);
             render();
             refreshPanel();
         } catch (e) {
-            show('connection', true);
+            showConnection(true);
         } finally {
             polling = false;
             scheduleNextPoll();
@@ -177,6 +177,23 @@
         renderOptional('duration', s.duration, v.duration, 'How long the latest usage request took');
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
+        markNoted();
+    }
+
+    /**
+     * Says on the row's box whether a message line is shown below the row, any of the three: the style sheet gives the
+     * window a least width then, when no panel is shown, so that a message is not broken into a column as narrow as a row
+     * of few elements.
+     */
+    function markNoted() {
+        var noted = ['note', 'alert-note', 'connection'].some(function (id) { return !$(id).hidden; });
+        $('top').className = 'top' + (noted ? ' noted' : '');
+    }
+
+    /** Shows or hides the line that says contact is lost, and what follows from a message line being there. */
+    function showConnection(lost) {
+        show('connection', Boolean(lost));
+        markNoted();
     }
 
     /** A switch of the row is on unless it says otherwise: the five elements that were always there are shown when nothing is said. */
@@ -841,7 +858,21 @@
     };
 
     window.contentSize = function () {
-        var box = $('top').getBoundingClientRect();
+        markNoted();
+        // While a panel is shown the row is stretched to the window, so its own width is measured with the stretch let go
+        // of for the moment: the size asked for must never follow from the size the window has.
+        var top = $('top');
+        var stretched = openPanel !== null;
+        if (stretched) {
+            top.style.width = 'max-content';
+            top.style.maxWidth = '900px';
+        }
+        var box = top.getBoundingClientRect();
+        box = { width: box.width, height: box.height };
+        if (stretched) {
+            top.style.width = '';
+            top.style.maxWidth = '';
+        }
         // The red border of the fake backend is round everything: the window is larger by it, so that nothing is covered.
         // So is the border of a window with no title bar, which is one pixel.
         var edge = fakeInUse() ? 6 : bare() ? 2 : 0;
@@ -909,11 +940,11 @@
         try {
             config = await request('/api/config');
         } catch (e) {
-            show('connection', true);
+            showConnection(true);
             setTimeout(start, RETRY_START_MS);
             return;
         }
-        show('connection', false);
+        showConnection(false);
         scrollbarWidth = measureScrollbar();
         // The debug button is there in debug mode, always, and never otherwise.
         show('debug-button', Boolean(config.debug));
@@ -939,7 +970,7 @@
             try {
                 await postJson('/api/refresh', {});
             } catch (e) {
-                show('connection', true);
+                showConnection(true);
             }
             pollNow();
         });
