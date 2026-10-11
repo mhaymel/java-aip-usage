@@ -1377,6 +1377,155 @@ widths of the boxes.
 whether the row is steady while checkboxes are clicked: for a person to look at in the window. A start against the fake backend
 loaded the page and fitted the window, which is all that was seen.
 
+### 45 to 49. Debug mode, the title bar, the window on top, the request duration: how they are built
+
+Requirement: Debug mode, the title bar, the window on top, and the request duration. That section is five pieces that do not
+depend on one another. *Decided by the person:* they are built **one at a time, each a phase and a version of its own**, tested
+and committed by itself, so that each can be looked at in the window before the next is begun. Smallest first, the two with risk
+last:
+
+| Phase | Version | Piece |
+| --- | --- | --- |
+| 45 | 0.33 | The settings view: no `Maximum view` and `Minimum view`, a least width, leaving saves |
+| 46 | 0.34 | The request duration, a thirteenth element |
+| 47 | 0.35 | The window to the front at startup, and `Stay on top` |
+| 48 | 0.36 | The title bar, on and off while the program runs |
+| 49 | 0.37 | Debug mode: `--debug`, the debug view, the fake backend switched at runtime, the red border |
+
+Each phase ends the same way: both suites green, the passages of the requirements it makes true moved out of the section
+"specified, not yet built" into the description of the program, `api.md` where the API changed, the version, a commit. The
+section is gone from the requirements when phase 49 is done.
+
+### 45. The settings view: two buttons less, a least width, and leaving saves
+
+**Status: specified, not built (version 0.33).** Requirement: The settings view; Leaving a settings view saves it.
+
+- **The two buttons.** `settings-maximum` and `settings-minimum` go from `index.html`, with `setMainView`, `MINIMUM` and their
+  two listeners in `app.js`, the rule for `.settings fieldset .buttons` if nothing else uses it, and the tests of the two
+  buttons (`app.test.cjs`, `layout.test.cjs`).
+- **The least width.** While the settings are shown, `contentSize` reports the larger of the row's width and the width the
+  settings need. The need is measured in the page: `.settings label`, `.settings .line` and `.settings .buttons` get
+  `flex-wrap: nowrap` and `white-space: nowrap`, and the form is laid out as `width: max-content`, so its own width is the one
+  at which no text and no button wraps. `WindowFit` takes the width as it takes any other; nothing changes in the host.
+- **Leaving saves.** `togglePanel` is the one place every button of the row goes through. When the open panel is a settings
+  view and the button is not `Cancel`, it calls `applySettings` first and goes on, to close the view or to show the other
+  panel, only when that succeeded; `applySettings` already keeps the view open with the message in red when a value is refused
+  or the save fails. The form is compared with `settingsShown`, so a view in which nothing was changed sends nothing.
+  `cancelSettings` stays the one path that leaves without sending. Closing the window sends nothing, as now.
+- **Tests.** `app.test.cjs`: the gear again saves and closes; the button of another panel saves and shows its panel; a refused
+  value keeps the view open and the other panel shut; nothing changed sends nothing; Cancel sends nothing and gives the row
+  back. The tests that say the gear and another panel's button leave without saving are turned round. `layout.test.cjs`: no
+  such buttons, no wrapping in the three rules.
+
+*Risk:* small. The width is only right in the real window, so it is looked at there: every checkbox on one line, the three
+buttons in one row, with the row at its narrowest (every element hidden).
+
+### 46. The request duration, a thirteenth element
+
+**Status: specified, not built (version 0.34).** Requirement: The request duration, a thirteenth element.
+
+- **Where the figure comes from.** The duration is measured already, in `AppRuntime.recording`, for the `duration_ms` column of
+  the history, and kept nowhere else. The service is told it: `UsageState` gets the duration of the latest request that has
+  ended, a failed one included, set where the result of a fetch is recorded.
+- **The text.** `Formatting.duration(long millis)`: `87ms` under a second, then `1s034ms`, the milliseconds in three digits.
+- **The setting.** `showDuration`, off by default, at the end of the `Settings` record, the file and the settings API, as the
+  five of phase 44 were added; `StatusDisplay.Show.duration`, and a `Tip` with the tooltip `How long the latest usage request
+  took`.
+- **The page.** An element `duration` after `delta-time`, with the classes of the two changes: green, dimmed with old figures,
+  a gray box at the start, its room kept when it has no value (for `12s005ms`). A checkbox `Request duration` after `Time since
+  the previous reading`, with its tooltip, in `MAIN_FLAGS` so that it is previewed and saved like the others.
+- **Tests.** `FormattingTest` (the two forms, 999, 1,000, 12,005); `StatusDisplayTest` (the tip, the flag, none before a request
+  has ended, a failed request's duration); `SettingsStoreTest` and `ApiTest` (the key); the page tests of phase 44 with one
+  element more.
+
+*Risk:* small.
+
+### 47. The window to the front at startup, and `Stay on top`
+
+**Status: specified, not built (version 0.35).** Requirement: The window on top.
+
+- **To the front at startup.** After `stage.show()` in `UsageApp.start`: `stage.toFront()` and `stage.requestFocus()`. On Windows
+  a program that was not started by the person's last click is often not let to the front; if that is what is seen,
+  `setAlwaysOnTop(true)` followed by `false` a moment later is what gets it there.
+- **The setting.** `stayOnTop`, off by default, in `Settings`, the file and the API, with a checkbox `Stay on top` in a new
+  group `Window` of the settings view, after `Main view`, not previewed.
+- **The host follows the setting.** `UsageApp` has the runtime, so it reads `runtime.settings().current().stayOnTop()` at
+  startup and is told of a change through `IntervalSettings.onChange`, on the JavaFX thread (`Platform.runLater`), where it
+  calls `stage.setAlwaysOnTop`.
+- **Tests.** The setting through store and API. The window itself is not in the automated suite; `PanelWindowTest`, which opens
+  real windows when asked, gets a case for `isAlwaysOnTop` after a change of the setting.
+
+*Risk:* small, but only the window shows whether it really comes to the front on Windows.
+
+### 48. The title bar, on and off while the program runs
+
+**Status: specified, not built (version 0.36).** Requirement: The title bar.
+
+- **Tried first.** JavaFX fixes the style of a stage before it is first shown, so a title bar cannot be switched on a window
+  that exists: the window is made again. Before anything else is written, a probe: a second `Stage` with the other
+  `StageStyle` (`DECORATED` or `UNDECORATED`), the scene with the one `WebView` moved to it (`oldStage.setScene(null)`, then
+  `newStage.setScene(scene)`), shown, the old one closed. The page must still be loaded and running afterwards. If a scene
+  cannot change its stage like that, the `WebView` is taken out of the old scene and put into a new one.
+- **The exchange.** A method in `UsageApp` that makes the new stage with the title, the listeners of the height and the
+  resize limits the old one has, puts it where the row of the old one is on the screen (the content's place, so the title bar
+  appears above the row and the row does not move), shows it and closes the old one. The decoration sizes that `resize`
+  measured once are measured again, since they are those of the style.
+- **Not a shutdown.** `stop()` is what ends the program, and JavaFX calls it when the last window closes. The new stage is
+  shown before the old one is closed, so there is never no window; if the probe shows the exit all the same,
+  `Platform.setImplicitExit(false)` is set and the program is ended by the close request of the window instead.
+- **When.** The host shows the title bar when the setting is on, and whenever the page names an open panel. The size answer
+  already ends with `log`, `history` or `errors`; it gets `settings` and `debug` as well. `WindowFit` reads that field today
+  and passes over, whole, an answer with a name it does not know, so it has to learn the two before the page sends them.
+- **The setting.** `showTitleBar`, on by default, in `Settings`, the file and the API, with the checkbox `Title bar` first in
+  the group `Window`, not previewed.
+- **Tests.** The setting through store and API; `WindowFitTest` for the two panel names; `PanelWindowTest`, on request, for
+  the style of the stage with the setting off, a panel opened and closed again.
+
+*Risk:* the largest of the five. A flicker is accepted, and so is closing the window and opening it again. What is not: a page
+that starts again (the row would show its gray boxes and the panel would be gone), a window that jumps, or a program that ends.
+
+### 49. Debug mode
+
+**Status: specified, not built (version 0.37).** Requirement: Debug mode.
+
+- **The command line.** `LaunchOptions`: `--debug` (no value), and `--fake-backend`, `--fake-scenario`, `--fake-token`,
+  `--usage-interval` and `--poll-interval` removed, with their messages, the usage text and their tests. `--anthropic-url`, `-h`
+  and `--help` stay. With the two interval options gone, `IntervalSettings.load` takes no overrides, the poll interval is the
+  constant 1 second, which `/api/config` still reports to the page as `pollIntervalSeconds`.
+- **The debug settings.** `fakeBackend` (off), `fakeScenario` (`normal`) and `fakeToken` (off) in `Settings` and the file. They
+  have an endpoint of their own, `GET` and `POST /api/debug`, which answers 404 when the program is not in debug mode, so the
+  ordinary settings view never sends them and a normal run cannot reach them. `/api/config` says `debug: true` or `false`.
+- **Where usage comes from, at runtime.** Today `UsageApp.start` builds one fetcher from the options and hands it to
+  `AppRuntime.start` for good. It becomes a `UsageSource` that `AppRuntime` owns and can replace: made from the debug settings
+  (the fake backend started and its address used, or the base URL; the placeholder token or `ClaudeTokenProvider`), and made
+  again when the debug settings change, the old fake backend stopped. `UsageService` asks the runtime for the fetcher at each
+  refresh rather than holding one. Without `--debug` the three settings are read and not used.
+- **A history file of its own.** `AppFiles` names `java-aip-usage.fake.csv` beside `java-aip-usage.csv`. `UsageHistory`,
+  `HistoryReader` and `LatestChangeCache` are each made for one file, so the runtime holds a pair of them and uses that of the
+  source in force: `recording` writes to it, `ApiHandler` reads the history, the change and the stamp from it, and the reading
+  restored at startup comes from it. A change of source logs `Usage history is written to <the file>`, drops the reading that
+  is shown, and refreshes.
+- **The page.** A `debug-button` after the settings button, yellow, a bug, hidden unless `/api/config` says debug; a
+  `debug-view` in the panel area built like the settings view, with the three controls, `Apply` and `Cancel`; `PANELS.debug`,
+  so that it is one panel among the others, saves on leaving as phase 45 made the settings do, and is named in the size answer
+  for phase 48.
+- **The red border.** The status says `fake: true` while the fake backend is in use. `#app` then has a 3 pixel border whose
+  colour a CSS animation takes from `var(--bad)` to the background and back in 4 seconds, and `contentSize` is larger by the
+  border on each side.
+- **The log.** The lines that say where the readings come from are written at startup and at each change of source; they name
+  the debug settings and no longer the options.
+- **Tests.** `LaunchOptionsTest` rewritten for the three options that are left; `SettingsStoreTest`; `ApiTest`: `/api/debug`
+  refused without `--debug`, the fake backend switched on and off through the running application with the readings following,
+  the two history files kept apart, a start without `--debug` fetching from the fetcher it was given whatever the file says;
+  `FakeBackendTest` as it is; `app.test.cjs`: the button only in debug mode, the view, saving on leaving, the border class with
+  the status; `layout.test.cjs`: the border rule and its animation.
+- **Docs.** The requirements (Command line, Fake backend, Authentication where they name the options), `api.md`, and the
+  README, whose section on running against the fake backend is rewritten for `--debug`.
+
+*Risk:* the most work of the five, and the only one that changes how the program is wired. The switch of source while a
+request is in flight needs care: the request under way finishes or is interrupted as at shutdown, and its result is not
+written to the other file.
+
 ## Validation
 
 What is tested, what stays outside the automated suite and what a person checks by

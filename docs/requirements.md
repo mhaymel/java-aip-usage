@@ -914,6 +914,148 @@ document uses for it. From left to right (see `docs/img_2.png`, where each is ma
 - Before the page has its first answer from the application it does not know which elements are switched on, so for that moment
   it shows only the refresh button and the panel buttons.
 
+## Debug mode, the title bar, the window on top, and the request duration
+
+**Specified, not yet built.** The sections above and below still describe the program as it is; where
+this section differs from them, it is what the program is to do, and they are to be brought into line
+when it is built. Every decision taken for it is written here as a requirement; nothing in it is left as an assumption.
+
+### The settings view
+
+- **`Maximum view` and `Minimum view` are removed** from the `Main view` group. Nothing replaces them.
+- **The settings view has a least width.** Hiding elements makes the row, and with it the window, narrower. While the
+  settings are shown the window is never narrower than the settings need for two things: **every checkbox has its
+  text on one line**, a property beside it included, and **the buttons of the view, `Apply`, `Restore defaults` and
+  `Cancel`, are in one row**. When the row is wider than that, the window is as wide as the row, as now. When the
+  settings are left the window goes back to the width of the row.
+- **The least width is worked out from the view itself**, from its texts and controls as they are drawn, and is not a
+  fixed number of pixels, so it stays right when a text or the font changes.
+
+### Leaving a settings view saves it
+
+- **Changes made in the settings view are saved when the view is left by a button of the row**, not only by `Apply`:
+  the gear pressed again, and the button of any other panel, the log, the history, the error log or the debug button,
+  each save what the view holds, exactly as `Apply` does, and then do what they do, close the view or show their panel.
+- **The same holds for the debug settings view** and for any view of its kind: leaving it by its own button or by the
+  button of another panel saves it.
+- **`Cancel` is the one way to leave without saving.** It closes the view, nothing is changed, and what the row
+  previewed is taken back.
+- Today the gear and the other buttons leave the settings without saving, like `Cancel`; this replaces that.
+- **When the save fails on leaving, the view stays.** If a value is refused, an interval that is no number or out of
+  range, or the settings cannot be saved, the view stays open with its message in red, as after `Apply`, and the other
+  panel is not shown: nothing is lost without a word, and `Cancel` is still there to leave.
+- **Nothing changed, nothing sent.** Leaving a view in which nothing was changed sends nothing to the backend.
+- **Closing the window** while a settings view is open does not save it.
+
+### Debug mode
+
+- **One command-line option, `--debug`, starts the program in debug mode.** It takes no value. Without it the program
+  is not in debug mode, and nothing of what follows is shown or can be reached.
+- **The options `--fake-backend`, `--fake-scenario` and `--fake-token` are removed.** What they did is set in the debug
+  settings view instead.
+- **`--usage-interval` and `--poll-interval` are removed as well.** The time between usage requests is set in the
+  settings view and nowhere else, and the window asks the application for its state once a second, which was the
+  default of `--poll-interval` and is no longer to be changed. The interval that `settings.json` holds is the one in
+  force from the start, as it is today when no option is given.
+- **What is left of the command line** is `--debug`, `--anthropic-url <url>`, and `-h` and `--help`.
+- **Without `--debug` the debug settings count for nothing.** A start without it fetches from Anthropic, or from the
+  URL `--anthropic-url` names, with a real token, whatever `settings.json` says of the fake backend, the scenario and
+  the placeholder token, so that invented figures are never shown without the marks of debug mode.
+- **`--anthropic-url <url>` stays** on the command line, as it is: it names the base URL for the run and is not a setting.
+  It no longer has an option to contradict it; while the fake backend is in use the URL is simply not used.
+- **A debug button** is in the row at the right of the settings button, the last thing in the row, only in debug mode.
+  It is an icon and it is **yellow**. Its tooltip says that the program is in debug mode. It is not one of the elements
+  that can be hidden: in debug mode it is always there, like the gear, and without debug mode it is never there.
+- **The debug button's icon is a bug**, and its tooltip is `Debug mode: show the debug settings`, and `Debug mode: hide
+  the debug settings` while the view is shown.
+- **A click on it shows the debug settings view**, which is like the settings view: below the row, in the same place,
+  with `Apply` and `Cancel` and no `Restore defaults`, one view at a time, and the button again closes it.
+- **The debug settings**, all kept in `settings.json` with the others:
+
+  | Setting | Values | Default |
+  | --- | --- | --- |
+  | Use the fake backend | on, off | off |
+  | What the fake backend answers (the scenario) | the scenario names of Fake backend | `normal` |
+  | Send a placeholder token instead of obtaining a real one | on, off | off |
+
+- **The fake backend can be turned on and off while the program runs**, by `Apply` in the debug settings view: on, the
+  program starts it and fetches from it; off, the program stops it and fetches from the base URL again, Anthropic or the one `--anthropic-url` names. The switch is
+  saved, so it also says **whether the fake backend is started at startup** the next time the program is started in
+  debug mode.
+- **The debug view applies at once.** A change of the fake backend, the scenario or the placeholder token takes effect
+  when the view is saved, followed by a refresh, without a restart.
+- **The fake backend leaves out the token flow**, as it always has: with it on no token is obtained, whatever the
+  switch of the placeholder token says, and the base URL is not used.
+- **Invented readings have a history file of their own.** While the fake backend is in use, readings and failed
+  queries are written to `java-aip-usage.fake.csv`, beside `java-aip-usage.csv` and in the same form, and
+  `java-aip-usage.csv` is not written to: the real history never holds an invented figure. The history panel shows the
+  file in use, and the change in the amount used and the time since the previous reading are worked out within that
+  file, so a real reading is never compared with an invented one. When the fake backend is switched on or off the
+  program changes to the other file with the refresh that follows, and an open history panel shows the other file. The
+  reading shown at startup comes from the file of the source in force. The file is logged at startup and at each
+  change, in the form of the line there is, `Usage history is written to <the file>`.
+- **A very visible mark while the fake backend is in use**, hard to overlook: **the window has a solid red border**,
+  all the way round its content, which **slowly changes from red to the usual colour and back**, again and again. The
+  usual colour is that of the window's background, so at one end of the change the border is not seen and at the other
+  it is fully red. It takes the place of every other mark: there is no band and no text.
+- **The border is there for exactly as long as the fake backend is in use.** It says that the figures are invented. It
+  comes when the fake backend is switched on and goes when it is switched off; in debug mode with the fake backend off
+  there is no border, and the yellow button is the one sign of debug mode.
+- **The border, exactly.** It is 3 pixels wide and in the red of errors, `#cf222e` on the light theme and `#f85149` on
+  the dark one. One change from red to the background and back takes 4 seconds, at an even pace. It is drawn by the
+  page, so it is inside the frame of the system; it is there with the title bar hidden as well, and round an open
+  panel too. The window is larger by the border, so nothing in the row is covered.
+
+### The title bar
+
+- **A setting, `Title bar`, shows or hides the title bar of the window.** It is in the settings view, **on by default**,
+  and saved in `settings.json` like every setting, under the key `showTitleBar`.
+- **The settings view has a new group, `Window`**, after `Main view` and before `History view`, with two checkboxes,
+  `Title bar` and `Stay on top`, in that order. Neither is previewed in the row: they take effect when the view is
+  saved.
+- **It works while the program runs**, not at the next start: the title bar comes when a panel is opened and goes
+  when it is closed, and follows the setting when it is saved. That the window flickers for a moment as it changes is
+  accepted.
+- **The window may be closed and opened again to do it.** Turning the title bar on or off need not change the window
+  that is there: the program may close the window and open it again with or without the title bar. The program itself
+  goes on running through this: nothing is fetched again because of it, and nothing is logged as a start or a stop.
+- **The window keeps its place** when the title bar comes and goes: the row stays where it is on the screen, and the
+  title bar appears above it.
+- **With the title bar hidden and no panel open** the window is not dragged by the row and has no close button of its
+  own: it is moved and closed by opening a panel, which brings the title bar.
+- **With the title bar hidden the window is the row alone**, with no title, no buttons of the system and no frame to
+  drag.
+- **While any panel is shown the title bar is there**, whatever the setting says: the settings, the debug settings,
+  the log, the usage history and the error log. So the window can be moved and closed as usual, and a panel can be
+  resized by dragging, which a window with no frame does not allow: to move or close a window with no title bar, the
+  settings button, or the button of any panel, is pressed. When the panel is closed the title bar is shown or hidden as
+  configured. Only the row by itself is ever without a title bar.
+
+### The window on top
+
+- **At startup the window comes to the front**, above all other windows. Today it opens behind them.
+- **A setting, `Stay on top`**, in the group `Window` of the settings view, **off by default**, and saved in `settings.json`
+  under the key `stayOnTop`: on, the window stays above every
+  other window for as long as the program runs; off, it is brought to the front at startup only and can be covered
+  afterwards as usual.
+
+### The request duration, a thirteenth element
+
+- **A new element of the row shows how long the usage request took.** It can be switched on and off in the settings
+  like the other elements, with a checkbox in the order of the row and a tooltip. It is **off by default** and
+  **green**, the green of the other figures.
+- **How it is written.** Under a second, the milliseconds and `ms` with no space: `87ms`, `999ms`. From a second on,
+  the whole seconds, `s`, the remaining milliseconds in three digits and `ms`: 1,034 milliseconds is `1s034ms`, 12,005
+  is `12s005ms`, and 1,000 is `1s000ms`.
+- **Where it is.** After the time since the previous reading: the last of the figures, before the buttons.
+- **Which request.** The latest request that has ended, a failed one included, as the history file records it in
+  `duration_ms`.
+- **Its name is `Request duration`**, which is the text of its checkbox; its key in `settings.json` is `showDuration`;
+  its tooltip in the row is `How long the latest usage request took`, and the tooltip of its checkbox is `How long the
+  latest usage request to Anthropic took, in milliseconds, and in seconds and milliseconds from one second on.`
+- **It behaves like the other figures:** it is dimmed with the old figures after a failed refresh, it is a gray box at
+  the start until a request has ended, and with its switch on and no value it keeps its room.
+
 ## Details of the behaviour
 
 These are things the program does that the sections above do not say, written down so that the requirements are the whole of it.
