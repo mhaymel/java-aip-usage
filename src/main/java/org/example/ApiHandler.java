@@ -152,6 +152,12 @@ final class ApiHandler implements HttpHandler {
                 }
                 updateTextSize(exchange);
             }
+            case "/api/cost" -> {
+                if (!method.equals("GET")) {
+                    throw new ApiException(405, "Use GET.", "GET");
+                }
+                send(exchange, 200, cost());
+            }
             case "/api/settings-tab" -> {
                 if (!method.equals("POST")) {
                     throw new ApiException(405, "Use POST.", "POST");
@@ -406,7 +412,7 @@ final class ApiHandler implements HttpHandler {
                 s.cost().monthlyCents() == null ? null : CostControl.text(s.cost().monthlyCents()),
                 s.cost().dailyCents() == null ? null : CostControl.text(s.cost().dailyCents()),
                 s.cost().dailyAutomatic(),
-                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow());
+                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -451,7 +457,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "historyUsed", current.historyUsed()),
                     flag(body, "historyLimit", current.historyLimit()),
                     flag(body, "historyCurrent", current.historyCurrent()),
-                    flag(body, "restoreWindow", current.restoreWindow()));
+                    flag(body, "restoreWindow", current.restoreWindow()),
+                    flag(body, "showCostIcon", current.showCostIcon()));
             // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone. Nor are
             // the two choices of the log panel, which POST /api/log changes, and the size of the lists' text, which POST /api/text-size changes.
             Settings kept = settings.current();
@@ -538,6 +545,18 @@ final class ApiHandler implements HttpHandler {
             throw new ApiException(500, "The text size could not be saved: " + e.getCause().getMessage(), null);
         }
         send(exchange, 200, new TextSizeBody(settings.current().listFontSize()));
+    }
+
+    /** The cost control panel, finished: the two bars, worked out from the history in use and the limits. */
+    private CostPanel.View cost() {
+        try {
+            Settings now = settings.current();
+            HistoryReader.Table table = HistoryReader.read(sources.history(), Integer.MAX_VALUE);
+            return CostPanel.build(table.rows(), now.cost(), now.showCurrency(), java.time.LocalDate.now());
+        } catch (IOException e) {
+            LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
+            throw new ApiException(500, "The usage history could not be read.", null);
+        }
     }
 
     /** The tab the settings view is on, stored so that it opens on it the next time, also after a start. The other settings are left as they are. */
@@ -950,7 +969,8 @@ final class ApiHandler implements HttpHandler {
             boolean historyUsed,
             boolean historyLimit,
             boolean historyCurrent,
-            boolean restoreWindow) {
+            boolean restoreWindow,
+            boolean showCostIcon) {
     }
 
     /** @param daily the daily limit worked out, as a finished text, or null when there is no monthly limit to work it out from */

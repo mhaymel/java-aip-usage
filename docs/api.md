@@ -23,6 +23,7 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `GET` | `/api/history` | The usage history, as finished lines (read-only) |
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 | `POST` | `/api/text-size` | Save the size of the text of the three lists |
+| `GET` | `/api/cost` | The cost control panel: the two bars, finished |
 | `POST` | `/api/settings-tab` | Save the tab the settings view is on, for the next opening |
 | `GET` | `/api/cost/daily` | The daily limit that follows from a monthly one, in the current month |
 | `GET` | `/api/about` | What the About view says: the version, where the files are, what the program runs on |
@@ -58,6 +59,7 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "showHistoryIcon": true,
     "showLogIcon": true,
     "showErrorIcon": true,
+    "showCostIcon": true,
     "showInterval": false,
     "showDeltaUsed": false,
     "showDeltaTime": false,
@@ -271,7 +273,7 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
     "message": null,
     "show": {
       "percentage": false, "currency": false, "interval": false, "deltaUsed": false, "deltaTime": false,
-      "historyIcon": true, "logIcon": true, "errorIcon": true,
+      "historyIcon": true, "logIcon": true, "errorIcon": true, "costIcon": true,
       "time": true, "used": true, "limit": true, "refresh": true, "countdown": true, "duration": false
     }
   },
@@ -294,7 +296,7 @@ texts are in the requirements (How the figures are written).
   `countdown` (with `countdownAlert`, the message of an HTTP 429, which makes the countdown red and is shown when it is hovered; the 429
   has no `message`; with the countdown switched off there is no `countdownAlert` and the 429 has a `message` like any other failure), `interval` (the time between usage requests in force, `60s`), `deltaUsed` and `deltaTime` as
   `{text, tooltip}` or `null` (the seconds of `countdown`, `interval` and `deltaTime` have no space before the `s`, and `deltaUsed` never has a currency symbol; an unchanged amount is `0.00`, with no sign, and `deltaUsed` is `null` only when the change is not known, which the row shows as a gray box, as it does a `deltaTime` and a `duration` of `null`); `duration` (how long the latest usage request that has ended took, a failed one included, as the history file has it: `87ms`, and `1s034ms` from a second on; `null` until one has ended); `message` as `{kind, text}` or `null` (`kind` is `stale` or `error`, for a failed refresh); `noSpend` (what is to be said of a reading that came and has no spend, or `null` for any other reading: the page shows it below the row, muted, while the mouse is on one of the gray boxes of the amounts, and not otherwise); `titleBar` (whether the setting gives the window its title bar; with it `false` and no panel shown the page draws a border of one pixel round the window, unless the red border of the fake backend is there); and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
-  `deltaTime`, `time`, `used`, `limit`, `refresh`, `countdown` and `duration` the settings switch on, and which of the buttons `historyIcon`, `logIcon` and `errorIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
+  `deltaTime`, `time`, `used`, `limit`, `refresh`, `countdown` and `duration` the settings switch on, and which of the buttons `historyIcon`, `logIcon`, `errorIcon` and `costIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
   the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language (the cells of the history are the exception: they are the file's own text, `1000.00`).
 - `historyStamp`: a text that changes whenever a row is added to the history file in use (invented readings have a file of their own, `java-aip-usage.fake.csv`), a row of a failed refresh as well as a reading: the file's size in bytes, a `-`, and its time of last change in milliseconds.
@@ -376,6 +378,24 @@ be given: `{"level": "warning", "date": true}`. A level that is none of the four
 `false`, or one of them missing is `400`, and nothing is saved; a file that cannot be written is `500` with
 `The log settings could not be saved: <reason>`. The settings of `/api/settings` do not have the two, and saving
 them leaves the two as they are.
+
+## `GET /api/cost`
+
+The cost control panel, finished: the page only draws it. Read when the panel opens and on each poll while it is open.
+
+```json
+{
+  "rows": [
+    { "label": "Today", "text": "12.50 of 50.00 \u00b7 25%", "tooltip": "Today: 12.50 of 50.00 (25%)", "fraction": 0.25, "over": false, "noLimit": false },
+    { "label": "This month", "text": "262.50 of 1,000.00 \u00b7 26%", "tooltip": "This month: 262.50 of 1,000.00 (26%)", "fraction": 0.2625, "over": false, "noLimit": false }
+  ],
+  "note": null
+}
+```
+
+`fraction` is the green share of the bar, 0 to 1, never more. `over` is true when the amount is more than the limit (the bar is full and the page shows the warning sign), and `noLimit` when there is no limit to compare with: the bar is gray and empty, the text is
+`<used> \u00b7 no limit set`, and there is no percentage. The amounts are written as in the row, with the currency symbol when `showCurrency` is on. The month is the amount used of the newest reading, against the monthly limit; today is that amount less the one of the last
+reading before today in the same month (else the first reading of today; a fall is 0.00), against the daily limit in force. With no reading to say what is used both rows are empty with `noLimit`, and `note` is `No usage has been read yet.`; else it is `null`. Any method but `GET` is `405`.
 
 ## `POST /api/settings-tab`
 
@@ -533,13 +553,13 @@ panel's vertical scrollbar, which the page measures and always reserves (three r
 Those are the starting point, not the size the window was dragged to. While the settings are shown it
 reports flag `3`, the name `settings` (`520,658,3,settings`) and the height of the whole page, the row and its message lines and the settings, so the
 window is exactly as tall as they need, and follows them. The last field names the panel that is open, and is left out when none is: `415,420,1,history`,
-`1215,420,2,log` or `615,420,2,errors` (the error log is half as wide as the log, rounded up). For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
+`1215,420,2,log` or `615,420,2,errors` (the error log is half as wide as the log, rounded up). The cost control panel reports flag `3`, with the width of the history's table and the height its two bars need: `415,160,3,cost`. For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
 is whole. The host (`WindowFit`) remembers the height of the history and of the log, in the settings
 file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. For as long as a panel is named the host gives the window its title bar, whatever the setting `showTitleBar` says, and with none named it follows the setting. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
 resize only what it is told may be: nothing for `0` and `3`, the height for `1`, the height and the width for `2`, and never
 below the size last reported with `0`. The page measures its own content, never the window, so resizing the
 window to match does not change the answer. The Java host (`WindowFit`) ignores anything that is not that
-shape (a width or a height of 0 or of more than five digits, a panel name other than `history`, `log`, `errors`, `settings` and `debug`, the last of which the page no longer reports: the Debug tab is a tab of the settings), keeps the size it sets
+shape (a width or a height of 0 or of more than five digits, a panel name other than `history`, `log`, `errors`, `cost`, `settings` and `debug`, the last of which the page no longer reports: the Debug tab is a tab of the settings), keeps the size it sets
 between 160 x 32 and 2400 x 1600, and does not apply a size twice; a change of the flag or of the panel alone counts as a new size. A different host,
 such as the future Go one, needs only to call the function and resize.
 

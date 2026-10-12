@@ -102,6 +102,8 @@ public final class SettingsStore {
     /** The interval at which the last refusal came; left out for none. The keys of the lower and upper bound of earlier versions are read no more. */
     static final String AUTO_REFUSED_KEY = "autoRefusedSeconds";
 
+    static final String SHOW_COST_ICON_KEY = "showCostIcon";
+
     static final String RESTORE_WINDOW_KEY = "restoreWindow";
 
     static final String SETTINGS_TAB_KEY = "settingsTab";
@@ -220,7 +222,8 @@ public final class SettingsStore {
                 flag(root, HISTORY_USED_KEY, defaults.historyUsed()),
                 flag(root, HISTORY_LIMIT_KEY, defaults.historyLimit()),
                 flag(root, HISTORY_CURRENT_KEY, defaults.historyCurrent()),
-                flag(root, RESTORE_WINDOW_KEY, defaults.restoreWindow()));
+                flag(root, RESTORE_WINDOW_KEY, defaults.restoreWindow()),
+                flag(root, SHOW_COST_ICON_KEY, defaults.showCostIcon()));
     }
 
     /**
@@ -534,7 +537,7 @@ public final class SettingsStore {
         public static final LastWindow NONE = new LastWindow(null, null, null, null, null, null);
     }
 
-    private static final java.util.Set<String> PANELS = java.util.Set.of("log", "history", "errors", "settings");
+    private static final java.util.Set<String> PANELS = java.util.Set.of("log", "history", "errors", "cost", "settings");
 
     private static final java.util.Set<String> TABS = java.util.Set.of("main", "history", "cost", "debug", "general", "about");
 
@@ -678,6 +681,7 @@ public final class SettingsStore {
         root.put(HISTORY_USED_KEY, settings.historyUsed());
         root.put(HISTORY_LIMIT_KEY, settings.historyLimit());
         root.put(HISTORY_CURRENT_KEY, settings.historyCurrent());
+        root.put(SHOW_COST_ICON_KEY, settings.showCostIcon());
         root.put(RESTORE_WINDOW_KEY, settings.restoreWindow());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());

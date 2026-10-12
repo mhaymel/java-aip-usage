@@ -283,7 +283,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(33, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(34, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -1108,6 +1108,55 @@ class ApiTest {
         assertEquals(400, post(app, "/api/settings-tab", "{}").statusCode());
         assertEquals(405, get(app, "/api/settings-tab").statusCode());
         assertTrue(json(get(app, "/api/settings")).get("settingsTab").isNull());
+    }
+
+    @Test
+    void theCostPanelIsWorkedOutFromTheHistoryAndTheLimits() throws Exception {
+        String today = java.time.LocalDate.now().toString();
+        writeHistory(CSV_HEADER,
+                today + " 08:00:00,100.00,1000.00,USD,start,60,400",
+                today + " 09:00:00,110.00,1000.00,USD,,60,400");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"200.00\", \"costDailyLimit\": \"20.00\", \"costDailyAutomatic\": false}"));
+
+        JsonNode cost = json(get(app, "/api/cost"));
+
+        assertEquals("Today", cost.at("/rows/0/label").asText());
+        assertEquals("10.00 of 20.00 \u00b7 50%", cost.at("/rows/0/text").asText(), "110 less the 100 of the first reading of today");
+        assertEquals(0.5, cost.at("/rows/0/fraction").asDouble(), 0.0001);
+        assertEquals("This month", cost.at("/rows/1/label").asText());
+        assertEquals("110.00 of 200.00 \u00b7 55%", cost.at("/rows/1/text").asText());
+        assertFalse(cost.at("/rows/1/over").asBoolean());
+        assertTrue(cost.get("note").isNull());
+        assertEquals(405, post(app, "/api/cost", "{}").statusCode());
+    }
+
+    @Test
+    void theCostPanelHasANoteAndEmptyBarsWhenThereIsNoReading() throws Exception {
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+
+        JsonNode cost = json(get(app, "/api/cost"));
+
+        assertEquals("No usage has been read yet.", cost.get("note").asText());
+        assertTrue(cost.at("/rows/0/noLimit").asBoolean() && cost.at("/rows/1/noLimit").asBoolean());
+    }
+
+    @Test
+    void theCostButtonIsASettingOnByDefaultAndOptionalInAPost() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        assertTrue(json(get(app, "/api/settings")).at("/settings/showCostIcon").asBoolean());
+        assertTrue(json(get(app, "/api/status")).at("/display/show/costIcon").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"showCostIcon\": false}"));
+        assertFalse(json(get(app, "/api/settings")).at("/settings/showCostIcon").asBoolean());
+        assertFalse(json(get(app, "/api/status")).at("/display/show/costIcon").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm"));
+        assertFalse(json(get(app, "/api/settings")).at("/settings/showCostIcon").asBoolean(), "left out: it stays as it is");
     }
 
     @Test

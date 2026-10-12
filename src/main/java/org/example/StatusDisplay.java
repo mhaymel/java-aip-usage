@@ -34,7 +34,7 @@ final class StatusDisplay {
     /** Which elements of the row are switched on; all twelve can be hidden, and {@code currency} is the symbol of the amounts. */
     record Show(
             boolean percentage, boolean currency, boolean interval, boolean deltaUsed, boolean deltaTime,
-            boolean historyIcon, boolean logIcon, boolean errorIcon,
+            boolean historyIcon, boolean logIcon, boolean errorIcon, boolean costIcon,
             boolean time, boolean used, boolean limit, boolean refresh, boolean countdown, boolean duration) {
     }
 
@@ -133,7 +133,7 @@ final class StatusDisplay {
                 message,
                 new Show(
                         settings.showPercentage(), settings.showCurrency(), settings.showInterval(), settings.showDeltaUsed(),
-                        settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon(),
+                        settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon(), settings.showCostIcon(),
                         settings.showTime(), settings.showUsed(), settings.showLimit(), settings.showRefresh(), settings.showCountdown(),
                         settings.showDuration()),
                 // Whether the setting gives the window its title bar. The page draws a border round a window that has none,

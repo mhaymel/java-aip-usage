@@ -186,7 +186,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "restoreWindow", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }

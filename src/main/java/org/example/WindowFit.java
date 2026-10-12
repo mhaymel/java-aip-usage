@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
  * may be resized in height, {@code ,2} when it may be resized in width too, {@code ,0} when it
  * may not be resized (the window with nothing open), and {@code ,3} when it may not be resized and is
  * not the window with nothing open either (the settings, which are as tall as their content), and
- * optionally {@code ,history}, {@code ,log}, {@code ,errors}, {@code ,settings} or {@code ,debug} after that, naming the panel that is open, in CSS pixels, taken from its own
+ * optionally {@code ,history}, {@code ,log}, {@code ,errors}, {@code ,cost}, {@code ,settings} or {@code ,debug} after that, naming the panel that is open, in CSS pixels, taken from its own
  * content and not from the window, so resizing the window to match never changes
  * the answer. Everything else is defence: a reading that is not that shape is
  * ignored, a size is kept within sane limits, and a size equal to the one already
@@ -51,7 +51,7 @@ final class WindowFit {
 
     static final Size MAX = new Size(2400, 1600);
 
-    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([0123])(?:,(history|log|errors|settings|debug))?)?");
+    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([0123])(?:,(history|log|errors|cost|settings|debug))?)?");
 
     private WindowFit() {
     }
