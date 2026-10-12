@@ -1870,6 +1870,14 @@ that refuses: that is what this was built for, and is for a person to try.
 - **Tests.** `CostPanelTest` (the day's baseline in all cases: a reading before today in the month, none, a new month, a fall; no limit; over; percent rounding; the currency symbol), `ApiTest` (`/api/cost`, the setting), `StatusDisplayTest` (the `show` flag), `SettingsStoreTest`, `app.test.cjs`
   and `layout.test.cjs` (the button, the panel, the fill widths, the warning sign, no limit, the size report), the window tests are not changed.
 
+### 82. No "Next try in" in the 429 message and the log
+
+**Status: specified, not yet built (version 0.70).** Requirements: Refresh behavior, Usage request messages, The lines of a refresh.
+
+- **Code.** `UsageService.settleInterval`: the 429 message is the fetcher's own (`Anthropic is rate limiting usage requests (HTTP 429).`) with nothing appended (`outcome.withError(...)` goes), and the two `Rate limited; next try in ...` warnings go; `describe(long)` and its test go
+  (nothing else uses it). The `Automatic interval: ...` and the `The server asked for a wait ...` lines stay.
+- **Tests.** `UsageServiceTest` (`theErrorSaysWhenTheNextTryIs` becomes the message without it; the search tests that end with ` Next try in N s.` lose that), `ApiTest` and the frontend tests that have the text; `docs/api.md` example.
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built

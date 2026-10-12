@@ -508,7 +508,7 @@ credential or a file name.
 ```json
 {
   "entries": [
-    { "time": "11:34:42", "message": "Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min." },
+    { "time": "11:34:42", "message": "Anthropic is rate limiting usage requests (HTTP 429)." },
     { "time": "11:20:01", "message": "Anthropic returned HTTP 500." }
   ]
 }

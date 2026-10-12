@@ -91,7 +91,8 @@ Example token output:
   - **With `Automatic` on the program searches for the interval** (see The automatic interval); the delay is the interval of the search, and a longer wait that the server names with a 429 is honoured.
 - **The interval in force** is at every moment the delay to the next request: the configured interval with `Automatic` off, the interval of the search with it on. It is the one the row's interval item shows, and
   the countdown counts down to it. The refresh button is never held back, since a person asked.
-- **The `Next try in` of the message of a 429** (`Next try in N s`, or `N min`) is that interval, counted from when the refused request was triggered, so what is really left is shorter by the time the request took.
+- **The message of a 429 does not say when the next try is** (since version 0.70). Until 0.69 it ended with `Next try in N s` or `N min`, the interval rounded up to whole minutes, which read as another figure than the interval item (175 s was `3 min`). It is now
+  `Anthropic is rate limiting usage requests (HTTP 429).` and nothing more; the time is in the countdown and in the interval item of the row, which are exact.
 - **A manual refresh** starts a request at once and the next scheduled one comes an interval after it. With `Automatic` on it moves the search like a scheduled request.
 - **Changing the interval** does not end the request that is running, and the next one is due an interval after the one before, as the line above says.
 - **A request that takes longer than the interval in force is followed by the next one as soon as it ends**, with no pause, whether or not the interval was changed meanwhile.
@@ -355,7 +356,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   setting `Currency symbol` says: the symbol is for the amount used and the budget alone.
 - **Seconds in the row** have no space before the `s`: the countdown, `42s` and `-3s`; the time between usage requests,
   `60s`; and the time since the previous reading, `63s`. Everywhere else the space is there: the `Δ time` column of the
-  history, `63 s`, and the messages, `Next try in 30 s.`
+  history, `63 s`, and the tooltips (`Automatic interval is on: the interval is now 35 s`).
 - **The time since the previous reading** is never less than `0s`.
 - **The times** are `HH:mm` or `HH:mm:ss`, with leading zeros. The date of the time's tooltip is `d MMM yyyy,
   HH:mm:ss`, the day without a leading zero and the month in English, `8 Oct 2026, 14:24:53`. The times of the error
@@ -1350,14 +1351,14 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **The fault that was** (before version 0.54). With `Automatic` on, Anthropic answered a 429 with `retry-after 300`. The search worked out 156
   seconds and said so in the log, the row showed that as its interval, and the next try came after 5 minutes, as the
-  message said. Two figures for one wait, and `Next try in 5 min` beside `Automatic interval: 156 s`, read as a fault.
+  message said. Two figures for one wait, and `Next try in 5 min` beside `Automatic interval: 156 s`, read as a fault (since version 0.70 the message has no such text).
 - **The search takes the wait the server names.** After a 429 the search makes its step as above, and when the server
   names a wait that is longer than the interval it then has, **the interval becomes that wait**. So the log, the
-  element `Interval` of the row, the countdown and `Next try in ...` all say the same.
+  element `Interval` of the row and the countdown all say the same.
 - **Never more than 300 seconds.** A wait of the server above 300 seconds makes the interval 300.
 - **`R` stays the interval that was refused**, not the wait the server named.
 - **It comes down again by itself**, by the slow steps above.
-- **The log** says the interval the search has after that, and `Rate limited; next try in 5 min` then agrees with it.
+- **The log** says the interval the search has after that, in the line `Automatic interval: <N> s (...)`.
 - **A wait of the server is counted in seconds, rounded up to a multiple of 5**, only a whole number of seconds is believed, and one that is no longer than the step the search
   made leaves the step as it is: the server's wait never shortens the interval.
 - With `Automatic` off the `Retry-After` is only logged (see Refresh behavior).
@@ -1773,7 +1774,7 @@ These are things the program does that the sections above do not say, written do
   naming it as the base URL (`--anthropic-url`, see Command line), which is the one way to put another
   server in the path.
 - The messages of a failed refresh (after `Refresh failed at HH:mm: `): `Anthropic rejected the OAuth token (HTTP 401).`, `Anthropic refused the usage request (HTTP 403).`,
-  `Anthropic is rate limiting usage requests (HTTP 429).` followed by ` Next try in N s.` or ` N min.` (rounded up), `Anthropic returned HTTP n.` for any other status, `Cannot reach <host>: <detail>` (the one message with no full stop of its own, since it ends with the system's text) where the host is the one
+  `Anthropic is rate limiting usage requests (HTTP 429).`, `Anthropic returned HTTP n.` for any other status, `Cannot reach <host>: <detail>` (the one message with no full stop of its own, since it ends with the system's text) where the host is the one
   of the base URL in force, without its port, so the default run reads `Cannot reach api.anthropic.com: <detail>` and a run against the fake backend reads `Cannot reach 127.0.0.1: <detail>`,
   `Interrupted while fetching usage.`, and `Unexpected error (<kind>); see the log.` When the retry with a fresh token is rejected too: `Anthropic rejected a freshly obtained OAuth token (HTTP 401). Log in again with Claude Code, then refresh.`
 - The response is read as follows. `spend` counts only when its `enabled` flag is true; amounts are minor units divided by ten to the power of the exponent (0 if none); the currency is that of `used`, else of `limit`; the percentage is used as sent
@@ -1787,8 +1788,6 @@ These are things the program does that the sections above do not say, written do
   own, keeps no cookies and answers no challenge. The security of the connection is the platform's: its certificates and its defaults, with nothing of the program's own added or taken away.
 - **Which statuses are a success.** Any status from 200 to 299 is one, and its body is read as a usage document; every other status is a failed refresh whose body is never read. The messages of a status and of a time-out
   always say `Anthropic`, whatever the base URL; only `Cannot reach` names the host. `<detail>` in that message is the system's own text for what went wrong, or the kind of the fault when it has none.
-- **`Next try in`.** The figure is the wait in force, in whole seconds rounded up and never less than `1 s`. Under a minute it is `N s`; from 60 seconds on it is whole minutes, rounded up: 60 seconds is `1 min` and
-  61 seconds `2 min`.
 - **`Retry-After`, exactly.** It is believed only as a whole number of seconds above zero, of at most six digits: `0`, a negative number, a decimal, a date and any other text are taken as no header. Only the first value of the
   header is looked at.
 - **The messages of a response that cannot be used**, each of which begins `The usage response`: `The usage response is not valid JSON: <what the JSON reader says is wrong>`; `The usage response is not a JSON object.`, which is
@@ -1870,8 +1869,7 @@ These are things the program does that the sections above do not say, written do
   `Authorization: [redacted]`. Every occurrence is masked, on every line of an entry.
 - **The request line, exactly.** It is at the information level. The size is that of the body in bytes as UTF-8. The request id is the `request-id` header, written only if it is 1 to 100 characters of letters, digits, `_`
   and `-`. Inside the brackets the order is the size, the request id, the `retry-after`. A request cut short by the program stopping writes no request line at all.
-- **The lines of a refresh.** Every refresh that succeeded writes `Usage refresh succeeded`, or, when the answer has no spend, the line that says so (see An answer that came and has no spend is said explicitly). A rejected token writes `The token was rejected (HTTP 401); acquiring a fresh one`. An HTTP 429 writes two warnings,
-  `Rate limited; next try in <N s or N min>` and then the `Usage refresh failed: ...` line. An unexpected fault writes the warning `Usage refresh failed unexpectedly` with its stack trace, and then the `Usage refresh failed: Unexpected error ...` line.
+- **The lines of a refresh.** Every refresh that succeeded writes `Usage refresh succeeded`, or, when the answer has no spend, the line that says so (see An answer that came and has no spend is said explicitly). A rejected token writes `The token was rejected (HTTP 401); acquiring a fresh one`. An HTTP 429 writes one warning, the line `Usage refresh failed: ...` (until version 0.69 there was a line before it, `Rate limited; next try in ...`). An unexpected fault writes the warning `Usage refresh failed unexpectedly` with its stack trace, and then the `Usage refresh failed: Unexpected error ...` line.
 - **The lines of the settings.** At startup, when the settings have been read: `Usage interval N s, poll interval M s`, with the values in force for the run. `There was no settings file; created <path> with the defaults`
   when one was made, and the warning `Could not create the settings file <path>: <reason>` when it could not be, which stops nothing: the defaults are used and the run goes on. The warnings for a file or a value that is
   not right: `Ignoring unreadable settings file <path>: <reason>`; `Ignoring settings file <path>: not a JSON object`, which is also what an empty file and a list draw; `Ignoring usageIntervalSeconds in <path>: The usage
