@@ -1305,7 +1305,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **Speeding up is slow.** After **8 answers in a row without a 429** the interval is one second shorter, never less than `R + 1` and never less than 10. The count starts
   again at 0 after each step and after each 429. So the interval stays just above what was refused, and sinks one second at a time while nothing is refused, which is why
   the search keeps near the limit and mostly does not run into it.
-- **`R` is forgotten slowly**: after 20 answers in a row without a 429 `R` is one second lower (the count of the 20 starts again after each step and after each 429); at 0 it is none. So when
+- **`R` is forgotten slowly**: after 60 answers in a row without a 429 `R` is one second lower (the count of the 60 starts again after each step and after each 429); at 0 it is none. So when
   the limit of the server has gone down the search follows it down.
 - **Before a refusal is known** (no `R`) the interval goes down by a tenth with each answer without a 429, `ceil(interval × 0.9)`, not below 10, so the search does not
   take minutes to come down from 60.

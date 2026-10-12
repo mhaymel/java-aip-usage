@@ -7,7 +7,7 @@ package org.example.usage;
  * <p>It remembers one figure, the refused interval: the interval at which the last HTTP 429 came. After a 429 the
  * interval is a tenth longer than that, at least a second. After eight answers in a row without a 429 it is a second
  * shorter, but never as short as the refused one, so it stays just above what was refused and mostly does not run into it
- * again. The memory is forgotten slowly, a second for every twenty answers without a 429, so that a limit that has gone
+ * again. The memory is forgotten slowly, a second for every sixty answers without a 429, so that a limit that has gone
  * down is followed down. Before any refusal is known the interval goes down by a tenth with each answer.
  *
  * <p>It has no clock and no thread: it is told what happened and says what the interval is.
@@ -27,7 +27,7 @@ public final class IntervalSearch {
     static final int ANSWERS_PER_STEP = 8;
 
     /** How many answers in a row without a 429 it takes to forget a second of the refused interval. */
-    static final int ANSWERS_PER_DECAY = 20;
+    static final int ANSWERS_PER_DECAY = 60;
 
     private int interval;
 

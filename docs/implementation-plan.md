@@ -1776,7 +1776,7 @@ that refuses: that is what this was built for, and is for a person to try.
   without one.
 - **The search.** `IntervalSearch` is rewritten in place (it keeps its name) and replaces the binary search: the interval, the refused interval `R` (or none), a count of answers without a 429 for the step and one for the decay.
   After a 429: `R := interval`, `interval := min(300, max(ceil(1.1 R), R + 1))`; with a longer `Retry-After` of the server (whole seconds, capped at 300, and so no wait beside the interval) the interval is that. After 8 answers without a 429: `-1`, not below `R + 1`
-  and 10; after 20: `R - 1`; with no `R`: `ceil(0.9 × interval)`, floor 10. Only an answer of Anthropic moves it. The log lines are `Automatic interval: <N> s (refused at <R> s)` / `(no refusal yet)`.
+  and 10; after 60: `R - 1`; with no `R`: `ceil(0.9 × interval)`, floor 10. Only an answer of Anthropic moves it. The log lines are `Automatic interval: <N> s (refused at <R> s)` / `(no refusal yet)`.
 - **`Settings`** (four more components at the end of the record, `withHistoryColumns`) loses `autoLowerSeconds` and `autoUpperSeconds` and gets `autoRefusedSeconds` (a number 10 to 300 or none); `SettingsStore` reads an old file without the new key as no refusal, and writes the new one only. Four new history
   keys, `historyTime`, `historyUsed`, `historyLimit` and `historyCurrent`, besides `historyDeltaUsed` and `historyDeltaTime`; the backend leaves an off column out of the finished lines and the header, so the
   page still draws only text. The CSV keeps its `interval` column, recorded from `effectiveIntervalSeconds()` in `AppRuntime.fetchAndRecord`.

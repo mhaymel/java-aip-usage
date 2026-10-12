@@ -105,17 +105,17 @@ class IntervalSearchTest {
     }
 
     @Test
-    void theRefusedIntervalIsForgottenASecondForTwentyAnswersAndThenNone() {
+    void theRefusedIntervalIsForgottenASecondForSixtyAnswersAndThenNone() {
         IntervalSearch search = IntervalSearch.of(40, null);
         search.rateLimited();
-        answers(search, 19);
+        answers(search, 59);
         assertEquals(40, search.refused());
         answers(search, 1);
         assertEquals(39, search.refused());
 
         IntervalSearch low = IntervalSearch.of(10, null);
         low.rateLimited();
-        answers(low, 20);
+        answers(low, 60);
         assertNull(low.refused(), "below 10 there is nothing left to remember");
     }
 
@@ -170,7 +170,7 @@ class IntervalSearchTest {
 
             assertTrue(search.interval() >= limit - 1 && search.interval() <= limit + Math.max(3, limit / 8),
                     "limit " + limit + ": settled at " + search.interval());
-            // Once it has settled it is refused about every twenty answers, as the refused interval is forgotten a second at a time.
+            // Once it has settled it is refused about every sixty answers, as the refused interval is forgotten a second at a time.
             assertTrue(later <= 1000 / IntervalSearch.ANSWERS_PER_DECAY + 10, "limit " + limit + ": " + later + " refusals in 1000 answers (" + first + " at first)");
         }
     }
@@ -181,7 +181,7 @@ class IntervalSearchTest {
         refusals(60, 400, search);
         assertTrue(search.interval() >= 60);
 
-        refusals(20, 3000, search);
+        refusals(20, 9000, search);
 
         assertTrue(search.interval() <= 24, "settled at " + search.interval());
     }
