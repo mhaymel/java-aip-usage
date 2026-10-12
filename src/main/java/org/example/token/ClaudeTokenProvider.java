@@ -1,5 +1,6 @@
 package org.example.token;
 
+import org.example.Cancel;
 import org.example.Failure;
 import org.example.log.Log;
 import org.example.Redaction;
@@ -87,6 +88,11 @@ public final class ClaudeTokenProvider implements TokenProvider {
 
     @Override
     public String acquire() {
+        return acquire(new Cancel());
+    }
+
+    @Override
+    public String acquire(Cancel cancel) {
         rejectConflictingEnvironment();
 
         try (CredentialCapture capture = CredentialCapture.start()) {
@@ -96,6 +102,8 @@ public final class ClaudeTokenProvider implements TokenProvider {
                 Output output = Output.collect(process);
                 CompletableFuture<String> credential = capture.credential();
                 process.onExit().thenRun(() -> credential.completeExceptionally(new ExitedWithoutCredential()));
+                // Told to give up, the waiting ends as it does when the CLI ends: with no credential, and the reason.
+                cancel.onCancel(() -> credential.completeExceptionally(new GivenUp()));
                 return await(credential, process, output);
             } finally {
                 terminate(process);
@@ -279,6 +287,9 @@ public final class ClaudeTokenProvider implements TokenProvider {
                             + " Run `" + command.get(0) + "` in a terminal to check that it works and is logged in,"
                             + " then retry.");
         } catch (ExecutionException e) {
+            if (e.getCause() instanceof GivenUp) {
+                throw new TokenException(Reason.INTERRUPTED, "Interrupted while reading the Claude Code token.");
+            }
             reportOutput(output, true);
             throw new TokenException(
                     Reason.NOT_LOGGED_IN,
@@ -311,6 +322,14 @@ public final class ClaudeTokenProvider implements TokenProvider {
             process.waitFor(KILL_GRACE.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    /** Marks that the waiting for a credential was given up because whoever asked for the token no longer wants it. */
+    private static final class GivenUp extends Exception {
+
+        GivenUp() {
+            super("given up", null, false, false);
         }
     }
 

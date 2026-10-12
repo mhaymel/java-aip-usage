@@ -2,6 +2,8 @@ package org.example.usage;
 
 import org.example.Failure;
 import org.example.log.Log;
+import org.example.Cancel;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -11,6 +13,9 @@ import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.regex.Pattern;
 
@@ -111,6 +116,11 @@ public final class UsageClient implements UsageSource {
 
     @Override
     public UsageSnapshot fetch(String token) {
+        return fetch(token, new Cancel());
+    }
+
+    @Override
+    public UsageSnapshot fetch(String token, Cancel cancel) {
         HttpRequest request = HttpRequest.newBuilder(uri)
                 .GET()
                 .timeout(requestTimeout)
@@ -120,17 +130,29 @@ public final class UsageClient implements UsageSource {
 
         long started = System.nanoTime();
         HttpResponse<String> response;
+        // Sent so that it can be given up: the answer is waited for here, and whoever cancels ends the waiting and the request.
+        CompletableFuture<HttpResponse<String>> answer = http.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        cancel.onCancel(() -> answer.cancel(true));
         try {
-            response = http.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (HttpTimeoutException e) {
-            logOutcome("timed out", started);
-            throw new UsageFetchException(
-                    "Anthropic did not answer within " + requestTimeout.toSeconds() + " seconds.", e);
-        } catch (IOException e) {
+            response = answer.get();
+        } catch (CancellationException e) {
+            throw new UsageFetchException("Interrupted while fetching usage.", e);
+        } catch (ExecutionException e) {
+            // A request that was given up ends in one way or the other, as the client sees fit; it is the same thing.
+            if (cancel.isCancelled() || e.getCause() instanceof CancellationException) {
+                throw new UsageFetchException("Interrupted while fetching usage.", e.getCause());
+            }
+            if (e.getCause() instanceof HttpTimeoutException) {
+                logOutcome("timed out", started);
+                throw new UsageFetchException(
+                        "Anthropic did not answer within " + requestTimeout.toSeconds() + " seconds.", e.getCause());
+            }
             logOutcome("failed", started);
-            String detail = Failure.ofConnection(e);
-            throw new UsageFetchException("Cannot reach " + uri.getHost() + ": " + detail, e);
+            String detail = Failure.ofConnection(e.getCause());
+            throw new UsageFetchException("Cannot reach " + uri.getHost() + ": " + detail, e.getCause());
         } catch (InterruptedException e) {
+            // Nothing of the program does this; whatever did wants the request gone.
+            answer.cancel(true);
             Thread.currentThread().interrupt();
             throw new UsageFetchException("Interrupted while fetching usage.", e);
         }

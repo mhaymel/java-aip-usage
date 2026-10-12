@@ -91,11 +91,27 @@ final class RefreshSchedule {
      *     triggered, when there is nothing to count to
      */
     OptionalLong nanosUntilNextRefresh(long now) {
-        if (!everTriggered) {
-            return OptionalLong.empty();
+        return countdown().nanosUntilNextRefresh(now);
+    }
+
+    /**
+     * What the countdown is counted from, as it is at this moment: a copy that does not change, so that it can be
+     * handed to whoever shows the countdown and read there at any later time without asking the schedule again.
+     */
+    Countdown countdown() {
+        return new Countdown(everTriggered, lastTriggered, intervalNanos, requested);
+    }
+
+    /** See {@link #countdown()} and {@link #nanosUntilNextRefresh}. */
+    record Countdown(boolean everTriggered, long lastTriggered, long intervalNanos, boolean requested) {
+
+        OptionalLong nanosUntilNextRefresh(long now) {
+            if (!everTriggered) {
+                return OptionalLong.empty();
+            }
+            long left = intervalNanos - (now - lastTriggered);
+            return OptionalLong.of(requested ? Math.min(0, left) : left);
         }
-        long left = intervalNanos - (now - lastTriggered);
-        return OptionalLong.of(requested ? Math.min(0, left) : left);
     }
 
     /** Records that a request starts now. */

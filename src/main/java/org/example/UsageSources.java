@@ -1,12 +1,12 @@
 package org.example;
 
 import org.example.fake.Scenario;
-import org.example.usage.UsageSnapshot;
+import org.example.usage.UsageFetch;
 
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Optional;
-import java.util.function.Supplier;
+
 
 /**
  * Where usage comes from, which in debug mode can change while the program runs: the fake backend
@@ -60,7 +60,7 @@ interface UsageSources {
      * @param base the base URL it fetches from, for the log to name; empty when there is none to name
      * @param resource what is closed when the source is left, the fake backend; or null
      */
-    record Source(Supplier<UsageSnapshot> fetcher, boolean fake, Optional<URI> base, AutoCloseable resource) {
+    record Source(UsageFetch fetcher, boolean fake, Optional<URI> base, AutoCloseable resource) {
     }
 
     /** Opens a source as the debug settings say. In a run that is not in debug mode it is asked once, for the real one. */

@@ -149,6 +149,42 @@ class UsageClientTest {
     }
 
     @Test
+    void aRequestThatIsToldToGiveUpStopsWaitingAtOnce() throws Exception {
+        URI uri = serve("/usage", exchange -> {
+            sleep(5000);
+            reply(exchange, 200, "{}");
+        });
+        UsageClient patient =
+                new UsageClient(plainHttpClient(), uri, Duration.ofSeconds(20), Clock.fixed(NOW, ZoneOffset.UTC));
+        org.example.Cancel cancel = new org.example.Cancel();
+        Thread.ofPlatform().daemon().start(() -> {
+            sleep(200);
+            cancel.cancel();
+        });
+
+        long started = System.nanoTime();
+        UsageFetchException e = assertThrows(UsageFetchException.class, () -> patient.fetch(TOKEN, cancel));
+
+        assertEquals("Interrupted while fetching usage.", e.getMessage());
+        assertTrue(Duration.ofNanos(System.nanoTime() - started).toMillis() < 3000, "long before the server answers or the request times out");
+    }
+
+    @Test
+    void aRequestThatWasGivenUpBeforeItBeganDoesNotWaitAtAll() throws Exception {
+        URI uri = serve("/usage", exchange -> {
+            sleep(5000);
+            reply(exchange, 200, "{}");
+        });
+        org.example.Cancel cancel = new org.example.Cancel();
+        cancel.cancel();
+
+        long started = System.nanoTime();
+        assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN, cancel));
+
+        assertTrue(Duration.ofNanos(System.nanoTime() - started).toMillis() < 3000);
+    }
+
+    @Test
     void givesUpOnAServerThatDoesNotAnswerInTime() throws Exception {
         URI uri = serve("/usage", exchange -> {
             sleep(2000);

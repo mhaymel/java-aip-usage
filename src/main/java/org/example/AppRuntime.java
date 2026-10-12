@@ -8,6 +8,7 @@ import org.example.settings.Settings;
 import org.example.settings.SettingsException;
 import org.example.settings.SettingsStore;
 import org.example.usage.ResponseLog;
+import org.example.usage.UsageFetch;
 import org.example.usage.UsageHistory;
 import org.example.usage.UsageService;
 import org.example.usage.UsageSnapshot;
@@ -71,11 +72,17 @@ final class AppRuntime implements AutoCloseable, UsageSources {
      */
     static AppRuntime start(AppFiles files, LaunchOptions options, Supplier<UsageSnapshot> fetcher)
             throws IOException {
+        return start(files, options, UsageFetch.of(fetcher));
+    }
+
+    /** As above, with a fetch that can be told to give up. */
+    static AppRuntime start(AppFiles files, LaunchOptions options, UsageFetch fetcher)
+            throws IOException {
         return start(files, options, fetcher, new ResponseLog());
     }
 
     /** @param responseLog switched by the setting to log the response; the client the fetcher uses asks it */
-    static AppRuntime start(AppFiles files, LaunchOptions options, Supplier<UsageSnapshot> fetcher, ResponseLog responseLog)
+    static AppRuntime start(AppFiles files, LaunchOptions options, UsageFetch fetcher, ResponseLog responseLog)
             throws IOException {
         return start(files, options, fetcher, responseLog, Optional.empty());
     }
@@ -90,7 +97,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
     static AppRuntime start(
             AppFiles files,
             LaunchOptions options,
-            Supplier<UsageSnapshot> fetcher,
+            UsageFetch fetcher,
             ResponseLog responseLog,
             Optional<URI> fetchedFrom)
             throws IOException {
@@ -198,10 +205,10 @@ final class AppRuntime implements AutoCloseable, UsageSources {
      * One query of the source in use, added to its history: the reading it returns, or a row for the failure, which is
      * then thrown on as it was. The row says how long the query took and what the interval was, and the row of the window
      * is told the same duration. A history that cannot be written is logged and nothing more: the reading is good, and the
-     * refresh did succeed. A query cut short because the program is stopping is not a failure to record, and neither is
+     * refresh did succeed. A query that was told to give up because the program is stopping is not a failure to record, and neither is
      * one whose source was left while it was under way: its answer belongs to neither file.
      */
-    private UsageSnapshot fetchAndRecord() {
+    private UsageSnapshot fetchAndRecord(Cancel cancel) {
         Source asked = source;
         UsageHistory history = asked.fake() ? fakeHistory : realHistory;
         // The interval in force: the configured one, or the one the program has found while it searches for it itself.
@@ -209,9 +216,9 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         long started = System.nanoTime();
         UsageSnapshot snapshot;
         try {
-            snapshot = asked.fetcher().get();
+            snapshot = asked.fetcher().fetch(cancel);
         } catch (RuntimeException failure) {
-            if (!Thread.currentThread().isInterrupted() && asked == source) {
+            if (!cancel.isCancelled() && asked == source) {
                 long took = millisSince(started);
                 latestDuration.set(took);
                 record(history, () -> history.appendFailure(Instant.now(), interval, took));
@@ -346,7 +353,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         return service;
     }
 
-    /** Stops fetching first, interrupting a request in flight, then the server, then what the usage came from. */
+    /** Stops fetching first, telling a request in flight to give up, then the server, then what the usage came from. */
     @Override
     public void close() {
         service.close();

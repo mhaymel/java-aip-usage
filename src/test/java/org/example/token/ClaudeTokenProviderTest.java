@@ -153,6 +153,35 @@ class ClaudeTokenProviderTest {
     }
 
     @Test
+    void toldToGiveUpItStopsWaitingForTheCliAndKillsIt() throws Exception {
+        Path pidFile = dir.resolve("pid");
+        org.example.Cancel cancel = new org.example.Cancel();
+        Thread.ofPlatform().daemon().start(() -> {
+            // Once the CLI is there, so that there is something to kill.
+            long deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos();
+            while (!Files.exists(pidFile) && System.nanoTime() < deadline) {
+                try {
+                    Thread.sleep(20);
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
+            cancel.cancel();
+        });
+
+        long started = System.nanoTime();
+        TokenException e = assertThrows(
+                TokenException.class,
+                () -> provider(Map.of(), Duration.ofSeconds(60), "hang", pidFile.toString()).acquire(cancel));
+
+        assertEquals(Reason.INTERRUPTED, e.reason());
+        assertEquals("Interrupted while reading the Claude Code token.", e.getMessage());
+        assertTrue(Duration.ofNanos(System.nanoTime() - started).toSeconds() < 30, "long before the 60 seconds it would wait");
+        long pid = Long.parseLong(Files.readString(pidFile));
+        assertFalse(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false), "CLI still running");
+    }
+
+    @Test
     void whatTheCliStartedIsKilledWithIt() throws Exception {
         Path pidFile = dir.resolve("pid");
         Path childPidFile = dir.resolve("pid.child");

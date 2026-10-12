@@ -43,6 +43,10 @@ class UsageServiceTest {
     }
 
     private UsageService start(Supplier<UsageSnapshot> fetcher, Duration interval) {
+        return start(UsageFetch.of(fetcher), interval);
+    }
+
+    private UsageService start(UsageFetch fetcher, Duration interval) {
         UsageService service = new UsageService(fetcher, interval);
         started.add(service);
         service.start();
@@ -50,7 +54,7 @@ class UsageServiceTest {
     }
 
     /** A fetcher whose calls can be held open until released. */
-    private static final class Gate implements Supplier<UsageSnapshot> {
+    private static final class Gate implements UsageFetch {
 
         final AtomicInteger calls = new AtomicInteger();
 
@@ -58,7 +62,8 @@ class UsageServiceTest {
 
         final AtomicInteger maxInFlight = new AtomicInteger();
 
-        final AtomicBoolean interrupted = new AtomicBoolean();
+        /** Whether a call was told to give up while it was held. */
+        final AtomicBoolean givenUp = new AtomicBoolean();
 
         volatile Thread fetchThread;
 
@@ -69,7 +74,7 @@ class UsageServiceTest {
         volatile CountDownLatch hold;
 
         @Override
-        public UsageSnapshot get() {
+        public UsageSnapshot fetch(org.example.Cancel cancel) {
             int n = calls.incrementAndGet();
             fetchThread = Thread.currentThread();
             maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
@@ -77,14 +82,20 @@ class UsageServiceTest {
             try {
                 CountDownLatch latch = hold;
                 if (latch != null) {
+                    // Told to give up, a held call is let go, as the real one stops waiting for the network.
+                    cancel.onCancel(latch::countDown);
                     latch.await();
                 }
             } catch (InterruptedException e) {
-                interrupted.set(true);
+                givenUp.set(true);
                 Thread.currentThread().interrupt();
                 throw new UsageFetchException("interrupted", e);
             } finally {
                 inFlight.decrementAndGet();
+            }
+            if (cancel.isCancelled()) {
+                givenUp.set(true);
+                throw new UsageFetchException("given up", null);
             }
             return snapshot(n);
         }
@@ -135,11 +146,11 @@ class UsageServiceTest {
         UsageService service = start(fetcher, HOUR);
         await(() -> fetcher.inFlight.get() == 1);
 
-        // The request to the old source is blocked. The restart interrupts it, and the next request is not held.
+        // The request to the old source is blocked. The restart tells it to give up, and the next request is not held.
         fetcher.hold = null;
         service.restart(null);
 
-        await(() -> fetcher.interrupted.get());
+        await(() -> fetcher.givenUp.get());
         await(() -> fetcher.calls.get() == 2);
         await(() -> snapshot(2).equals(service.state().snapshot()));
         assertNull(service.state().error(), "the request that was given up is not a failed refresh");
@@ -382,7 +393,7 @@ class UsageServiceTest {
         Thread.sleep(300);
 
         assertEquals(1, fetcher.calls.get(), "no extra fetch while one is running");
-        assertFalse(fetcher.interrupted.get(), "the running fetch must not be cancelled");
+        assertFalse(fetcher.givenUp.get(), "the running fetch must not be cancelled");
         release.countDown();
         await(() -> service.state().snapshot() != null);
         assertEquals(snapshot(1), service.state().snapshot());
@@ -722,7 +733,7 @@ class UsageServiceTest {
 
         service.close();
 
-        assertTrue(fetcher.interrupted.get(), "the running fetch is interrupted");
+        assertTrue(fetcher.givenUp.get(), "the running fetch is told to give up");
         assertFalse(refreshThread.isAlive(), "the refresh thread has ended");
     }
 
@@ -862,6 +873,93 @@ class UsageServiceTest {
         } finally {
             org.example.log.Log.removeSink(capture);
         }
+    }
+
+    // ---- one loop that owns everything, and questions that never wait for it
+
+    @Test
+    void whatTheWindowAsksEverySecondIsAnsweredWhileTheLoopIsBusy() throws Exception {
+        CountDownLatch busy = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        UsageService service = new UsageService(new Scripted(false), HOUR);
+        started.add(service);
+        // Whoever is told of the search is called by the loop; one that takes its time holds the loop up.
+        service.onSearchMoved(moved -> {
+            busy.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        service.setAutomatic(IntervalSearch.fresh());
+        service.start();
+        assertTrue(busy.await(5, TimeUnit.SECONDS), "the loop is telling of the search");
+
+        long began = System.nanoTime();
+        try {
+            assertNotNull(service.state().snapshot());
+            assertTrue(service.secondsUntilNextRefresh().isPresent());
+            assertTrue(service.effectiveIntervalSeconds() > 0);
+            assertTrue(service.automatic());
+            assertNotNull(service.interval());
+            assertTrue(Duration.ofNanos(System.nanoTime() - began).toMillis() < 1000, "none of them waited for the loop");
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
+    void whoeverIsToldOfTheSearchMayAskTheServiceInTurn() {
+        List<String> asked = new CopyOnWriteArrayList<>();
+        UsageService[] holder = new UsageService[1];
+        UsageService service = new UsageService(new Scripted(false), HOUR);
+        holder[0] = service;
+        started.add(service);
+        service.onSearchMoved(moved -> {
+            // Answered on the spot by the loop that is calling: waiting for it would wait for itself.
+            asked.add("refreshing again: " + holder[0].refreshNow());
+            holder[0].setInterval(Duration.ofSeconds(90));
+            asked.add("interval " + holder[0].effectiveIntervalSeconds());
+        });
+        service.setAutomatic(IntervalSearch.fresh());
+        service.start();
+
+        await(() -> asked.size() >= 2);
+
+        assertEquals("refreshing again: true", asked.get(0), "the request has ended, so another may be asked for");
+        assertEquals("interval 55", asked.get(1), "the search's interval, the configured one waiting behind it");
+    }
+
+    @Test
+    void aFaultInWhoeverIsToldOfTheSearchDoesNotEndTheRefreshing() {
+        Scripted fetch = new Scripted(false, false);
+        UsageService service = new UsageService(fetch, HOUR);
+        started.add(service);
+        service.onSearchMoved(moved -> {
+            throw new IllegalStateException("could not save");
+        });
+        service.setAutomatic(IntervalSearch.fresh());
+        service.start();
+        await(() -> fetch.callTimesMillis.size() == 1 && !service.state().refreshing());
+
+        assertTrue(service.refreshNow(), "the loop is still there to take it");
+        await(() -> fetch.callTimesMillis.size() == 2);
+    }
+
+    @Test
+    void whatIsAskedAfterTheServiceIsClosedIsAnsweredAndChangesNothingThatRuns() {
+        Gate fetcher = new Gate();
+        UsageService service = start(fetcher, HOUR);
+        await(() -> fetcher.calls.get() == 1 && !service.state().refreshing());
+        service.close();
+
+        assertFalse(service.refreshNow());
+        service.setInterval(Duration.ofSeconds(30));
+        assertEquals(30, service.effectiveIntervalSeconds(), "the question is answered, by a service that fetches no more");
+        service.restart(null);
+        service.close();
+        assertEquals(1, fetcher.calls.get());
     }
 
     // ---- the automatic interval: the search takes the place of the configured interval

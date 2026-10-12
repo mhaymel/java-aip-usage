@@ -61,7 +61,7 @@ class ApiTest {
     private final List<AppRuntime> runtimes = new ArrayList<>();
 
     /** A fetcher that counts its calls, can be held open, and answers with whatever is set. */
-    private static final class FakeFetch implements Supplier<UsageSnapshot> {
+    private static final class FakeFetch implements org.example.usage.UsageFetch {
 
         final AtomicInteger calls = new AtomicInteger();
 
@@ -76,12 +76,16 @@ class ApiTest {
         volatile CountDownLatch entered = new CountDownLatch(1);
 
         @Override
-        public UsageSnapshot get() {
+        public UsageSnapshot fetch(org.example.Cancel cancel) {
             calls.incrementAndGet();
             maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
             entered.countDown();
             try {
                 CountDownLatch latch = hold;
+                if (latch != null) {
+                    // Told to give up, a held request is let go, as the real one stops waiting for the network.
+                    cancel.onCancel(latch::countDown);
+                }
                 if (latch != null) {
                     latch.await();
                 }
@@ -90,6 +94,9 @@ class ApiTest {
                 throw new UsageFetchException("interrupted", e);
             } finally {
                 inFlight.decrementAndGet();
+            }
+            if (cancel.isCancelled()) {
+                throw new UsageFetchException("interrupted", null);
             }
             return answer.get();
         }

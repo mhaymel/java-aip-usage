@@ -1,9 +1,9 @@
 package org.example.usage;
 
+import org.example.Cancel;
 import org.example.log.Log;
 import org.example.token.TokenProvider;
 
-import java.util.function.Supplier;
 
 /**
  * One usage reading, with the token handled as the requirements specify: a
@@ -13,7 +13,7 @@ import java.util.function.Supplier;
  *
  * <p>Meant to be called by one thread at a time; calls are serialised anyway.
  */
-public final class UsageFetcher implements Supplier<UsageSnapshot> {
+public final class UsageFetcher implements UsageFetch {
 
     private static final Log LOG = Log.of(UsageFetcher.class);
 
@@ -29,18 +29,23 @@ public final class UsageFetcher implements Supplier<UsageSnapshot> {
         this.source = source;
     }
 
+    /** One reading that nobody will tell to give up. */
+    public UsageSnapshot get() {
+        return fetch(new Cancel());
+    }
+
     /**
      * @throws org.example.token.TokenException if no token can be obtained
      * @throws UsageFetchException if the request fails or is refused
      * @throws UsageParseException if the response is not a usage document
      */
     @Override
-    public synchronized UsageSnapshot get() {
+    public synchronized UsageSnapshot fetch(Cancel cancel) {
         if (token == null) {
-            token = tokens.acquire();
+            token = tokens.acquire(cancel);
         }
         try {
-            return source.fetch(token);
+            return source.fetch(token, cancel);
         } catch (UsageFetchException rejected) {
             if (!rejected.isUnauthorized()) {
                 throw rejected;
@@ -50,9 +55,9 @@ public final class UsageFetcher implements Supplier<UsageSnapshot> {
         LOG.info("The token was rejected (HTTP 401); acquiring a fresh one");
         // Dropped first, so a failure to get a new token leaves nothing stale behind.
         token = null;
-        token = tokens.acquire();
+        token = tokens.acquire(cancel);
         try {
-            return source.fetch(token);
+            return source.fetch(token, cancel);
         } catch (UsageFetchException again) {
             if (again.isUnauthorized()) {
                 token = null;

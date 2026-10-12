@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.Cancel;
 import org.example.Failure;
 import org.example.log.Log;
 import org.example.token.TokenException;
@@ -7,19 +8,26 @@ import org.example.token.TokenException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.OptionalLong;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
- * Owns the current {@link UsageState} and the thread that keeps it fresh: it
- * fetches at startup, then again each time the interval has elapsed since the
- * previous request was triggered, and on demand through {@link #refreshNow()}.
+ * Owns the current {@link UsageState} and keeps it fresh: it fetches at startup, then again each time the interval
+ * has elapsed since the previous request was triggered, and on demand through {@link #refreshNow()}.
  *
- * <p>Requests never overlap: they all run on one thread, and {@link
- * #refreshNow()} declines while one is running or already requested. A failed
- * refresh keeps the last good reading and records the error. {@link
- * #close()} interrupts a request in flight and waits for the thread to end.
+ * <p>One thread, the loop, owns everything the service knows: the schedule, the search for the interval, which
+ * request is under way. Whatever is asked of the service from outside is handed to the loop as a message and done
+ * there, one after the other, so nothing needs a lock; the loop takes the next message, or waits until the next
+ * request is due, whichever comes first. A request runs beside the loop, so that the loop can take a message while
+ * one is under way, and its answer comes back as a message too.
+ *
+ * <p>Requests never overlap: the loop begins one only when none is running, and {@link #refreshNow()} declines while
+ * one is running or already requested. A failed refresh keeps the last good reading and records the error. A request
+ * that is no longer wanted is told so through its {@link Cancel}, by {@link #close()} and by {@link #restart}; nothing
+ * is interrupted.
  *
  * <p>Timing rules live in {@link RefreshSchedule}.
  */
@@ -32,25 +40,44 @@ public final class UsageService implements AutoCloseable {
     /** A server-supplied wait is believed up to this long, whatever it claims. */
     private static final Duration MAX_RETRY_AFTER = Duration.ofHours(1);
 
-    private final Supplier<UsageSnapshot> fetcher;
-
-    private final RefreshSchedule schedule;
-
-    private final ReentrantLock lock = new ReentrantLock();
-
-    /** Signalled when the schedule changes or the service closes. */
-    private final Condition changed = lock.newCondition();
-
-    private volatile UsageState state = UsageState.initial();
+    private final UsageFetch fetcher;
 
     private final ErrorLog errors = new ErrorLog();
 
-    private Thread thread;
+    /** What is asked of the service, in the order it was asked; taken and done by the loop. */
+    private final LinkedBlockingQueue<Runnable> messages = new LinkedBlockingQueue<>();
 
-    private boolean closed;
+    private final Thread loop;
+
+    /** Guards {@link #ended}, and what is done in the place of the loop once it has ended. */
+    private final Object gate = new Object();
+
+    /** Whether the loop has ended, after which a message would wait for nobody. */
+    private boolean ended;
+
+    // ---- what anybody may read at any time, replaced by the loop and never changed
+
+    private volatile UsageState state = UsageState.initial();
+
+    /** What the loop last said of the schedule, for the questions the window asks every second: they never wait for the loop. */
+    private volatile Published published;
+
+    /** The request under way, for {@link #close()} to wait for; {@code null} when there is none. */
+    private volatile Thread request;
 
     /** Whether the reading before this one had no spend, so that the log warns of it once and not at every refresh. */
     private volatile boolean noSpendBefore;
+
+    // ---- what the loop alone reads and changes
+
+    private final RefreshSchedule schedule;
+
+    private boolean started;
+
+    private boolean closed;
+
+    /** The way to tell the request under way to give up; {@code null} when there is none. */
+    private Cancel current;
 
     /** The interval the settings give, which is in force while the program does not search for one. */
     private long configuredNanos;
@@ -58,7 +85,7 @@ public final class UsageService implements AutoCloseable {
     /** The search for the interval, while the automatic interval is on; {@code null} while it is off. */
     private IntervalSearch search;
 
-    /** Told where the search is whenever it has moved, so that it can be saved; called with no lock held. */
+    /** Told where the search is whenever it has moved, so that it can be saved. */
     private java.util.function.Consumer<IntervalSearch> searchListener = moved -> { };
 
     /** Whether the search has moved since its listener was last told. */
@@ -67,11 +94,26 @@ public final class UsageService implements AutoCloseable {
     /** Counts the restarts: a request that was begun before the latest one has an answer nobody wants any more. */
     private long generation;
 
-    public UsageService(Supplier<UsageSnapshot> fetcher, Duration interval) {
+    /** What the loop publishes of the schedule: the interval in force, whether it is searched for, and what the countdown is counted from. */
+    private record Published(long intervalNanos, boolean automatic, RefreshSchedule.Countdown countdown) {
+    }
+
+    public UsageService(UsageFetch fetcher, Duration interval) {
         this.fetcher = fetcher;
         this.schedule = new RefreshSchedule(positive(interval).toNanos());
         this.configuredNanos = interval.toNanos();
+        publish();
+        this.loop = new Thread(this::run, "usage-refresh");
+        this.loop.setDaemon(true);
+        this.loop.start();
     }
+
+    /** With a fetch that cannot be told to give up; see {@link UsageFetch#of}. */
+    public UsageService(Supplier<UsageSnapshot> fetcher, Duration interval) {
+        this(UsageFetch.of(fetcher), interval);
+    }
+
+    // ---- what is asked of the service
 
     /**
      * Shows a reading from before this run, until the first refresh has an answer. For the newest
@@ -79,15 +121,13 @@ public final class UsageService implements AutoCloseable {
      * Must be called before {@link #start()}.
      */
     public void restore(UsageSnapshot earlier) {
-        lock.lock();
-        try {
-            if (thread != null || closed) {
+        ask(() -> {
+            if (started || closed) {
                 throw new IllegalStateException("already started or closed");
             }
             state = new UsageState(earlier, null, null, false);
-        } finally {
-            lock.unlock();
-        }
+            return null;
+        });
     }
 
     /**
@@ -98,41 +138,34 @@ public final class UsageService implements AutoCloseable {
      * @param earlier the newest reading of the new source's own history, or {@code null}
      */
     public void restart(UsageSnapshot earlier) {
-        lock.lock();
-        try {
+        ask(() -> {
             if (closed) {
-                return;
+                return null;
             }
             generation++;
             state = earlier == null ? UsageState.initial() : new UsageState(earlier, null, null, false);
-            if (thread == null) {
-                return;
+            if (!started) {
+                return null;
             }
             if (schedule.isRunning()) {
-                // Wakes a request that is blocked on the network or on the CLI; run asks for the next one when it is back.
-                thread.interrupt();
+                // Tells a request that waits for the network or for the CLI; the next one is asked for when its answer is back.
+                current.cancel();
             } else {
                 schedule.request();
-                changed.signalAll();
             }
-        } finally {
-            lock.unlock();
-        }
+            return null;
+        });
     }
 
-    /** Starts the refresh thread; the first request begins at once. */
+    /** Starts refreshing; the first request begins at once. */
     public void start() {
-        lock.lock();
-        try {
-            if (thread != null || closed) {
+        ask(() -> {
+            if (started || closed) {
                 throw new IllegalStateException("already started or closed");
             }
-            thread = new Thread(this::run, "usage-refresh");
-            thread.setDaemon(true);
-            thread.start();
-        } finally {
-            lock.unlock();
-        }
+            started = true;
+            return null;
+        });
     }
 
     /**
@@ -140,13 +173,8 @@ public final class UsageService implements AutoCloseable {
      * interval of the search while the automatic interval is on. This is the interval the window shows.
      */
     public int effectiveIntervalSeconds() {
-        lock.lock();
-        try {
-            long nanos = schedule.interval();
-            return (int) Math.min(Integer.MAX_VALUE, (nanos + 999_999_999L) / 1_000_000_000L);
-        } finally {
-            lock.unlock();
-        }
+        long nanos = published.intervalNanos();
+        return (int) Math.min(Integer.MAX_VALUE, (nanos + 999_999_999L) / 1_000_000_000L);
     }
 
     /** The errors of this run; in memory only. */
@@ -160,12 +188,7 @@ public final class UsageService implements AutoCloseable {
     }
 
     public Duration interval() {
-        lock.lock();
-        try {
-            return Duration.ofNanos(schedule.interval());
-        } finally {
-            lock.unlock();
-        }
+        return Duration.ofNanos(published.intervalNanos());
     }
 
     /**
@@ -176,13 +199,8 @@ public final class UsageService implements AutoCloseable {
      * @return empty before the first request has been triggered
      */
     public OptionalLong secondsUntilNextRefresh() {
-        lock.lock();
-        try {
-            OptionalLong nanos = schedule.nanosUntilNextRefresh(System.nanoTime());
-            return nanos.isPresent() ? OptionalLong.of(toSeconds(nanos.getAsLong())) : OptionalLong.empty();
-        } finally {
-            lock.unlock();
-        }
+        OptionalLong nanos = published.countdown().nanosUntilNextRefresh(System.nanoTime());
+        return nanos.isPresent() ? OptionalLong.of(toSeconds(nanos.getAsLong())) : OptionalLong.empty();
     }
 
     /** Rounded to the nearest second, halves upwards, so that -0.4 s is 0 and -0.6 s is -1. */
@@ -196,19 +214,15 @@ public final class UsageService implements AutoCloseable {
      */
     public void setInterval(Duration interval) {
         long nanos = positive(interval).toNanos();
-        boolean inForce;
-        lock.lock();
-        try {
+        boolean inForce = ask(() -> {
             configuredNanos = nanos;
             // While the program searches for the interval the configured one is kept, and waits for the search to be switched off.
-            inForce = search == null;
-            if (inForce) {
-                schedule.setInterval(nanos);
-                changed.signalAll();
+            if (search != null) {
+                return false;
             }
-        } finally {
-            lock.unlock();
-        }
+            schedule.setInterval(nanos);
+            return true;
+        });
         if (inForce) {
             LOG.info("Usage fetch interval is now " + interval.toSeconds() + " s");
         }
@@ -216,22 +230,15 @@ public final class UsageService implements AutoCloseable {
 
     /** Registers who is told where the search for the automatic interval is, each time it has moved; replaces any earlier listener. */
     public void onSearchMoved(java.util.function.Consumer<IntervalSearch> listener) {
-        lock.lock();
-        try {
+        ask(() -> {
             this.searchListener = listener;
-        } finally {
-            lock.unlock();
-        }
+            return null;
+        });
     }
 
     /** Whether the program is searching for the interval itself. */
     public boolean automatic() {
-        lock.lock();
-        try {
-            return search != null;
-        } finally {
-            lock.unlock();
-        }
+        return published.automatic();
     }
 
     /**
@@ -239,16 +246,11 @@ public final class UsageService implements AutoCloseable {
      * search is in force; off, the configured interval is in force again.
      */
     public void setAutomatic(IntervalSearch from) {
-        long seconds;
-        lock.lock();
-        try {
+        long seconds = ask(() -> {
             search = from;
             schedule.setInterval(from == null ? configuredNanos : Duration.ofSeconds(from.interval()).toNanos());
-            seconds = Duration.ofNanos(schedule.interval()).toSeconds();
-            changed.signalAll();
-        } finally {
-            lock.unlock();
-        }
+            return Duration.ofNanos(schedule.interval()).toSeconds();
+        });
         LOG.info(from == null
                 ? "Automatic interval off: the usage fetch interval is " + seconds + " s"
                 : "Automatic interval: " + from.describe());
@@ -262,79 +264,146 @@ public final class UsageService implements AutoCloseable {
      *     or already requested, or the service is not running
      */
     public boolean refreshNow() {
-        lock.lock();
-        try {
-            if (thread == null || closed || !schedule.request()) {
-                return false;
-            }
-            changed.signalAll();
-            return true;
-        } finally {
-            lock.unlock();
+        return ask(() -> started && !closed && schedule.request());
+    }
+
+    // ---- the loop
+
+    /**
+     * Hands a question to the loop and waits for its answer, which is quick: the loop does nothing that takes long.
+     * Asked by the loop itself, as when whoever is told of the search asks something in turn, it is answered on the
+     * spot; and once the loop has ended, in its place.
+     */
+    private <T> T ask(Supplier<T> question) {
+        if (Thread.currentThread() == loop) {
+            T answer = question.get();
+            publish();
+            return answer;
         }
+        CompletableFuture<T> answer = new CompletableFuture<>();
+        synchronized (gate) {
+            if (ended) {
+                T now = question.get();
+                publish();
+                return now;
+            }
+            messages.add(() -> {
+                try {
+                    T now = question.get();
+                    // Before the answer, so that whoever asked finds what follows from it when it looks.
+                    publish();
+                    answer.complete(now);
+                } catch (RuntimeException e) {
+                    answer.completeExceptionally(e);
+                }
+            });
+        }
+        try {
+            return answer.get();
+        } catch (ExecutionException e) {
+            throw (RuntimeException) e.getCause();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted while asking the usage service");
+        }
+    }
+
+    /** Hands the loop something to do without waiting for it; it is dropped if the loop has ended. */
+    private void tell(Runnable message) {
+        synchronized (gate) {
+            if (!ended) {
+                messages.add(message);
+            }
+        }
+    }
+
+    private void publish() {
+        published = new Published(schedule.interval(), search != null, schedule.countdown());
     }
 
     private void run() {
-        lock.lock();
         try {
             while (!closed) {
                 long now = System.nanoTime();
-                long wait = schedule.nanosUntilDue(now);
+                // Before the service is started nothing is due; a request under way is never due again before it has ended.
+                long wait = started ? schedule.nanosUntilDue(now) : Long.MAX_VALUE;
                 if (wait > 0) {
-                    changed.awaitNanos(wait);
-                    continue;
-                }
-                schedule.begin(now);
-                state = state.startedRefresh();
-                long begun = generation;
-                lock.unlock();
-                Outcome outcome;
-                try {
-                    outcome = refresh();
-                } finally {
-                    lock.lock();
-                    schedule.finish();
-                }
-                if (begun != generation && !closed) {
-                    // The source was changed while this request was under way: its answer is of the old one. The
-                    // interruption that gave it up is spent, and the request to the new source is due now.
-                    Thread.interrupted();
-                    state = new UsageState(state.snapshot(), state.error(), state.errorAt(), false, state.rateLimited());
-                    schedule.request();
-                    continue;
-                }
-                outcome = settleInterval(outcome);
-                if (outcome.error() != null && !closed) {
-                    // The message the window shows in its message line, once, when it appears.
-                    LOG.warning("Usage refresh failed: " + outcome.error());
-                    errors.add(Instant.now(), outcome.error());
-                }
-                if (!closed) {
-                    state = outcome.applyTo(state);
-                }
-                if (searchMoved && search != null && !closed) {
-                    // Told with no lock held: the listener saves a file, and may ask this service something in turn.
-                    searchMoved = false;
-                    IntervalSearch moved = IntervalSearch.of(search.interval(), search.refused());
-                    java.util.function.Consumer<IntervalSearch> listener = searchListener;
-                    lock.unlock();
-                    try {
-                        listener.accept(moved);
-                    } finally {
-                        lock.lock();
+                    Runnable message = messages.poll(wait, TimeUnit.NANOSECONDS);
+                    if (message != null) {
+                        try {
+                            message.run();
+                        } catch (RuntimeException e) {
+                            // A fault in what handles an answer, or in whoever is told of the search, must not end the refreshing.
+                            LOG.warning("The usage service could not finish a step", e);
+                        }
                     }
+                } else {
+                    begin(now);
                 }
+                publish();
             }
         } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            // Nothing of the program does this; whatever did wants the loop gone.
+            closed = true;
         } finally {
-            lock.unlock();
+            synchronized (gate) {
+                ended = true;
+            }
+            // What was asked just before the end is still answered, by a service that is closed.
+            for (Runnable left = messages.poll(); left != null; left = messages.poll()) {
+                left.run();
+            }
         }
     }
 
-    private Outcome refresh() {
+    /** Begins a request, which runs beside the loop and hands its outcome back as a message. */
+    private void begin(long now) {
+        schedule.begin(now);
+        state = state.startedRefresh();
+        long begun = generation;
+        Cancel cancel = new Cancel();
+        current = cancel;
+        Thread runner = new Thread(() -> {
+            Outcome outcome = refresh(cancel);
+            tell(() -> finished(outcome, begun));
+        }, "usage-request");
+        runner.setDaemon(true);
+        request = runner;
+        runner.start();
+    }
+
+    /** What the loop does with the outcome of a request. */
+    private void finished(Outcome answered, long begun) {
+        schedule.finish();
+        current = null;
+        request = null;
+        if (closed) {
+            return;
+        }
+        if (begun != generation) {
+            // The source was changed while this request was under way: its answer is of the old one, and the request to
+            // the new source is due now.
+            state = new UsageState(state.snapshot(), state.error(), state.errorAt(), false, state.rateLimited());
+            schedule.request();
+            return;
+        }
+        Outcome outcome = settleInterval(answered);
+        if (outcome.error() != null) {
+            // The message the window shows in its message line, once, when it appears.
+            LOG.warning("Usage refresh failed: " + outcome.error());
+            errors.add(Instant.now(), outcome.error());
+        }
+        state = outcome.applyTo(state);
+        if (searchMoved && search != null) {
+            // The listener saves a file, and may ask this service something in turn, which the loop answers on the spot.
+            searchMoved = false;
+            searchListener.accept(IntervalSearch.of(search.interval(), search.refused()));
+        }
+    }
+
+    private Outcome refresh(Cancel cancel) {
         try {
-            UsageSnapshot snapshot = fetcher.get();
+            UsageSnapshot snapshot = fetcher.fetch(cancel);
             String noSpend = snapshot.noSpendMessage();
             if (noSpend == null) {
                 LOG.info("Usage refresh succeeded");
@@ -346,7 +415,7 @@ public final class UsageService implements AutoCloseable {
             noSpendBefore = noSpend != null;
             return Outcome.success(snapshot);
         } catch (UsageFetchException e) {
-            // Logged by run, with the rest of the message the window shows.
+            // Logged by the loop, with the rest of the message the window shows.
             return e.status() == 429 ? Outcome.rateLimited(Failure.of(e), e.retryAfter()) : Outcome.failure(Failure.of(e));
         } catch (TokenException | UsageParseException e) {
             // These messages are written for the user and carry no credentials.
@@ -357,24 +426,32 @@ public final class UsageService implements AutoCloseable {
         }
     }
 
+    /**
+     * Stops refreshing: a request under way is told to give up, and the loop ends. Waits up to five seconds for both
+     * to be gone.
+     */
     @Override
     public void close() {
-        Thread toStop;
-        lock.lock();
-        try {
+        boolean stopping = ask(() -> {
+            boolean wasRunning = started && !closed;
             closed = true;
-            changed.signalAll();
-            toStop = thread;
-        } finally {
-            lock.unlock();
-        }
-        if (toStop == null || toStop == Thread.currentThread()) {
+            if (current != null) {
+                // Tells a request that waits for the network or for the CLI.
+                current.cancel();
+            }
+            return wasRunning;
+        });
+        if (!stopping || Thread.currentThread() == loop) {
             return;
         }
-        // Wakes a request that is blocked on the network or on the CLI.
-        toStop.interrupt();
+        Thread running = request;
         try {
-            if (!toStop.join(SHUTDOWN_WAIT)) {
+            long deadline = System.nanoTime() + SHUTDOWN_WAIT.toNanos();
+            loop.join(Duration.ofNanos(Math.max(1, deadline - System.nanoTime())));
+            if (running != null) {
+                running.join(Duration.ofNanos(Math.max(1, deadline - System.nanoTime())));
+            }
+            if (loop.isAlive() || (running != null && running.isAlive())) {
                 LOG.warning("The usage refresh thread did not stop in time");
             }
         } catch (InterruptedException e) {

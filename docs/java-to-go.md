@@ -4,8 +4,8 @@ A plan for changing the Java program so that it leans only on what Go also has. 
 translation of this code, not a new design. The task is [new-requirements.md](new-requirements.md); the analysis it
 builds on is [go-port.md](go-port.md), whose problem numbers are used here.
 
-It is written against version 0.70. **Built so far: phases 1 to 5 (versions 0.71 to 0.75), phase 5 with its run on the Mac outstanding**; how they went is in phases 83 to 87 of
-[implementation-plan.md](implementation-plan.md).
+It is written against version 0.70. **All six phases are built (versions 0.71 to 0.76)**; how they went is in phases 83 to 88 of
+[implementation-plan.md](implementation-plan.md). One thing is outstanding: the run of phase 5's tests on a Mac.
 
 ## What was decided
 
@@ -259,6 +259,11 @@ is in flight") is broken once on purpose to see its test fail.
 
 **What changes for the person.** Nothing is meant to. This is the phase where a change that was not meant is most
 likely, which is why it is last and alone.
+
+**As built (version 0.76).** As planned, and nothing changed for the person. The messages of the loop are closures
+(in Go, `chan func()`), and whoever asks waits for the answer, so that what was asked is in force when the call
+returns. What the window reads is published before each answer. The old forms `acquire()` and `fetch(token)` stay
+beside the ones that take a `Cancel`, for what answers at once; in Go there is the one form with a `context`.
 
 ## What is left as it is, and why
 
