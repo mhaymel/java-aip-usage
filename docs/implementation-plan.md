@@ -1946,6 +1946,16 @@ that refuses: that is what this was built for, and is for a person to try.
 - **How it was checked.** The whole suite passed against the new service before a test was touched, but for the two that asked whether the fetch thread was interrupted. Four rules were broken on purpose, one at a time, and each was caught: a restart that does not tell the request to give up; a close that does not; a manual refresh taken while one runs; an answer given before what follows from it is published. A run with `--debug`: a second manual refresh during a request was declined, a slow request was dropped when the source changed, and closing during a slow request stopped at once.
 - **Tests.** `CancelTest` (new, with a check of the sources: nothing interrupts a thread, asks whether one was interrupted, or holds a lock with a condition). `UsageServiceTest`: the stand-in fetch is told to give up where it was interrupted; new, that the window's questions are answered while the loop is busy, that whoever is told of the search may ask in turn, that a fault there does not end the refreshing, and what is asked after closing. `UsageClientTest` (a request told to give up stops waiting at once), `ClaudeTokenProviderTest` (told to give up it stops waiting and kills the CLI), `ApiTest` (its stand-in fetch).
 
+### 89. The gray box is a green frame and nothing else
+
+**Status: built (version 0.77).** Requirements: A placeholder at the start; Gray boxes in the place of `No usage reported` and `No data`, and a green border round every gray box.
+
+- **What was asked** (`new-requirements.md`): the frame of the placeholder in the same green as the text, no rounded corners, no background colour. The first was so already: the frame was `var(--ok)`, which is the colour the figures' text has. The other two are the change.
+- **The page.** `app.css`, the rule `.skeleton`: `background` is gone, and with it the variable `--box` and its two values; `border-radius` is `0`, said outright; the border stays `1px solid var(--ok)`. The widths of the boxes and the rule that they are not dimmed are as they were.
+- **Nothing else.** No change in the backend, the API or the window host: the box is the page's alone.
+- **Tests.** `layout.test.cjs`, the test of the box, now `the gray box of an element with no value is a thin green frame with square corners and nothing in it, and has a width of its own`: no `background` in the rule, no `--box` in the style sheet, `border-radius: 0`, the border in `--ok`, and that `--ok` is the colour of the figures' text. It was changed first and failed against the old style; a fill put back on purpose fails it again.
+- **By eye.** Boxes beside figures, drawn by a headless browser from the style sheet, on the light and on the dark theme: a green frame with square corners in the green of the figures, the page's background inside. Not looked at in the JavaFX window itself.
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built

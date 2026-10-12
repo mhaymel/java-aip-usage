@@ -1036,10 +1036,12 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 ### A placeholder at the start
 
 - When the program starts, and until the first reading or the first failure is there, **each element that is switched on
-  and has no value yet is shown as a light gray filled rectangle** with rounded corners, about as wide as the element usually is
+  and has no value yet is shown as an empty rectangle with a thin green frame**, about as wide as the element usually is
   and as tall as its text. There is no word: the row does not say `Loading…`.
-- The gray is the muted gray, `#8a8f98`, at a third of its strength, on both themes; the corners are rounded by 3 pixels,
-  and the box has a thin green border (see Gray boxes in the place of `No usage reported` and `No data`).
+- The frame is in the same green as the text of the figures, its corners are square, and nothing fills the box: the
+  background of the window is seen in it (since version 0.77; see Gray boxes in the place of `No usage reported` and
+  `No data`). Until version 0.76 the box was filled, first with gray and then with a light green, and its corners were
+  rounded by 3 pixels.
 - The placeholder has **the tooltip of its element**, in the form that needs no value: `Last update`,
   `Share of the budget spent`, `Credits used`, `Credit budget`, `Seconds until the next refresh`,
   `Change in the amount used since the previous reading`, `Time since the previous reading` and `How long the latest usage request took`.
@@ -1097,11 +1099,11 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   or `no data`. So `Credits used: no usage reported`, `Credit budget: no data`, `Share of the budget spent: no usage
   reported`, `Last update: no data`. A box at the start, and the box of a figure that is not known, keep the tooltip
   they have.
-- **Every gray box of the row has a light green background** (since version 0.66, before a gray one): the green of the figures, lighter, a pale tint of it (about `#dafbe1` on the light theme and a dark green, `#12301d`, on the dark one), so that a placeholder is seen as belonging to the figures. Where
-  these requirements say a gray box, this is the box: its name stays.
-- **Every gray box of the row has a thin green border**: 1 pixel, in the green of the figures, at its full strength
-  while the gray inside stays at a third. That holds for every gray box, at the start, for a figure that is not known,
-  and for no usage and no data alike. The box is as wide and as tall as it was: the border is inside it.
+- **No gray box of the row has a background colour** (since version 0.77): nothing fills it, and the background of the window is seen inside the frame, on both themes. It had a light green one from version 0.66 (about `#dafbe1` on the light theme and `#12301d` on the dark one), and a gray one before that. Where
+  these requirements say a gray box, this is the box: its name stays, though nothing of it is gray any more.
+- **Every gray box of the row has a thin green frame, and the frame is all there is of it**: 1 pixel, in the same green as the text of the figures (`#1a7f37` on the light theme, `#3fb950` on the dark one), at its full
+  strength. **Its corners are square**: they are not rounded (since version 0.77; they were, by 3 pixels). That holds for every gray box, at the start, for a figure that is not known,
+  and for no usage and no data alike. The box is as wide and as tall as it was: the frame is inside it.
 - **The boxes are not dimmed** after a failed refresh, border included.
 - **The two changes and the request duration** are as A gray box for a figure that is not known says; with no usage
   and with no data the two changes are gray boxes, since there is nothing to compare.

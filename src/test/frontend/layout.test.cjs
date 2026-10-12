@@ -787,18 +787,18 @@ test('the General tab has the groups Request, Window and Log, with Title bar bef
     assert.match(group, /<label title="[^"]{40,}"><input id="set-stayOnTop" type="checkbox"> Stay on top<\/label>/);
     assert.ok(group.indexOf('set-showTitleBar') < group.indexOf('set-stayOnTop'), 'the title bar first');
 });
-test('the gray box of an element with no value is light, rounded, has a thin green border and a width of its own', () => {
+test('the gray box of an element with no value is a thin green frame with square corners and nothing in it, and has a width of its own', () => {
     const rule = ruleOf('.skeleton');
-    assert.match(rule, /background:\s*var\(--box\)/, 'a light green, from a variable');
+    assert.doesNotMatch(rule, /background(-color)?\s*:/, 'nothing fills it: the background of the window is seen in the frame');
     assert.doesNotMatch(css, /rgba\(138, 143, 152/, 'the gray third is gone');
-    const boxes = [...css.matchAll(/--box:\s*(#[0-9a-f]{6})/g)].map(m => m[1]);
-    assert.deepEqual(boxes, ['#dafbe1', '#12301d'], 'the light theme, then the dark one');
-    assert.ok(css.indexOf('--box: #12301d') > css.indexOf('prefers-color-scheme: dark'), 'the second is in the dark block');
-    assert.doesNotMatch(rule, /opacity/, 'the strength is the colour\'s own, or the border would be as faint');
-    assert.match(rule, /border:\s*1px solid var\(--ok\)/, 'the green of the figures, one pixel');
+    assert.doesNotMatch(css, /--box\b/, 'and so is the light green it was filled with after that, on both themes');
+    assert.doesNotMatch(rule, /opacity/, 'the strength is the colour\'s own, or the frame would be as faint');
+    assert.match(rule, /border:\s*1px solid var\(--ok\)/, 'one pixel, in the green of the figures');
+    assert.match(ruleOf('.delta-used,\n.delta-time,\n.delta-duration,\n.spend'), /color:\s*var\(--ok\)/,
+        'which is the very colour the text of the figures has, on both themes');
     assert.match(rule, /box-sizing:\s*border-box/, 'inside the box, which is as wide and as tall as it was');
     assert.doesNotMatch(css, /\.placeholder\s*{/, 'the words No data and No usage reported have no style left');
-    assert.match(rule, /border-radius:\s*\d+px/);
+    assert.match(rule, /border-radius:\s*0\b/, 'square corners, said outright so that nothing rounds them');
     assert.match(rule, /color:\s*transparent/);
     for (const id of ['time', 'percent', 'used', 'limit']) {
         assert.match(css, new RegExp('#' + id + '\\.skeleton\\s*{\\s*min-width:\\s*[0-9.]+ch'), id);

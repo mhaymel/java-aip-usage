@@ -8,8 +8,6 @@
     --info: #0969da;
     /* The background of the start line of a run, in the log and in the history: a very light blue. */
     --mark: #ddf4ff;
-    /* The background of a gray box, a placeholder of the row: the green of the figures, lighter. */
-    --box: #dafbe1;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,7 +16,6 @@
         --bad: #f85149;
         --info: #58a6ff;
         --mark: #0c2d6b;
-        --box: #12301d;
     }
 }
 
@@ -208,7 +205,7 @@ body {
 }
 
 /*
- * Before the first reading an element that is switched on is a gray box of about its usual width, with its tooltip:
+ * Before the first reading an element that is switched on is a gray box, a green frame of about its usual width, with its tooltip:
  * the row has its shape at once, and what will be where can be seen and asked. The two changes and the request duration
  * are one at any time they have no value, after the start as well.
  */
@@ -217,11 +214,12 @@ body {
     box-sizing: border-box;
     line-height: 1.15;
     color: transparent;
-    /* A light green, the green of the figures lighter, in place of the gray this had; the border keeps the green at its full strength. */
-    background: var(--box);
-    /* A thin green border round every gray box, in the green of the figures, inside the box. */
+    /*
+     * A thin green frame and nothing else: in the green the text of the figures has, inside the box, with square corners,
+     * and with nothing filling it, so that the window's own background is seen in the frame.
+     */
     border: 1px solid var(--ok);
-    border-radius: 3px;
+    border-radius: 0;
 }
 
 #time.skeleton { min-width: 5ch; }
