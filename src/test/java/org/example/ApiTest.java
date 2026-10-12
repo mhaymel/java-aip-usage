@@ -1087,6 +1087,30 @@ class ApiTest {
     }
 
     @Test
+    void theTabOfTheSettingsIsStoredByAPostAndComesBackWithTheSettings() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        assertTrue(json(get(app, "/api/settings")).get("settingsTab").isNull(), "none yet");
+
+        HttpResponse<String> answer = post(app, "/api/settings-tab", "{\"tab\": \"general\"}");
+
+        assertEquals(200, answer.statusCode());
+        assertEquals("general", json(get(app, "/api/settings")).get("settingsTab").asText());
+        post(app, "/api/settings", allSettings(60, false, "hh:mm"));
+        assertEquals("general", json(get(app, "/api/settings")).get("settingsTab").asText(), "saving the settings leaves it as it is");
+        assertEquals("general", new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json"))).get("settingsTab").asText(), "and it is in the file");
+    }
+
+    @Test
+    void aTabThatDoesNotExistIsRefusedAndTheSettingsTabIsPostOnly() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        assertEquals(400, post(app, "/api/settings-tab", "{\"tab\": \"calendar\"}").statusCode());
+        assertEquals(400, post(app, "/api/settings-tab", "{}").statusCode());
+        assertEquals(405, get(app, "/api/settings-tab").statusCode());
+        assertTrue(json(get(app, "/api/settings")).get("settingsTab").isNull());
+    }
+
+    @Test
     void theStatusCarriesTheFinishedDisplayAndItFollowsTheSettings() throws Exception {
         AppRuntime app = start(new FakeFetch());
         await(() -> app.service().state().snapshot() != null);

@@ -152,6 +152,12 @@ final class ApiHandler implements HttpHandler {
                 }
                 updateTextSize(exchange);
             }
+            case "/api/settings-tab" -> {
+                if (!method.equals("POST")) {
+                    throw new ApiException(405, "Use POST.", "POST");
+                }
+                updateSettingsTab(exchange);
+            }
             case "/api/about" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
@@ -330,7 +336,8 @@ final class ApiHandler implements HttpHandler {
                 toBody(Settings.defaults()),
                 new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())),
                 settings.current().usageIntervalSeconds(),
-                settings.current().cost().dailyIn(java.time.YearMonth.now()).map(CostControl::text).orElse(null));
+                settings.current().cost().dailyIn(java.time.YearMonth.now()).map(CostControl::text).orElse(null),
+                settings.settingsTab());
     }
 
     /**
@@ -531,6 +538,17 @@ final class ApiHandler implements HttpHandler {
             throw new ApiException(500, "The text size could not be saved: " + e.getCause().getMessage(), null);
         }
         send(exchange, 200, new TextSizeBody(settings.current().listFontSize()));
+    }
+
+    /** The tab the settings view is on, stored so that it opens on it the next time, also after a start. The other settings are left as they are. */
+    private void updateSettingsTab(HttpExchange exchange) throws IOException {
+        requireJson(exchange);
+        JsonNode tab = readJson(exchange).get("tab");
+        if (tab == null || !tab.isTextual() || !org.example.settings.SettingsStore.isTab(tab.textValue())) {
+            throw new ApiException(400, "The tab must be one of main, history, cost, debug, general and about.", null);
+        }
+        settings.storeSettingsTab(tab.textValue());
+        send(exchange, 200, new SettingsTabBody(settings.settingsTab()));
     }
 
     /**
@@ -945,7 +963,11 @@ final class ApiHandler implements HttpHandler {
      * @param configuredIntervalSeconds the interval that is saved, which {@code settings.usageIntervalSeconds} is not while
      *     a back-off or the automatic interval has another in force
      */
-    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds, String costDailyWorkedOut) {
+    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds, String costDailyWorkedOut,
+            String settingsTab) {
+    }
+
+    record SettingsTabBody(String tab) {
     }
 
     record RefreshBody(boolean started) {

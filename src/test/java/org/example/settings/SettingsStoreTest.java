@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -496,6 +497,32 @@ class SettingsStoreTest {
         Files.writeString(file(), "{\"lastPanel\": \"calendar\", \"lastTab\": \"general\", \"windowWidth\": 300}");
         assertEquals(new SettingsStore.LastWindow(null, null, 300, null, null, null), new SettingsStore(file()).loadLast(),
                 "a panel that is not known leaves its tab out too");
+    }
+
+    @Test
+    void theTabOfTheSettingsIsKeptBesideTheSettingsAndEveryOtherSaveLeavesItAsItIs() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        assertNull(store.loadSettingsTab(), "none by default");
+
+        store.saveSettingsTab("general");
+        store.save(interval(45));
+        assertEquals("general", store.loadSettingsTab(), "saving the settings keeps it");
+        store.saveHeights(new SettingsStore.Heights(640, 500));
+        store.saveSearch(new SettingsStore.Search(30, null));
+        store.saveLast(new SettingsStore.LastWindow("log", null, 400, 300, 1, 2));
+        assertEquals("general", store.loadSettingsTab(), "and so does every other save");
+        assertEquals(45, store.load().usageIntervalSeconds(), "and saving the tab keeps the settings");
+        assertEquals(new SettingsStore.LastWindow("log", null, 400, 300, 1, 2), store.loadLast());
+    }
+
+    @Test
+    void aTabThatIsNotOneOfTheSixIsNone() throws IOException {
+        Files.writeString(file(), "{\"settingsTab\": \"calendar\"}");
+        assertNull(new SettingsStore(file()).loadSettingsTab());
+        Files.writeString(file(), "{\"settingsTab\": 3}");
+        assertNull(new SettingsStore(file()).loadSettingsTab());
+        assertTrue(SettingsStore.isTab("about") && SettingsStore.isTab("debug"));
+        assertFalse(SettingsStore.isTab("calendar") || SettingsStore.isTab(null));
     }
 
     // ---- how the fake backend answers, beside the settings

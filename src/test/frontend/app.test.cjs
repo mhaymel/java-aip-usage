@@ -3129,7 +3129,7 @@ test('the line of debug mode says off, on, or on with the fake backend in use', 
     }
 });
 
-test('a button of the row pressed while About is shown saves the settings as they stand, and the next opening shows the first tab', async () => {
+test('a button of the row pressed while About is shown saves the settings as they stand, and the next opening shows About again, the tab it was left on', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
     page.type('set-usageIntervalSeconds', '45');
@@ -3143,8 +3143,8 @@ test('a button of the row pressed while About is shown saves the settings as the
     assert.equal(page.el('panel').hidden, true);
 
     await page.click('settings-button');
-    assert.equal(page.el('about-view').hidden, true, 'the settings open on the first tab, not on About');
-    assert.equal(page.el('tab-main').hidden, false);
+    assert.equal(page.el('about-view').hidden, false, 'the settings open on the tab they were left on, About too');
+    assert.equal(page.el('tab-main').hidden, true);
     assert.equal(page.el('settings-buttons').hidden, false);
 });
 test('when the details cannot be read the logo, the name and the version line are there and a red line says why', async () => {
@@ -3495,15 +3495,60 @@ test('in debug mode the Debug tab is between Cost control and General', async ()
     assert.deepEqual(order, ['history', 'cost', 'debug', 'general', 'about']);
 });
 
-test('the settings open on the first tab each time, whichever tab they were left on', async () => {
+test('the settings open on the tab they were left on, however they were left', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
     await page.click('tabbtn-general');
     await page.click('settings-cancel');
-
     await page.click('settings-button');
+    assert.deepEqual(shownTabs(page), ['general'], 'after Cancel');
 
-    assert.deepEqual(shownTabs(page), ['main']);
+    await page.click('tabbtn-history');
+    await page.click('settings-save');
+    await page.click('settings-button');
+    assert.deepEqual(shownTabs(page), ['history'], 'after Save');
+
+    await page.click('tabbtn-cost');
+    await page.click('settings-button');
+    await page.click('settings-button');
+    assert.deepEqual(shownTabs(page), ['cost'], 'after the gear');
+
+    await page.click('history-button');
+    await page.click('settings-button');
+    assert.deepEqual(shownTabs(page), ['cost'], 'after the button of another panel');
+});
+
+test('each change of tab is told to the backend once, and opening the settings tells nothing', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.calls.filter(c => c.url === '/api/settings-tab').length, 0, 'opening is no change');
+
+    await page.click('tabbtn-general');
+    await page.click('tabbtn-history');
+
+    const sent = page.calls.filter(c => c.url === '/api/settings-tab').map(c => JSON.parse(c.body).tab);
+    assert.deepEqual(sent, ['general', 'history']);
+});
+
+test('the first opening after a start is on the tab the backend stored, and only the first', async () => {
+    const stored = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'cost' } }) }));
+    await stored.click('settings-button');
+    assert.deepEqual(shownTabs(stored), ['cost']);
+
+    const unknown = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'nonsense' } }) }));
+    await unknown.click('settings-button');
+    assert.deepEqual(shownTabs(unknown), ['main'], 'a name that is not a tab: Main view');
+
+    const debug = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'debug' } }) }));
+    await debug.click('settings-button');
+    assert.deepEqual(shownTabs(debug), ['main'], 'Debug outside debug mode: Main view');
+
+    const again = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'cost' } }) }));
+    await again.click('settings-button');
+    await again.click('tabbtn-general');
+    await again.click('settings-cancel');
+    await again.click('settings-button');
+    assert.deepEqual(shownTabs(again), ['general'], 'the stored one is used at the first opening only');
 });
 
 test('what was changed on one tab is kept while another is shown, and sent together', async () => {
@@ -3620,12 +3665,12 @@ test('restoreView opens the panel, and the tab of the settings, as if the button
     assert.equal(page.el('settings-view').hidden, false);
 
     assert.equal(page.window.restoreView('settings', 'nonsense'), true);
-    assert.equal(page.window.currentView(), 'settings,main', 'an unknown tab: the first one');
+    assert.equal(page.window.currentView(), 'settings,general', 'an unknown tab: the one the settings were on');
     assert.equal(page.window.restoreView('settings', 'debug'), true);
-    assert.equal(page.window.currentView(), 'settings,main', 'no Debug tab outside debug mode');
+    assert.equal(page.window.currentView(), 'settings,general', 'no Debug tab outside debug mode');
 
     assert.equal(page.window.restoreView('nothing', ''), true, 'nothing to open, so nothing to ask again');
-    assert.equal(page.window.currentView(), 'settings,main', 'and what was shown stays');
+    assert.equal(page.window.currentView(), 'settings,general', 'and what was shown stays');
 });
 
 test('in debug mode restoreView opens the Debug tab', async () => {

@@ -302,9 +302,11 @@
     // Counts the questions about the daily limit: an answer to an earlier one, arriving late, is not the one to show.
     var costAsked = 0;
     // The tabs of the settings, in order: the page of each is `tab-<id>`, its title in the strip `tabbtn-<id>`. The Debug tab is there
-    // in debug mode only. The settings always open on the first.
+    // in debug mode only. The settings open on the tab they were last on: the one the page has shown, and, at the first opening after a
+    // start, the one the backend stored (`settingsTab`), unless the person has already chosen a tab or the host has restored one.
     var TABS = ['main', 'history', 'cost', 'debug', 'general', 'about'];
     var currentTab = 'main';
+    var tabChosen = false;
 
     // The setting that switches the button of each panel on and off; the settings have none, as their button is always there.
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon' };
@@ -484,6 +486,13 @@
         try {
             var body = await request('/api/settings');
             takeSettings(body);
+            if (!tabChosen) {
+                // The first opening after a start: the tab the settings were last on, stored by the backend.
+                tabChosen = true;
+                if (TABS.indexOf(body.settingsTab) >= 0) {
+                    currentTab = body.settingsTab;
+                }
+            }
             fillInterval(body.settings.usageIntervalSeconds);
             fillForm(body.settings);
             // The field is enabled while the form is filled, so that the checkbox alone says how it is afterwards.
@@ -614,6 +623,15 @@
         if (id === 'about') {
             loadAbout();
         }
+    }
+
+    /** The person has picked a tab: it is shown and told to the backend, which stores it for the next opening, also after a start. */
+    function chooseTab(id) {
+        tabChosen = true;
+        showTab(id);
+        postJson('/api/settings-tab', { tab: currentTab }).catch(function () {
+            // Only a convenience: the tab is still the one shown, and the next change tells the backend again.
+        });
     }
 
     /** The tabs there are: all of them, and the Debug tab in debug mode only. */
@@ -1102,8 +1120,7 @@
         show('panel', panelIsOpen());
         // The settings are a form in the same place, not lines; the others are lines.
         show('settings-view', openPanel === 'settings');
-        // The settings always open on the first tab, whichever one they were left on.
-        currentTab = 'main';
+        // The settings open on the tab they were left on (see currentTab).
         if (openPanel === 'settings') {
             show('panel-lines', false);
             showTab(currentTab);
@@ -1156,6 +1173,7 @@
             returnTo = openPanel;
             showPanelNamed('settings');
             if (visibleTabs().indexOf(tab) >= 0) {
+                tabChosen = true;
                 showTab(tab);
             }
             return true;
@@ -1304,7 +1322,7 @@
         // The Debug tab is there in debug mode, and never otherwise.
         show('tabbtn-debug', Boolean(config.debug));
         TABS.forEach(function (tab) {
-            $('tabbtn-' + tab).addEventListener('click', function () { showTab(tab); });
+            $('tabbtn-' + tab).addEventListener('click', function () { chooseTab(tab); });
         });
 
         $('log-button').addEventListener('click', function () { togglePanel('log'); });
