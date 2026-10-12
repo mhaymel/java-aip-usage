@@ -1809,6 +1809,21 @@ that refuses: that is what this was built for, and is for a person to try.
   The page's strip width is `stripWidth()` in `settingsWidth()`; the colour variables are `--info` for the tab and `--ok` for the icon.
 - **Not checked by a test:** the restore in a real window (size, place, panel), and the strip's width in a real window; the Node tests mock `scrollWidth`.
 
+### 78. Blue open icon, light blue startup lines, a blue countdown, 5-second steps, a steady width, light green placeholders
+
+**Status: specified, not yet built (version 0.66).** Requirements: The button of the open panel, The usage history panel, The log panel, Countdown, Tooltips, The automatic interval, Gray boxes.
+
+- **Colours (CSS).** The open panel's icon button uses the blue of the notes (`--info`), the other icons are as they were. The start line of the history and of the log has a very light blue background (`#ddf4ff` light, `#0c2d6b` dark; the log's gray
+  `#e6e6e6`/`#30363d` goes); the history's text stays green. Every gray box of the row has a light green background (`#dafbe1` light, `#12301d` dark) in place of its gray third; border as before.
+- **The countdown.** The backend's display carries a flag for the mode (`automatic`) and the interval text; the page puts the class `auto` on the countdown while it is on and not red (the red after a 429 wins), in `--info`. The tooltip is two lines, the
+  second written by the backend (`StatusDisplay`): `Automatic interval is on: the interval is now N s` / `is off: the configured interval is N s`; the interval item's tooltip has the same second line.
+- **5-second steps.** `IntervalSearch`: the interval is a multiple of 5 from 10 to 300; a 429 gives `max(roundUp5(1.1 R), R + 5)` capped at 300; 8 answers give `-5` (not below `R + 5`, 10); `R` decays 5 per 60 answers, below 10 none; with no `R` it falls by `roundUp5(0.9 I)`,
+  at least 5 less, floor 10; a `Retry-After` is rounded up to 5 (cap 300); `of(...)` rounds a saved interval and `R` up to 5 and raises an interval at or below `R` to `R + 5`. The log line and the keys are unchanged.
+- **A steady width.** `UsageApp.resize` (or the page's `contentSize()` and the panel width it reports) keeps the width the person has set while the log, the history or the error log is shown: the usual width is applied when the panel is opened or replaced, and not at each
+  change of the page's size (a new line). Find what resets it (the width the page asks for is a fixed multiple of the row; the stage is set to it at every size change) and apply the width only when the panel, not the content, changed.
+- **Tests.** `IntervalSearchTest` (the steps, the rounding, a simulated server limit, old saved values); `StatusDisplayTest` (the second tooltip line in both modes, the `automatic` flag); `app.test.cjs` and `layout.test.cjs` (the classes, the red winning, the blue icon, the
+  backgrounds); `PanelWindowTest` or a new window test (a narrowed log keeps its width when a line comes).
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built

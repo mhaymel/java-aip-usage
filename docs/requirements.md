@@ -262,13 +262,12 @@ button that is switched off is therefore never taken away from a panel that is o
 The four icon buttons sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
 
-**The button of the open panel is green, and bigger.** Of the log, history, error log and settings buttons, the one whose panel is
-shown stands out so that it is seen at a glance: it is green, **the green of the figures and of the text** (`#1a7f37` on the light theme and `#3fb950` on the dark one; since version 0.65 the one green,
-where before the icons had a more vivid one, `#00b341` and `#3ddc6b`, which looked different from the text), its button is 24 pixels instead of 20 and its icon 16 pixels
+**The button of the open panel is blue, and bigger.** Of the log, history, error log and settings buttons, the one whose panel is
+shown stands out so that it is seen at a glance: it is **blue, the blue of the notes and of the selected tab** (`#0969da` on the light theme and `#58a6ff` on the dark one; since version 0.66, before it was green: a vivid green until 0.64 and the green of the figures in 0.65), its button is 24 pixels instead of 20 and its icon 16 pixels
 instead of 12, and its lines are heavier (about 2.2 instead of 1.6; the gear, which is 13 pixels and drawn on a finer grid, is made to look the same). Twenty-four pixels is
 the height of the refresh button, so the row keeps its height and the window does not change size when a panel is opened or
-closed. When that panel is closed, or another is opened, the new one turns green and bigger and the one that was goes back to
-what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is green, and none is when no panel is shown.
+closed. When that panel is closed, or another is opened, the new one turns blue and bigger and the one that was goes back to
+what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is blue, and none is when no panel is shown. The other icons are as they were.
 
 **One green.** The percentage spent, the amount used, the budget, the change in the amount used, the time since
 the previous reading and the request duration are all in one green, `#1a7f37` on the light theme and `#3fb950` on the dark one. The green is
@@ -288,6 +287,11 @@ number is and its unit, and nothing about the severity.
 - It is counted from when the most recent request was triggered, whether by the
   schedule or by the refresh button, plus the interval in force (see Refresh behavior). It
   therefore starts again after a manual refresh.
+- **With the automatic interval on the countdown is blue** (since version 0.66): its text is in the blue of the open panel's icon and of the notes, `#0969da` on the light theme and `#58a6ff` on the dark one, so that it can be seen at a glance that the program
+  is finding the interval. **After an HTTP 429 the red wins**: the countdown is red until a request is answered without one, then blue again. With the automatic interval off it is in the colour of the text, as it was. The interval item of the row, if shown,
+  stays green like the other figures.
+- **Its tooltip says which mode it is in** (since version 0.66): a second line under the first, `Seconds until the next refresh (negative when overdue)`. With the automatic interval on it is
+  `Automatic interval is on: the interval is now <N> s`, with the interval of the search; with it off, `Automatic interval is off: the configured interval is <N> s`. The backend writes both lines, and the tooltip of the interval item says the same second line.
 - It may be negative. A negative value means the next refresh is overdue by that
   many seconds, for example because a request is taking longer than the interval.
   The window shows it as it is, with the minus sign.
@@ -327,7 +331,7 @@ names, shown as its code, here `USD`.
   `Hide the usage history` while the history is shown. The error log button says `Show the error log`, and
   `Hide the error log` while it is shown.
 - The countdown, after an HTTP 429: the error message, in bold red, in a line under the row (see Countdown).
-- The exact texts: the countdown, `Seconds until the next refresh (negative when overdue)`; the time since the previous
+- The exact texts: the countdown, `Seconds until the next refresh (negative when overdue)`, and a line under it that says whether the automatic interval is on, and the interval (see Countdown); the time since the previous
   reading, `Time since the previous reading`; the interval item, `Time between usage requests`. When the response named
   no currency the amounts say `Credits used` and `Credit budget`, and the change `Change in the amount used since the
   previous reading`, with no `, in ...` after them. A percentage that the response did not send has no text, and its
@@ -546,6 +550,9 @@ The log is shown the way the usage history is: inside the main window, not in a 
   history, the log has long lines, which is why it gets the extra width. Opening it again starts again
   at three times the row's width, and at the height it was last left at (see Remembered heights), never
   less than ten times the row's.
+- **A new entry does not change the width** (since version 0.66). The width of the window while the log, the usage history or the error log is shown is the one the person has set: when they have
+  made the window narrower or wider and a new line comes, the window keeps that width, where before it went back to the first one (three rows for the log). Only opening the panel, or changing to it from another, starts at the usual
+  width, as before. The height is the one the person has set as before.
 - The log panel has the width of three rows, plus the width of the vertical scrollbar, which is always reserved
   and never covers text. As for the history, the window's height does not follow the main view while the
   panel is shown: when a message line appears or goes, the window keeps the height it has and the panel takes
@@ -566,8 +573,8 @@ The log is shown the way the usage history is: inside the main window, not in a 
 - While the panel is shown it keeps up with the file: new lines appear at the top soon after they
   are written, without pressing anything, and what the person has scrolled to does not move. There
   is no reload button.
-- The line that records the start of a run (see Non-functional requirements) has a gray
-  background, `#e6e6e6` on the light theme and a dark gray, `#30363d`, on the dark one so that the light text on it can be read, so where each run begins can be seen at a glance. The log is appended to across runs, so
+- The line that records the start of a run (see Non-functional requirements) has a very light blue
+  background (since version 0.66, before a gray one): about `#ddf4ff` on the light theme and a dark blue, `#0c2d6b`, on the dark one so that the light text on it can be read, so where each run begins can be seen at a glance, the same as the start line of the usage history. The log is appended to across runs, so
   there can be several such lines; each is marked. Only the background differs: the text is the same.
 - If there is no log yet, or it is empty, the panel says so in one line. If it cannot be read, the
   panel says so in red, and shows what it had.
@@ -721,9 +728,9 @@ The history is shown inside the main window, not in a window of its own.
   time, empty amounts and empty currency, and the word `failed` in red in the `used` column.
 - The line of the first row recorded after the program started (a row whose `status` is `start` or
   `start-failed` in the file, see Usage history) is shown **in green text**, the whole line, so
-  where each run begins can be seen at a glance: the green of the figures, which is also that of the icon of the open panel (`#1a7f37` on the light theme,
-  `#3fb950` on the dark one). **It has no special background**: the background is that of every other line, not gray and not
-  coloured, and the line is not bold. (A failed startup line keeps its red `failed` in the place of the amount; the rest of its
+  where each run begins can be seen at a glance: the green of the figures (`#1a7f37` on the light theme,
+  `#3fb950` on the dark one). **It has a very light blue background** (since version 0.66; before, none): a pale tint of the blue of the notes, about `#ddf4ff` on the light theme and `#0c2d6b` on the dark one,
+  the same as the start line of the log has (see The log panel), and the line is not bold. (A failed startup line keeps its red `failed` in the place of the amount; the rest of its
   text is green.) The file can hold several such rows, one for each run; each is marked. The `status`, `interval` and `duration_ms` columns themselves are not shown in
   the panel.
 - **The lines are sorted by the date and time, latest first.** They are sorted by that, not merely
@@ -1087,6 +1094,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   or `no data`. So `Credits used: no usage reported`, `Credit budget: no data`, `Share of the budget spent: no usage
   reported`, `Last update: no data`. A box at the start, and the box of a figure that is not known, keep the tooltip
   they have.
+- **Every gray box of the row has a light green background** (since version 0.66, before a gray one): the green of the figures, lighter, a pale tint of it (about `#dafbe1` on the light theme and a dark green, `#12301d`, on the dark one), so that a placeholder is seen as belonging to the figures. Where
+  these requirements say a gray box, this is the box: its name stays.
 - **Every gray box of the row has a thin green border**: 1 pixel, in the green of the figures, at its full strength
   while the gray inside stays at a third. That holds for every gray box, at the start, for a figure that is not known,
   and for no usage and no data alike. The box is as wide and as tall as it was: the border is inside it.
@@ -1302,14 +1311,14 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   bounds came close). The rule is **slow down quickly, speed up slowly, with a memory of the refused interval**. The least interval is
   **10 seconds** and the most **300 seconds**, both fixed in the program and not settings. The search begins at **60 seconds**, with no refused interval known.
 - **The program remembers one figure, the refused interval `R`**: the interval at which the last 429 came, in whole seconds, or none.
-- **After an HTTP 429** `R` becomes the interval that was refused, and the new interval is the greater of `ceil(1.1 × R)` and `R + 1`, at most 300.
-  So 20 seconds refused is 22, 100 refused is 110.
-- **Speeding up is slow.** After **8 answers in a row without a 429** the interval is one second shorter, never less than `R + 1` and never less than 10. The count starts
-  again at 0 after each step and after each 429. So the interval stays just above what was refused, and sinks one second at a time while nothing is refused, which is why
+- **The steps are of 5 seconds** (since version 0.66; before, one second up to a tenth): the interval is always **a multiple of 5 between 10 and 300**, and the search begins at 60.
+- **After an HTTP 429** `R` becomes the interval that was refused, and the new interval is a tenth longer, rounded up to the next multiple of 5, and at least `R + 5`, at most 300. So 20 seconds refused is 25, 100 refused is 110, 10 refused is 15.
+- **Speeding up is slow.** After **8 answers in a row without a 429** the interval is 5 seconds shorter, never less than `R + 5` and never less than 10. The count starts
+  again at 0 after each step and after each 429. So the interval stays just above what was refused, and sinks one step at a time while nothing is refused, which is why
   the search keeps near the limit and mostly does not run into it.
-- **`R` is forgotten slowly**: after 60 answers in a row without a 429 `R` is one second lower (the count of the 60 starts again after each step and after each 429); at 0 it is none. So when
+- **`R` is forgotten slowly**: after 60 answers in a row without a 429 `R` is 5 seconds lower (the count of the 60 starts again after each step and after each 429); below 10 it is none. So when
   the limit of the server has gone down the search follows it down.
-- **Before a refusal is known** (no `R`) the interval goes down by a tenth with each answer without a 429, `ceil(interval × 0.9)`, not below 10, so the search does not
+- **Before a refusal is known** (no `R`) the interval goes down by a tenth with each answer without a 429, rounded up to a multiple of 5 and at least 5 less than it was, not below 10, so the search does not
   take minutes to come down from 60.
 - **A search that has found the limit is refused again now and then**, one second below what the server accepts: with `Automatic` on an HTTP 429 now and then is part of how it works, and not a fault, but each one
   is followed by a large enough step up, so that there are few.
@@ -1326,7 +1335,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The settings say both intervals** to the page: the one in force, and the configured one (`docs/api.md`).
 - **The search is remembered.** The interval and `R` are saved in `settings.json` whenever they change, under
   the keys `autoIntervalSeconds` and `autoRefusedSeconds` (`R`, a whole number from 10 to 300, or the key left out for none), and the next start goes on from them.
-  Values in the file that are not whole seconds from 10 to 300 are as if there were none, so the search begins at 60 with no `R`; an interval at or below `R` is raised to `R + 1`.
+  Values in the file that are not whole seconds from 10 to 300 are as if there were none, so the search begins at 60 with no `R`; an interval that is not a multiple of 5 is rounded up to the next one, and one at or below `R` is raised to `R + 5` (a saved `R` is rounded up as well).
   The keys `autoLowerSeconds` and `autoUpperSeconds` of earlier versions are read no more and are not written again. Switching `Automatic` off and on again goes on from what was saved.
 - **The log says each step**, at the information level: `Automatic interval: <N> s (refused at <R> s)`, or `Automatic interval: <N> s (no refusal yet)`. A search that has
   settled, and whose interval an answer leaves as it is, writes nothing. Switching it on writes the same
@@ -1347,7 +1356,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **`R` stays the interval that was refused**, not the wait the server named.
 - **It comes down again by itself**, by the slow steps above.
 - **The log** says the interval the search has after that, and `Rate limited; next try in 5 min` then agrees with it.
-- **A wait of the server is counted in whole seconds, rounded up**, only a whole number of seconds is believed, and one that is no longer than the step the search
+- **A wait of the server is counted in seconds, rounded up to a multiple of 5**, only a whole number of seconds is believed, and one that is no longer than the step the search
   made leaves the step as it is: the server's wait never shortens the interval.
 - With `Automatic` off the `Retry-After` is only logged (see Refresh behavior).
 
@@ -1925,7 +1934,7 @@ These are things the program does that the sections above do not say, written do
 
 **The look of the page**
 
-- **Colours** follow the operating system's light or dark setting, and there is no setting for it. `muted` is `#8a8f98` in both; the green of the figures, of the text of the startup lines and of the icon of the open panel is `#1a7f37` and `#3fb950`, the red of errors `#cf222e` and `#f85149`, the blue of notes `#0969da` and `#58a6ff`. Background and text are the system's. There is no amber, and no colour stands for a severity.
+- **Colours** follow the operating system's light or dark setting, and there is no setting for it. `muted` is `#8a8f98` in both; the green of the figures and of the text of the startup lines is `#1a7f37` and `#3fb950`, the red of errors `#cf222e` and `#f85149`, the blue of notes, of the selected tab, of the icon of the open panel and of the countdown with the automatic interval on `#0969da` and `#58a6ff`. Background and text are the system's. There is no amber, and no colour stands for a severity.
 - The refresh icon turns round and round while a refresh is running. When a refresh has failed and the figures are old they are dimmed to 60 percent: the time, the amounts, the percentage, the change in the amount used, the time since the previous reading and the request duration, not the countdown, the interval or the buttons. It is the same green, less opaque, not another colour.
 - The icons are: refresh, an arrow round a circle; log, a sheet with lines; history, a table; error log, a triangle with an exclamation mark; settings, a gear. An icon button has a border that is invisible and turns muted gray when the pointer is over it or it has the keyboard focus.
 - A time that the backend gave no tooltip for has the tooltip `Last update`.
