@@ -1,9 +1,8 @@
 package org.example.usage;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.json.Json;
+import org.example.json.JsonException;
+import org.example.json.JsonReader;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -18,9 +17,6 @@ import java.time.Instant;
  */
 public final class UsageParser {
 
-    private final ObjectMapper mapper =
-            new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
-
     /**
      * @param body the response body
      * @param fetchedAt when the body was received
@@ -30,12 +26,12 @@ public final class UsageParser {
         if (body == null) {
             throw new UsageParseException("The usage response was empty.");
         }
-        JsonNode root;
+        Json root;
         try {
-            root = mapper.readTree(body);
-        } catch (JsonProcessingException e) {
+            root = JsonReader.read(body);
+        } catch (JsonException e) {
             throw new UsageParseException(
-                    "The usage response is not valid JSON: " + e.getOriginalMessage(), e);
+                    "The usage response is not valid JSON: " + e.getMessage(), e);
         }
         if (root == null || !root.isObject()) {
             throw new UsageParseException("The usage response is not a JSON object.");
@@ -44,7 +40,7 @@ public final class UsageParser {
         // A real answer always carries a `spend` object, even for an account
         // with nothing to report. Without it this is some other document, for
         // instance an error body.
-        if (!root.path("spend").isObject()) {
+        if (!isObject(root.get("spend"))) {
             throw new UsageParseException(
                     "The usage response has no \"spend\" object; its format may have changed.");
         }
@@ -56,17 +52,19 @@ public final class UsageParser {
      * {@code limits} with something in it, or one of the windows {@code five_hour} and {@code seven_day}. With no spend
      * that is the answer of a seat-based account.
      */
-    private static boolean otherLimits(JsonNode root) {
-        JsonNode limits = root.path("limits");
-        return (limits.isArray() && !limits.isEmpty()) || root.path("five_hour").isObject() || root.path("seven_day").isObject();
+    private static boolean otherLimits(Json root) {
+        Json limits = root.get("limits");
+        return (limits != null && limits.isArray() && limits.size() > 0)
+                || isObject(root.get("five_hour")) || isObject(root.get("seven_day"));
     }
 
     /**
      * {@code spend} reports {@code enabled: false} on an account with no credit
      * ceiling, which is an absent balance rather than a balance of zero.
      */
-    private static Spend spend(JsonNode node) {
-        if (node == null || !node.isObject() || !node.path("enabled").asBoolean(false)) {
+    private static Spend spend(Json node) {
+        Json enabled = node.get("enabled");
+        if (enabled == null || !enabled.asBoolean(false)) {
             return null;
         }
         Double used = amount(node.get("used"));
@@ -76,7 +74,7 @@ public final class UsageParser {
                     "The usage response enables spend but reports neither \"used\" nor \"limit\";"
                             + " its format may have changed.");
         }
-        JsonNode percent = node.get("percent");
+        Json percent = node.get("percent");
         return new Spend(
                 used,
                 limit,
@@ -90,23 +88,32 @@ public final class UsageParser {
      * 186.02. Scaled through {@link BigDecimal} rather than by dividing
      * doubles, so the figure is the one the endpoint meant.
      */
-    private static Double amount(JsonNode money) {
-        if (money == null || !money.isObject() || !money.path("amount_minor").isNumber()) {
+    private static Double amount(Json money) {
+        if (!isObject(money) || money.get("amount_minor") == null || !money.get("amount_minor").isNumber()) {
             return null;
         }
-        int exponent = money.path("exponent").asInt(0);
+        Json exponent = money.get("exponent");
         return BigDecimal.valueOf(money.get("amount_minor").longValue())
-                .movePointLeft(exponent)
+                .movePointLeft(exponent == null ? 0 : exponent.asInt(0))
                 .doubleValue();
     }
 
     /** The currency is stated on each amount, and identically on both. */
-    private static String currency(JsonNode spend) {
-        String used = text(spend.path("used").get("currency"));
-        return used != null ? used : text(spend.path("limit").get("currency"));
+    private static String currency(Json spend) {
+        String used = text(member(spend.get("used"), "currency"));
+        return used != null ? used : text(member(spend.get("limit"), "currency"));
     }
 
-    private static String text(JsonNode node) {
+    private static boolean isObject(Json node) {
+        return node != null && node.isObject();
+    }
+
+    /** A member of what may be no object, or not there at all. */
+    private static Json member(Json node, String key) {
+        return node == null ? null : node.get(key);
+    }
+
+    private static String text(Json node) {
         return node == null || node.isNull() ? null : node.asText();
     }
 }

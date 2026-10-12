@@ -1,8 +1,8 @@
 package org.example.settings;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.example.json.Json;
+import org.example.json.JsonReader;
+import org.example.json.JsonWriter;
 
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -149,8 +149,6 @@ public final class SettingsStore {
 
     private final Path file;
 
-    private final ObjectMapper mapper = new ObjectMapper();
-
     public SettingsStore(Path file) {
         this.file = file;
     }
@@ -174,9 +172,9 @@ public final class SettingsStore {
             }
             return defaults;
         }
-        JsonNode root;
+        Json root;
         try {
-            root = mapper.readTree(Files.readString(file));
+            root = JsonReader.read(Files.readString(file));
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Ignoring unreadable settings file " + file + ": " + e.getMessage());
             return defaults;
@@ -254,7 +252,7 @@ public final class SettingsStore {
     /** The remembered heights; none if the file is missing or unusable. Never fails. */
     public Heights loadHeights() {
         try {
-            JsonNode root = mapper.readTree(Files.readString(file));
+            Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
                 return Heights.NONE;
             }
@@ -264,12 +262,12 @@ public final class SettingsStore {
         }
     }
 
-    private int height(JsonNode root, String key) {
-        JsonNode node = root.get(key);
+    private int height(Json root, String key) {
+        Json node = root.get(key);
         if (node == null || node.isNull()) {
             return 0;
         }
-        if (!node.isIntegralNumber() || !node.canConvertToInt() || node.intValue() < 0 || node.intValue() > MAX_HEIGHT) {
+        if (!node.fitsInt() || node.intValue() < 0 || node.intValue() > MAX_HEIGHT) {
             LOG.log(System.Logger.Level.WARNING, "Ignoring " + key + " in " + file + ": it must be a whole number of pixels from 0 to " + MAX_HEIGHT);
             return 0;
         }
@@ -283,7 +281,7 @@ public final class SettingsStore {
      */
     public void saveHeights(Heights heights) throws IOException {
         if (Files.exists(file)) {
-            JsonNode root = mapper.readTree(Files.readString(file));
+            Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
                 // A damaged file is left as it is until a setting is applied; a height is not worth replacing it for.
                 throw new IOException("the settings file is not a JSON object");
@@ -293,17 +291,17 @@ public final class SettingsStore {
     }
 
     /** The scenario of the fake backend, by its name; a name that is none of them is logged and passed over. */
-    private org.example.fake.Scenario scenario(JsonNode root, org.example.fake.Scenario fallback) {
-        JsonNode node = root.get(FAKE_SCENARIO_KEY);
+    private org.example.fake.Scenario scenario(Json root, org.example.fake.Scenario fallback) {
+        Json node = root.get(FAKE_SCENARIO_KEY);
         if (node == null || node.isNull()) {
             return fallback;
         }
-        if (node.isTextual() && OLD_SEAT_SCENARIO.equals(node.textValue())) {
+        if (node.isText() && OLD_SEAT_SCENARIO.equals(node.text())) {
             // What that scenario answered is the ordinary answer of a seat-based account now (see loadFake).
             return org.example.fake.Scenario.NORMAL;
         }
         java.util.Optional<org.example.fake.Scenario> named =
-                node.isTextual() ? org.example.fake.Scenario.ofOptionName(node.textValue()) : java.util.Optional.empty();
+                node.isText() ? org.example.fake.Scenario.ofOptionName(node.text()) : java.util.Optional.empty();
         if (named.isEmpty()) {
             LOG.log(System.Logger.Level.WARNING,
                     "Ignoring " + FAKE_SCENARIO_KEY + " in " + file + ": it must be one of " + org.example.fake.Scenario.names());
@@ -313,12 +311,12 @@ public final class SettingsStore {
     }
 
     /** The level the log panel shows, by its name; a name that is none of them is logged and passed over. */
-    private LogLevel logLevel(JsonNode root, LogLevel fallback) {
-        JsonNode node = root.get(LOG_LEVEL_KEY);
+    private LogLevel logLevel(Json root, LogLevel fallback) {
+        Json node = root.get(LOG_LEVEL_KEY);
         if (node == null || node.isNull()) {
             return fallback;
         }
-        java.util.Optional<LogLevel> named = node.isTextual() ? LogLevel.fromJson(node.textValue()) : java.util.Optional.empty();
+        java.util.Optional<LogLevel> named = node.isText() ? LogLevel.fromJson(node.text()) : java.util.Optional.empty();
         if (named.isEmpty()) {
             LOG.log(System.Logger.Level.WARNING, "Ignoring " + LOG_LEVEL_KEY + " in " + file + ": it must be one of " + LogLevel.names());
             return fallback;
@@ -327,12 +325,12 @@ public final class SettingsStore {
     }
 
     /** The size of the text of the lists; a value that is not a whole number of pixels in its range is logged and passed over. */
-    private int listFontSize(JsonNode root, int fallback) {
-        JsonNode node = root.get(LIST_FONT_SIZE_KEY);
+    private int listFontSize(Json root, int fallback) {
+        Json node = root.get(LIST_FONT_SIZE_KEY);
         if (node == null || node.isNull()) {
             return fallback;
         }
-        if (!node.isIntegralNumber() || !node.canConvertToInt() || !Settings.isListFontSize(node.intValue())) {
+        if (!node.fitsInt() || !Settings.isListFontSize(node.intValue())) {
             LOG.log(System.Logger.Level.WARNING, "Ignoring " + LIST_FONT_SIZE_KEY + " in " + file + ": it must be a whole number of pixels from "
                     + Settings.MIN_LIST_FONT_SIZE + " to " + Settings.MAX_LIST_FONT_SIZE);
             return fallback;
@@ -344,7 +342,7 @@ public final class SettingsStore {
      * The limits of cost control. A limit that is not an amount in its range is logged and passed over, which leaves
      * none; limits that do not go together, a daily one above the monthly one, lose the daily one.
      */
-    private CostControl cost(JsonNode root) {
+    private CostControl cost(Json root) {
         Long monthly = limit(root, COST_MONTHLY_KEY);
         Long daily = limit(root, COST_DAILY_KEY);
         boolean automatic = flag(root, COST_DAILY_AUTOMATIC_KEY, CostControl.NONE.dailyAutomatic());
@@ -356,55 +354,55 @@ public final class SettingsStore {
         return read;
     }
 
-    private Long limit(JsonNode root, String key) {
-        JsonNode node = root.get(key);
+    private Long limit(Json root, String key) {
+        Json node = root.get(key);
         if (node == null || node.isNull()) {
             return null;
         }
         try {
             if (node.isNumber()) {
-                long cents = node.decimalValue().movePointRight(2).longValueExact();
+                long cents = new java.math.BigDecimal(node.numberText()).movePointRight(2).longValueExact();
                 if (cents >= CostControl.MIN_CENTS && cents <= CostControl.MAX_CENTS) {
                     return cents;
                 }
             }
-        } catch (ArithmeticException e) {
+        } catch (ArithmeticException | NumberFormatException e) {
             // More than two decimals: not an amount of cents.
         }
         LOG.log(System.Logger.Level.WARNING, "Ignoring " + key + " in " + file + ": " + CostControl.AMOUNT_FAULT);
         return null;
     }
 
-    private int interval(JsonNode root, int fallback) {
-        JsonNode node = root.get(USAGE_KEY);
+    private int interval(Json root, int fallback) {
+        Json node = root.get(USAGE_KEY);
         if (node == null || node.isNull()) {
             return fallback;
         }
-        if (!node.isIntegralNumber() || !node.canConvertToInt() || !IntervalRange.USAGE.contains(node.intValue())) {
+        if (!node.fitsInt() || !IntervalRange.USAGE.contains(node.intValue())) {
             LOG.log(System.Logger.Level.WARNING, "Ignoring " + USAGE_KEY + " in " + file + ": " + IntervalRange.USAGE.describeLimit());
             return fallback;
         }
         return node.intValue();
     }
 
-    private boolean flag(JsonNode root, String key, boolean fallback) {
-        JsonNode node = root.get(key);
+    private boolean flag(Json root, String key, boolean fallback) {
+        Json node = root.get(key);
         if (node == null || node.isNull()) {
             return fallback;
         }
-        if (!node.isBoolean()) {
+        if (!node.isBool()) {
             LOG.log(System.Logger.Level.WARNING, "Ignoring " + key + " in " + file + ": it must be true or false");
             return fallback;
         }
-        return node.booleanValue();
+        return node.bool();
     }
 
-    private TimeFormat timeFormat(JsonNode root, TimeFormat fallback) {
-        JsonNode node = root.get(TIME_FORMAT_KEY);
+    private TimeFormat timeFormat(Json root, TimeFormat fallback) {
+        Json node = root.get(TIME_FORMAT_KEY);
         if (node == null || node.isNull()) {
             return fallback;
         }
-        return (node.isTextual() ? TimeFormat.fromJson(node.textValue()) : java.util.Optional.<TimeFormat>empty())
+        return (node.isText() ? TimeFormat.fromJson(node.text()) : java.util.Optional.<TimeFormat>empty())
                 .orElseGet(() -> {
                     LOG.log(System.Logger.Level.WARNING,
                             "Ignoring " + TIME_FORMAT_KEY + " in " + file + ": it must be \"hh:mm\" or \"hh:mm:ss\"");
@@ -431,16 +429,16 @@ public final class SettingsStore {
     public org.example.fake.FakeOptions loadFake() {
         org.example.fake.FakeOptions defaults = org.example.fake.FakeOptions.DEFAULTS;
         try {
-            JsonNode root = mapper.readTree(Files.readString(file));
+            Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
                 return defaults;
             }
-            JsonNode account = root.get(FAKE_ACCOUNT_KEY);
-            JsonNode scenario = root.get(FAKE_SCENARIO_KEY);
-            org.example.fake.FakeOptions.Account kind = account != null && account.isTextual()
-                    ? org.example.fake.FakeOptions.Account.fromJson(account.textValue()).orElse(defaults.account())
+            Json account = root.get(FAKE_ACCOUNT_KEY);
+            Json scenario = root.get(FAKE_SCENARIO_KEY);
+            org.example.fake.FakeOptions.Account kind = account != null && account.isText()
+                    ? org.example.fake.FakeOptions.Account.fromJson(account.text()).orElse(defaults.account())
                     // A file of before the account, whose scenario was the one for a seat-based account.
-                    : scenario != null && scenario.isTextual() && OLD_SEAT_SCENARIO.equals(scenario.textValue())
+                    : scenario != null && scenario.isText() && OLD_SEAT_SCENARIO.equals(scenario.text())
                             ? org.example.fake.FakeOptions.Account.SEAT : defaults.account();
             org.example.fake.FakeOptions read = new org.example.fake.FakeOptions(
                     kind,
@@ -460,20 +458,20 @@ public final class SettingsStore {
         }
     }
 
-    private static int whole(JsonNode root, String key, int fallback) {
-        JsonNode node = root.get(key);
-        return node != null && node.isIntegralNumber() && node.canConvertToInt() ? node.intValue() : fallback;
+    private static int whole(Json root, String key, int fallback) {
+        Json node = root.get(key);
+        return node != null && node.fitsInt() ? node.intValue() : fallback;
     }
 
     /** An amount of the file, in dollars with two decimals at most, as cents; anything else is the fallback. */
-    private static long cents(JsonNode root, String key, long fallback) {
-        JsonNode node = root.get(key);
+    private static long cents(Json root, String key, long fallback) {
+        Json node = root.get(key);
         if (node == null || !node.isNumber()) {
             return fallback;
         }
         try {
-            return node.decimalValue().movePointRight(2).longValueExact();
-        } catch (ArithmeticException e) {
+            return new java.math.BigDecimal(node.numberText()).movePointRight(2).longValueExact();
+        } catch (ArithmeticException | NumberFormatException e) {
             return fallback;
         }
     }
@@ -485,7 +483,7 @@ public final class SettingsStore {
      */
     public void saveFake(org.example.fake.FakeOptions options) throws IOException {
         if (Files.exists(file)) {
-            JsonNode root = mapper.readTree(Files.readString(file));
+            Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
                 throw new IOException("the settings file is not a JSON object");
             }
@@ -511,16 +509,16 @@ public final class SettingsStore {
      */
     public Search loadSearch() {
         try {
-            JsonNode root = mapper.readTree(Files.readString(file));
+            Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
                 return Search.BEGINNING;
             }
-            JsonNode interval = root.get(AUTO_SECONDS_KEY);
-            if (interval == null || !interval.isIntegralNumber() || !interval.canConvertToInt()) {
+            Json interval = root.get(AUTO_SECONDS_KEY);
+            if (interval == null || !interval.fitsInt()) {
                 return Search.BEGINNING;
             }
-            JsonNode refused = root.get(AUTO_REFUSED_KEY);
-            boolean usable = refused != null && refused.isIntegralNumber() && refused.canConvertToInt();
+            Json refused = root.get(AUTO_REFUSED_KEY);
+            boolean usable = refused != null && refused.fitsInt();
             return new Search(interval.intValue(), usable ? refused.intValue() : null);
         } catch (IOException e) {
             return Search.BEGINNING;
@@ -544,7 +542,7 @@ public final class SettingsStore {
     /** The last window as stored; a value that is not a known name or a whole number is left out. Never fails. */
     public LastWindow loadLast() {
         try {
-            JsonNode root = mapper.readTree(Files.readString(file));
+            Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
                 return LastWindow.NONE;
             }
@@ -565,7 +563,7 @@ public final class SettingsStore {
     /** The tab the settings view was last on, as stored; {@code null} for none or a name that is not a tab. Never fails. */
     public String loadSettingsTab() {
         try {
-            JsonNode root = mapper.readTree(Files.readString(file));
+            Json root = JsonReader.read(Files.readString(file));
             return root == null || !root.isObject() ? null : name(root, SETTINGS_TAB_KEY, TABS);
         } catch (IOException e) {
             return null;
@@ -579,7 +577,7 @@ public final class SettingsStore {
      */
     public void saveSettingsTab(String tab) throws IOException {
         if (Files.exists(file)) {
-            JsonNode root = mapper.readTree(Files.readString(file));
+            Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
                 throw new IOException("the settings file is not a JSON object");
             }
@@ -587,14 +585,14 @@ public final class SettingsStore {
         write(load(), loadHeights(), loadSearch(), loadFake(), loadLast(), tab);
     }
 
-    private static String name(JsonNode root, String key, java.util.Set<String> known) {
-        JsonNode node = root.get(key);
-        return node != null && node.isTextual() && known.contains(node.textValue()) ? node.textValue() : null;
+    private static String name(Json root, String key, java.util.Set<String> known) {
+        Json node = root.get(key);
+        return node != null && node.isText() && known.contains(node.text()) ? node.text() : null;
     }
 
-    private static Integer pixels(JsonNode root, String key, int least, int most) {
-        JsonNode node = root.get(key);
-        boolean usable = node != null && node.isIntegralNumber() && node.canConvertToInt()
+    private static Integer pixels(Json root, String key, int least, int most) {
+        Json node = root.get(key);
+        boolean usable = node != null && node.fitsInt()
                 && node.intValue() >= least && node.intValue() <= most;
         return usable ? node.intValue() : null;
     }
@@ -606,7 +604,7 @@ public final class SettingsStore {
      */
     public void saveLast(LastWindow last) throws IOException {
         if (Files.exists(file)) {
-            JsonNode root = mapper.readTree(Files.readString(file));
+            Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
                 throw new IOException("the settings file is not a JSON object");
             }
@@ -621,7 +619,7 @@ public final class SettingsStore {
      */
     public void saveSearch(Search search) throws IOException {
         if (Files.exists(file)) {
-            JsonNode root = mapper.readTree(Files.readString(file));
+            Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
                 throw new IOException("the settings file is not a JSON object");
             }
@@ -629,8 +627,13 @@ public final class SettingsStore {
         write(load(), loadHeights(), search, loadFake(), loadLast(), loadSettingsTab());
     }
 
+    /** An amount of cents as the file has it: a number of dollars, always with two decimals, {@code 1000.00}. */
+    private static Json dollars(long cents) {
+        return Json.number(java.math.BigDecimal.valueOf(cents, 2).toPlainString());
+    }
+
     private void write(Settings settings, Heights heights, Search search, org.example.fake.FakeOptions fake, LastWindow last, String settingsTab) throws IOException {
-        ObjectNode root = mapper.createObjectNode();
+        Json root = Json.object();
         root.put(USAGE_KEY, settings.usageIntervalSeconds());
         root.put(LOG_RESPONSE_KEY, settings.logResponse());
         root.put(SHOW_PERCENTAGE_KEY, settings.showPercentage());
@@ -660,8 +663,8 @@ public final class SettingsStore {
         root.put(FAKE_TOKEN_KEY, settings.fakeToken());
         root.put(FAKE_ACCOUNT_KEY, fake.account().json());
         root.put(FAKE_INCREASE_KEY, fake.increaseCents());
-        root.put(FAKE_BUDGET_KEY, java.math.BigDecimal.valueOf(fake.budgetCents(), 2));
-        root.put(FAKE_START_KEY, java.math.BigDecimal.valueOf(fake.startCents(), 2));
+        root.put(FAKE_BUDGET_KEY, dollars(fake.budgetCents()));
+        root.put(FAKE_START_KEY, dollars(fake.startCents()));
         root.put(FAKE_REFUSE_KEY, fake.refuseSeconds());
         root.put(FAKE_DELAY_KEY, fake.delayMillis());
         root.put(LOG_LEVEL_KEY, settings.logLevel().json());
@@ -670,8 +673,8 @@ public final class SettingsStore {
         root.put(AUTO_INTERVAL_KEY, settings.autoInterval());
         // The limits of cost control, in dollars; a limit there is none of is written as null, so that the key is always there.
         CostControl cost = settings.cost();
-        root.put(COST_MONTHLY_KEY, cost.monthlyCents() == null ? null : java.math.BigDecimal.valueOf(cost.monthlyCents(), 2));
-        root.put(COST_DAILY_KEY, cost.dailyCents() == null ? null : java.math.BigDecimal.valueOf(cost.dailyCents(), 2));
+        root.put(COST_MONTHLY_KEY, cost.monthlyCents() == null ? Json.NULL : dollars(cost.monthlyCents()));
+        root.put(COST_DAILY_KEY, cost.dailyCents() == null ? Json.NULL : dollars(cost.dailyCents()));
         root.put(COST_DAILY_AUTOMATIC_KEY, cost.dailyAutomatic());
         root.put(AUTO_SECONDS_KEY, search.interval());
         if (search.refused() != null) {
@@ -711,7 +714,7 @@ public final class SettingsStore {
 
         Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
         try {
-            Files.writeString(temporary, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root) + System.lineSeparator());
+            Files.writeString(temporary, JsonWriter.pretty(root, System.lineSeparator()) + System.lineSeparator());
             try {
                 Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             } catch (AtomicMoveNotSupportedException e) {

@@ -1176,8 +1176,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The warning stays.** `Usage refresh failed: <the message>` is written as for every failed refresh, the row shows
   the failure as before, and the error log panel has its one entry.
 - It is written whether or not `Log the response` is on.
-- **The reasons** are the messages the row shows for these failures: `The usage response is not valid JSON: <what the
-  reader said>`, `The usage response is not a JSON object.`, `The usage response has no "spend" object; its format may
+- **The reasons** are the messages the row shows for these failures: `The usage response is not valid JSON: <where and what>`, the place and the fault
+  as the program's JSON reader says them, for example `line 1, column 1: a value was expected`; `The usage response is not a JSON object.`, `The usage response has no "spend" object; its format may
   have changed.` and `The usage response enables spend but reports neither "used" nor "limit"; its format may have
   changed.`
 - In the file the word for the level of an error is `SEVERE`; the log panel shows the line at every level.
@@ -1790,7 +1790,7 @@ These are things the program does that the sections above do not say, written do
   always say `Anthropic`, whatever the base URL; only `Cannot reach` names the host. `<detail>` in that message is the system's own text for what went wrong, or the kind of the fault when it has none.
 - **`Retry-After`, exactly.** It is believed only as a whole number of seconds above zero, of at most six digits: `0`, a negative number, a decimal, a date and any other text are taken as no header. Only the first value of the
   header is looked at.
-- **The messages of a response that cannot be used**, each of which begins `The usage response`: `The usage response is not valid JSON: <what the JSON reader says is wrong>`; `The usage response is not a JSON object.`, which is
+- **The messages of a response that cannot be used**, each of which begins `The usage response`: `The usage response is not valid JSON: <where and what>`, in the program's own words since version 0.71, as `line 3, column 14: a value was expected` (until then the words were those of the JSON library); `The usage response is not a JSON object.`, which is
   also what a body with nothing in it, or with blanks alone, draws, and `null`, a number, a text and a list; `The usage response enables spend but reports neither "used" nor "limit"; its format may have changed.`; and the one
   about no `spend` object, above. (`The usage response was empty.` is the message for a response that has no body at all, which an HTTP answer never is.) What the JSON reader says can name the first
   thing it could not read, a word of the body, so that message is the one place where a few characters of a response can reach the window and the log; it is masked like everything else.
@@ -1891,7 +1891,7 @@ These are things the program does that the sections above do not say, written do
 **The local server**
 
 - The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>` (case does not matter), else the answer is 403 `Forbidden`; this holds for the page as well as the API.
-- A `POST` must have a `Content-Type` that starts with `application/json`, else 415 `Send Content-Type: application/json.`; a body over 4,096 bytes is 413 `The request body is too large.`; a body that is not JSON is 400 `The request body is not valid JSON.`; one that is not an object is
+- A `POST` must have a `Content-Type` that starts with `application/json`, else 415 `Send Content-Type: application/json.`; a body over 4,096 bytes is 413 `The request body is too large.`; a body that is not JSON is 400 `The request body is not valid JSON.`, which since version 0.71 is also a body with anything but white space after its JSON value; one that is not an object is
   400 `The request body must be a JSON object.` A wrong method is 405 with an `Allow` header, an unknown path 404 `{"error":"No such endpoint."}`, a fault of the program 500 `Internal error; see the log.`
 - Every API answer is JSON, and the answers carry `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. No `Access-Control` header is ever sent, and under `/api/` an `OPTIONS` is refused like any other wrong method, so another page cannot post to it. (The page's own files are answered whatever the method, `OPTIONS` included, with the file and still no `Access-Control` header.)
 - The page and its files are served from inside the program only, never from the file system, and a path with `..` is 404. `/api/log` and `/api/history` name their file by its bare file name, never its path.
@@ -2217,6 +2217,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 ## Non-functional requirements
 
 - Use Java 25 with Gradle toolchain support.
+- **JavaFX is the only library the program is built with** (since version 0.71). It reads and writes JSON itself: strictly as the standard says when it reads, and in the two forms it has always written, on one line for the local API and over several lines, with a space on both sides of each colon, for the settings file and a logged response. The Go version is to be a translation of this program, and what a library did here would have to be imitated there.
 - Use the bundled Gradle wrapper rather than a manual local install.
 - **Nothing has to be installed by hand to build it.** The toolchain is declared, so Gradle fetches the JDK 25 it needs when the machine has none, and the wrapper fetches the one Gradle version the project declares, so every machine builds it with the same one. A clone and `./gradlew` are the whole of the setup; the only thing the build expects of the machine is a network and, for the frontend tests, `node` on the `PATH`.
 - `./gradlew build` compiles the sources and runs the tests, and `./gradlew run` opens the window. The options of Command line are given to the `run` task after `--args`, for example `./gradlew run --args="--debug"`, so every option of the program can be used without a packaged launcher.
@@ -2251,7 +2252,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   storing a remembered height is such a save. The new file is written beside the old one as `settings.json.tmp`, which is not left behind whether or not the save succeeded; a save that fails leaves the file as it was.
 - **How the settings file is read.** No value is turned into another: the interval and the heights must be whole JSON numbers (`"45"`, `45.5` and `true` are refused), a switch must be `true` or `false` (`"yes"` is
   refused), and the time format exactly the text `hh:mm` or `hh:mm:ss`. A key whose value is `null` is a key the file lacks: it has its default and nothing is logged. An empty file, and one that holds a list, are files that
-  are not a JSON object. A file added to by hand keeps its extra keys until the next save.
+  are not a JSON object. A file with anything but white space after its object is one that cannot be read (since version 0.71; until then what came after was passed over). A file added to by hand keeps its extra keys until the next save.
 - **Applying settings that are the file's own** writes and logs nothing.
 - Each line of the log begins with its time in the same form as the usage history file: the local date and time to the second, `yyyy-MM-dd HH:mm:ss`, for example `2026-10-08 16:24:53`, so the log, the history and the window agree on the clock.
 - The log records startup and shutdown, each refresh and how it ended, token acquisition and rejection, settings changes, and for each request to Anthropic its status, duration, size and `request-id`. It never records a token or a header. It records no part of a response body, except that, while the setting to log the response is on, it writes the JSON of each response, pretty printed over several lines, after one entry line that says whose it is. That text is masked like everything else, so anything shaped like a credential in it is hidden before it is written, as a last line of defence. The setting is off by default.

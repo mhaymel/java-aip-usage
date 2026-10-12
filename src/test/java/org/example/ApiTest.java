@@ -1,7 +1,7 @@
 package org.example;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.json.Json;
+import org.example.json.JsonReader;
 import org.example.settings.LaunchOptions;
 import org.example.settings.SettingsStore;
 import org.example.usage.Spend;
@@ -34,6 +34,8 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -52,8 +54,6 @@ class ApiTest {
 
     @TempDir
     Path dir;
-
-    private final ObjectMapper json = new ObjectMapper();
 
     private final HttpClient http = HttpClient.newHttpClient();
 
@@ -127,7 +127,7 @@ class ApiTest {
     void startupConfigReportsTheEffectiveIntervalsAndTheUsageLimits() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
-        JsonNode config = json(get(app, "/api/config"));
+        Json config = json(get(app, "/api/config"));
 
         assertEquals(60, config.get("usageIntervalSeconds").asInt());
         assertEquals(1, config.get("pollIntervalSeconds").asInt());
@@ -137,17 +137,17 @@ class ApiTest {
 
     @Test
     void theUpdateIntervalIsReportedButHasNoLimitsBecauseItCannotBeEdited() throws Exception {
-        JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
+        Json config = json(get(start(new FakeFetch()), "/api/config"));
 
-        assertTrue(config.get("pollIntervalSeconds").isInt(), "the page needs it to know how often to poll");
-        assertTrue(config.at("/limits/pollIntervalSeconds").isMissingNode(), "nothing to validate: " + config);
+        assertTrue(config.get("pollIntervalSeconds").fitsInt(), "the page needs it to know how often to poll");
+        assertNull(config.at("/limits/pollIntervalSeconds"), "nothing to validate: " + config);
     }
 
     @Test
     void startupConfigReflectsTheSavedUsageInterval() throws Exception {
         new SettingsStore(dir.resolve("settings.json")).save(org.example.settings.Settings.defaults().withUsageIntervalSeconds(120));
 
-        JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
+        Json config = json(get(start(new FakeFetch()), "/api/config"));
 
         assertEquals(120, config.get("usageIntervalSeconds").asInt());
         assertEquals(1, config.get("pollIntervalSeconds").asInt());
@@ -157,7 +157,7 @@ class ApiTest {
     void anUpdateIntervalLeftInTheFileByAnEarlierVersionIsNotUsed() throws Exception {
         Files.writeString(dir.resolve("settings.json"), "{\"usageIntervalSeconds\": 120, \"pollIntervalSeconds\": 5}");
 
-        JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
+        Json config = json(get(start(new FakeFetch()), "/api/config"));
 
         assertEquals(120, config.get("usageIntervalSeconds").asInt());
         assertEquals(1, config.get("pollIntervalSeconds").asInt());
@@ -182,7 +182,7 @@ class ApiTest {
         post(first, "/api/settings", allSettings(200, false, "hh:mm"));
         first.close();
 
-        JsonNode config = json(get(start(new FakeFetch()), "/api/config"));
+        Json config = json(get(start(new FakeFetch()), "/api/config"));
 
         assertEquals(200, config.get("usageIntervalSeconds").asInt());
         assertEquals(1, config.get("pollIntervalSeconds").asInt(), "the window asks once a second, and nothing changes that");
@@ -217,7 +217,7 @@ class ApiTest {
             assertFalse(json(response).get("error").asText().isBlank(), body);
         }
 
-        JsonNode config = json(get(app, "/api/config"));
+        Json config = json(get(app, "/api/config"));
         assertEquals(60, config.get("usageIntervalSeconds").asInt());
         assertEquals(1, config.get("pollIntervalSeconds").asInt());
         assertEquals(Duration.ofSeconds(60), app.service().interval());
@@ -245,6 +245,9 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
 
         assertEquals(400, post(app, "/api/settings", "not json").statusCode());
+        HttpResponse<String> trailing = post(app, "/api/settings", "{} x");
+        assertEquals(400, trailing.statusCode(), "a body is its one JSON value and nothing after it");
+        assertEquals("The request body is not valid JSON.", json(trailing).get("error").asText());
         assertEquals(400, post(app, "/api/settings", "").statusCode());
         assertEquals(400, post(app, "/api/settings", "[1, 2]").statusCode());
         assertEquals(400, post(app, "/api/settings", "\"text\"").statusCode());
@@ -278,7 +281,7 @@ class ApiTest {
     void theSettingsEndpointGivesEverySettingTheDefaultsAndTheLimits() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
-        JsonNode body = json(get(app, "/api/settings"));
+        Json body = json(get(app, "/api/settings"));
 
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
@@ -293,7 +296,7 @@ class ApiTest {
     @Test
     void theFiveElementsThatWereAlwaysInTheRowAreSettingsTooAndTheStatusFollowsThem() throws Exception {
         AppRuntime app = start(new FakeFetch());
-        JsonNode defaults = json(get(app, "/api/settings")).get("defaults");
+        Json defaults = json(get(app, "/api/settings")).get("defaults");
         for (String key : List.of("showTime", "showUsed", "showLimit", "showRefresh", "showCountdown")) {
             assertTrue(defaults.get(key).asBoolean(), key + " is on by default");
         }
@@ -303,7 +306,7 @@ class ApiTest {
                 .replace("\"showCountdown\": true", "\"showCountdown\": false");
         assertEquals(200, post(app, "/api/settings", hidden).statusCode());
 
-        JsonNode show = json(get(app, "/api/status")).at("/display/show");
+        Json show = json(get(app, "/api/status")).at("/display/show");
         assertFalse(show.get("time").asBoolean());
         assertFalse(show.get("countdown").asBoolean());
         assertTrue(show.get("used").asBoolean());
@@ -316,7 +319,7 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
         await(() -> app.service().state().snapshot() != null);
 
-        JsonNode display = json(get(app, "/api/status")).get("display");
+        Json display = json(get(app, "/api/status")).get("display");
         assertTrue(display.at("/duration/text").asText().matches("\\d+ms|\\d+s\\d{3}ms"), display.get("duration").toString());
         assertEquals("How long the latest usage request took", display.at("/duration/tooltip").asText());
         assertFalse(display.at("/show/duration").asBoolean(), "off by default");
@@ -395,7 +398,7 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch(), LaunchOptions.debugMode());
 
         assertTrue(json(get(app, "/api/config")).get("debug").asBoolean());
-        JsonNode body = json(get(app, "/api/debug"));
+        Json body = json(get(app, "/api/debug"));
         assertFalse(body.at("/settings/fakeBackend").asBoolean(), "off by default");
         assertEquals("normal", body.at("/settings/fakeScenario").asText());
         assertFalse(body.at("/settings/fakeToken").asBoolean());
@@ -557,7 +560,7 @@ class ApiTest {
         HttpResponse<String> response = post(app, "/api/settings", allSettings(120, true, "hh:mm:ss"));
 
         assertEquals(200, response.statusCode());
-        JsonNode body = json(get(app, "/api/settings"));
+        Json body = json(get(app, "/api/settings"));
         assertEquals(120, body.at("/settings/usageIntervalSeconds").asInt());
         assertTrue(body.at("/settings/logResponse").asBoolean());
         assertTrue(body.at("/settings/showInterval").asBoolean());
@@ -640,11 +643,11 @@ class ApiTest {
         AppRuntime app = start(fetch);
         await(() -> app.service().state().snapshot() != null);
 
-        JsonNode status = json(get(app, "/api/status"));
+        Json status = json(get(app, "/api/status"));
 
         assertFalse(status.get("stale").asBoolean());
         assertTrue(status.get("error").isNull());
-        JsonNode usage = status.get("usage");
+        Json usage = status.get("usage");
         assertEquals("anthropic-oauth-usage", usage.get("source").asText());
         assertEquals("2026-10-08T12:00:00Z", usage.get("fetched_at").asText());
         assertEquals(186.02, usage.at("/spend/used").asDouble());
@@ -660,9 +663,9 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
         await(() -> app.service().state().snapshot() != null);
 
-        JsonNode status = json(get(app, "/api/status"));
+        Json status = json(get(app, "/api/status"));
 
-        assertTrue(status.get("nextRefreshInSeconds").isIntegralNumber(), "a number: " + status);
+        assertTrue(status.get("nextRefreshInSeconds").isWhole(), "a number: " + status);
         long left = status.get("nextRefreshInSeconds").asLong();
         assertTrue(left >= 55 && left <= 60, "the default 60 s interval, counting down: " + left);
     }
@@ -682,8 +685,8 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
         await(() -> app.service().state().snapshot() != null);
 
-        assertTrue(json(get(app, "/api/config")).at("/nextRefreshInSeconds").isMissingNode());
-        assertFalse(json(get(app, "/api/status")).at("/nextRefreshInSeconds").isMissingNode());
+        assertNull(json(get(app, "/api/config")).at("/nextRefreshInSeconds"));
+        assertNotNull(json(get(app, "/api/status")).at("/nextRefreshInSeconds"));
     }
 
     @Test
@@ -718,7 +721,7 @@ class ApiTest {
         assertTrue(post(app, "/api/refresh", "{}").statusCode() < 300);
         await(() -> app.service().state().error() != null);
 
-        JsonNode status = json(get(app, "/api/status"));
+        Json status = json(get(app, "/api/status"));
         assertTrue(status.get("stale").asBoolean());
         assertEquals("Anthropic returned HTTP 503.", status.at("/error/message").asText());
         assertFalse(status.at("/error/at").asText().isBlank());
@@ -734,7 +737,7 @@ class ApiTest {
         AppRuntime app = start(fetch);
         await(() -> app.service().state().error() != null);
 
-        JsonNode status = json(get(app, "/api/status"));
+        Json status = json(get(app, "/api/status"));
 
         assertTrue(status.get("usage").isNull());
         assertFalse(status.get("stale").asBoolean());
@@ -751,7 +754,7 @@ class ApiTest {
         AppRuntime app = start(fetch);
         assertTrue(fetch.entered.await(5, TimeUnit.SECONDS));
 
-        JsonNode status = json(get(app, "/api/status"));
+        Json status = json(get(app, "/api/status"));
 
         assertEquals(263.89, status.at("/usage/spend/used").asDouble());
         assertEquals(1000.0, status.at("/usage/spend/limit").asDouble());
@@ -779,7 +782,7 @@ class ApiTest {
         AppRuntime second = start(failing);
         await(() -> second.service().state().error() != null);
 
-        JsonNode status = json(get(second, "/api/status"));
+        Json status = json(get(second, "/api/status"));
         assertTrue(status.get("stale").asBoolean());
         assertEquals(5.0, status.at("/usage/spend/used").asDouble(), "the reading from the file stays, marked stale");
         assertEquals("Anthropic returned HTTP 503.", status.at("/error/message").asText());
@@ -792,7 +795,7 @@ class ApiTest {
         AppRuntime app = start(fetch);
         assertTrue(fetch.entered.await(5, TimeUnit.SECONDS));
 
-        JsonNode status = json(get(app, "/api/status"));
+        Json status = json(get(app, "/api/status"));
 
         assertTrue(status.get("refreshing").asBoolean());
         assertTrue(status.get("usage").isNull());
@@ -993,7 +996,7 @@ class ApiTest {
         AppRuntime app = start(plan);
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
 
-        JsonNode history = json(get(app, "/api/history"));
+        Json history = json(get(app, "/api/history"));
 
         assertEquals(6, history.get("columns").size(), "both change columns are on");
         assertEquals("\u0394 used", history.at("/columns/3").asText());
@@ -1004,7 +1007,7 @@ class ApiTest {
         assertEquals("+10.00", history.at("/lines/1/cells/3").asText(), "no earlier line has an amount: the change is the amount itself");
         assertEquals("", history.at("/lines/1/cells/4").asText());
 
-        JsonNode change = json(get(app, "/api/status")).get("change");
+        Json change = json(get(app, "/api/status")).get("change");
         assertEquals(63, change.get("delta_time").asInt());
     }
 
@@ -1021,14 +1024,14 @@ class ApiTest {
         assertEquals(4, json(get(app, "/api/history")).get("columns").size(), "by default the four, and no change columns");
         post(app, "/api/settings", all.replace("}", ", \"historyTime\": false, \"historyUsed\": true, \"historyLimit\": false, \"historyCurrent\": false}"));
 
-        JsonNode history = json(get(app, "/api/history"));
+        Json history = json(get(app, "/api/history"));
 
         assertEquals(java.util.List.of("used", "\u0394 used", "\u0394 time"),
-                java.util.stream.StreamSupport.stream(history.get("columns").spliterator(), false).map(JsonNode::asText).toList());
+                history.get("columns").items().stream().map(Json::asText).toList());
         assertEquals(3, history.at("/lines/0/cells").size());
         assertEquals("10.05", history.at("/lines/0/cells/0").asText());
         assertEquals("+0.05", history.at("/lines/0/cells/1").asText());
-        JsonNode settings = json(get(app, "/api/settings")).get("settings");
+        Json settings = json(get(app, "/api/settings")).get("settings");
         assertFalse(settings.get("historyTime").asBoolean());
         assertTrue(settings.get("historyUsed").asBoolean());
         assertFalse(settings.get("historyCurrent").asBoolean());
@@ -1039,7 +1042,7 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
         post(app, "/api/settings", allSettings(60, false, "hh:mm"));
 
-        JsonNode settings = json(get(app, "/api/settings")).get("settings");
+        Json settings = json(get(app, "/api/settings")).get("settings");
 
         assertTrue(settings.get("historyTime").asBoolean() && settings.get("historyUsed").asBoolean()
                 && settings.get("historyLimit").asBoolean() && settings.get("historyCurrent").asBoolean());
@@ -1057,14 +1060,14 @@ class ApiTest {
         AppRuntime app = start(plan);
         post(app, "/api/settings", withSwitches(true, true));
 
-        JsonNode lines = json(get(app, "/api/history")).get("lines");
+        Json lines = json(get(app, "/api/history")).get("lines");
 
         assertEquals("", lines.get(0).at("/cells/3").asText(), "a fall shows nothing in the history");
         assertEquals("", lines.get(1).at("/cells/3").asText(), "the failed line has no amount");
         assertEquals("", lines.get(2).at("/cells/3").asText(), "no change: nothing");
         assertEquals("+10.40", lines.get(3).at("/cells/3").asText(), "the first line: the amount itself");
 
-        JsonNode change = json(get(app, "/api/status")).get("change");
+        Json change = json(get(app, "/api/status")).get("change");
         assertEquals(-0.10, change.get("delta_used").asDouble(), 0.0001, "the row has the fall, against the last earlier amount");
     }
 
@@ -1079,7 +1082,7 @@ class ApiTest {
         AppRuntime app = start(plan);
         post(app, "/api/settings", withSwitches(true, true));
 
-        JsonNode history = json(get(app, "/api/history"));
+        Json history = json(get(app, "/api/history"));
 
         assertEquals("86400 s", history.at("/lines/0/cells/4").asText(), "the program was off for a day");
         assertEquals("+0.20", history.at("/lines/0/cells/3").asText());
@@ -1097,7 +1100,7 @@ class ApiTest {
         assertEquals("general", json(get(app, "/api/settings")).get("settingsTab").asText());
         post(app, "/api/settings", allSettings(60, false, "hh:mm"));
         assertEquals("general", json(get(app, "/api/settings")).get("settingsTab").asText(), "saving the settings leaves it as it is");
-        assertEquals("general", new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json"))).get("settingsTab").asText(), "and it is in the file");
+        assertEquals("general", JsonReader.read(Files.readString(dir.resolve("settings.json"))).get("settingsTab").asText(), "and it is in the file");
     }
 
     @Test
@@ -1121,7 +1124,7 @@ class ApiTest {
         AppRuntime app = start(plan);
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"200.00\", \"costDailyLimit\": \"20.00\", \"costDailyAutomatic\": false}"));
 
-        JsonNode cost = json(get(app, "/api/cost"));
+        Json cost = json(get(app, "/api/cost"));
 
         assertEquals("Today", cost.at("/rows/0/label").asText());
         assertEquals("10.00 of 20.00 \u00b7 50%", cost.at("/rows/0/text").asText(), "110 less the 100 of the first reading of today");
@@ -1139,7 +1142,7 @@ class ApiTest {
         plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
-        JsonNode cost = json(get(app, "/api/cost"));
+        Json cost = json(get(app, "/api/cost"));
 
         assertEquals("No usage has been read yet.", cost.get("note").asText());
         assertTrue(cost.at("/rows/0/noLimit").asBoolean() && cost.at("/rows/1/noLimit").asBoolean());
@@ -1164,7 +1167,7 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
         await(() -> app.service().state().snapshot() != null);
 
-        JsonNode display = json(get(app, "/api/status")).get("display");
+        Json display = json(get(app, "/api/status")).get("display");
         assertEquals(5, display.get("time").asText().length(), "hours and minutes by default");
         assertEquals("186.02", display.at("/spend/used").asText());
         assertEquals("1,000.00", display.at("/spend/limit").asText());
@@ -1189,7 +1192,7 @@ class ApiTest {
         assertEquals(4, json(get(app, "/api/history")).get("columns").size(), "off until switched on");
 
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
-        JsonNode on = json(get(app, "/api/history"));
+        Json on = json(get(app, "/api/history"));
 
         assertEquals(6, on.get("columns").size());
         // FakeFetch answers the same amount twice: no change, so the cell is empty, never 0.00.
@@ -1209,7 +1212,7 @@ class ApiTest {
         post(app, "/api/refresh", "{}");
         await(() -> app.service().errors().newestFirst().size() >= 2);
 
-        JsonNode errors = json(get(app, "/api/errors")).get("entries");
+        Json errors = json(get(app, "/api/errors")).get("entries");
 
         assertTrue(errors.size() >= 2);
         assertTrue(errors.get(0).get("time").asText().matches("\\d{2}:\\d{2}:\\d{2}"), "hh:mm:ss, with seconds, whatever the time format setting");
@@ -1251,8 +1254,8 @@ class ApiTest {
         AppRuntime app = start(fetch);
         await(() -> app.service().state().rateLimited());
 
-        JsonNode settings = json(get(app, "/api/settings"));
-        JsonNode status = json(get(app, "/api/status"));
+        Json settings = json(get(app, "/api/settings"));
+        Json status = json(get(app, "/api/status"));
 
         assertEquals(60, settings.at("/settings/usageIntervalSeconds").asInt(), "no back-off: the delay is the interval, whatever Retry-After says");
         assertEquals(60, settings.at("/defaults/usageIntervalSeconds").asInt(), "the defaults are the defaults");
@@ -1270,7 +1273,7 @@ class ApiTest {
         await(() -> app.service().state().error() != null);
         await(() -> !app.service().errors().newestFirst().isEmpty());
 
-        JsonNode status = json(get(app, "/api/status"));
+        Json status = json(get(app, "/api/status"));
         assertTrue(status.at("/display/message").isNull());
         assertTrue(status.at("/display/countdownAlert").asText().contains("HTTP 429"));
         assertFalse(status.get("stale").asBoolean());
@@ -1299,7 +1302,7 @@ class ApiTest {
                 .replace("\"historyFailedLines\": true", "\"historyFailedLines\": " + failed);
     }
 
-    private JsonNode historyWith(boolean zero, boolean failed) throws Exception {
+    private Json historyWith(boolean zero, boolean failed) throws Exception {
         FakeFetch plan = new FakeFetch();
         plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
@@ -1307,9 +1310,9 @@ class ApiTest {
         return json(get(app, "/api/history"));
     }
 
-    private static java.util.List<String> times(JsonNode history) {
+    private static java.util.List<String> times(Json history) {
         java.util.List<String> times = new java.util.ArrayList<>();
-        history.get("lines").forEach(l -> times.add(l.at("/cells/0").asText()));
+        history.get("lines").items().forEach(l -> times.add(l.at("/cells/0").asText()));
         return times;
     }
 
@@ -1322,20 +1325,20 @@ class ApiTest {
         plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
-        JsonNode none = json(get(app, "/api/history"));
+        Json none = json(get(app, "/api/history"));
         assertEquals(java.util.List.of("time", "used", "limit", "Cur."), titles(none));
         assertEquals("EUR", none.at("/lines/0/cells/3").asText(), "other currencies keep their code");
 
         post(app, "/api/settings", allSettings(60, false, "hh:mm")
                 .replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true")
                 .replace("\"historyDeltaTime\": true", "\"historyDeltaTime\": false"));
-        JsonNode one = json(get(app, "/api/history"));
+        Json one = json(get(app, "/api/history"));
         assertEquals(java.util.List.of("time", "used", "limit", "\u0394 used", "Cur."), titles(one));
         assertEquals("+0.05", one.at("/lines/0/cells/3").asText());
         assertEquals("EUR", one.at("/lines/0/cells/4").asText());
 
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
-        JsonNode both = json(get(app, "/api/history"));
+        Json both = json(get(app, "/api/history"));
         assertEquals(java.util.List.of("time", "used", "limit", "\u0394 used", "\u0394 time", "Cur."), titles(both));
         assertEquals("60 s", both.at("/lines/0/cells/4").asText());
         assertEquals("EUR", both.at("/lines/0/cells/5").asText());
@@ -1350,15 +1353,15 @@ class ApiTest {
         plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
-        JsonNode lines = json(get(app, "/api/history")).get("lines");
+        Json lines = json(get(app, "/api/history")).get("lines");
 
         assertEquals("$", lines.get(1).at("/cells/3").asText());
         assertEquals("", lines.get(0).at("/cells/3").asText());
     }
 
-    private static java.util.List<String> titles(JsonNode history) {
+    private static java.util.List<String> titles(Json history) {
         java.util.List<String> titles = new java.util.ArrayList<>();
-        history.get("columns").forEach(c -> titles.add(c.asText()));
+        history.get("columns").items().forEach(c -> titles.add(c.asText()));
         return titles;
     }
 
@@ -1372,7 +1375,7 @@ class ApiTest {
         post(app, "/api/settings", allSettings(60, false, "hh:mm")
                 .replace("\"showCurrency\": false", "\"showCurrency\": true")
                 .replace("\"showLogIcon\": true", "\"showLogIcon\": false"));
-        JsonNode display = json(get(app, "/api/status")).get("display");
+        Json display = json(get(app, "/api/status")).get("display");
 
         assertEquals("$186.02", display.at("/spend/used").asText());
         assertEquals("$1,000.00", display.at("/spend/limit").asText());
@@ -1386,7 +1389,7 @@ class ApiTest {
     void everythingIsShownByDefaultAndTheNoteSaysNothing() throws Exception {
         writeMixedHistory();
 
-        JsonNode history = historyWith(true, true);
+        Json history = historyWith(true, true);
 
         assertEquals(7, history.get("lines").size());
         assertTrue(history.get("note").isNull());
@@ -1396,7 +1399,7 @@ class ApiTest {
     void theZeroUsageLinesCanBeHiddenAndTheNoteCountsThem() throws Exception {
         writeMixedHistory();
 
-        JsonNode history = historyWith(false, true);
+        Json history = historyWith(false, true);
 
         // 14:01 repeats 14:00 and 14:05 repeats 14:04: zero usage. 14:04 follows a failed row, so it has no change to be zero. 14:00 is the startup line,
         // which counts as a zero usage line too.
@@ -1408,7 +1411,7 @@ class ApiTest {
     void theFailedLinesCanBeHiddenToo() throws Exception {
         writeMixedHistory();
 
-        JsonNode history = historyWith(true, false);
+        Json history = historyWith(true, false);
 
         assertEquals(6, history.get("lines").size());
         assertFalse(times(history).contains("14:03:00"));
@@ -1419,7 +1422,7 @@ class ApiTest {
     void bothHiddenAndTheNoteSaysBothAndAllThatIsLeftIsShown() throws Exception {
         writeMixedHistory();
 
-        JsonNode history = historyWith(false, false);
+        Json history = historyWith(false, false);
 
         assertEquals(java.util.List.of("14:06:00", "14:04:00", "14:02:00"), times(history));
         assertEquals("Showing 3 of 7 lines: 3 zero usage and 1 failed hidden.", history.get("note").asText());
@@ -1429,7 +1432,7 @@ class ApiTest {
     void theChangesAreWorkedOutOnTheLinesThatAreShown() throws Exception {
         writeMixedHistory();
 
-        JsonNode lines = historyWith(false, false).get("lines");
+        Json lines = historyWith(false, false).get("lines");
 
         // Shown, newest first: 14:06 (10.20), 14:04 (10.05), 14:02 (10.05). The startup line 14:00 is hidden with the zero usage lines.
         assertEquals(3, lines.size());
@@ -1446,7 +1449,7 @@ class ApiTest {
         AppRuntime app = start(plan);
         post(app, "/api/settings", withSwitches(false, false).replace("\"historyDeltaTime\": true", "\"historyDeltaTime\": true"));
 
-        JsonNode history = json(get(app, "/api/history"));
+        Json history = json(get(app, "/api/history"));
 
         int time = history.get("columns").size() - 2;
         // 14:06 against 14:04: 120 s. 14:04 against 14:02, the failed 14:03 being hidden between them: 120 s, not 60 s.
@@ -1462,7 +1465,7 @@ class ApiTest {
                 "2026-10-08 15:00:00,,,,start-failed,60,5000",
                 "2026-10-08 15:01:00,10.30,1000.00,USD,,60,400");
 
-        JsonNode lines = historyWith(true, false).get("lines");
+        Json lines = historyWith(true, false).get("lines");
 
         // The start-failed line is hidden. 15:01 would have been compared with 14:01 across the two runs; it is not.
         assertEquals("15:01:00", lines.get(0).at("/cells/0").asText());
@@ -1474,7 +1477,7 @@ class ApiTest {
     void theStartAndFailedFlagsAndTheHoverTextAreFinished() throws Exception {
         writeMixedHistory();
 
-        JsonNode lines = historyWith(true, true).get("lines");
+        Json lines = historyWith(true, true).get("lines");
 
         // Newest first: 14:06 ... 14:03 (failed) ... 14:00 (start).
         assertFalse(lines.get(0).get("start").asBoolean());
@@ -1490,11 +1493,11 @@ class ApiTest {
     void theStartupLinesCountAsZeroUsageLinesAndComeBackWithTheirMarkerWhenTheyAreShown() throws Exception {
         writeMixedHistory();
 
-        JsonNode hidden = historyWith(false, true);
-        JsonNode shown = historyWith(true, true);
+        Json hidden = historyWith(false, true);
+        Json shown = historyWith(true, true);
 
         assertFalse(times(hidden).contains("14:00:00"), "hidden with the zero usage lines");
-        JsonNode first = shown.get("lines").get(6);
+        Json first = shown.get("lines").get(6);
         assertEquals("14:00:00", first.at("/cells/0").asText());
         assertTrue(first.get("start").asBoolean(), "back with its gray flag");
         assertEquals("The program started here", first.get("title").asText());
@@ -1506,8 +1509,8 @@ class ApiTest {
                 "2026-10-08 14:00:00,,,,start-failed,60,5000",
                 "2026-10-08 14:01:00,10.00,1000.00,USD,,60,400");
 
-        JsonNode zeroOff = historyWith(false, true);
-        JsonNode failedOff = historyWith(true, false);
+        Json zeroOff = historyWith(false, true);
+        Json failedOff = historyWith(true, false);
 
         assertTrue(times(zeroOff).contains("14:00:00"), "not a zero usage line");
         assertEquals(2, zeroOff.get("lines").size(), "the failed startup line and the reading after it");
@@ -1544,7 +1547,7 @@ class ApiTest {
         rows.add("2026-01-02 12:00:00,2.00,2.00,USD,,60,1");
         writeHistory(rows.toArray(String[]::new));
 
-        JsonNode history = historyWith(false, true);
+        Json history = historyWith(false, true);
 
         assertEquals(1102, history.get("total").asInt());
         assertEquals(1, history.get("lines").size(), "the one change: the startup line is a zero usage line too");
@@ -1557,7 +1560,7 @@ class ApiTest {
                 "2026-10-08 14:00:00,,,,failed,60,5000",
                 "2026-10-08 14:01:00,,,,failed,60,5000");
 
-        JsonNode history = historyWith(true, false);
+        Json history = historyWith(true, false);
 
         assertEquals(0, history.get("lines").size());
         assertEquals("Showing 0 of 2 lines: 2 failed hidden.", history.get("note").asText());
@@ -1588,7 +1591,7 @@ class ApiTest {
         AppRuntime app = start(plan);
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaTime\": true", "\"historyDeltaTime\": true"));
 
-        JsonNode lines = json(get(app, "/api/history")).get("lines");
+        Json lines = json(get(app, "/api/history")).get("lines");
 
         // Newest first; the columns are time, used, limit, Cur., then the time (allSettings turns it on, and the amount's change off).
         int time = json(get(app, "/api/history")).get("columns").size() - 2;
@@ -1611,7 +1614,7 @@ class ApiTest {
         AppRuntime app = start(plan);
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true"));
 
-        JsonNode lines = json(get(app, "/api/history")).get("lines");
+        Json lines = json(get(app, "/api/history")).get("lines");
 
         // Newest first: no change, then +0.05, then the first line of the run.
         assertEquals("", lines.get(0).at("/cells/3").asText(), "a change of zero says nothing");
@@ -1716,17 +1719,17 @@ class ApiTest {
         writeLog("first line", "second line");
         AppRuntime app = start(new FakeFetch());
 
-        JsonNode log = json(get(app, "/api/log"));
+        Json log = json(get(app, "/api/log"));
 
         assertTrue(log.get("exists").asBoolean());
         assertFalse(log.get("truncated").asBoolean());
         assertEquals("java-aip-usage.log", log.get("file").asText(), "the name, not the path");
-        assertEquals(List.of("first line", "second line"), java.util.stream.StreamSupport.stream(log.get("lines").spliterator(), false).map(JsonNode::asText).toList());
+        assertEquals(List.of("first line", "second line"), log.get("lines").items().stream().map(Json::asText).toList());
     }
 
     @Test
     void theLogEndpointSaysSoWhenThereIsNoLog() throws Exception {
-        JsonNode log = json(get(start(new FakeFetch()), "/api/log"));
+        Json log = json(get(start(new FakeFetch()), "/api/log"));
 
         assertFalse(log.get("exists").asBoolean());
         assertEquals(0, log.get("lines").size());
@@ -1737,7 +1740,7 @@ class ApiTest {
         writeLog(java.util.stream.IntStream.rangeClosed(1, 1500).mapToObj(i -> "line " + i).toArray(String[]::new));
         AppRuntime app = start(new FakeFetch());
 
-        JsonNode log = json(get(app, "/api/log"));
+        Json log = json(get(app, "/api/log"));
 
         assertTrue(log.get("truncated").asBoolean());
         assertEquals(1000, log.get("lines").size());
@@ -1755,7 +1758,7 @@ class ApiTest {
         plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
-        JsonNode history = json(get(app, "/api/history"));
+        Json history = json(get(app, "/api/history"));
 
         assertTrue(history.get("exists").asBoolean());
         assertEquals("java-aip-usage.csv", history.get("file").asText());
@@ -1780,12 +1783,12 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDate\": false", "\"historyDate\": true"));
 
-        JsonNode history = json(get(app, "/api/history"));
+        Json history = json(get(app, "/api/history"));
 
         assertEquals("date time", history.at("/columns/0").asText());
         assertTrue(history.get("wide").asBoolean());
         java.util.Set<String> shown = new java.util.HashSet<>();
-        history.get("lines").forEach(l -> shown.add(l.at("/cells/0").asText()));
+        history.get("lines").items().forEach(l -> shown.add(l.at("/cells/0").asText()));
         assertTrue(shown.contains("2026-10-08 14:24:53"), shown.toString());
     }
 
@@ -1794,10 +1797,10 @@ class ApiTest {
         writeHistory("datetime,used,limit,currency", "2026-10-08 14:24:53,186.02,1000.00,USD", "yesterday,1.00,2.00,USD");
         AppRuntime app = start(new FakeFetch());
 
-        JsonNode lines = json(get(app, "/api/history")).get("lines");
+        Json lines = json(get(app, "/api/history")).get("lines");
 
         java.util.Set<String> shown = new java.util.HashSet<>();
-        lines.forEach(l -> shown.add(l.at("/cells/0").asText()));
+        lines.items().forEach(l -> shown.add(l.at("/cells/0").asText()));
         assertTrue(shown.contains("yesterday"), shown.toString());
         assertTrue(shown.contains("14:24:53"), shown.toString());
     }
@@ -1807,7 +1810,7 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
         app.settings().storeHeight("history", 640);
 
-        JsonNode settings = json(get(app, "/api/settings")).get("settings");
+        Json settings = json(get(app, "/api/settings")).get("settings");
         post(app, "/api/settings", allSettings(120, false, "hh:mm"));
 
         assertFalse(settings.has("historyHeight"));
@@ -1822,7 +1825,7 @@ class ApiTest {
         assertEquals(202, post(app, "/api/refresh", "{}").statusCode());
         await(() -> history(app).size() >= 3);
 
-        JsonNode history = json(get(app, "/api/history"));
+        Json history = json(get(app, "/api/history"));
 
         assertEquals(2, history.get("total").asInt());
         assertEquals("186.02", history.at("/lines/0/cells/1").asText());
@@ -1835,7 +1838,7 @@ class ApiTest {
         AppRuntime app = start(plan);
         await(() -> app.service().state().snapshot() != null);
 
-        JsonNode history = json(get(app, "/api/history"));
+        Json history = json(get(app, "/api/history"));
 
         assertFalse(history.get("exists").asBoolean());
         assertEquals(0, history.get("lines").size());
@@ -1849,7 +1852,7 @@ class ApiTest {
         plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
-        JsonNode history = json(get(app, "/api/history"));
+        Json history = json(get(app, "/api/history"));
 
         assertTrue(history.get("exists").asBoolean());
         assertEquals("The history has no rows yet.", history.get("note").asText());
@@ -1866,7 +1869,7 @@ class ApiTest {
         plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
 
-        JsonNode history = json(get(app, "/api/history"));
+        Json history = json(get(app, "/api/history"));
 
         assertEquals(1500, history.get("total").asInt());
         assertEquals(1000, history.get("lines").size());
@@ -1903,8 +1906,8 @@ class ApiTest {
         "2026-10-11 13:24:03 SEVERE  [A] three",
     };
 
-    private static List<String> linesOf(JsonNode log) {
-        return java.util.stream.StreamSupport.stream(log.get("lines").spliterator(), false).map(JsonNode::asText).toList();
+    private static List<String> linesOf(Json log) {
+        return log.get("lines").items().stream().map(Json::asText).toList();
     }
 
     @Test
@@ -1912,7 +1915,7 @@ class ApiTest {
         writeLog(LEVELS);
         AppRuntime app = start(new FakeFetch());
 
-        JsonNode log = json(get(app, "/api/log"));
+        Json log = json(get(app, "/api/log"));
 
         assertEquals("info", log.get("level").asText());
         assertFalse(log.get("date").asBoolean());
@@ -1930,11 +1933,11 @@ class ApiTest {
         assertEquals(200, saved.statusCode(), saved.body());
         assertEquals("warning", json(saved).get("level").asText());
         assertTrue(json(saved).get("date").asBoolean());
-        JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+        Json file = JsonReader.read(Files.readString(dir.resolve("settings.json")));
         assertEquals("warning", file.get("logLevel").asText());
         assertTrue(file.get("logDate").asBoolean());
 
-        JsonNode log = json(get(app, "/api/log"));
+        Json log = json(get(app, "/api/log"));
         assertEquals("warning", log.get("level").asText());
         assertTrue(log.get("date").asBoolean());
         assertEquals(List.of(LEVELS[1], LEVELS[2], LEVELS[3]), linesOf(log), "the warning with its stack trace, and the error");
@@ -1948,7 +1951,7 @@ class ApiTest {
         writeLog(LEVELS[0]);
         AppRuntime app = start(new FakeFetch());
 
-        JsonNode errors = json(get(app, "/api/log?level=error"));
+        Json errors = json(get(app, "/api/log?level=error"));
 
         assertEquals(0, errors.get("lines").size());
         assertTrue(errors.get("hidden").asBoolean(), "the file has lines, and none is an error");
@@ -1973,12 +1976,12 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
         post(app, "/api/log", "{\"level\": \"error\", \"date\": true}");
 
-        JsonNode settings = json(get(app, "/api/settings"));
+        Json settings = json(get(app, "/api/settings"));
         assertFalse(settings.get("settings").has("logLevel"), "the settings view does not have them");
         assertFalse(settings.get("defaults").has("logDate"));
         assertEquals(200, post(app, "/api/settings", settings.get("defaults").toString()).statusCode(), "Restore defaults, saved");
 
-        JsonNode log = json(get(app, "/api/log"));
+        Json log = json(get(app, "/api/log"));
         assertEquals("error", log.get("level").asText());
         assertTrue(log.get("date").asBoolean());
     }
@@ -2127,8 +2130,8 @@ class ApiTest {
         return http.send(request.uri(app.baseUri().resolve(path)).build(), HttpResponse.BodyHandlers.ofString());
     }
 
-    private JsonNode json(HttpResponse<String> response) throws IOException {
-        return json.readTree(response.body());
+    private Json json(HttpResponse<String> response) throws IOException {
+        return JsonReader.read(response.body());
     }
 
     private static void assertThrowsIo(ThrowingRunnable action) {
@@ -2179,7 +2182,7 @@ class ApiTest {
         assertEquals(200, saved.statusCode(), saved.body());
         assertEquals(16, json(saved).get("size").asInt());
         assertEquals(16, json(get(app, "/api/config")).get("listFontSize").asInt());
-        assertEquals(16, new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json"))).get("listFontSize").asInt());
+        assertEquals(16, JsonReader.read(Files.readString(dir.resolve("settings.json"))).get("listFontSize").asInt());
     }
 
     @Test
@@ -2200,7 +2203,7 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
         post(app, "/api/text-size", "{\"size\": 18}");
 
-        JsonNode settings = json(get(app, "/api/settings"));
+        Json settings = json(get(app, "/api/settings"));
         assertFalse(settings.get("settings").has("listFontSize"), "the settings view does not have it");
         assertEquals(200, post(app, "/api/settings", settings.get("defaults").toString()).statusCode(), "Restore defaults, saved");
 
@@ -2213,7 +2216,7 @@ class ApiTest {
     void automaticIsASettingOffByDefaultAndTheSettingsSayTheConfiguredIntervalBesideTheOneInForce() throws Exception {
         AppRuntime app = start(new FakeFetch(), 90);
 
-        JsonNode body = json(get(app, "/api/settings"));
+        Json body = json(get(app, "/api/settings"));
 
         assertFalse(body.at("/settings/autoInterval").asBoolean());
         assertFalse(body.at("/defaults/autoInterval").asBoolean());
@@ -2231,17 +2234,17 @@ class ApiTest {
         HttpResponse<String> saved = post(app, "/api/settings", on);
 
         assertEquals(200, saved.statusCode(), saved.body());
-        JsonNode body = json(saved);
+        Json body = json(saved);
         assertTrue(body.at("/settings/autoInterval").asBoolean());
         assertEquals(90, body.get("configuredIntervalSeconds").asInt(), "the configured interval is kept");
         int inForce = body.at("/settings/usageIntervalSeconds").asInt();
         assertTrue(inForce >= 10 && inForce <= 60, "the search begins at 60 and goes down with each answer: " + inForce);
-        JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+        Json file = JsonReader.read(Files.readString(dir.resolve("settings.json")));
         assertTrue(file.get("autoInterval").asBoolean());
         assertEquals(90, file.get("usageIntervalSeconds").asInt(), "and is what the file has");
 
         // Switched off again, the configured interval is in force.
-        JsonNode off = json(post(app, "/api/settings", allSettings(90, false, "hh:mm")));
+        Json off = json(post(app, "/api/settings", allSettings(90, false, "hh:mm")));
         assertFalse(off.at("/settings/autoInterval").asBoolean());
         assertEquals(90, off.at("/settings/usageIntervalSeconds").asInt());
     }
@@ -2255,7 +2258,7 @@ class ApiTest {
         // The first refresh was answered with no refusal known: a tenth down from 30 (29 saved, rounded up), rounded up to 5 and at least 5 less: 25. The old bounds are not read.
         awaitSearch(25);
 
-        JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+        Json file = JsonReader.read(Files.readString(dir.resolve("settings.json")));
         assertEquals(25, file.get("autoIntervalSeconds").asInt());
         assertFalse(file.has("autoLowerSeconds") || file.has("autoUpperSeconds") || file.has("autoRefusedSeconds"), "no refusal is known, and the old bounds are gone");
         assertEquals(25, json(get(app, "/api/settings")).at("/settings/usageIntervalSeconds").asInt(), "the interval in force");
@@ -2265,7 +2268,7 @@ class ApiTest {
     private void awaitSearch(int seconds) throws Exception {
         long deadline = System.nanoTime() + java.time.Duration.ofSeconds(5).toNanos();
         while (System.nanoTime() < deadline) {
-            JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+            Json file = JsonReader.read(Files.readString(dir.resolve("settings.json")));
             if (file.has("autoIntervalSeconds") && file.get("autoIntervalSeconds").asInt() == seconds) {
                 return;
             }
@@ -2280,7 +2283,7 @@ class ApiTest {
     void aboutSaysTheNameTheVersionWhereTheFilesAreAndWhatTheProgramRunsOn() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
-        JsonNode about = json(get(app, "/api/about"));
+        Json about = json(get(app, "/api/about"));
 
         assertEquals("aip usage", about.get("name").asText());
         assertEquals(AppInfo.VERSION, about.get("version").asText());
@@ -2391,7 +2394,7 @@ class ApiTest {
     void theDebugSettingsSayHowTheFakeBackendAnswersWhichIsAsItAlwaysDidByDefault() throws Exception {
         AppRuntime app = start(new FakeFetch(), LaunchOptions.parse(List.of("--debug")));
 
-        JsonNode debug = json(get(app, "/api/debug"));
+        Json debug = json(get(app, "/api/debug"));
 
         assertEquals("usage", debug.at("/settings/fakeAccount").asText());
         assertEquals(137, debug.at("/settings/fakeIncreaseCents").asInt());
@@ -2399,7 +2402,7 @@ class ApiTest {
         assertEquals("186.02", debug.at("/settings/fakeStartAmount").asText());
         assertEquals(0, debug.at("/settings/fakeRefuseSeconds").asInt());
         assertEquals(0, debug.at("/settings/fakeDelayMillis").asInt());
-        assertEquals(List.of("usage", "seat"), java.util.stream.StreamSupport.stream(debug.get("accounts").spliterator(), false).map(JsonNode::asText).toList());
+        assertEquals(List.of("usage", "seat"), debug.get("accounts").items().stream().map(Json::asText).toList());
         assertFalse(debug.get("scenarios").toString().contains("seat-based"), "the scenario for a seat-based account is gone");
     }
 
@@ -2411,11 +2414,11 @@ class ApiTest {
                 + ", \"fakeAccount\": \"seat\", \"fakeIncreaseCents\": 50, \"fakeBudget\": 250, \"fakeStartAmount\": 12.34, \"fakeRefuseSeconds\": 30, \"fakeDelayMillis\": 400}");
 
         assertEquals(200, saved.statusCode(), saved.body());
-        JsonNode settings = json(saved).get("settings");
+        Json settings = json(saved).get("settings");
         assertEquals("seat", settings.get("fakeAccount").asText());
         assertEquals("250.00", settings.get("fakeBudget").asText());
         assertEquals("12.34", settings.get("fakeStartAmount").asText());
-        JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+        Json file = JsonReader.read(Files.readString(dir.resolve("settings.json")));
         assertEquals("seat", file.get("fakeAccount").asText());
         assertEquals(50, file.get("fakeIncreaseCents").asInt());
         assertEquals(30, file.get("fakeRefuseSeconds").asInt());
@@ -2425,11 +2428,11 @@ class ApiTest {
         assertEquals("75.50", json(post(app, "/api/debug", "{" + SWITCHES + ", \"fakeBudget\": \"75.5\"}")).at("/settings/fakeBudget").asText());
         post(app, "/api/debug", "{" + SWITCHES + ", \"fakeBudget\": 250}");
         // The three switches alone: the rest is kept.
-        JsonNode kept = json(post(app, "/api/debug", "{" + SWITCHES + "}")).get("settings");
+        Json kept = json(post(app, "/api/debug", "{" + SWITCHES + "}")).get("settings");
         assertEquals("seat", kept.get("fakeAccount").asText());
         assertEquals(50, kept.get("fakeIncreaseCents").asInt());
         // And one of them alone.
-        JsonNode one = json(post(app, "/api/debug", "{" + SWITCHES + ", \"fakeIncreaseCents\": 7}")).get("settings");
+        Json one = json(post(app, "/api/debug", "{" + SWITCHES + ", \"fakeIncreaseCents\": 7}")).get("settings");
         assertEquals(7, one.get("fakeIncreaseCents").asInt());
         assertEquals(400, one.get("fakeDelayMillis").asInt());
     }
@@ -2463,7 +2466,7 @@ class ApiTest {
     void theSettingsHaveNoLimitsByDefaultAndTheDailyOneIsWorkedOut() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
-        JsonNode body = json(get(app, "/api/settings"));
+        Json body = json(get(app, "/api/settings"));
 
         assertTrue(body.at("/settings/costMonthlyLimit").isNull());
         assertTrue(body.at("/settings/costDailyLimit").isNull());
@@ -2480,24 +2483,24 @@ class ApiTest {
         HttpResponse<String> saved = post(app, "/api/settings", limits);
 
         assertEquals(200, saved.statusCode(), saved.body());
-        JsonNode body = json(saved);
+        Json body = json(saved);
         assertEquals("250.00", body.at("/settings/costMonthlyLimit").asText(), "as a finished text");
         long worked = org.example.settings.CostControl.dailyFor(25_000, java.time.YearMonth.now());
         assertEquals(org.example.settings.CostControl.text(worked), body.get("costDailyWorkedOut").asText(), "250.00 over the weekdays of this month");
-        JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+        Json file = JsonReader.read(Files.readString(dir.resolve("settings.json")));
         assertEquals(250.0, file.get("costMonthlyLimit").asDouble(), 0.0001);
         assertTrue(file.get("costDailyAutomatic").asBoolean());
 
         // A daily limit that is typed in: it is the one in force.
-        JsonNode typed = json(post(app, "/api/settings",
+        Json typed = json(post(app, "/api/settings",
                 allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": 250, \"costDailyLimit\": \"12.5\", \"costDailyAutomatic\": false}")));
         assertEquals("12.50", typed.at("/settings/costDailyLimit").asText());
         assertEquals("12.50", typed.get("costDailyWorkedOut").asText());
 
         // Settings that say nothing of the limits leave them as they are; an empty limit takes it away.
-        JsonNode kept = json(post(app, "/api/settings", allSettings(90, false, "hh:mm")));
+        Json kept = json(post(app, "/api/settings", allSettings(90, false, "hh:mm")));
         assertEquals("250.00", kept.at("/settings/costMonthlyLimit").asText());
-        JsonNode none = json(post(app, "/api/settings", allSettings(90, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"\", \"costDailyLimit\": null}")));
+        Json none = json(post(app, "/api/settings", allSettings(90, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"\", \"costDailyLimit\": null}")));
         assertTrue(none.at("/settings/costMonthlyLimit").isNull());
     }
 
@@ -2531,7 +2534,7 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
         java.time.YearMonth month = java.time.YearMonth.now();
 
-        JsonNode worked = json(get(app, "/api/cost/daily?monthly=250"));
+        Json worked = json(get(app, "/api/cost/daily?monthly=250"));
         assertEquals(org.example.settings.CostControl.text(org.example.settings.CostControl.dailyFor(25_000, month)), worked.get("daily").asText());
         assertEquals(org.example.settings.CostControl.weekdays(month), worked.get("weekdays").asInt());
         assertEquals(worked.get("daily").asText(), json(get(app, "/api/cost/daily?monthly=250.00")).get("daily").asText());

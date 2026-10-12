@@ -31,9 +31,6 @@ repositories {
 }
 
 dependencies {
-    implementation(platform("com.fasterxml.jackson:jackson-bom:2.18.2"))
-    implementation("com.fasterxml.jackson.core:jackson-databind")
-
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -50,5 +47,6 @@ tasks.test {
 tasks.register<Exec>("frontendTest") {
     group = "verification"
     description = "Runs the frontend tests with Node"
-    commandLine("node", "--test", "src/test/frontend")
+    // The test files by name: a directory is no longer taken for the tests in it by newer versions of Node.
+    commandLine(listOf("node", "--test") + fileTree("src/test/frontend").matching { include("*.test.cjs") }.files.map { it.path }.sorted())
 }

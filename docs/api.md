@@ -144,7 +144,8 @@ are not settings are ignored. A `null` counts as a missing key.
   `The usage interval must be a whole number of seconds from 5 to 3600.` (also for an interval that is not a
   whole JSON number), `The setting X is missing.`, `The setting X must be true or false.`,
   `The setting timeFormat must be "hh:mm" or "hh:mm:ss".`; and for the body itself
-  `The request body is not valid JSON.` or `The request body must be a JSON object.`
+  `The request body is not valid JSON.` (also for a body with anything but white space after its JSON value)
+  or `The request body must be a JSON object.`
 - `413`: the body is larger than 4096 bytes: `The request body is too large.`
 - `415`: the `Content-Type` does not begin with `application/json` (in any case; `application/json; charset=utf-8`
   passes), or there is none: `Send Content-Type: application/json.`

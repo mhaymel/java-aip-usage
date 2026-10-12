@@ -12,8 +12,10 @@ import java.time.Duration;
 import java.util.function.BooleanSupplier;
 import java.util.regex.Pattern;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.json.Json;
+import org.example.json.JsonException;
+import org.example.json.JsonReader;
+import org.example.json.JsonWriter;
 
 /**
  * Calls {@link #USAGE_PATH} on a base URL with a bearer token, Anthropic's own
@@ -58,8 +60,6 @@ public final class UsageClient implements UsageSource {
     private final Clock clock;
 
     private final UsageParser parser = new UsageParser();
-
-    private final ObjectMapper mapper = new ObjectMapper();
 
     private final BooleanSupplier logResponse;
 
@@ -176,9 +176,9 @@ public final class UsageClient implements UsageSource {
     private void logBody(int status, String body) {
         String text;
         try {
-            JsonNode json = mapper.readTree(body);
-            text = json == null ? "(empty)" : mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
-        } catch (IOException e) {
+            Json json = JsonReader.read(body);
+            text = json == null ? "(empty)" : JsonWriter.pretty(json, System.lineSeparator());
+        } catch (JsonException e) {
             text = "(not JSON, " + body.getBytes(StandardCharsets.UTF_8).length + " bytes, not logged)";
         }
         LOG.log(System.Logger.Level.INFO,

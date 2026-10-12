@@ -58,7 +58,7 @@ final class UsageDocument {
         long limitMinor = options.budgetCents();
         int percent = (int) (usedMinor * 100 / limitMinor);
 
-        // Written out rather than assembled with Jackson: the point is to send exactly
+        // Written out rather than assembled member by member: the point is to send exactly
         // what the endpoint sends, oddities and all, which a serialised model would tidy.
         // Locale.ROOT throughout, or a comma would appear where JSON needs a point.
         return String.format(Locale.ROOT, """

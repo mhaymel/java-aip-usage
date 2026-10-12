@@ -120,6 +120,16 @@ class UsageParserTest {
     }
 
     @Test
+    void aBodyThatIsNotJsonIsSaidWithThePlaceAndTheFaultInTheProgramsOwnWords() {
+        assertEquals("The usage response is not valid JSON: line 1, column 1: a value was expected",
+                assertThrows(UsageParseException.class, () -> parser.parse("<html>Bad gateway</html>", FETCHED_AT)).getMessage());
+        assertEquals("The usage response is not valid JSON: line 2, column 12: a value was expected",
+                assertThrows(UsageParseException.class, () -> parser.parse("{\n  \"spend\": }", FETCHED_AT)).getMessage());
+        assertEquals("The usage response is not valid JSON: line 1, column 15: there is text after the value",
+                assertThrows(UsageParseException.class, () -> parser.parse("{\"spend\": {}} {}", FETCHED_AT)).getMessage());
+    }
+
+    @Test
     void errorMessagesNeverQuoteTheBody() {
         String body = "{\"secret\": \"sk-ant-do-not-log\" oops";
 

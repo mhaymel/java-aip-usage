@@ -1,9 +1,9 @@
 package org.example;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.json.Json;
+import org.example.json.JsonException;
+import org.example.json.JsonReader;
+import org.example.json.JsonWriter;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.example.settings.IntervalRange;
@@ -30,7 +30,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.OptionalLong;
 
 /**
@@ -70,8 +69,6 @@ final class ApiHandler implements HttpHandler {
 
     private final UsageSources sources;
 
-    private final ObjectMapper mapper = new ObjectMapper();
-
     /** The status is polled every second; the history is read again only when its file has changed. */
     private final LatestChangeCache latestChangeCache = new LatestChangeCache();
 
@@ -92,10 +89,10 @@ final class ApiHandler implements HttpHandler {
                 if (e.allow != null) {
                     exchange.getResponseHeaders().set("Allow", e.allow);
                 }
-                send(exchange, e.status, Map.of("error", e.getMessage()));
+                send(exchange, e.status, Json.object().put("error", e.getMessage()));
             } catch (RuntimeException e) {
                 LOG.log(System.Logger.Level.WARNING, "API request failed: " + exchange.getRequestURI().getPath(), e);
-                send(exchange, 500, Map.of("error", "Internal error; see the log."));
+                send(exchange, 500, Json.object().put("error", "Internal error; see the log."));
             }
         }
     }
@@ -107,7 +104,7 @@ final class ApiHandler implements HttpHandler {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
                 }
-                send(exchange, 200, config());
+                send(exchange, 200, config().toJson());
             }
             case "/api/debug" -> {
                 // The debug settings are there in debug mode only; without it there is no such thing to ask for.
@@ -115,7 +112,7 @@ final class ApiHandler implements HttpHandler {
                     throw new ApiException(404, "No such endpoint.", null);
                 }
                 if (method.equals("GET")) {
-                    send(exchange, 200, debugBody());
+                    send(exchange, 200, debugBody().toJson());
                 } else if (method.equals("POST")) {
                     updateDebug(exchange);
                 } else {
@@ -124,7 +121,7 @@ final class ApiHandler implements HttpHandler {
             }
             case "/api/settings" -> {
                 if (method.equals("GET")) {
-                    send(exchange, 200, settingsBody());
+                    send(exchange, 200, settingsBody().toJson());
                 } else if (method.equals("POST")) {
                     updateSettings(exchange);
                 } else {
@@ -135,11 +132,11 @@ final class ApiHandler implements HttpHandler {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
                 }
-                send(exchange, 200, status(service.state()));
+                send(exchange, 200, status(service.state()).toJson());
             }
             case "/api/log" -> {
                 if (method.equals("GET")) {
-                    send(exchange, 200, log(levelAsked(exchange.getRequestURI().getQuery())));
+                    send(exchange, 200, log(levelAsked(exchange.getRequestURI().getQuery())).toJson());
                 } else if (method.equals("POST")) {
                     updateLog(exchange);
                 } else {
@@ -156,7 +153,7 @@ final class ApiHandler implements HttpHandler {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
                 }
-                send(exchange, 200, cost());
+                send(exchange, 200, cost().toJson());
             }
             case "/api/settings-tab" -> {
                 if (!method.equals("POST")) {
@@ -168,7 +165,7 @@ final class ApiHandler implements HttpHandler {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
                 }
-                send(exchange, 200, about());
+                send(exchange, 200, about().toJson());
             }
             case "/api/about/open", "/api/about/copy" -> {
                 if (!method.equals("POST")) {
@@ -181,19 +178,19 @@ final class ApiHandler implements HttpHandler {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
                 }
-                send(exchange, 200, dailyLimit(exchange.getRequestURI().getQuery()));
+                send(exchange, 200, dailyLimit(exchange.getRequestURI().getQuery()).toJson());
             }
             case "/api/errors" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
                 }
-                send(exchange, 200, errors());
+                send(exchange, 200, errors().toJson());
             }
             case "/api/history" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
                 }
-                send(exchange, 200, history());
+                send(exchange, 200, history().toJson());
             }
             case "/api/refresh" -> {
                 if (!method.equals("POST")) {
@@ -234,12 +231,12 @@ final class ApiHandler implements HttpHandler {
      * How the fake backend's ordinary answer is shaped, from a request. A value that is not given stays what it is; one
      * that is given and cannot be is refused, and so are options that do not go together.
      */
-    private org.example.fake.FakeOptions fakeOptions(JsonNode body) {
+    private org.example.fake.FakeOptions fakeOptions(Json body) {
         org.example.fake.FakeOptions now = sources.fakeOptions();
         org.example.fake.FakeOptions.Account account = now.account();
-        JsonNode kind = body.get("fakeAccount");
+        Json kind = body.get("fakeAccount");
         if (kind != null && !kind.isNull()) {
-            account = (kind.isTextual() ? org.example.fake.FakeOptions.Account.fromJson(kind.textValue())
+            account = (kind.isText() ? org.example.fake.FakeOptions.Account.fromJson(kind.text())
                     : java.util.Optional.<org.example.fake.FakeOptions.Account>empty())
                     .orElseThrow(() -> new InvalidSettingException(
                             "The setting fakeAccount must be one of " + org.example.fake.FakeOptions.Account.names() + "."));
@@ -260,12 +257,12 @@ final class ApiHandler implements HttpHandler {
         return wanted;
     }
 
-    private static int wholeOf(JsonNode body, String key, int kept, String refusal) {
-        JsonNode value = body.get(key);
+    private static int wholeOf(Json body, String key, int kept, String refusal) {
+        Json value = body.get(key);
         if (value == null || value.isNull()) {
             return kept;
         }
-        if (!value.isIntegralNumber() || !value.canConvertToInt()) {
+        if (!value.fitsInt()) {
             throw new InvalidSettingException(refusal);
         }
         return value.intValue();
@@ -275,22 +272,22 @@ final class ApiHandler implements HttpHandler {
      * An amount in dollars with two decimals at most, as cents. It may be a number or the text of one, `250` or
      * `"250.00"`: the page sends what was typed, and works nothing out.
      */
-    private static long centsOf(JsonNode body, String key, long kept, String refusal) {
-        JsonNode value = body.get(key);
+    private static long centsOf(Json body, String key, long kept, String refusal) {
+        Json value = body.get(key);
         if (value == null || value.isNull()) {
             return kept;
         }
         try {
             java.math.BigDecimal amount;
             if (value.isNumber()) {
-                amount = value.decimalValue();
-            } else if (value.isTextual() && value.textValue().matches("\\d{1,9}(\\.\\d{1,2})?")) {
-                amount = new java.math.BigDecimal(value.textValue());
+                amount = new java.math.BigDecimal(value.numberText());
+            } else if (value.isText() && value.text().matches("\\d{1,9}(\\.\\d{1,2})?")) {
+                amount = new java.math.BigDecimal(value.text());
             } else {
                 throw new InvalidSettingException(refusal);
             }
             return amount.movePointRight(2).longValueExact();
-        } catch (ArithmeticException e) {
+        } catch (ArithmeticException | NumberFormatException e) {
             throw new InvalidSettingException(refusal);
         }
     }
@@ -302,15 +299,15 @@ final class ApiHandler implements HttpHandler {
      */
     private void updateDebug(HttpExchange exchange) throws IOException {
         requireJson(exchange);
-        JsonNode body = readJson(exchange);
+        Json body = readJson(exchange);
         try {
             boolean fakeBackend = flag(body, "fakeBackend");
-            JsonNode name = body.get("fakeScenario");
+            Json name = body.get("fakeScenario");
             if (name == null || name.isNull()) {
                 throw new InvalidSettingException("The setting fakeScenario is missing.");
             }
             org.example.fake.Scenario scenario =
-                    (name.isTextual() ? org.example.fake.Scenario.ofOptionName(name.textValue()) : java.util.Optional.<org.example.fake.Scenario>empty())
+                    (name.isText() ? org.example.fake.Scenario.ofOptionName(name.text()) : java.util.Optional.<org.example.fake.Scenario>empty())
                             .orElseThrow(() -> new InvalidSettingException(
                                     "The setting fakeScenario must be one of " + org.example.fake.Scenario.names() + "."));
             sources.applyDebug(fakeBackend, scenario, flag(body, "fakeToken"), fakeOptions(body));
@@ -319,7 +316,7 @@ final class ApiHandler implements HttpHandler {
         } catch (SettingsException e) {
             throw new ApiException(500, e.getMessage(), null);
         }
-        send(exchange, 200, debugBody());
+        send(exchange, 200, debugBody().toJson());
     }
 
     // ---- /api/settings
@@ -350,32 +347,32 @@ final class ApiHandler implements HttpHandler {
      * The limits of cost control, from a request. A key that is not given keeps what there is; a limit given as null or
      * as an empty text is no limit; one given as an amount, a number or the text of one, is that amount.
      */
-    private static CostControl costOf(JsonNode body, CostControl kept) {
+    private static CostControl costOf(Json body, CostControl kept) {
         Long monthly = body.has("costMonthlyLimit") ? limitOf(body.get("costMonthlyLimit")) : kept.monthlyCents();
         Long daily = body.has("costDailyLimit") ? limitOf(body.get("costDailyLimit")) : kept.dailyCents();
-        JsonNode automatic = body.get("costDailyAutomatic");
-        if (automatic != null && !automatic.isNull() && !automatic.isBoolean()) {
+        Json automatic = body.get("costDailyAutomatic");
+        if (automatic != null && !automatic.isNull() && !automatic.isBool()) {
             throw new InvalidSettingException("The setting costDailyAutomatic must be true or false.");
         }
-        CostControl wanted = new CostControl(monthly, daily, automatic == null || automatic.isNull() ? kept.dailyAutomatic() : automatic.booleanValue());
+        CostControl wanted = new CostControl(monthly, daily, automatic == null || automatic.isNull() ? kept.dailyAutomatic() : automatic.bool());
         wanted.fault().ifPresent(fault -> {
             throw new InvalidSettingException(fault);
         });
         return wanted;
     }
 
-    private static Long limitOf(JsonNode value) {
-        if (value == null || value.isNull() || (value.isTextual() && value.textValue().isBlank())) {
+    private static Long limitOf(Json value) {
+        if (value == null || value.isNull() || (value.isText() && value.text().isBlank())) {
             return null;
         }
         try {
             if (value.isNumber()) {
-                return value.decimalValue().movePointRight(2).longValueExact();
+                return new java.math.BigDecimal(value.numberText()).movePointRight(2).longValueExact();
             }
-            if (value.isTextual()) {
-                return CostControl.cents(value.textValue()).orElseThrow(() -> new InvalidSettingException(CostControl.AMOUNT_FAULT));
+            if (value.isText()) {
+                return CostControl.cents(value.text()).orElseThrow(() -> new InvalidSettingException(CostControl.AMOUNT_FAULT));
             }
-        } catch (ArithmeticException e) {
+        } catch (ArithmeticException | NumberFormatException e) {
             // More than two decimals.
         }
         throw new InvalidSettingException(CostControl.AMOUNT_FAULT);
@@ -418,7 +415,7 @@ final class ApiHandler implements HttpHandler {
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
     private void updateSettings(HttpExchange exchange) throws IOException {
         requireJson(exchange);
-        JsonNode body = readJson(exchange);
+        Json body = readJson(exchange);
         try {
             Long usage = seconds(body, USAGE_KEY, IntervalRange.USAGE);
             if (usage == null) {
@@ -469,42 +466,42 @@ final class ApiHandler implements HttpHandler {
         } catch (SettingsException e) {
             throw new ApiException(500, e.getMessage(), null);
         }
-        send(exchange, 200, settingsBody());
+        send(exchange, 200, settingsBody().toJson());
     }
 
     /** A flag that may be left out, which keeps what the settings have. */
-    private static boolean flag(JsonNode body, String key, boolean current) {
-        JsonNode value = body.get(key);
+    private static boolean flag(Json body, String key, boolean current) {
+        Json value = body.get(key);
         return value == null || value.isNull() ? current : flag(body, key);
     }
 
-    private static boolean flag(JsonNode body, String key) {
-        JsonNode value = body.get(key);
+    private static boolean flag(Json body, String key) {
+        Json value = body.get(key);
         if (value == null || value.isNull()) {
             throw new InvalidSettingException("The setting " + key + " is missing.");
         }
-        if (!value.isBoolean()) {
+        if (!value.isBool()) {
             throw new InvalidSettingException("The setting " + key + " must be true or false.");
         }
-        return value.booleanValue();
+        return value.bool();
     }
 
-    private static TimeFormat timeFormat(JsonNode body) {
-        JsonNode value = body.get("timeFormat");
+    private static TimeFormat timeFormat(Json body) {
+        Json value = body.get("timeFormat");
         if (value == null || value.isNull()) {
             throw new InvalidSettingException("The setting timeFormat is missing.");
         }
-        return (value.isTextual() ? TimeFormat.fromJson(value.textValue()) : java.util.Optional.<TimeFormat>empty())
+        return (value.isText() ? TimeFormat.fromJson(value.text()) : java.util.Optional.<TimeFormat>empty())
                 .orElseThrow(() -> new InvalidSettingException("The setting timeFormat must be \"hh:mm\" or \"hh:mm:ss\"."));
     }
 
     /** The value of {@code key}, or {@code null} if absent. Only whole numbers qualify. */
-    private static Long seconds(JsonNode body, String key, IntervalRange range) {
-        JsonNode value = body.get(key);
+    private static Long seconds(Json body, String key, IntervalRange range) {
+        Json value = body.get(key);
         if (value == null || value.isNull()) {
             return null;
         }
-        if (!value.isIntegralNumber() || !value.canConvertToLong()) {
+        if (!value.fitsLong()) {
             throw new InvalidSettingException(range.describeLimit());
         }
         return value.longValue();
@@ -534,9 +531,9 @@ final class ApiHandler implements HttpHandler {
      */
     private void updateTextSize(HttpExchange exchange) throws IOException {
         requireJson(exchange);
-        JsonNode size = readJson(exchange).get("size");
+        Json size = readJson(exchange).get("size");
         String range = "The size must be a whole number of pixels from " + Settings.MIN_LIST_FONT_SIZE + " to " + Settings.MAX_LIST_FONT_SIZE + ".";
-        if (size == null || !size.isIntegralNumber() || !size.canConvertToInt() || !Settings.isListFontSize(size.intValue())) {
+        if (size == null || !size.fitsInt() || !Settings.isListFontSize(size.intValue())) {
             throw new ApiException(400, range, null);
         }
         try {
@@ -544,7 +541,7 @@ final class ApiHandler implements HttpHandler {
         } catch (SettingsException e) {
             throw new ApiException(500, "The text size could not be saved: " + e.getCause().getMessage(), null);
         }
-        send(exchange, 200, new TextSizeBody(settings.current().listFontSize()));
+        send(exchange, 200, new TextSizeBody(settings.current().listFontSize()).toJson());
     }
 
     /** The cost control panel, finished: the two bars, worked out from the history in use and the limits. */
@@ -562,12 +559,12 @@ final class ApiHandler implements HttpHandler {
     /** The tab the settings view is on, stored so that it opens on it the next time, also after a start. The other settings are left as they are. */
     private void updateSettingsTab(HttpExchange exchange) throws IOException {
         requireJson(exchange);
-        JsonNode tab = readJson(exchange).get("tab");
-        if (tab == null || !tab.isTextual() || !org.example.settings.SettingsStore.isTab(tab.textValue())) {
+        Json tab = readJson(exchange).get("tab");
+        if (tab == null || !tab.isText() || !org.example.settings.SettingsStore.isTab(tab.text())) {
             throw new ApiException(400, "The tab must be one of main, history, cost, debug, general and about.", null);
         }
-        settings.storeSettingsTab(tab.textValue());
-        send(exchange, 200, new SettingsTabBody(settings.settingsTab()));
+        settings.storeSettingsTab(tab.text());
+        send(exchange, 200, new SettingsTabBody(settings.settingsTab()).toJson());
     }
 
     /**
@@ -593,8 +590,8 @@ final class ApiHandler implements HttpHandler {
      * `settings`, `log` or `history`, and never a path: the path is the one the program knows.
      */
     private void aboutAction(HttpExchange exchange, boolean open) throws IOException {
-        JsonNode name = readJson(exchange).get("file");
-        java.nio.file.Path file = switch (name != null && name.isTextual() ? name.textValue() : "") {
+        Json name = readJson(exchange).get("file");
+        java.nio.file.Path file = switch (name != null && name.isText() ? name.text() : "") {
             case "settings" -> files.settings();
             case "log" -> files.log();
             case "history" -> sources.history();
@@ -611,7 +608,7 @@ final class ApiHandler implements HttpHandler {
             LOG.log(System.Logger.Level.WARNING, what + e.getMessage());
             throw new ApiException(500, what + e.getMessage(), null);
         }
-        send(exchange, 200, Map.of("done", true));
+        send(exchange, 200, Json.object().put("done", true));
     }
 
     private static String absolute(java.nio.file.Path file) {
@@ -635,14 +632,14 @@ final class ApiHandler implements HttpHandler {
     /** The two choices of the log panel, both of which must be given. They are saved at once, and the other settings are left as they are. */
     private void updateLog(HttpExchange exchange) throws IOException {
         requireJson(exchange);
-        JsonNode body = readJson(exchange);
+        Json body = readJson(exchange);
         LogLevel level;
         try {
-            JsonNode name = body.get("level");
+            Json name = body.get("level");
             if (name == null || name.isNull()) {
                 throw new InvalidSettingException("The setting level is missing.");
             }
-            level = (name.isTextual() ? LogLevel.fromJson(name.textValue()) : java.util.Optional.<LogLevel>empty())
+            level = (name.isText() ? LogLevel.fromJson(name.text()) : java.util.Optional.<LogLevel>empty())
                     .orElseThrow(() -> new InvalidSettingException("The setting level must be one of " + LogLevel.names() + "."));
             settings.apply(settings.current().withLog(level, flag(body, "date")));
         } catch (InvalidSettingException e) {
@@ -651,7 +648,7 @@ final class ApiHandler implements HttpHandler {
             throw new ApiException(500, "The log settings could not be saved: " + e.getCause().getMessage(), null);
         }
         Settings now = settings.current();
-        send(exchange, 200, new LogSettingsBody(now.logLevel().json(), now.logDate()));
+        send(exchange, 200, new LogSettingsBody(now.logLevel().json(), now.logDate()).toJson());
     }
 
     /**
@@ -846,7 +843,7 @@ final class ApiHandler implements HttpHandler {
             LOG.log(System.Logger.Level.INFO, "Manual refresh requested");
         }
         // 202: the fetch has been started, not finished. 200: one was already under way.
-        send(exchange, started ? 202 : 200, new RefreshBody(started));
+        send(exchange, started ? 202 : 200, new RefreshBody(started).toJson());
     }
 
     // ---- plumbing
@@ -863,15 +860,15 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
-    private JsonNode readJson(HttpExchange exchange) throws IOException {
+    private Json readJson(HttpExchange exchange) throws IOException {
         byte[] bytes = exchange.getRequestBody().readNBytes(MAX_BODY_BYTES + 1);
         if (bytes.length > MAX_BODY_BYTES) {
             throw new ApiException(413, "The request body is too large.", null);
         }
-        JsonNode body;
+        Json body;
         try {
-            body = mapper.readTree(bytes);
-        } catch (JsonProcessingException e) {
+            body = JsonReader.read(bytes);
+        } catch (JsonException e) {
             throw new ApiException(400, "The request body is not valid JSON.", null);
         }
         if (body == null || !body.isObject()) {
@@ -880,8 +877,8 @@ final class ApiHandler implements HttpHandler {
         return body;
     }
 
-    private void send(HttpExchange exchange, int status, Object body) throws IOException {
-        byte[] bytes = mapper.writeValueAsString(body).getBytes(StandardCharsets.UTF_8);
+    private void send(HttpExchange exchange, int status, Json body) throws IOException {
+        byte[] bytes = JsonWriter.compact(body).getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.getResponseHeaders().set("Cache-Control", "no-store");
         exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
@@ -904,36 +901,93 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
-    // ---- response shapes: the contract in docs/api.md
+    // ---- response shapes: the contract in docs/api.md. Each writes its own JSON, key by key, in the order of the contract.
 
     record Range(int min, int max) {
+
+        Json toJson() {
+            return Json.object().put("min", min).put("max", max);
+        }
     }
 
     record Limits(Range usageIntervalSeconds) {
+
+        Json toJson() {
+            return Json.object().put("usageIntervalSeconds", usageIntervalSeconds.toJson());
+        }
     }
 
     /** @param listFontSize the size of the text of the lists, in pixels, as saved: the page has it from here when it starts */
     record ConfigBody(int usageIntervalSeconds, int pollIntervalSeconds, Limits limits, boolean debug, int listFontSize) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("usageIntervalSeconds", usageIntervalSeconds)
+                    .put("pollIntervalSeconds", pollIntervalSeconds)
+                    .put("limits", limits.toJson())
+                    .put("debug", debug)
+                    .put("listFontSize", listFontSize);
+        }
     }
 
     record TextSizeBody(int size) {
+
+        Json toJson() {
+            return Json.object().put("size", size);
+        }
     }
 
     /** @param fake whether the fake backend is in use, which it can be only in debug mode */
     record AboutBody(String name, String version, AboutFiles files, String java, String javafx, String system, boolean debug, boolean fake) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("name", name)
+                    .put("version", version)
+                    .put("files", files.toJson())
+                    .put("java", java)
+                    .put("javafx", javafx)
+                    .put("system", system)
+                    .put("debug", debug)
+                    .put("fake", fake);
+        }
     }
 
     /** The full paths of the three files; the history is the one in use, that of the invented readings while the fake backend is. */
     record AboutFiles(String settings, String log, String history) {
+
+        Json toJson() {
+            return Json.object().put("settings", settings).put("log", log).put("history", history);
+        }
     }
 
     /** @param fakeBudget in dollars, as a finished text with two decimals, as is {@code fakeStartAmount}; the increase is in cents */
     record DebugValues(boolean fakeBackend, String fakeScenario, boolean fakeToken, String fakeAccount, int fakeIncreaseCents,
             String fakeBudget, String fakeStartAmount, int fakeRefuseSeconds, int fakeDelayMillis) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("fakeBackend", fakeBackend)
+                    .put("fakeScenario", fakeScenario)
+                    .put("fakeToken", fakeToken)
+                    .put("fakeAccount", fakeAccount)
+                    .put("fakeIncreaseCents", fakeIncreaseCents)
+                    .put("fakeBudget", fakeBudget)
+                    .put("fakeStartAmount", fakeStartAmount)
+                    .put("fakeRefuseSeconds", fakeRefuseSeconds)
+                    .put("fakeDelayMillis", fakeDelayMillis);
+        }
     }
 
     /** @param accounts the kinds of account the fake backend can answer for, as {@code scenarios} are what it can answer */
     record DebugBody(DebugValues settings, List<String> scenarios, List<String> accounts) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("settings", settings.toJson())
+                    .put("scenarios", Json.texts(scenarios))
+                    .put("accounts", Json.texts(accounts));
+        }
     }
 
     record SettingValues(
@@ -971,10 +1025,52 @@ final class ApiHandler implements HttpHandler {
             boolean historyCurrent,
             boolean restoreWindow,
             boolean showCostIcon) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("usageIntervalSeconds", usageIntervalSeconds)
+                    .put("logResponse", logResponse)
+                    .put("showPercentage", showPercentage)
+                    .put("showCurrency", showCurrency)
+                    .put("showHistoryIcon", showHistoryIcon)
+                    .put("showLogIcon", showLogIcon)
+                    .put("showErrorIcon", showErrorIcon)
+                    .put("showInterval", showInterval)
+                    .put("showDeltaUsed", showDeltaUsed)
+                    .put("showDeltaTime", showDeltaTime)
+                    .put("timeFormat", timeFormat)
+                    .put("historyDeltaUsed", historyDeltaUsed)
+                    .put("historyDeltaTime", historyDeltaTime)
+                    .put("historyDate", historyDate)
+                    .put("historyZeroLines", historyZeroLines)
+                    .put("historyFailedLines", historyFailedLines)
+                    .put("showTime", showTime)
+                    .put("showUsed", showUsed)
+                    .put("showLimit", showLimit)
+                    .put("showRefresh", showRefresh)
+                    .put("showCountdown", showCountdown)
+                    .put("showDuration", showDuration)
+                    .put("stayOnTop", stayOnTop)
+                    .put("showTitleBar", showTitleBar)
+                    .put("autoInterval", autoInterval)
+                    .put("costMonthlyLimit", costMonthlyLimit)
+                    .put("costDailyLimit", costDailyLimit)
+                    .put("costDailyAutomatic", costDailyAutomatic)
+                    .put("historyTime", historyTime)
+                    .put("historyUsed", historyUsed)
+                    .put("historyLimit", historyLimit)
+                    .put("historyCurrent", historyCurrent)
+                    .put("restoreWindow", restoreWindow)
+                    .put("showCostIcon", showCostIcon);
+        }
     }
 
     /** @param daily the daily limit worked out, as a finished text, or null when there is no monthly limit to work it out from */
     record DailyLimitBody(String daily, int weekdays) {
+
+        Json toJson() {
+            return Json.object().put("daily", daily).put("weekdays", weekdays);
+        }
     }
 
     /**
@@ -985,12 +1081,30 @@ final class ApiHandler implements HttpHandler {
      */
     record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds, String costDailyWorkedOut,
             String settingsTab) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("settings", settings.toJson())
+                    .put("defaults", defaults.toJson())
+                    .put("limits", limits.toJson())
+                    .put("configuredIntervalSeconds", configuredIntervalSeconds)
+                    .put("costDailyWorkedOut", costDailyWorkedOut)
+                    .put("settingsTab", settingsTab);
+        }
     }
 
     record SettingsTabBody(String tab) {
+
+        Json toJson() {
+            return Json.object().put("tab", tab);
+        }
     }
 
     record RefreshBody(boolean started) {
+
+        Json toJson() {
+            return Json.object().put("started", started);
+        }
     }
 
     /**
@@ -999,17 +1113,28 @@ final class ApiHandler implements HttpHandler {
      * @param date whether the panel shows the date of each line, as saved
      */
     record LogBody(String file, boolean exists, boolean truncated, List<String> lines, boolean hidden, String level, boolean date) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("file", file)
+                    .put("exists", exists)
+                    .put("truncated", truncated)
+                    .put("lines", Json.texts(lines))
+                    .put("hidden", hidden)
+                    .put("level", level)
+                    .put("date", date);
+        }
     }
 
     record LogSettingsBody(String level, boolean date) {
+
+        Json toJson() {
+            return Json.object().put("level", level).put("date", date);
+        }
     }
 
     /** What changed since the row before: the amount used, and the seconds; either is null if it cannot be worked out. */
-    record DeltaBody(
-            @JsonProperty("delta_used") Double deltaUsed,
-            @JsonProperty("delta_time") Long deltaTime,
-            @JsonProperty("delta_used_text") String deltaUsedText,
-            @JsonProperty("delta_seconds_text") String deltaSecondsText) {
+    record DeltaBody(Double deltaUsed, Long deltaTime, String deltaUsedText, String deltaSecondsText) {
 
         static DeltaBody of(Double used, Long seconds) {
             return new DeltaBody(
@@ -1019,38 +1144,109 @@ final class ApiHandler implements HttpHandler {
                     // The time is in whole seconds, in the history and in the row, never in minutes.
                     seconds == null ? null : Formatting.seconds(seconds));
         }
+
+        Json toJson() {
+            return Json.object()
+                    .put("delta_used", deltaUsed)
+                    .put("delta_time", deltaTime)
+                    .put("delta_used_text", deltaUsedText)
+                    .put("delta_seconds_text", deltaSecondsText);
+        }
     }
 
     /** One line of the history table, finished: what its cells say, and whether it begins a run, whether it is a failed one, and its hover text. */
     record HistoryLine(List<String> cells, boolean start, boolean failed, String title) {
+
+        Json toJson() {
+            return Json.object().put("cells", Json.texts(cells)).put("start", start).put("failed", failed).put("title", title);
+        }
     }
 
     record HistoryBody(
             String file, boolean exists, List<String> columns, boolean wide, String note, boolean noteHighlight, int total,
             List<HistoryLine> lines) {
+
+        Json toJson() {
+            Json all = Json.array();
+            for (HistoryLine line : lines) {
+                all.add(line.toJson());
+            }
+            return Json.object()
+                    .put("file", file)
+                    .put("exists", exists)
+                    .put("columns", Json.texts(columns))
+                    .put("wide", wide)
+                    .put("note", note)
+                    .put("noteHighlight", noteHighlight)
+                    .put("total", total)
+                    .put("lines", all);
+        }
     }
 
     record ErrorEntryBody(String time, String message) {
+
+        Json toJson() {
+            return Json.object().put("time", time).put("message", message);
+        }
     }
 
     record ErrorsBody(List<ErrorEntryBody> entries) {
+
+        Json toJson() {
+            Json all = Json.array();
+            for (ErrorEntryBody entry : entries) {
+                all.add(entry.toJson());
+            }
+            return Json.object().put("entries", all);
+        }
     }
 
     record ErrorBody(String message, String at) {
+
+        Json toJson() {
+            return Json.object().put("message", message).put("at", at);
+        }
     }
 
     record SpendBody(Double used, Double limit, String currency, Integer percent, String severity) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("used", used)
+                    .put("limit", limit)
+                    .put("currency", currency)
+                    .put("percent", percent)
+                    .put("severity", severity);
+        }
     }
 
-    record UsageBody(
-            String source,
-            @JsonProperty("fetched_at") String fetchedAt,
-            SpendBody spend,
-            List<Object> windows) {
+    /** @param windows always empty: it is there so that a reading has the shape java-aip prints */
+    record UsageBody(String source, String fetchedAt, SpendBody spend, List<Object> windows) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("source", source)
+                    .put("fetched_at", fetchedAt)
+                    .put("spend", spend == null ? null : spend.toJson())
+                    .put("windows", Json.array());
+        }
     }
 
     record StatusBody(
             boolean refreshing, boolean stale, Long nextRefreshInSeconds, ErrorBody error, UsageBody usage, DeltaBody change,
             StatusDisplay.View display, String historyStamp, boolean fake) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("refreshing", refreshing)
+                    .put("stale", stale)
+                    .put("nextRefreshInSeconds", nextRefreshInSeconds)
+                    .put("error", error == null ? null : error.toJson())
+                    .put("usage", usage == null ? null : usage.toJson())
+                    .put("change", change == null ? null : change.toJson())
+                    .put("display", display.toJson())
+                    .put("historyStamp", historyStamp)
+                    .put("fake", fake);
+        }
     }
 }

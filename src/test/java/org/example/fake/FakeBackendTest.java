@@ -71,8 +71,8 @@ class FakeBackendTest {
 
     @Test
     void theAwkwardPartsOfARealResponseAreThereToo() throws Exception {
-        com.fasterxml.jackson.databind.JsonNode document =
-                new com.fasterxml.jackson.databind.ObjectMapper().readTree(new UsageDocument().next(java.time.Instant.now()));
+        org.example.json.Json document =
+                org.example.json.JsonReader.read(new UsageDocument().next(java.time.Instant.now()));
 
         // The keys beside spend are there and null, as a real response has them.
         for (String key : List.of("five_hour", "seven_day", "seven_day_oauth_apps", "seven_day_opus", "seven_day_sonnet",

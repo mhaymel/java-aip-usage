@@ -1,6 +1,6 @@
 package org.example;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import org.example.json.Json;
 import org.example.settings.Settings;
 import org.example.settings.TimeFormat;
 import org.example.usage.Spend;
@@ -21,14 +21,33 @@ final class StatusDisplay {
     }
 
     record Tip(String text, String tooltip) {
+
+        Json toJson() {
+            return Json.object().put("text", text).put("tooltip", tooltip);
+        }
     }
 
     record SpendView(
             String percentText, String percentTooltip, String used, String limit, String usedTooltip,
             String limitTooltip, String severityText) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("percentText", percentText)
+                    .put("percentTooltip", percentTooltip)
+                    .put("used", used)
+                    .put("limit", limit)
+                    .put("usedTooltip", usedTooltip)
+                    .put("limitTooltip", limitTooltip)
+                    .put("severityText", severityText);
+        }
     }
 
     record Message(String kind, String text) {
+
+        Json toJson() {
+            return Json.object().put("kind", kind).put("text", text);
+        }
     }
 
     /** Which elements of the row are switched on; all twelve can be hidden, and {@code currency} is the symbol of the amounts. */
@@ -36,6 +55,25 @@ final class StatusDisplay {
             boolean percentage, boolean currency, boolean interval, boolean deltaUsed, boolean deltaTime,
             boolean historyIcon, boolean logIcon, boolean errorIcon, boolean costIcon,
             boolean time, boolean used, boolean limit, boolean refresh, boolean countdown, boolean duration) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("percentage", percentage)
+                    .put("currency", currency)
+                    .put("interval", interval)
+                    .put("deltaUsed", deltaUsed)
+                    .put("deltaTime", deltaTime)
+                    .put("historyIcon", historyIcon)
+                    .put("logIcon", logIcon)
+                    .put("errorIcon", errorIcon)
+                    .put("costIcon", costIcon)
+                    .put("time", time)
+                    .put("used", used)
+                    .put("limit", limit)
+                    .put("refresh", refresh)
+                    .put("countdown", countdown)
+                    .put("duration", duration);
+        }
     }
 
     /**
@@ -43,9 +81,19 @@ final class StatusDisplay {
      * can show a change of the time format or of the symbol in the row before it is applied. A member is {@code null} with its figure.
      */
     record Variants(String timeShort, String timeLong, String usedPlain, String usedSymbol, String limitPlain, String limitSymbol) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("timeShort", timeShort)
+                    .put("timeLong", timeLong)
+                    .put("usedPlain", usedPlain)
+                    .put("usedSymbol", usedSymbol)
+                    .put("limitPlain", limitPlain)
+                    .put("limitSymbol", limitSymbol);
+        }
     }
 
-    @JsonInclude(JsonInclude.Include.ALWAYS)
+    /** Every member is always written, as {@code null} when there is nothing to say: the page asks for each by its name. */
     record View(
             String time,
             String timeTooltip,
@@ -64,6 +112,31 @@ final class StatusDisplay {
             Show show,
             boolean titleBar,
             String noSpend) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("time", time)
+                    .put("timeTooltip", timeTooltip)
+                    .put("spend", spend == null ? null : spend.toJson())
+                    .put("placeholder", placeholder)
+                    .put("loading", loading)
+                    .put("variants", variants == null ? null : variants.toJson())
+                    .put("countdown", tip(countdown))
+                    .put("countdownAlert", countdownAlert)
+                    .put("countdownAuto", countdownAuto)
+                    .put("interval", tip(interval))
+                    .put("deltaUsed", tip(deltaUsed))
+                    .put("deltaTime", tip(deltaTime))
+                    .put("duration", tip(duration))
+                    .put("message", message == null ? null : message.toJson())
+                    .put("show", show.toJson())
+                    .put("titleBar", titleBar)
+                    .put("noSpend", noSpend);
+        }
+
+        private static Json tip(Tip tip) {
+            return tip == null ? null : tip.toJson();
+        }
     }
 
     /**

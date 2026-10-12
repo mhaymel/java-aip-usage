@@ -120,7 +120,7 @@ The test that opens the real window (the panels, and the size the page asks for)
 The frontend's logic is tested with Node, outside the JVM build:
 
 ```sh
-./gradlew frontendTest     # needs node on the PATH; same as: node --test src/test/frontend
+./gradlew frontendTest     # needs node on the PATH; same as: node --test src/test/frontend/*.test.cjs
 ```
 
 If Gradle reports `problem occurred starting process 'command 'node''`, its
@@ -165,10 +165,11 @@ has not been verified:
 | `src/main/java/org/example/token/` | OAuth token acquisition via the Claude Code CLI |
 | `src/main/java/org/example/usage/` | Usage model, parser, HTTP client, refresh service |
 | `src/main/java/org/example/settings/` | Interval settings, `settings.json`, command-line options |
+| `src/main/java/org/example/json/` | The program's own JSON: the value, the reader, the writer |
 | `src/main/resources/web/` | Frontend: the strip with its log and history panel (`index.html`), with its CSS and JavaScript |
 | `src/test/java/`, `src/test/frontend/` | JUnit tests, and Node tests for the frontend |
 | `docs/` | Requirements, implementation plan, and the local API contract |
-| `build.gradle.kts` | Build config — JDK 25 toolchain, JavaFX, JUnit 6 |
+| `build.gradle.kts` | Build config — JDK 25 toolchain, JavaFX and no other library, JUnit 6 for the tests |
 | `settings.json` | UI-edited settings, written at run time (git-ignored) |
 | `java-aip-usage.log` | Append-mode run log, written at run time (git-ignored) |
 | `java-aip-usage.csv` | The usage history, one row per refresh, written at run time (git-ignored) |

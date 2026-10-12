@@ -1,7 +1,7 @@
 package org.example.settings;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.example.json.Json;
+import org.example.json.JsonReader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -180,14 +180,14 @@ class SettingsStoreTest {
     void theFileHoldsTheThirtyOneSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
-        JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
+        Json content = JsonReader.read(Files.readString(file()));
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
                         "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "historyHeight", "logHeight"),
-                content.properties().stream().map(java.util.Map.Entry::getKey).toList());
+                List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
 
@@ -270,7 +270,8 @@ class SettingsStoreTest {
 
     @Test
     void aDamagedFileGivesTheDefaultsAndIsLeftAlone() throws IOException {
-        for (String bad : List.of("not json", "{\"usageIntervalSeconds\": ", "[1, 2]", "")) {
+        // The last is an object with text after it: a file is its one object and nothing else.
+        for (String bad : List.of("not json", "{\"usageIntervalSeconds\": ", "[1, 2]", "", "{\"usageIntervalSeconds\": 45} x")) {
             assertEquals(Settings.defaults(), loadFrom(bad), bad);
             assertEquals(bad, Files.readString(file()), "not overwritten by loading");
         }

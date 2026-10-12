@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.json.Json;
 import org.example.settings.CostControl;
 
 import java.math.BigDecimal;
@@ -36,9 +37,27 @@ final class CostPanel {
      * @param noLimit whether there is no limit to compare with: the bar is gray and empty
      */
     record Row(String label, String text, String tooltip, double fraction, boolean over, boolean noLimit) {
+
+        Json toJson() {
+            return Json.object()
+                    .put("label", label)
+                    .put("text", text)
+                    .put("tooltip", tooltip)
+                    .put("fraction", fraction)
+                    .put("over", over)
+                    .put("noLimit", noLimit);
+        }
     }
 
     record View(List<Row> rows, String note) {
+
+        Json toJson() {
+            Json all = Json.array();
+            for (Row row : rows) {
+                all.add(row.toJson());
+            }
+            return Json.object().put("rows", all).put("note", note);
+        }
     }
 
     /**
