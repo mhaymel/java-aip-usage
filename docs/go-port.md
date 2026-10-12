@@ -7,13 +7,17 @@ same look and feel and the same functions. The inputs are [requirements.md](requ
 It was written against version 0.70 of the Java program (about 8,100 lines of Java in 60 files, 3,100 lines of
 frontend, 11,300 lines of JUnit tests and four Node test files).
 
-**Brought up to date for version 0.76** (about 10,300 lines of Java in 70 files, 12,500 lines of JUnit tests). Since
+**Brought up to date for version 0.77** (about 10,300 lines of Java in 70 files, 12,500 lines of JUnit tests). Since
 the analysis, the Java program was changed so that it leans only on what Go also has: the six phases of
 [java-to-go.md](java-to-go.md). Jackson, `BigDecimal`, `java.util.logging`, the texts of exceptions,
 `Process.descendants()` and the lock with its interrupts are gone, each replaced by a small class of the program's own
 that is to be translated. What that settled is marked here: in the summary, in the steps, in the table of what ports
 directly, and in a column of the table of problems. The analysis of the window is as it was, since the window was
 left alone on purpose.
+
+That work ended with version 0.76. Version 0.77 changed the page alone: the placeholder of the row, the "gray box",
+is a green frame with square corners and no fill. It is one rule of `app.css` and comes to the Go version with the
+frontend, which is copied; it adds nothing to the port and nothing to the problems below.
 
 ## Summary
 
@@ -269,13 +273,13 @@ Severity: **high** — may force a change of the requirements or a large piece o
 easy to get subtly wrong; **low** — a known difference to remember.
 
 The columns up to "Way out" are the analysis as it was made at version 0.70, and say "In Java" of the program as it was
-then. The last column says where each problem stands at version 0.76: **prepared** means the Java program now does it
+then. The last column says where each problem stands at version 0.77, which is where it stood at 0.76: **prepared** means the Java program now does it
 in a way Go can do the same, so that the port translates and does not design; **open** means it is the port's to
 solve. Eight of the thirty-four are prepared or settled (9 to 13, 17, 18 and 22), which are the ones that needed a
 design in the backend; the eight of the window, three of them rated high, are open, and so are the rest, which are
 settings, decisions, the build and the tests of the port itself.
 
-| # | Area | In Java | The problem in Go | Severity | Way out | State at 0.76 |
+| # | Area | In Java | The problem in Go | Severity | Way out | State at 0.77 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Window library | JavaFX: one library, every system | No equivalent. Each option lacks part of what `UsageApp` does (see the table above) | high | Decide first, prove with a spike (step 2). Hide the window behind one Go interface so that the two systems are two files. | open |
 | 2 | Title bar on and off while running | `StageSwap` | No Go library offers it; frameless is a start-up option in Wails v2 and absent in webview_go | high | Native style change on the window handle. Simpler than the Java way once written. | open |

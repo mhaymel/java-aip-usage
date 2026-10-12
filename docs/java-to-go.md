@@ -23,6 +23,11 @@ phases 83 to 88 of [implementation-plan.md](implementation-plan.md), and what ch
 All of it is on `main` and pushed. `./gradlew build` and `./gradlew frontendTest` pass (about 730 Java test methods,
 370 frontend tests).
 
+**The program has gone on since.** Version 0.77 (phase 89 of the implementation plan, commit `a1ce03c`) is not part
+of this plan: it changed the style sheet of the page alone, so that the placeholder of the row is a green frame with
+square corners and nothing in it. Nothing of what is said here changes by it, and the port takes it over with the
+frontend, which is copied.
+
 **What the program no longer uses.** Jackson, so that JavaFX is the only library it is built with; `java.math` and
 `java.text.DecimalFormat`; `java.util.logging` and `System.Logger`; the text of an exception and the name of its
 class in any message; `Process.descendants()`; a lock with a condition, and `Thread.interrupt()`. Each of these is
