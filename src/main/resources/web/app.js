@@ -301,10 +301,10 @@
     var costDailyWorkedOut = '';
     // Counts the questions about the daily limit: an answer to an earlier one, arriving late, is not the one to show.
     var costAsked = 0;
-    // Whether the About view is shown in the place of the settings form, which is only hidden meanwhile and keeps what it holds.
-    var aboutShown = false;
-    // How wide the settings were when they were last measured: the About view is as wide, and has no width of its own.
-    var settingsWidth = 0;
+    // The tabs of the settings, in order: the page of each is `tab-<id>`, its title in the strip `tabbtn-<id>`. The Debug tab is there
+    // in debug mode only. The settings always open on the first.
+    var TABS = ['main', 'history', 'cost', 'debug', 'general', 'about'];
+    var currentTab = 'main';
 
     // The setting that switches the button of each panel on and off; the settings have none, as their button is always there.
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon' };
@@ -313,11 +313,11 @@
     var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
     // The thirteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
-    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
+    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
 
     /**
-     * Shows in the row what the main-view part of the form says, at once and before Apply, so that it can be seen which element a
-     * checkbox belongs to. Nothing is sent: leaving the settings without Apply gives the row back as the backend has it.
+     * Shows in the row what the main-view part of the form says, at once and before Save, so that it can be seen which element a
+     * checkbox belongs to. Nothing is sent: leaving the settings without Save gives the row back as the backend has it.
      */
     function previewNow() {
         if (openPanel !== 'settings' || settingsShown === null) {
@@ -500,17 +500,19 @@
             show('settings-form', false);
             setNote('settings-error', 'The settings could not be read: ' + e.message);
         }
+        if (config && config.debug) {
+            await loadDebug();
+        }
         setApplyEnabled(settingsShown !== null);
+        showTab(currentTab);
     }
 
     function setApplyEnabled(enabled) {
-        ['settings-apply', 'settings-restore'].forEach(function (id) {
-            if (enabled) {
-                $(id).removeAttribute('disabled');
-            } else {
-                $(id).setAttribute('disabled', '');
-            }
-        });
+        if (enabled) {
+            $('settings-save').removeAttribute('disabled');
+        } else {
+            $('settings-save').setAttribute('disabled', '');
+        }
     }
 
     /** Whether the form holds anything other than what the backend gave when the view was opened or last saved. */
@@ -546,9 +548,31 @@
         }
     }
 
-    /** Apply: saves, and then the view closes and the row shows the change at once. */
+    /** Whether anything in the settings, or in the debug settings of the Debug tab, was changed since they were opened or last saved. */
+    function formChanged() {
+        return settingsChanged() || debugChanged();
+    }
+
+    /**
+     * Saves the settings and, in debug mode, the debug settings of the Debug tab. False, with the reason in red, when something was
+     * refused; a failure of the debug settings shows the Debug tab, where it is said.
+     */
+    async function saveAll(onlyWhatChanged) {
+        if (!onlyWhatChanged || settingsChanged()) {
+            if (!(await saveSettings())) {
+                return false;
+            }
+        }
+        if (debugChanged() && !(await saveDebug())) {
+            showTab('debug');
+            return false;
+        }
+        return true;
+    }
+
+    /** Save: saves, and then the view closes and the row shows the change at once. */
     async function applySettings() {
-        if (settingsShown === null || !(await saveSettings())) {
+        if (settingsShown === null || !(await saveAll(false))) {
             return;
         }
         leaveForm(null, true);
@@ -571,33 +595,48 @@
         }
     }
 
-    /** Fills the form with the defaults the backend gave; they take effect only when Apply is pressed. */
-    function restoreDefaults() {
-        if (settingsDefaults) {
-            fillForm(settingsDefaults);
-            // The defaults have Automatic off, and their own interval: the field is theirs to fill, and can be typed in.
-            $('set-usageIntervalSeconds').removeAttribute('disabled');
-            intervalLocked = false;
-            configuredInterval = settingsDefaults.usageIntervalSeconds;
-            syncIntervalField();
-            // The defaults have no limits, and the daily one worked out: there is nothing to work it out from.
-            costDailyWorkedOut = '';
-            syncDailyLimit();
-            previewNow();
+    /** Shows the tab, and no other: its page, its title marked, the arrows at the ends of the strip disabled. */
+    function showTab(id) {
+        var visible = visibleTabs();
+        if (visible.indexOf(id) < 0) {
+            id = visible[0];
+        }
+        currentTab = id;
+        TABS.forEach(function (tab) {
+            var page = tab === 'about' ? $('about-view') : $('tab-' + tab);
+            page.hidden = tab !== id;
+            $('tabbtn-' + tab).setAttribute('aria-selected', String(tab === id));
+        });
+        var at = visible.indexOf(id);
+        setDisabled('tab-prev', at <= 0);
+        setDisabled('tab-next', at >= visible.length - 1);
+        var shown = $('tabbtn-' + id);
+        if (shown.scrollIntoView) {
+            shown.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+        if (id === 'about') {
+            loadAbout();
         }
     }
 
-    /**
-     * Shows the About view in the place of the settings form, or the form again. Nothing of the settings is saved or lost:
-     * the form is hidden, not emptied, and the preview in the row stays.
-     */
-    function showAbout(shown) {
-        aboutShown = shown;
-        show('settings-form', !shown && settingsShown !== null);
-        show('settings-buttons', !shown);
-        show('about-view', shown);
-        if (shown) {
-            loadAbout();
+    function setDisabled(id, disabled) {
+        if (disabled) {
+            $(id).setAttribute('disabled', '');
+        } else {
+            $(id).removeAttribute('disabled');
+        }
+    }
+
+    /** The tabs there are: all of them, and the Debug tab in debug mode only. */
+    function visibleTabs() {
+        return TABS.filter(function (tab) { return tab !== 'debug' || Boolean(config && config.debug); });
+    }
+
+    function stepTab(by) {
+        var visible = visibleTabs();
+        var to = visible.indexOf(currentTab) + by;
+        if (to >= 0 && to < visible.length) {
+            showTab(visible[to]);
         }
     }
 
@@ -663,10 +702,10 @@
 
     // ---- the debug settings view, in debug mode only: a form like the settings, with its own endpoint
 
-    /** The debug settings as the backend gave them when the view was opened or last saved; null when they could not be read. */
+    /** The debug settings as the backend gave them when the settings were opened or last saved; null when they could not be read. */
     var debugShown = null;
 
-    // How the fake backend's ordinary answer is shaped: the fields of the debug view that hold a number, by their setting.
+    // How the fake backend's ordinary answer is shaped: the fields of the Debug tab that hold a number, by their setting.
     var FAKE_NUMBERS = ['fakeIncreaseCents', 'fakeBudget', 'fakeStartAmount', 'fakeRefuseSeconds', 'fakeDelayMillis'];
     // The kinds of account by the name the view shows for each.
     var ACCOUNT_NAMES = { usage: 'Usage-based', seat: 'Seat-based' };
@@ -675,7 +714,7 @@
     var FAKE_AMOUNTS = { fakeBudget: true, fakeStartAmount: true };
 
     /**
-     * What is typed in a field of the debug view, as it is sent: a whole number as a number, an amount as its text, and
+     * What is typed in a field of the Debug tab, as it is sent: a whole number as a number, an amount as its text, and
      * anything else as it is, for the backend to say what is wrong with it. Nothing is worked out or formatted here.
      */
     function typedNumber(key) {
@@ -736,11 +775,6 @@
             show('debug-form', false);
             setNote('debug-error', 'The debug settings could not be read: ' + e.message);
         }
-        if (debugShown !== null) {
-            $('debug-apply').removeAttribute('disabled');
-        } else {
-            $('debug-apply').setAttribute('disabled', '');
-        }
     }
 
     function debugChanged() {
@@ -756,6 +790,7 @@
         try {
             var body = await postJson('/api/debug', readDebugForm());
             debugShown = body.settings;
+            setNote('debug-error', '');
             return true;
         } catch (e) {
             setNote('debug-error', e.message);
@@ -763,23 +798,9 @@
         }
     }
 
-    async function applyDebug() {
-        if (debugShown === null || !(await saveDebug())) {
-            return;
-        }
-        leaveForm(null, true);
-    }
-
-    function cancelDebug() {
-        if (openPanel === 'debug') {
-            leaveForm(null, false);
-        }
-    }
-
     // The views that are forms: leaving one by a button of the row saves it first, when anything in it was changed.
     var FORMS = {
-        settings: { changed: settingsChanged, save: saveSettings },
-        debug: { changed: debugChanged, save: saveDebug }
+        settings: { changed: formChanged, save: function () { return saveAll(true); } }
     };
 
     // ---- the panel below the strip: the usage history or the log, one at a time
@@ -797,13 +818,6 @@
             button: 'settings-button',
             show: 'Show the settings',
             hide: 'Hide the settings'
-        },
-        debug: {
-            button: 'debug-button',
-            show: 'Debug mode: show the debug settings',
-            hide: 'Debug mode: hide the debug settings',
-            // Yellow, shown or not: the sign of debug mode.
-            extra: ' debug'
         },
         errors: {
             button: 'errors-button',
@@ -1049,17 +1063,17 @@
             button.setAttribute('aria-label', label);
             button.setAttribute('aria-expanded', String(openPanel === name));
             // The button of the panel that is shown is green; closing it, or showing another, gives it back its colour.
-            button.className = 'icon tiny' + (spec.extra || '') + (openPanel === name ? ' active' : '');
+            button.className = 'icon tiny' + (openPanel === name ? ' active' : '');
         });
     }
 
     /**
      * Opens the panel, or closes it if it is the one shown; opening one replaces the other. The settings are a panel that remembers
-     * what it replaced: leaving them by Apply, Cancel or the gear shows that again, freshly loaded so that it has the new settings.
+     * what it replaced: leaving them by Save, Cancel or the gear shows that again, freshly loaded so that it has the new settings.
      * Another panel's button while the settings are shown shows that one, and what the settings replaced is forgotten.
      *
      * Leaving the settings, or the debug settings, by a button of the row, their own or another panel's, saves them first, as
-     * Apply does, when anything in them was changed. If that fails they stay, with the reason, and the other panel is not shown.
+     * Save does, when anything in them was changed. If that fails they stay, with the reason, and the other panel is not shown.
      */
     async function togglePanel(name) {
         var form = FORMS[openPanel];
@@ -1107,23 +1121,16 @@
         show('panel', panelIsOpen());
         // The settings are a form in the same place, not lines; the others are lines.
         show('settings-view', openPanel === 'settings');
-        // The settings are shown as their form each time, never as the About view they were left in.
-        aboutShown = false;
-        show('about-view', false);
-        show('settings-buttons', true);
-        show('debug-view', openPanel === 'debug');
-        if (openPanel === 'debug') {
-            show('panel-lines', false);
-            loadDebug();
-        } else {
-            debugShown = null;
-        }
+        // The settings always open on the first tab, whichever one they were left on.
+        currentTab = 'main';
         if (openPanel === 'settings') {
             show('panel-lines', false);
+            showTab(currentTab);
             loadSettings();
         } else {
             settingsShown = null;
             settingsDefaults = null;
+            debugShown = null;
         }
         // The window's height while a log or history is shown is fixed at what it was when it opened (ten rows),
         // so that a message line coming or going does not move it; the panel takes up the difference.
@@ -1175,17 +1182,11 @@
         var edge = fakeInUse() ? 6 : bare() ? 2 : 0;
         var width = Math.ceil(box.width) + edge;
         var height = Math.ceil(box.height) + edge;
-        if (openPanel === 'debug') {
-            return Math.max(width, formWidth('debug-form', 'debug-buttons')) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,debug';
-        }
         if (openPanel === 'settings') {
             // As tall as the row, its message lines and the settings need, whole, and never narrower than the settings need
             // for every text to be on one line and the buttons in one row; the flag says it is not resizable, and the name that a panel is open.
-            // The About view has no width of its own: it is as wide as the settings were when they were last measured.
-            if (!aboutShown) {
-                settingsWidth = formWidth('settings-form', 'settings-buttons');
-            }
-            return Math.max(width, settingsWidth) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,settings';
+            // The window does not change its width from tab to tab: the width is that of the widest of them.
+            return Math.max(width, settingsWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,settings';
         }
         // The last field names the panel, so that the host remembers the height of the history and of the log.
         if (openPanel === 'log') {
@@ -1203,7 +1204,21 @@
     };
 
     /**
-     * How wide the window has to be for the settings, or the debug settings: the form at the width of its own content, and the buttons of the view, each
+     * The least width of the settings: that of the widest tab. Every page of the form is let into the layout for the moment of the
+     * measuring, so that the form is as wide as the widest, and the shown one is given back as it was; nothing is drawn between.
+     */
+    function settingsWidth() {
+        var pages = TABS.filter(function (tab) { return tab !== 'about'; }).map(function (tab) { return $('tab-' + tab); });
+        var was = pages.map(function (page) { return page.hidden; });
+        var visible = visibleTabs();
+        pages.forEach(function (page, i) { page.hidden = visible.indexOf(TABS[i]) < 0; });
+        var width = formWidth('settings-form', 'settings-buttons');
+        pages.forEach(function (page, i) { page.hidden = was[i]; });
+        return width;
+    }
+
+    /**
+     * How wide the window has to be for the settings: the form at the width of its own content, and the buttons of the view, each
      * with the room there is at its left again at its right. The form is as wide as the window when the window is the wider, so it
      * is let go of that for the moment of the measuring, and the answer does not depend on how wide the window happens to be.
      */
@@ -1254,18 +1269,20 @@
         applyListSize();
         $('zoom-in').addEventListener('click', function () { zoomLists(1); });
         $('zoom-out').addEventListener('click', function () { zoomLists(-1); });
-        // The debug button is there in debug mode, always, and never otherwise.
-        show('debug-button', Boolean(config.debug));
-        $('debug-button').addEventListener('click', function () { togglePanel('debug'); });
-        $('debug-apply').addEventListener('click', applyDebug);
-        $('debug-cancel').addEventListener('click', cancelDebug);
+        // The Debug tab is there in debug mode, and never otherwise.
+        show('tabbtn-debug', Boolean(config.debug));
+        TABS.forEach(function (tab) {
+            $('tabbtn-' + tab).addEventListener('click', function () { showTab(tab); });
+        });
+        $('tab-prev').addEventListener('click', function () { stepTab(-1); });
+        $('tab-next').addEventListener('click', function () { stepTab(1); });
 
         $('log-button').addEventListener('click', function () { togglePanel('log'); });
         $('log-level').addEventListener('change', changeLogChoices);
         $('log-date').addEventListener('change', changeLogChoices);
         $('history-button').addEventListener('click', function () { togglePanel('history'); });
         $('settings-button').addEventListener('click', function () { togglePanel('settings'); });
-        $('settings-apply').addEventListener('click', applySettings);
+        $('settings-save').addEventListener('click', applySettings);
         $('errors-button').addEventListener('click', function () { togglePanel('errors'); });
         $('countdown').addEventListener('mouseenter', function () { hoveringCountdown = true; render(); });
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
@@ -1280,10 +1297,7 @@
                 render();
             });
         });
-        $('settings-restore').addEventListener('click', restoreDefaults);
         $('set-all').addEventListener('click', selectAllOrNone);
-        $('settings-about').addEventListener('click', function () { showAbout(true); });
-        $('about-back').addEventListener('click', function () { showAbout(false); });
         ['settings', 'log', 'history'].forEach(function (name) {
             $('about-' + name).addEventListener('click', function (event) {
                 // A link that goes nowhere: the click asks the program, and the page stays where it is.
