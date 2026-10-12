@@ -19,9 +19,6 @@ final class RefreshSchedule {
 
     private long intervalNanos;
 
-    /** An extra wait imposed after the server asked us to slow down; the longer of this and the interval applies. */
-    private long backoffNanos;
-
     private boolean everTriggered;
 
     private long lastTriggered;
@@ -43,17 +40,6 @@ final class RefreshSchedule {
             throw new IllegalArgumentException("interval must be positive");
         }
         this.intervalNanos = nanos;
-    }
-
-    /**
-     * Asks for the next request to wait at least this long after the last was
-     * triggered, whatever the interval. Zero lifts it. A manual request ignores it.
-     */
-    void setBackoff(long nanos) {
-        if (nanos < 0) {
-            throw new IllegalArgumentException("back-off must not be negative");
-        }
-        this.backoffNanos = nanos;
     }
 
     boolean running() {
@@ -91,12 +77,12 @@ final class RefreshSchedule {
             return 0;
         }
         long elapsed = now - lastTriggered;
-        return Math.max(0, Math.max(intervalNanos, backoffNanos) - elapsed);
+        return Math.max(0, intervalNanos - elapsed);
     }
 
     /**
      * How long until the next scheduled request is due, for showing to a person:
-     * the moment the most recent request was triggered plus the wait that applies,
+     * the moment the most recent request was triggered plus the interval,
      * less now. Unlike {@link #nanosUntilDue} it does not stop at zero, and it is
      * not given up on while a request runs, so an overdue refresh counts below zero.
      * A manual request that has been asked for and not yet started is due now.
@@ -108,7 +94,7 @@ final class RefreshSchedule {
         if (!everTriggered) {
             return OptionalLong.empty();
         }
-        long left = Math.max(intervalNanos, backoffNanos) - (now - lastTriggered);
+        long left = intervalNanos - (now - lastTriggered);
         return OptionalLong.of(requested ? Math.min(0, left) : left);
     }
 

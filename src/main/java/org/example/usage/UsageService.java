@@ -27,9 +27,6 @@ public final class UsageService implements AutoCloseable {
 
     private static final Duration SHUTDOWN_WAIT = Duration.ofSeconds(5);
 
-    /** The longest the service holds back after the server says to slow down. */
-    static final Duration DEFAULT_MAX_BACKOFF = Duration.ofMinutes(5);
-
     /** A server-supplied wait is believed up to this long, whatever it claims. */
     private static final Duration MAX_RETRY_AFTER = Duration.ofHours(1);
 
@@ -43,8 +40,6 @@ public final class UsageService implements AutoCloseable {
     private final Condition changed = lock.newCondition();
 
     private volatile UsageState state = UsageState.initial();
-
-    private final Backoff backoff;
 
     private final ErrorLog errors = new ErrorLog();
 
@@ -71,14 +66,9 @@ public final class UsageService implements AutoCloseable {
     private long generation;
 
     public UsageService(Supplier<UsageSnapshot> fetcher, Duration interval) {
-        this(fetcher, interval, DEFAULT_MAX_BACKOFF);
-    }
-
-    UsageService(Supplier<UsageSnapshot> fetcher, Duration interval, Duration maxBackoff) {
         this.fetcher = fetcher;
         this.schedule = new RefreshSchedule(positive(interval).toNanos());
         this.configuredNanos = interval.toNanos();
-        this.backoff = new Backoff(positive(maxBackoff).toNanos());
     }
 
     /**
@@ -144,13 +134,13 @@ public final class UsageService implements AutoCloseable {
     }
 
     /**
-     * The time between requests the service is using, in whole seconds, rounded up: the configured interval, or
-     * the longer wait while it is backing off after an HTTP 429. This is the interval the window shows.
+     * The time between requests the service is using, in whole seconds, rounded up: the configured interval, or the
+     * interval of the search while the automatic interval is on. This is the interval the window shows.
      */
     public int effectiveIntervalSeconds() {
         lock.lock();
         try {
-            long nanos = Math.max(schedule.interval(), backoff.hold());
+            long nanos = schedule.interval();
             return (int) Math.min(Integer.MAX_VALUE, (nanos + 999_999_999L) / 1_000_000_000L);
         } finally {
             lock.unlock();
@@ -178,8 +168,8 @@ public final class UsageService implements AutoCloseable {
 
     /**
      * Whole seconds until the next scheduled refresh, to the nearest second, and
-     * negative once it is overdue. It restarts after a manual refresh, is longer
-     * while backing off, and moves when the interval changes.
+     * negative once it is overdue. It restarts after a manual refresh and moves when
+     * the interval changes.
      *
      * @return empty before the first request has been triggered
      */
@@ -244,15 +234,13 @@ public final class UsageService implements AutoCloseable {
 
     /**
      * Switches the automatic interval on, with the search to go on from, or off, with {@code null}. On, the interval of the
-     * search is in force and takes the place of the back-off; off, the configured interval is in force again.
+     * search is in force; off, the configured interval is in force again.
      */
     public void setAutomatic(IntervalSearch from) {
         long seconds;
         lock.lock();
         try {
             search = from;
-            backoff.clear();
-            schedule.setBackoff(0);
             schedule.setInterval(from == null ? configuredNanos : Duration.ofSeconds(from.interval()).toNanos());
             seconds = Duration.ofNanos(schedule.interval()).toSeconds();
             changed.signalAll();
@@ -313,7 +301,7 @@ public final class UsageService implements AutoCloseable {
                     schedule.request();
                     continue;
                 }
-                outcome = settleBackoff(outcome);
+                outcome = settleInterval(outcome);
                 if (outcome.error() != null && !closed) {
                     // The message the window shows in its message line, once, when it appears.
                     LOG.log(System.Logger.Level.WARNING, "Usage refresh failed: " + outcome.error());
@@ -325,7 +313,7 @@ public final class UsageService implements AutoCloseable {
                 if (searchMoved && search != null && !closed) {
                     // Told with no lock held: the listener saves a file, and may ask this service something in turn.
                     searchMoved = false;
-                    IntervalSearch moved = IntervalSearch.of(search.interval(), search.lower(), search.upper());
+                    IntervalSearch moved = IntervalSearch.of(search.interval(), search.refused());
                     java.util.function.Consumer<IntervalSearch> listener = searchListener;
                     lock.unlock();
                     try {
@@ -401,34 +389,33 @@ public final class UsageService implements AutoCloseable {
     }
 
     /**
-     * Decides how long to hold back after this refresh, with the lock held. See
-     * {@link Backoff} for the policy. The refresh button is not held back: a person
-     * asked. A failure that is not a 429 leaves the hold as it is.
+     * What an answer does to the interval, with the lock held. With the automatic interval off nothing: the delay is the
+     * configured interval after a success, a 429 and any other failure, and a {@code Retry-After} is only logged. With it
+     * on, a 429 moves the search up, a success down, and any other failure not at all; a longer wait the server names with a
+     * 429 becomes the interval of the search, so that there is one figure for the wait, at most 300 seconds. The refresh
+     * button is not held back: a person asked.
      */
-    /**
-     * What an answer does to the search for the interval: a 429 moves it up, a success down, and any other failure not at
-     * all. The interval it then has is the next wait. A longer wait the server names with a 429 becomes the interval of the
-     * search, so that there is one figure for the wait; one above the 300 seconds the search goes to is honoured for that
-     * one wait beside it.
-     */
-    private Outcome settleSearch(Outcome outcome) {
-        // The one longer wait a server asked for is over with the next answer, whatever that is.
-        schedule.setBackoff(0);
+    private Outcome settleInterval(Outcome outcome) {
+        long interval = schedule.interval();
+        if (outcome.rateLimited() && search == null) {
+            long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
+            if (retryAfter > 0) {
+                LOG.log(System.Logger.Level.INFO, "The server asked for a wait of " + describe(retryAfter) + "; the interval of "
+                        + describe(interval) + " is kept");
+            }
+            LOG.log(System.Logger.Level.WARNING, "Rate limited; next try in " + describe(interval));
+            return outcome.withError(outcome.error() + " Next try in " + describe(interval) + ".");
+        }
+        if (search == null) {
+            return outcome;
+        }
         String before = search.describe();
         if (outcome.rateLimited()) {
             long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
             // In whole seconds, rounded up: a wait of 2.5 seconds is not over after 2.
-            boolean reset = search.rateLimited((retryAfter + 999_999_999L) / 1_000_000_000L);
-            long interval = Duration.ofSeconds(search.interval()).toNanos();
-            schedule.setInterval(interval);
-            if (retryAfter > interval) {
-                schedule.setBackoff(retryAfter);
-            }
-            long next = Math.max(interval, retryAfter);
-            if (reset) {
-                LOG.log(System.Logger.Level.INFO, "Automatic interval: the bounds are " + IntervalSearch.MIN_SECONDS + " s and "
-                        + IntervalSearch.MAX_SECONDS + " s again");
-            }
+            search.rateLimited((retryAfter + 999_999_999L) / 1_000_000_000L);
+            long next = Duration.ofSeconds(search.interval()).toNanos();
+            schedule.setInterval(next);
             LOG.log(System.Logger.Level.INFO, "Automatic interval: " + search.describe());
             LOG.log(System.Logger.Level.WARNING, "Rate limited; next try in " + describe(next));
             searchMoved = true;
@@ -442,28 +429,6 @@ public final class UsageService implements AutoCloseable {
                 LOG.log(System.Logger.Level.INFO, "Automatic interval: " + search.describe());
                 searchMoved = true;
             }
-        }
-        return outcome;
-    }
-
-    private Outcome settleBackoff(Outcome outcome) {
-        if (search != null) {
-            return settleSearch(outcome);
-        }
-        long interval = schedule.interval();
-        if (outcome.rateLimited()) {
-            long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
-            long next = Math.max(interval, backoff.rateLimited(interval, retryAfter));
-            schedule.setBackoff(backoff.hold());
-            LOG.log(System.Logger.Level.WARNING, "Rate limited; next try in " + describe(next));
-            return outcome.withError(outcome.error() + " Next try in " + describe(next) + ".");
-        }
-        if (outcome.snapshot() != null && backoff.hold() > 0) {
-            backoff.succeeded(interval);
-            schedule.setBackoff(backoff.hold());
-            LOG.log(System.Logger.Level.INFO, backoff.hold() > 0
-                    ? "Easing the back-off; next try in " + describe(Math.max(interval, backoff.hold()))
-                    : "The back-off is over; back to the usual interval");
         }
         return outcome;
     }

@@ -398,7 +398,8 @@ final class ApiHandler implements HttpHandler {
                 s.showDuration(), s.stayOnTop(), s.showTitleBar(), s.autoInterval(),
                 s.cost().monthlyCents() == null ? null : CostControl.text(s.cost().monthlyCents()),
                 s.cost().dailyCents() == null ? null : CostControl.text(s.cost().dailyCents()),
-                s.cost().dailyAutomatic());
+                s.cost().dailyAutomatic(),
+                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -410,6 +411,7 @@ final class ApiHandler implements HttpHandler {
             if (usage == null) {
                 throw new InvalidSettingException("The setting " + USAGE_KEY + " is missing.");
             }
+            Settings current = settings.current();
             Settings given = new Settings(
                     usage.intValue(),
                     flag(body, "logResponse"),
@@ -437,7 +439,11 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showTitleBar"),
                     false, org.example.fake.Scenario.NORMAL, false, LogLevel.INFO, false, Settings.DEFAULT_LIST_FONT_SIZE,
                     flag(body, "autoInterval"),
-                    costOf(body, settings.current().cost()));
+                    costOf(body, settings.current().cost()),
+                    flag(body, "historyTime", current.historyTime()),
+                    flag(body, "historyUsed", current.historyUsed()),
+                    flag(body, "historyLimit", current.historyLimit()),
+                    flag(body, "historyCurrent", current.historyCurrent()));
             // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone. Nor are
             // the two choices of the log panel, which POST /api/log changes, and the size of the lists' text, which POST /api/text-size changes.
             Settings kept = settings.current();
@@ -449,6 +455,12 @@ final class ApiHandler implements HttpHandler {
             throw new ApiException(500, e.getMessage(), null);
         }
         send(exchange, 200, settingsBody());
+    }
+
+    /** A flag that may be left out, which keeps what the settings have. */
+    private static boolean flag(JsonNode body, String key, boolean current) {
+        JsonNode value = body.get(key);
+        return value == null || value.isNull() ? current : flag(body, key);
     }
 
     private static boolean flag(JsonNode body, String key) {
@@ -614,26 +626,42 @@ final class ApiHandler implements HttpHandler {
             Settings now = settings.current();
             HistoryReader.Table table = HistoryReader.read(
                     sources.history(), HISTORY_ROWS, new HistoryReader.Filter(now.historyZeroLines(), now.historyFailedLines()));
-            // The currency is the right-most column; the change columns, when they are on, sit between the budget and it.
-            List<String> columns = new java.util.ArrayList<>(List.of(
-                    now.historyDate() ? "date time" : "time", "used", "limit"));
+            // Each column is there when its setting is on, in the order of the view: the time, the amounts, the changes and the currency.
+            List<String> columns = new java.util.ArrayList<>();
+            if (now.historyTime()) {
+                columns.add(now.historyDate() ? "date time" : "time");
+            }
+            if (now.historyUsed()) {
+                columns.add("used");
+            }
+            if (now.historyLimit()) {
+                columns.add("limit");
+            }
             if (now.historyDeltaUsed()) {
                 columns.add("\u0394 used");
             }
             if (now.historyDeltaTime()) {
                 columns.add("\u0394 time");
             }
-            columns.add("Cur.");
+            if (now.historyCurrent()) {
+                columns.add("Cur.");
+            }
             List<HistoryLine> lines = new java.util.ArrayList<>();
             for (int i = 0; i < table.rows().size(); i++) {
                 List<String> row = table.rows().get(i);
                 boolean failed = row.get(4).contains("failed");
                 boolean start = row.get(4).startsWith("start");
                 DeltaBody delta = deltaBody(table.deltas().get(i));
-                List<String> cells = new java.util.ArrayList<>(List.of(
-                        historyTime(row.get(0), now.historyDate()),
-                        failed ? "failed" : row.get(1),
-                        row.get(2)));
+                List<String> cells = new java.util.ArrayList<>();
+                if (now.historyTime()) {
+                    cells.add(historyTime(row.get(0), now.historyDate()));
+                }
+                if (now.historyUsed()) {
+                    cells.add(failed ? "failed" : row.get(1));
+                }
+                if (now.historyLimit()) {
+                    cells.add(row.get(2));
+                }
                 if (now.historyDeltaUsed()) {
                     cells.add(delta.deltaUsedText() == null ? "" : delta.deltaUsedText());
                 }
@@ -641,7 +669,9 @@ final class ApiHandler implements HttpHandler {
                     cells.add(delta.deltaSecondsText() == null ? "" : delta.deltaSecondsText());
                 }
                 // US dollars as $, any other currency by its code.
-                cells.add(Formatting.historyCurrency(row.get(3)));
+                if (now.historyCurrent()) {
+                    cells.add(Formatting.historyCurrency(row.get(3)));
+                }
                 lines.add(new HistoryLine(cells, start, failed, start ? START_TOOLTIP : ""));
             }
             return new HistoryBody(
@@ -895,7 +925,11 @@ final class ApiHandler implements HttpHandler {
             boolean autoInterval,
             String costMonthlyLimit,
             String costDailyLimit,
-            boolean costDailyAutomatic) {
+            boolean costDailyAutomatic,
+            boolean historyTime,
+            boolean historyUsed,
+            boolean historyLimit,
+            boolean historyCurrent) {
     }
 
     /** @param daily the daily limit worked out, as a finished text, or null when there is no monthly limit to work it out from */

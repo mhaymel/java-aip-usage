@@ -115,7 +115,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
     /** The search for the automatic interval as it was saved, or from its beginning when what was saved cannot be one. */
     private static org.example.usage.IntervalSearch searchOf(IntervalSettings settings) {
         org.example.settings.SettingsStore.Search stored = settings.storedSearch();
-        return org.example.usage.IntervalSearch.of(stored.interval(), stored.lower(), stored.upper());
+        return org.example.usage.IntervalSearch.of(stored.interval(), stored.refused());
     }
 
     static AppRuntime start(AppFiles files, LaunchOptions options, UsageSources.Factory factory, ResponseLog responseLog)
@@ -142,7 +142,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         settings.onUsageIntervalChange(service::setInterval);
         responseLog.set(saved.logResponse());
         // The automatic interval: the search goes on from where it was saved, and is saved again whenever it moves.
-        service.onSearchMoved(moved -> settings.storeSearch(moved.interval(), moved.lower(), moved.upper()));
+        service.onSearchMoved(moved -> settings.storeSearch(moved.interval(), moved.refused()));
         if (saved.autoInterval()) {
             service.setAutomatic(searchOf(settings));
         }

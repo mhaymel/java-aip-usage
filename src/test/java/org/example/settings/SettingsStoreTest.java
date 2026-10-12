@@ -185,7 +185,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "autoLowerSeconds", "autoUpperSeconds", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "autoIntervalSeconds", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -412,35 +412,61 @@ class SettingsStoreTest {
     @Test
     void theSearchIsKeptBesideTheSettingsAndASaveOfEitherLeavesTheOtherAsItIs() throws IOException {
         SettingsStore store = new SettingsStore(file());
-        assertEquals(new SettingsStore.Search(60, 10, 300), store.loadSearch(), "no file: where a search begins");
+        assertEquals(new SettingsStore.Search(60, null), store.loadSearch(), "no file: where a search begins");
 
-        store.saveSearch(new SettingsStore.Search(29, 23, 35));
-        assertEquals(new SettingsStore.Search(29, 23, 35), store.loadSearch());
+        store.saveSearch(new SettingsStore.Search(29, 28));
+        assertEquals(new SettingsStore.Search(29, 28), store.loadSearch());
         assertEquals(Settings.defaults(), store.load(), "the settings are the defaults still");
 
         store.save(interval(45).withAutoInterval(true));
-        assertEquals(new SettingsStore.Search(29, 23, 35), store.loadSearch(), "saving the settings keeps the search");
+        assertEquals(new SettingsStore.Search(29, 28), store.loadSearch(), "saving the settings keeps the search");
 
         store.saveHeights(new SettingsStore.Heights(640, 500));
-        assertEquals(new SettingsStore.Search(29, 23, 35), store.loadSearch(), "and so does saving a height");
+        assertEquals(new SettingsStore.Search(29, 28), store.loadSearch(), "and so does saving a height");
 
-        store.saveSearch(new SettingsStore.Search(26, 23, 29));
+        store.saveSearch(new SettingsStore.Search(26, 25));
         assertEquals(45, store.load().usageIntervalSeconds(), "saving the search keeps the settings");
         assertTrue(store.load().autoInterval());
         assertEquals(new SettingsStore.Heights(640, 500), store.loadHeights(), "and the heights");
     }
 
     @Test
-    void aSearchThatIsNotThreeWholeNumbersIsTheBeginningOfOne() throws IOException {
+    void aSearchWithoutAWholeIntervalIsTheBeginningOfOne() throws IOException {
         for (String bad : List.of(
-                "{\"autoIntervalSeconds\": 29, \"autoLowerSeconds\": 23}",
-                "{\"autoIntervalSeconds\": \"29\", \"autoLowerSeconds\": 23, \"autoUpperSeconds\": 35}",
-                "{\"autoIntervalSeconds\": 29.5, \"autoLowerSeconds\": 23, \"autoUpperSeconds\": 35}",
+                "{\"autoIntervalSeconds\": \"29\"}",
+                "{\"autoIntervalSeconds\": 29.5, \"autoRefusedSeconds\": 23}",
+                "{\"autoRefusedSeconds\": 23}",
                 "[1, 2, 3]", "not json")) {
             Files.writeString(file(), bad);
 
             assertEquals(SettingsStore.Search.BEGINNING, new SettingsStore(file()).loadSearch(), bad);
         }
+    }
+
+    @Test
+    void aFileOfAnEarlierVersionWithBoundsHasTheIntervalAndNoRefusal() throws IOException {
+        Files.writeString(file(), "{\"autoIntervalSeconds\": 29, \"autoLowerSeconds\": 23, \"autoUpperSeconds\": 35}");
+
+        assertEquals(new SettingsStore.Search(29, null), new SettingsStore(file()).loadSearch());
+
+        new SettingsStore(file()).saveSearch(new SettingsStore.Search(29, null));
+        String written = Files.readString(file());
+        assertFalse(written.contains("autoLowerSeconds") || written.contains("autoUpperSeconds") || written.contains("autoRefusedSeconds"), written);
+    }
+
+    @Test
+    void theHistoryColumnsAreSettingsOnByDefaultAndKept() throws IOException {
+        Settings d = Settings.defaults();
+        assertTrue(d.historyTime() && d.historyUsed() && d.historyLimit() && d.historyCurrent());
+
+        SettingsStore store = new SettingsStore(file());
+        store.save(d.withHistoryColumns(false, true, false, true));
+
+        Settings back = store.load();
+        assertFalse(back.historyTime());
+        assertTrue(back.historyUsed());
+        assertFalse(back.historyLimit());
+        assertTrue(back.historyCurrent());
     }
 
     // ---- how the fake backend answers, beside the settings
@@ -471,13 +497,13 @@ class SettingsStoreTest {
 
         store.save(interval(45));
         store.saveHeights(new SettingsStore.Heights(640, 500));
-        store.saveSearch(new SettingsStore.Search(29, 23, 35));
+        store.saveSearch(new SettingsStore.Search(29, 28));
         assertEquals(shaped, store.loadFake());
 
         store.saveFake(org.example.fake.FakeOptions.DEFAULTS);
         assertEquals(45, store.load().usageIntervalSeconds());
         assertEquals(new SettingsStore.Heights(640, 500), store.loadHeights());
-        assertEquals(new SettingsStore.Search(29, 23, 35), store.loadSearch());
+        assertEquals(new SettingsStore.Search(29, 28), store.loadSearch());
     }
 
     @Test

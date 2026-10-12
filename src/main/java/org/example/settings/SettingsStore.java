@@ -99,9 +99,16 @@ public final class SettingsStore {
 
     static final String AUTO_SECONDS_KEY = "autoIntervalSeconds";
 
-    static final String AUTO_LOWER_KEY = "autoLowerSeconds";
+    /** The interval at which the last refusal came; left out for none. The keys of the lower and upper bound of earlier versions are read no more. */
+    static final String AUTO_REFUSED_KEY = "autoRefusedSeconds";
 
-    static final String AUTO_UPPER_KEY = "autoUpperSeconds";
+    static final String HISTORY_TIME_KEY = "historyTime";
+
+    static final String HISTORY_USED_KEY = "historyUsed";
+
+    static final String HISTORY_LIMIT_KEY = "historyLimit";
+
+    static final String HISTORY_CURRENT_KEY = "historyCurrent";
 
     static final String HISTORY_DELTA_USED_KEY = "historyDeltaUsed";
 
@@ -192,7 +199,11 @@ public final class SettingsStore {
                 flag(root, LOG_DATE_KEY, defaults.logDate()),
                 listFontSize(root, defaults.listFontSize()),
                 flag(root, AUTO_INTERVAL_KEY, defaults.autoInterval()),
-                cost(root));
+                cost(root),
+                flag(root, HISTORY_TIME_KEY, defaults.historyTime()),
+                flag(root, HISTORY_USED_KEY, defaults.historyUsed()),
+                flag(root, HISTORY_LIMIT_KEY, defaults.historyLimit()),
+                flag(root, HISTORY_CURRENT_KEY, defaults.historyCurrent()));
     }
 
     /**
@@ -463,18 +474,20 @@ public final class SettingsStore {
     }
 
     /**
-     * Where the search for the automatic interval is: the interval and its two bounds, in seconds. They are in the
-     * settings file but are no settings of the settings view: the program changes them by itself.
+     * Where the search for the automatic interval is: the interval in seconds and the interval at which the last refusal
+     * came, {@code null} for none. They are in the settings file but are no settings of the settings view: the program
+     * changes them by itself.
      */
-    public record Search(int interval, int lower, int upper) {
+    public record Search(int interval, Integer refused) {
 
-        /** Where a search begins: 60 seconds, between 10 and 300. */
-        public static final Search BEGINNING = new Search(60, 10, 300);
+        /** Where a search begins: 60 seconds, and no refusal known. */
+        public static final Search BEGINNING = new Search(60, null);
     }
 
     /**
-     * The search as saved; its beginning if the file is missing, unusable, or has not all three as whole numbers. Whether
-     * the three can be a state of the search is the search's to say. Never fails.
+     * The search as saved; its beginning if the file is missing or unusable or has no interval as a whole number. A
+     * refused interval that is no whole number is none. Whether the figures can be a state of the search is the search's to
+     * say. Never fails.
      */
     public Search loadSearch() {
         try {
@@ -483,14 +496,12 @@ public final class SettingsStore {
                 return Search.BEGINNING;
             }
             JsonNode interval = root.get(AUTO_SECONDS_KEY);
-            JsonNode lower = root.get(AUTO_LOWER_KEY);
-            JsonNode upper = root.get(AUTO_UPPER_KEY);
-            for (JsonNode node : new JsonNode[] {interval, lower, upper}) {
-                if (node == null || !node.isIntegralNumber() || !node.canConvertToInt()) {
-                    return Search.BEGINNING;
-                }
+            if (interval == null || !interval.isIntegralNumber() || !interval.canConvertToInt()) {
+                return Search.BEGINNING;
             }
-            return new Search(interval.intValue(), lower.intValue(), upper.intValue());
+            JsonNode refused = root.get(AUTO_REFUSED_KEY);
+            boolean usable = refused != null && refused.isIntegralNumber() && refused.canConvertToInt();
+            return new Search(interval.intValue(), usable ? refused.intValue() : null);
         } catch (IOException e) {
             return Search.BEGINNING;
         }
@@ -556,8 +567,13 @@ public final class SettingsStore {
         root.put(COST_DAILY_KEY, cost.dailyCents() == null ? null : java.math.BigDecimal.valueOf(cost.dailyCents(), 2));
         root.put(COST_DAILY_AUTOMATIC_KEY, cost.dailyAutomatic());
         root.put(AUTO_SECONDS_KEY, search.interval());
-        root.put(AUTO_LOWER_KEY, search.lower());
-        root.put(AUTO_UPPER_KEY, search.upper());
+        if (search.refused() != null) {
+            root.put(AUTO_REFUSED_KEY, search.refused().intValue());
+        }
+        root.put(HISTORY_TIME_KEY, settings.historyTime());
+        root.put(HISTORY_USED_KEY, settings.historyUsed());
+        root.put(HISTORY_LIMIT_KEY, settings.historyLimit());
+        root.put(HISTORY_CURRENT_KEY, settings.historyCurrent());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
 

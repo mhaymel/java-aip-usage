@@ -48,13 +48,6 @@ class UsageServiceTest {
         return service;
     }
 
-    private UsageService start(Supplier<UsageSnapshot> fetcher, Duration interval, Duration maxBackoff) {
-        UsageService service = new UsageService(fetcher, interval, maxBackoff);
-        started.add(service);
-        service.start();
-        return service;
-    }
-
     /** A fetcher whose calls can be held open until released. */
     private static final class Gate implements Supplier<UsageSnapshot> {
 
@@ -502,19 +495,6 @@ class UsageServiceTest {
     }
 
     @Test
-    void theCountdownShowsTheLongerWaitDuringABackoff() {
-        UsageService service = start(() -> {
-            throw rateLimited();
-        }, Duration.ofSeconds(60));
-        await(() -> service.state().error() != null);
-
-        long left = service.secondsUntilNextRefresh().getAsLong();
-
-        // The first 429 doubles the 60 s interval.
-        assertTrue(left >= 118 && left <= 120, "left: " + left);
-    }
-
-    @Test
     void changingTheIntervalMovesTheCountdown() {
         UsageService service = start(new Gate(), Duration.ofSeconds(60));
         await(() -> service.state().snapshot() != null);
@@ -539,7 +519,7 @@ class UsageServiceTest {
         assertEquals(-3, UsageService.toSeconds(-3_400_000_000L));
     }
 
-    // ---- back-off after HTTP 429
+    // ---- HTTP 429 with the automatic interval off: nothing changes of the delay
 
     private static UsageFetchException rateLimited() {
         return new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429);
@@ -570,32 +550,6 @@ class UsageServiceTest {
         long gapBefore(int n) {
             return callTimesMillis.get(n) - callTimesMillis.get(n - 1);
         }
-    }
-
-    @Test
-    void theEffectiveIntervalIsTheConfiguredOneUntilThereIsABackOff() {
-        UsageService service = new UsageService(() -> snapshot(1), Duration.ofSeconds(60));
-
-        assertEquals(60, service.effectiveIntervalSeconds());
-        service.setInterval(Duration.ofMillis(60_500));
-        assertEquals(61, service.effectiveIntervalSeconds(), "rounded up to whole seconds");
-    }
-
-    @Test
-    void afterARateLimitTheEffectiveIntervalIsTheLongerWaitAndItEasesBack() {
-        Scripted fetch = new Scripted(true);
-
-        UsageService service = start(fetch, Duration.ofMillis(1500), Duration.ofSeconds(60));
-        await(() -> service.state().rateLimited());
-
-        // One 429 doubles the 1.5 s interval: 3 s.
-        assertEquals(3, service.effectiveIntervalSeconds());
-        await(() -> service.state().error() == null && service.state().snapshot() != null);
-        // The hold eases by an eighth at each success: 3 s, 2.6 s, 2.3 s. The fourth call comes 4.9 s after the second, which
-        // the usual wait of 5 s allowed by a twelfth of a second, so that this failed now and then; it has room now.
-        await(Duration.ofSeconds(15), () -> service.effectiveIntervalSeconds() < 3 || fetch.callTimesMillis.size() >= 4);
-        assertTrue(service.effectiveIntervalSeconds() <= 3, "never more than the hold");
-        assertTrue(service.effectiveIntervalSeconds() >= 2, "and never less than the configured one rounded up");
     }
 
     @Test
@@ -662,96 +616,65 @@ class UsageServiceTest {
     }
 
     @Test
-    void eachRateLimitedRefreshInARowDoublesTheWait() {
+    void theEffectiveIntervalIsTheConfiguredOne() {
+        UsageService service = new UsageService(() -> snapshot(1), Duration.ofSeconds(60));
+
+        assertEquals(60, service.effectiveIntervalSeconds());
+        service.setInterval(Duration.ofMillis(60_500));
+        assertEquals(61, service.effectiveIntervalSeconds(), "rounded up to whole seconds");
+    }
+
+    @Test
+    void aRateLimitedRefreshIsFollowedAfterExactlyTheIntervalEveryTime() {
         Scripted fetch = new Scripted(true, true, true, true);
 
-        start(fetch, Duration.ofMillis(50));
+        UsageService service = start(fetch, Duration.ofMillis(60));
         await(() -> fetch.callTimesMillis.size() >= 4);
 
-        // Interval 50 ms: twice, four times and eight times that, never less.
-        assertTrue(fetch.gapBefore(1) >= 95, "first wait " + fetch.gapBefore(1));
-        assertTrue(fetch.gapBefore(2) >= 190, "second wait " + fetch.gapBefore(2));
-        assertTrue(fetch.gapBefore(3) >= 380, "third wait " + fetch.gapBefore(3));
+        for (int n = 1; n < 4; n++) {
+            assertTrue(fetch.gapBefore(n) >= 55 && fetch.gapBefore(n) < 150, "gap " + n + ": " + fetch.gapBefore(n));
+        }
+        assertEquals(1, service.effectiveIntervalSeconds(), "and the interval in force is the configured one, never a longer wait");
     }
 
     @Test
-    void theWaitStopsGrowingAtTheMaximum() {
-        Scripted fetch = new Scripted(true, true, true, true, true);
+    void aRetryAfterOfTheServerChangesNothingWithTheAutomaticIntervalOff() {
+        AtomicInteger calls = new AtomicInteger();
+        java.util.List<Long> times = new CopyOnWriteArrayList<>();
+        start(() -> {
+            times.add(System.nanoTime() / 1_000_000);
+            if (calls.getAndIncrement() == 0) {
+                throw new UsageFetchException("slow down", 429, Duration.ofSeconds(30));
+            }
+            return snapshot(1);
+        }, Duration.ofMillis(60));
 
-        start(fetch, Duration.ofMillis(20), Duration.ofMillis(80));
-        await(() -> fetch.callTimesMillis.size() >= 5);
+        await(() -> times.size() >= 2);
 
-        assertTrue(fetch.gapBefore(1) >= 38, "40 ms: " + fetch.gapBefore(1));
-        assertTrue(fetch.gapBefore(2) >= 78, "80 ms: " + fetch.gapBefore(2));
-        // Without a cap this would be 160 ms and then 320 ms.
-        assertTrue(fetch.gapBefore(3) < 220, "capped near 80 ms: " + fetch.gapBefore(3));
-        assertTrue(fetch.gapBefore(4) < 220, "capped near 80 ms: " + fetch.gapBefore(4));
+        assertTrue(times.get(1) - times.get(0) < 500, "waited " + (times.get(1) - times.get(0)));
     }
 
     @Test
-    void aSuccessEasesTheBackoffInsteadOfLiftingIt() {
-        // Interval 100 ms. 429 -> hold 200; 429 -> 400; ok -> eased to 350; 429 -> 700; ok.
-        Scripted fetch = new Scripted(true, true, false, true, false);
-
-        start(fetch, Duration.ofMillis(100));
-        await(() -> fetch.callTimesMillis.size() >= 5);
-
-        assertTrue(fetch.gapBefore(1) >= 190, "after the first 429: " + fetch.gapBefore(1));
-        assertTrue(fetch.gapBefore(2) >= 390, "after the second: " + fetch.gapBefore(2));
-        // Lifted, this would be the plain 100 ms and ask for a 429 again; eased, it is 350 ms.
-        assertTrue(fetch.gapBefore(3) >= 340, "after a success the wait is eased, not dropped: " + fetch.gapBefore(3));
-        assertTrue(fetch.gapBefore(3) < 600, "and no longer than the hold was: " + fetch.gapBefore(3));
-        // The next 429 doubles the eased 350 ms, not the 400 ms from before the success.
-        assertTrue(fetch.gapBefore(4) >= 690, "after the third 429: " + fetch.gapBefore(4));
-    }
-
-    @Test
-    void enoughSuccessesBringTheWaitBackToTheInterval() {
-        // One 429 (hold 100 ms at a 50 ms interval), then only successes: 87, 76, 66, 58 ms ... then gone.
+    void aSuccessAfterARateLimitClearsTheErrorAsUsual() {
         Scripted fetch = new Scripted(true);
+        UsageService service = start(fetch, Duration.ofMillis(50));
 
-        start(fetch, Duration.ofMillis(50));
-        await(() -> fetch.callTimesMillis.size() >= 9);
+        await(() -> service.state().snapshot() != null);
 
-        assertTrue(fetch.gapBefore(1) >= 95, "held: " + fetch.gapBefore(1));
-        assertTrue(fetch.gapBefore(2) >= 80, "eased: " + fetch.gapBefore(2));
-        assertTrue(fetch.gapBefore(2) < fetch.gapBefore(1) + 40, "and shorter than the hold, give or take scheduling: " + fetch.gapBefore(2));
-        assertTrue(fetch.gapBefore(8) < 120, "back to about the interval: " + fetch.gapBefore(8));
+        assertNull(service.state().error());
+        assertFalse(service.state().stale());
     }
 
     @Test
-    void theServersOwnRetryAfterIsHonouredWhenLonger() {
-        AtomicInteger calls = new AtomicInteger();
-        java.util.List<Long> times = new CopyOnWriteArrayList<>();
-        start(() -> {
-            times.add(System.nanoTime() / 1_000_000);
-            if (calls.getAndIncrement() == 0) {
-                throw new UsageFetchException("slow down", 429, Duration.ofMillis(700));
-            }
-            return snapshot(1);
-        }, Duration.ofMillis(50));
+    void theCountdownIsCountedToTheConfiguredIntervalAfterARateLimit() {
+        UsageService service = start(() -> {
+            throw rateLimited();
+        }, Duration.ofSeconds(60));
+        await(() -> service.state().error() != null);
 
-        await(() -> times.size() >= 2);
+        long left = service.secondsUntilNextRefresh().getAsLong();
 
-        // The doubled interval alone would be 100 ms; the server asked for 700.
-        assertTrue(times.get(1) - times.get(0) >= 690, "waited " + (times.get(1) - times.get(0)));
-    }
-
-    @Test
-    void aShorterRetryAfterDoesNotShortenTheBackoff() {
-        AtomicInteger calls = new AtomicInteger();
-        java.util.List<Long> times = new CopyOnWriteArrayList<>();
-        start(() -> {
-            times.add(System.nanoTime() / 1_000_000);
-            if (calls.getAndIncrement() == 0) {
-                throw new UsageFetchException("slow down", 429, Duration.ofMillis(1));
-            }
-            return snapshot(1);
-        }, Duration.ofMillis(100));
-
-        await(() -> times.size() >= 2);
-
-        assertTrue(times.get(1) - times.get(0) >= 190, "waited " + (times.get(1) - times.get(0)));
+        assertTrue(left >= 58 && left <= 60, "left: " + left);
     }
 
     @Test
@@ -762,27 +685,7 @@ class UsageServiceTest {
 
         await(() -> service.state().error() != null);
 
-        assertEquals("Anthropic is rate limiting usage requests (HTTP 429). Next try in 1 min.", service.state().error());
-    }
-
-    @Test
-    void theNextTryShownGrowsWithEachConsecutiveRateLimit() {
-        AtomicInteger calls = new AtomicInteger();
-        UsageService service = start(() -> {
-            calls.incrementAndGet();
-            throw rateLimited();
-        }, Duration.ofSeconds(30));
-        await(() -> service.state().error() != null);
-        assertTrue(service.state().error().endsWith("Next try in 1 min."), service.state().error());
-
-        // The wait is long, so ask by hand: a person's click is never held back.
-        assertTrue(service.refreshNow());
-        await(() -> calls.get() >= 2 && !service.state().refreshing());
-        assertTrue(service.state().error().endsWith("Next try in 2 min."), service.state().error());
-
-        assertTrue(service.refreshNow());
-        await(() -> calls.get() >= 3 && !service.state().refreshing());
-        assertTrue(service.state().error().endsWith("Next try in 4 min."), service.state().error());
+        assertEquals("Anthropic is rate limiting usage requests (HTTP 429). Next try in 30 s.", service.state().error());
     }
 
     @Test
@@ -797,31 +700,6 @@ class UsageServiceTest {
 
         // Five tries at a 50 ms interval take about 200 ms; doubling would have taken over 700 ms.
         assertTrue(times.get(4) - times.get(0) < 600, "took " + (times.get(4) - times.get(0)));
-    }
-
-    @Test
-    void aManualRefreshIsNotHeldBackByTheBackoff() {
-        Scripted fetch = new Scripted(true);
-        UsageService service = start(fetch, Duration.ofSeconds(2));
-        await(() -> fetch.callTimesMillis.size() >= 1 && !service.state().refreshing());
-        // The back-off is now 4 s. A click goes through at once.
-
-        long clicked = System.nanoTime() / 1_000_000;
-        assertTrue(service.refreshNow());
-        await(() -> fetch.callTimesMillis.size() >= 2);
-
-        assertTrue(fetch.callTimesMillis.get(1) - clicked < 1000, "took " + (fetch.callTimesMillis.get(1) - clicked));
-    }
-
-    @Test
-    void theSuccessAfterABackoffClearsTheErrorAsUsual() {
-        Scripted fetch = new Scripted(true);
-        UsageService service = start(fetch, Duration.ofMillis(50));
-
-        await(() -> service.state().snapshot() != null);
-
-        assertNull(service.state().error());
-        assertFalse(service.state().stale());
     }
 
     @Test
@@ -1010,7 +888,7 @@ class UsageServiceTest {
         }
     }
 
-    // ---- the automatic interval: the search takes the place of the configured interval and of the back-off
+    // ---- the automatic interval: the search takes the place of the configured interval
 
     @Test
     void switchedOnTheIntervalOfTheSearchIsInForceAndEachAnswerMovesIt() {
@@ -1018,25 +896,25 @@ class UsageServiceTest {
         List<String> saved = new CopyOnWriteArrayList<>();
         UsageService service = new UsageService(fetch, HOUR);
         started.add(service);
-        service.onSearchMoved(moved -> saved.add(moved.interval() + " in " + moved.lower() + ".." + moved.upper()));
+        service.onSearchMoved(moved -> saved.add(moved.describe()));
         service.setAutomatic(IntervalSearch.fresh());
         assertTrue(service.automatic());
         assertEquals(60, service.effectiveIntervalSeconds(), "the search begins at 60, whatever is configured");
 
         service.start();
         await(() -> saved.size() == 1);
-        assertEquals(35, service.effectiveIntervalSeconds(), "an answer: half way down to the lower bound");
+        assertEquals(54, service.effectiveIntervalSeconds(), "an answer before any refusal: a tenth down");
 
         assertTrue(service.refreshNow());
         await(() -> saved.size() == 2);
-        assertEquals(23, service.effectiveIntervalSeconds(), "a manual refresh moves the search as a scheduled one does");
+        assertEquals(49, service.effectiveIntervalSeconds(), "a manual refresh moves the search as a scheduled one does");
 
         assertTrue(service.refreshNow());
         await(() -> saved.size() == 3);
-        assertEquals(29, service.effectiveIntervalSeconds(), "a 429: half way up, (35 + 23) / 2, and no doubling");
+        assertEquals(54, service.effectiveIntervalSeconds(), "a 429 at 49: a tenth up, ceil(53.9)");
         assertTrue(service.state().rateLimited());
-        assertTrue(service.state().error().endsWith(" Next try in 29 s."), service.state().error());
-        assertEquals(List.of("35 in 10..60", "23 in 10..35", "29 in 23..35"), saved, "and each step is given to be saved");
+        assertTrue(service.state().error().endsWith(" Next try in 54 s."), service.state().error());
+        assertEquals(List.of("54 s (no refusal yet)", "49 s (no refusal yet)", "54 s (refused at 49 s)"), saved, "and each step is given to be saved");
     }
 
     @Test
@@ -1059,8 +937,8 @@ class UsageServiceTest {
         await(() -> calls.get() == 2 && !service.state().refreshing());
 
         assertNotNull(service.state().error());
-        assertEquals(35, service.effectiveIntervalSeconds(), "as it was after the first answer");
-        assertEquals(List.of("35"), saved, "and nothing was given to be saved for it");
+        assertEquals(54, service.effectiveIntervalSeconds(), "as it was after the first answer");
+        assertEquals(List.of("54"), saved, "and nothing was given to be saved for it");
     }
 
     @Test
@@ -1074,9 +952,8 @@ class UsageServiceTest {
             return snapshot(1);
         }, HOUR);
         started.add(service);
-        service.onSearchMoved(moved -> saved.add(moved.interval() + " in " + moved.lower() + ".." + moved.upper()));
-        // Where the search was in the run that showed the fault: settled at 11 seconds.
-        service.setAutomatic(IntervalSearch.of(11, 10, 11));
+        service.onSearchMoved(moved -> saved.add(moved.describe()));
+        service.setAutomatic(IntervalSearch.of(11, null));
         service.start();
         await(() -> service.state().rateLimited() && saved.size() == 1);
 
@@ -1084,11 +961,11 @@ class UsageServiceTest {
         long wait = service.secondsUntilNextRefresh().orElseThrow();
         assertTrue(wait > 290 && wait <= 300, "and it is the wait: " + wait);
         assertTrue(service.state().error().endsWith(" Next try in 5 min."), service.state().error());
-        assertEquals(List.of("300 in 10..300"), saved, "and what is saved");
+        assertEquals(List.of("300 s (refused at 11 s)"), saved, "and what is saved");
     }
 
     @Test
-    void aWaitOfTheServerAboveThreeHundredSecondsIsHonouredForTheOneWaitBesideAnIntervalOfThreeHundred() {
+    void aWaitOfTheServerAboveThreeHundredSecondsIsNoMoreThanThreeHundred() {
         AtomicInteger calls = new AtomicInteger();
         UsageService service = new UsageService(() -> {
             if (calls.incrementAndGet() == 1) {
@@ -1103,15 +980,15 @@ class UsageServiceTest {
 
         assertEquals(300, service.effectiveIntervalSeconds(), "the search goes no higher");
         long wait = service.secondsUntilNextRefresh().orElseThrow();
-        assertTrue(wait > 400 && wait <= 500, "but this one wait is as long as the server said: " + wait);
-        assertTrue(service.state().error().endsWith(" Next try in 9 min."), service.state().error());
+        assertTrue(wait > 290 && wait <= 300, "wait " + wait);
+        assertTrue(service.state().error().endsWith(" Next try in 5 min."), service.state().error());
     }
 
     @Test
     void switchedOffTheConfiguredIntervalIsInForceAgainAlsoOneThatWasSetMeanwhile() {
         UsageService service = new UsageService(() -> snapshot(1), Duration.ofSeconds(90));
         started.add(service);
-        service.setAutomatic(IntervalSearch.of(29, 23, 35));
+        service.setAutomatic(IntervalSearch.of(29, 23));
         assertEquals(29, service.effectiveIntervalSeconds());
 
         service.setInterval(Duration.ofSeconds(120));
@@ -1128,14 +1005,14 @@ class UsageServiceTest {
         AtomicInteger calls = new AtomicInteger();
         UsageService service = new UsageService(() -> { calls.incrementAndGet(); return snapshot(1); }, HOUR);
         started.add(service);
-        service.onSearchMoved(moved -> saved.add(String.valueOf(moved.interval())));
-        service.setAutomatic(IntervalSearch.of(24, 23, 24));
+        service.onSearchMoved(moved -> saved.add(moved.describe()));
+        service.setAutomatic(IntervalSearch.of(24, 23));
         service.start();
         await(() -> calls.get() == 1 && !service.state().refreshing());
         assertTrue(service.refreshNow());
         await(() -> calls.get() == 2 && !service.state().refreshing());
 
         assertEquals(24, service.effectiveIntervalSeconds());
-        assertEquals(List.of(), saved, "24 between 23 and 24 stays what it is");
+        assertEquals(List.of(), saved, "24 with 23 refused stays what it is");
     }
 }

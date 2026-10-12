@@ -113,9 +113,9 @@ public final class IntervalSettings {
      * Remembers where the search for the automatic interval is. A file that cannot be written is logged and nothing more:
      * the search goes on in this run, and begins where it was last saved in the next.
      */
-    public synchronized void storeSearch(int interval, int lower, int upper) {
+    public synchronized void storeSearch(int interval, Integer refused) {
         try {
-            store.saveSearch(new SettingsStore.Search(interval, lower, upper));
+            store.saveSearch(new SettingsStore.Search(interval, refused));
         } catch (IOException e) {
             LOG.log(System.Logger.Level.WARNING, "Could not save the automatic interval to " + store.file() + ": " + e.getMessage());
         }

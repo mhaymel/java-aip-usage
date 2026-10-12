@@ -1009,6 +1009,43 @@ class ApiTest {
     }
 
     @Test
+    void everyColumnOfTheHistoryCanBeLeftOutAndTheOthersCloseUp() throws Exception {
+        writeHistory("datetime,used,limit,currency,status,interval,duration_ms",
+                "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:03,10.05,1000.00,USD,,60,400");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+        String all = allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true");
+
+        assertEquals(5, json(get(app, "/api/history")).get("columns").size(), "by default the four and the change of time");
+        post(app, "/api/settings", all.replace("}", ", \"historyTime\": false, \"historyUsed\": true, \"historyLimit\": false, \"historyCurrent\": false}"));
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        assertEquals(java.util.List.of("used", "\u0394 used", "\u0394 time"),
+                java.util.stream.StreamSupport.stream(history.get("columns").spliterator(), false).map(JsonNode::asText).toList());
+        assertEquals(3, history.at("/lines/0/cells").size());
+        assertEquals("10.05", history.at("/lines/0/cells/0").asText());
+        assertEquals("+0.05", history.at("/lines/0/cells/1").asText());
+        JsonNode settings = json(get(app, "/api/settings")).get("settings");
+        assertFalse(settings.get("historyTime").asBoolean());
+        assertTrue(settings.get("historyUsed").asBoolean());
+        assertFalse(settings.get("historyCurrent").asBoolean());
+    }
+
+    @Test
+    void theColumnsOfTheHistoryAreAllOnWhenAPostLeavesThemOut() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        post(app, "/api/settings", allSettings(60, false, "hh:mm"));
+
+        JsonNode settings = json(get(app, "/api/settings")).get("settings");
+
+        assertTrue(settings.get("historyTime").asBoolean() && settings.get("historyUsed").asBoolean()
+                && settings.get("historyLimit").asBoolean() && settings.get("historyCurrent").asBoolean());
+    }
+
+    @Test
     void theStatusCarriesTheFinishedDisplayAndItFollowsTheSettings() throws Exception {
         AppRuntime app = start(new FakeFetch());
         await(() -> app.service().state().snapshot() != null);
