@@ -7,9 +7,15 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
+**Where it stands: version 0.77, 89 phases, all built.** One check is outstanding: the tests of phase 87 on a Mac.
+Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
+on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
+more than what it does. The architecture below and the notes at the end describe the program as it is after them.
+
 ## Scope
 
-The first version is a Java 25 application for macOS, started with `./gradlew run`.
+The first version is a Java 25 application, started with `./gradlew run`. It was written for macOS and is also run and
+tested on Windows, where phases 83 to 89 were built.
 Everything it has to do — the refresh rules, the window, the files, the command
 line, the fake backend, and what is left out of the first version — is specified in
 [requirements.md](requirements.md). The decisions confirmed in discussion, which
@@ -25,15 +31,24 @@ resizes the stage and remembers the heights (phases 7 and 26). The reasons for t
 host, for the contract and for keeping the resizing outside it are in the
 requirements (Display requirements).
 
-Suggested backend boundaries:
+JavaFX is the only library the program is built with (since phase 83). What a library or a part of the Java runtime
+used to do that Go has no like of is done by small classes of the program's own, the first six rows of the table.
+
+The backend, by component:
 
 | Component | Responsibility |
 | --- | --- |
-| `UsageSnapshot` and related value types | Represent the timestamp and the optional spend details of a reading. |
-| `TokenProvider` | Acquire and refresh an OAuth token using the selected sibling-repo flow. Keep tokens in memory; do not log them. |
-| `UsageClient` | Call the Anthropic usage endpoint with the bearer token, decode the response, and distinguish HTTP 401 from other failures. |
-| `UsageService` | Own the current snapshot, refresh interval, last error/stale state, and non-overlapping scheduled refreshes. |
-| `Logging` | Configure console and append-mode output to `java-aip-usage.log` in the project root; record lifecycle, refresh, and sanitized HTTP diagnostic events without credentials. |
+| `json`: `Json`, `JsonReader`, `JsonWriter` | The program's own JSON (phase 83): a value that keeps a number as it was written, a strict reader whose faults say where and what, and the two written forms, on one line for the API and over several lines for the settings file and a logged response. Each answer record of the API writes itself with a `toJson()`. |
+| `money.Amount` | An amount of money as an exact decimal (phase 84): reading, adding and subtracting, the share of a limit, and the written forms. Nothing about money is worked out anywhere else, or with binary fractions. |
+| `log.Log` | The program's own log (phase 85): a class says `error`, `warning`, `info` or `debug`, and the entry goes to every sink that listens, one at a time. |
+| `Failure`, `Fault` | What went wrong, in a fixed set of texts (phase 86): the one place that looks at the kind of an exception. No message carries a text of the Java runtime or of the operating system. |
+| `Cancel` | The way to tell a request that is under way to give up (phase 88), in the place of interrupting a thread. |
+| `ProcessTree` | Ends `claude` and what it started with the system's own commands (phase 87). |
+| `UsageSnapshot`, `Spend` and related value types | Represent the timestamp and the optional spend details of a reading. |
+| `TokenProvider`, `ClaudeTokenProvider`, `CredentialCapture` | Acquire an OAuth token from the Claude Code CLI, and a fresh one after a rejection. Keep tokens in memory; do not log them. Stop waiting when told to give up. |
+| `UsageClient`, `UsageFetcher` | Call the Anthropic usage endpoint with the bearer token, decode the response, and distinguish HTTP 401 from other failures; one retry with a fresh token. Stop waiting when told to give up. |
+| `UsageService`, `RefreshSchedule`, `IntervalSearch` | Own the current snapshot, the interval and its search, the last error and stale state, and non-overlapping scheduled refreshes. One loop owns all of it and is handed what is asked as messages; a request runs beside it; what the window reads every second never waits for it (phase 88). |
+| `Logging` | Open and close the two sinks of the log for a run: the console and the append-mode file `java-aip-usage.log`, written through after every line. In debug mode the console also shows the stack trace of a failure; the file never does. |
 | `LocalWebServer` | Serve the bundled frontend, read-only status/log/history/error endpoints, the settings endpoint, and a manual-refresh action on loopback. |
 | `Settings`, `SettingsStore`, `IntervalSettings` | All settings as JSON beside the CSV, created with defaults if missing; apply, validate and save them; hold the remembered panel heights. |
 | `HistoryReader`, `HistoryDeltas`, `UsageHistory` | The CSV with its status, timing and failed rows; the differences between readings, worked out in the backend. |
@@ -1960,7 +1975,8 @@ The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built
 
-How the requirements are met today (version 0.37). What these mechanisms make the
+How the requirements are met today (version 0.77; written at version 0.37, and the part about the backend brought up
+to date after phases 83 to 88). What these mechanisms make the
 program do is in the requirements; what is here is only the means.
 
 **Page and host**
@@ -1974,15 +1990,20 @@ program do is in the requirements; what is here is only the means.
 - The page sets `.fit` on `#app` for the settings; there is no CSS rule for it (the settings are laid out by the absence of `.open`), so it is only a marker. `[hidden]` is forced with
   `display: none !important`; `box-sizing` is `border-box` throughout.
 - The log's run grouping and its run-start marker are in `view.js`: a hidden contract with the form of the log line, which the requirements now state.
+- A figure of the row that has no value is the class `skeleton`: a frame of one pixel in `--ok`, the colour of the figures' text, with square corners and no fill (phase 89).
 
 **Backend**
-- Startup order: settings load, history `latest()` restore, listeners, `ResponseLog`, web server, then `service.start()`. `Main` is not an `Application` so that an IDE `main` works from the class path;
-  `Logging` must be installed before `UsageApp` is loaded. One JVM shutdown hook and `RunOnce` make the window close and the process stop share one cleanup; `ShutdownSafeLogManager` keeps the stop lines
-  from being lost.
+- Startup order: `Main` reads the command line and opens the log (`Logging.install`, with the stack traces on the console in debug mode), then the window; in `AppRuntime`: settings load, history `latest()` restore, listeners, `ResponseLog`, web server, then `service.start()`. `Main` is not an `Application` so that an IDE `main` works from the class path.
+  One JVM shutdown hook and `RunOnce` make the window close and the process stop share one cleanup, and the same hook closes the log last. The log is the program's own (`Log`), so nothing else can close it first: `ShutdownSafeLogManager` and the rule that `Logging` is installed before `UsageApp` is loaded are gone (phase 85).
 - The history is appended with `CREATE`/`APPEND`. `/api/history` reads the whole file on every call, `/api/status` only when `LatestChangeCache` sees a changed size or time.
 - The back-off of versions up to 0.63 is replaced by the exact interval and the search of phase 76 (version 0.64); `retryAfter` is read in `UsageService` and used by the search only.
-- The server answers on virtual threads and is stopped with `stop(0)`; the refresh thread is a daemon. Static files come from the class path under `/web`.
-- The masking is `Redaction`; the settings are one record (`Settings`), read leniently key by key by `SettingsStore`.
+- `UsageService` is one loop, a daemon thread, that takes messages from a queue or waits until the next request is due; each public method hands it a closure and waits for the answer. A request runs on a thread of its own and hands its outcome back as a message. The state, the interval and what the countdown is counted from are published by the loop and read without asking it. A request is given up through its `Cancel`: `UsageClient` sends with `sendAsync` and cancels the answer, `ClaudeTokenProvider` ends its waiting for the credential. No lock with a condition, no interrupt (phase 88).
+- The server answers on virtual threads and is stopped with `stop(0)`. Static files come from the class path under `/web`.
+- JSON is read and written by `org.example.json`; an answer of the API is built by the `toJson()` of its record, key by key. The settings are one record (`Settings`), read strictly, key by key, by `SettingsStore`; a value that is not valid has its default and the other keys are kept.
+- An amount is an `Amount` from the response to the row, the history and the API; `java.math` is not used. The fill of a cost bar is the one `double`, made from the exact share.
+- A failure is named by `Failure.of`, and logged as one line by handing what was thrown to the log (`LOG.warning("Could not read the log", e)`). The masking is `Redaction`, applied where an entry is written.
+- `claude` and what it started are ended by `ProcessTree`: `taskkill /T /F` on Windows, `pgrep -P` and `kill -9` elsewhere.
+- Tests that read the sources hold some of this in place: `FailureTest` (nothing but `Failure` reads the text of an exception), `CancelTest` (nothing interrupts a thread or holds a lock with a condition), and the frontend's check that the page calculates nothing.
 
 ## Open points found by the audit
 
@@ -2393,6 +2414,13 @@ used an address nothing listens at.
 What is tested, what stays outside the automated suite and what a person checks by
 eye on macOS is in the requirements (Testing and verification). The tests of each
 phase are named in that phase.
+
+At version 0.77 `./gradlew build` and `./gradlew frontendTest` pass, on Windows. Two things have not been checked:
+
+- **Phase 87 on macOS.** That `pgrep` and `kill` end `claude` and what it started there:
+  `./gradlew test --tests '*ClaudeTokenProviderTest' --tests '*ProcessTreeTest'`, on a Mac.
+- **Phase 89 in the window.** The placeholder as a green frame was looked at as a headless browser draws it, on both
+  themes, not in the JavaFX window; it shows there for a moment at startup.
 
 ## Related repositories
 
