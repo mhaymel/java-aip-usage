@@ -191,7 +191,7 @@ const DEBUG_CONFIG = { ...CONFIG, debug: true };
 
 const ERRORS = {
     entries: [
-        { time: '11:34:42', message: 'Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.' },
+        { time: '11:34:42', message: 'Anthropic is rate limiting usage requests (HTTP 429).' },
         { time: '11:20:01', message: 'Claude Code is not logged in. Log in, then refresh.' },
     ],
 };
@@ -1313,7 +1313,7 @@ test('the error log button opens the panel with a line for each error, newest fi
 
     assert.equal(page.el('panel').hidden, false);
     assert.deepEqual(rows(page), [
-        ['11:34:42', 'Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.'],
+        ['11:34:42', 'Anthropic is rate limiting usage requests (HTTP 429).'],
         ['11:20:01', 'Claude Code is not logged in. Log in, then refresh.'],
     ]);
     assert.deepEqual(head(page), [['time', 'message']]);
@@ -1387,7 +1387,7 @@ const LIMITED = {
         time: '14:24', timeTooltip: 'Last update: x', placeholder: null, message: null,
         spend: { percentText: '19%', percentTooltip: 'p', used: '186.02', limit: '1,000.00', usedTooltip: 'u', limitTooltip: 'l', severityText: 'normal' },
         countdown: { text: '118s', tooltip: 'c' },
-        countdownAlert: 'Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.',
+        countdownAlert: 'Anthropic is rate limiting usage requests (HTTP 429).',
         show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false },
     },
 };
@@ -1431,7 +1431,7 @@ test('hovering the red countdown shows the message in a line under the row, and 
 
     page.el('countdown').listeners.mouseenter();
     assert.equal(page.el('alert-note').hidden, false);
-    assert.equal(page.el('alert-note').textContent, 'Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.');
+    assert.equal(page.el('alert-note').textContent, 'Anthropic is rate limiting usage requests (HTTP 429).');
     assert.match(INDEX_HTML, /id="alert-note" class="note note-alert"/, 'in the red, bold note style');
 
     page.el('countdown').listeners.mouseleave();

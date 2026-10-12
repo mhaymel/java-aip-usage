@@ -191,7 +191,7 @@ class StatusDisplayTest {
 
     @Test
     void withTheCountdownHiddenAnHttp429HasAMessageLineLikeAnyOtherFailure() {
-        String message = "Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.";
+        String message = "Anthropic is rate limiting usage requests (HTTP 429).";
         UsageState limited = new UsageState(spend(SPEND), message, Instant.parse("2026-10-08T14:25:01Z"), false, true);
         Settings hidden = Settings.defaults().withRowElements(true, true, true, true, false);
 
@@ -218,7 +218,7 @@ class StatusDisplayTest {
 
     @Test
     void anHttp429HasNoMessageLineButTheCountdownCarriesTheMessage() {
-        String message = "Anthropic is rate limiting usage requests (HTTP 429). Next try in 2 min.";
+        String message = "Anthropic is rate limiting usage requests (HTTP 429).";
         UsageState limited = new UsageState(spend(SPEND), message, Instant.parse("2026-10-08T14:25:01Z"), false, true);
 
         StatusDisplay.View v = build(limited, OptionalLong.of(120), null, Settings.defaults());

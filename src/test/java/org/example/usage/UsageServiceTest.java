@@ -600,7 +600,7 @@ class UsageServiceTest {
 
         List<ErrorLog.Entry> entries = service.errors().newestFirst();
         assertTrue(entries.get(0).message().contains("HTTP 429"), entries.get(0).message());
-        assertTrue(entries.get(0).message().contains("Next try in"), "the message the row would have shown, wait included");
+        assertFalse(entries.get(0).message().contains("Next try in"), "the message says nothing of the next try");
         assertTrue(entries.get(0).at().isAfter(Instant.parse("2020-01-01T00:00:00Z")));
         assertEquals(2, entries.size(), "the first call succeeded and added none");
     }
@@ -678,14 +678,14 @@ class UsageServiceTest {
     }
 
     @Test
-    void theErrorSaysWhenTheNextTryIs() {
+    void theErrorOfARateLimitSaysNothingOfTheNextTry() {
         UsageService service = start(() -> {
             throw rateLimited();
         }, Duration.ofSeconds(30));
 
         await(() -> service.state().error() != null);
 
-        assertEquals("Anthropic is rate limiting usage requests (HTTP 429). Next try in 30 s.", service.state().error());
+        assertEquals("Anthropic is rate limiting usage requests (HTTP 429).", service.state().error());
     }
 
     @Test
@@ -700,17 +700,6 @@ class UsageServiceTest {
 
         // Five tries at a 50 ms interval take about 200 ms; doubling would have taken over 700 ms.
         assertTrue(times.get(4) - times.get(0) < 600, "took " + (times.get(4) - times.get(0)));
-    }
-
-    @Test
-    void describesAWaitInSecondsThenMinutes() {
-        assertEquals("1 s", UsageService.describe(1));
-        assertEquals("1 s", UsageService.describe(0));
-        assertEquals("30 s", UsageService.describe(30_000_000_000L));
-        assertEquals("59 s", UsageService.describe(59_000_000_000L));
-        assertEquals("1 min", UsageService.describe(60_000_000_000L));
-        assertEquals("2 min", UsageService.describe(61_000_000_000L));
-        assertEquals("5 min", UsageService.describe(300_000_000_000L));
     }
 
     @Test
@@ -913,7 +902,7 @@ class UsageServiceTest {
         await(() -> saved.size() == 3);
         assertEquals(55, service.effectiveIntervalSeconds(), "a 429 at 50: a tenth up");
         assertTrue(service.state().rateLimited());
-        assertTrue(service.state().error().endsWith(" Next try in 55 s."), service.state().error());
+        assertEquals("Anthropic is rate limiting usage requests (HTTP 429).", service.state().error());
         assertEquals(List.of("55 s (no refusal yet)", "50 s (no refusal yet)", "55 s (refused at 50 s)"), saved, "and each step is given to be saved");
     }
 
@@ -960,7 +949,7 @@ class UsageServiceTest {
         assertEquals(300, service.effectiveIntervalSeconds(), "the interval the row shows is the wait the server named");
         long wait = service.secondsUntilNextRefresh().orElseThrow();
         assertTrue(wait > 290 && wait <= 300, "and it is the wait: " + wait);
-        assertTrue(service.state().error().endsWith(" Next try in 5 min."), service.state().error());
+        assertEquals("Anthropic is rate limiting usage requests (HTTP 429).", service.state().error());
         assertEquals(List.of("300 s (refused at 10 s)"), saved, "and what is saved");
     }
 
@@ -981,7 +970,7 @@ class UsageServiceTest {
         assertEquals(300, service.effectiveIntervalSeconds(), "the search goes no higher");
         long wait = service.secondsUntilNextRefresh().orElseThrow();
         assertTrue(wait > 290 && wait <= 300, "wait " + wait);
-        assertTrue(service.state().error().endsWith(" Next try in 5 min."), service.state().error());
+        assertEquals("Anthropic is rate limiting usage requests (HTTP 429).", service.state().error());
     }
 
     @Test

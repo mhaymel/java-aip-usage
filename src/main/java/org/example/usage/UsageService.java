@@ -400,11 +400,10 @@ public final class UsageService implements AutoCloseable {
         if (outcome.rateLimited() && search == null) {
             long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
             if (retryAfter > 0) {
-                LOG.log(System.Logger.Level.INFO, "The server asked for a wait of " + describe(retryAfter) + "; the interval of "
-                        + describe(interval) + " is kept");
+                LOG.log(System.Logger.Level.INFO, "The server asked for a wait of " + seconds(retryAfter) + " s; the interval of "
+                        + seconds(interval) + " s is kept");
             }
-            LOG.log(System.Logger.Level.WARNING, "Rate limited; next try in " + describe(interval));
-            return outcome.withError(outcome.error() + " Next try in " + describe(interval) + ".");
+            return outcome;
         }
         if (search == null) {
             return outcome;
@@ -417,9 +416,8 @@ public final class UsageService implements AutoCloseable {
             long next = Duration.ofSeconds(search.interval()).toNanos();
             schedule.setInterval(next);
             LOG.log(System.Logger.Level.INFO, "Automatic interval: " + search.describe());
-            LOG.log(System.Logger.Level.WARNING, "Rate limited; next try in " + describe(next));
             searchMoved = true;
-            return outcome.withError(outcome.error() + " Next try in " + describe(next) + ".");
+            return outcome;
         }
         if (outcome.snapshot() != null) {
             search.succeeded();
@@ -433,10 +431,9 @@ public final class UsageService implements AutoCloseable {
         return outcome;
     }
 
-    /** "30 s", "2 min": a wait, rounded up, coarse on purpose. */
-    static String describe(long nanos) {
-        long seconds = Math.max(1, (nanos + 999_999_999L) / 1_000_000_000L);
-        return seconds < 60 ? seconds + " s" : ((seconds + 59) / 60) + " min";
+    /** A wait in whole seconds, rounded up and never less than 1, for the log. */
+    private static long seconds(long nanos) {
+        return Math.max(1, (nanos + 999_999_999L) / 1_000_000_000L);
     }
 
     private record Outcome(UsageSnapshot snapshot, String error, boolean rateLimited, Duration retryAfter) {
