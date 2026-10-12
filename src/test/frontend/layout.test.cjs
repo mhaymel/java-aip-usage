@@ -370,7 +370,10 @@ test('the About view has the logo at 96 pixels, the name and the version, a tabl
     assert.match(view, /<img id="about-logo" class="about-logo" src="icon\.png" width="96" height="96" alt="[^"]+">/);
     assert.match(view, /<p id="about-name" class="about-name">aip usage<\/p>\s*<p id="about-version" class="about-version"><\/p>/);
     assert.deepEqual([...view.matchAll(/<span class="about-label">([^<]+)<\/span><span(?: class="about-path"><a)? id="(about-[a-z]+)"/g)].map(m => m[1] + ':' + m[2]),
-        ['Settings:about-settings', 'Log:about-log', 'Usage history:about-history', 'Java:about-java', 'JavaFX:about-javafx', 'System:about-system', 'Debug mode:about-debug']);
+        ['Settings:about-settings', 'Log:about-log', 'Usage history:about-history', 'System:about-system', 'Debug mode:about-debug']);
+    // What the program runs on has no name in the page: the backend says it, so that the page is the same for a backend in any language.
+    assert.match(view, /<span id="about-runtime-label" class="about-label"><\/span><span id="about-runtime"><\/span>\s*<span id="about-toolkit-label" class="about-label"><\/span><span id="about-toolkit"><\/span>\s*<span class="about-label">System<\/span>/);
+    assert.doesNotMatch(html + read('app.js') + read('view.js'), /JavaFX|>Java<|['"]Java['"]/, 'no name of a language or a toolkit in the page');
     assert.deepEqual([...view.matchAll(/<button id="([a-z-]+)"[^>]*>([^<]+)<\/button>/g)].map(m => m[1] + ':' + m[2]), [], 'no button with a text');
 
     assert.match(ruleOf('.about-logo'), /width:\s*96px/);
@@ -399,7 +402,7 @@ test('the three paths of About are links that are not bold, each with a button o
         assert.match(view, new RegExp('<span class="about-path"><a id="about-' + name + '" class="about-link" href="#" title="Open the folder of this file"></a>\\s*<button id="about-copy-' + name
             + '" class="icon tiny copy" type="button" aria-label="Copy the path" title="Copy the path">'), name);
     }
-    for (const plain of ['java', 'javafx', 'system', 'debug']) {
+    for (const plain of ['runtime', 'toolkit', 'system', 'debug']) {
         assert.match(view, new RegExp('<span id="about-' + plain + '"></span>'), plain + ' is text, no link');
     }
     assert.equal((view.match(/class="about-link"/g) || []).length, 3);

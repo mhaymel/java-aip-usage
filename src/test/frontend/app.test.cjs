@@ -213,7 +213,7 @@ const LOG = {
 const ABOUT = {
     name: 'aip usage', version: '0.57',
     files: { settings: 'C:\\work\\aip\\settings.json', log: 'C:\\work\\aip\\java-aip-usage.log', history: 'C:\\work\\aip\\java-aip-usage.csv' },
-    java: '25.0.1', javafx: '25.0.4', system: 'Windows 11 10.0', debug: false, fake: false,
+    runtime: { name: 'Java', version: '25.0.1' }, toolkit: { name: 'JavaFX', version: '25.0.4' }, system: 'Windows 11 10.0', debug: false, fake: false,
 };
 
 const accepting = body => ({ status: 200, body: { ...CONFIG, ...body } });
@@ -3123,8 +3123,10 @@ test('About is the last tab and shows what the backend says of the program', asy
     assert.equal(page.el('about-settings').textContent, 'C:\\work\\aip\\settings.json');
     assert.equal(page.el('about-log').textContent, 'C:\\work\\aip\\java-aip-usage.log');
     assert.equal(page.el('about-history').textContent, 'C:\\work\\aip\\java-aip-usage.csv');
-    assert.equal(page.el('about-java').textContent, '25.0.1');
-    assert.equal(page.el('about-javafx').textContent, '25.0.4');
+    assert.equal(page.el('about-runtime-label').textContent, 'Java', 'the name of the runtime is what the backend says');
+    assert.equal(page.el('about-runtime').textContent, '25.0.1');
+    assert.equal(page.el('about-toolkit-label').textContent, 'JavaFX', 'and so is the name of the toolkit of the window');
+    assert.equal(page.el('about-toolkit').textContent, '25.0.4');
     assert.equal(page.el('about-system').textContent, 'Windows 11 10.0');
     assert.equal(page.el('about-debug').textContent, 'off');
     assert.match(page.window.contentSize(), /,3,settings$/, 'for the window it is the settings still: the title bar, and no resizing');

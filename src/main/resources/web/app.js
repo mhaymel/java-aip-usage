@@ -652,8 +652,11 @@
             $('about-settings').textContent = about.files.settings;
             $('about-log').textContent = about.files.log;
             $('about-history').textContent = about.files.history;
-            $('about-java').textContent = about.java;
-            $('about-javafx').textContent = about.javafx;
+            // What the program runs on is the backend's to name: the page writes the names it is given.
+            $('about-runtime-label').textContent = about.runtime.name;
+            $('about-runtime').textContent = about.runtime.version;
+            $('about-toolkit-label').textContent = about.toolkit.name;
+            $('about-toolkit').textContent = about.toolkit.version;
             $('about-system').textContent = about.system;
             $('about-debug').textContent = !about.debug ? 'off' : about.fake ? 'on, the fake backend is in use' : 'on';
             show('about-details', true);
@@ -1268,7 +1271,7 @@
 
     /**
      * The size, in CSS pixels, the window needs to show all of this page, and what of it the person
-     * may drag: `width,height,resizable`. The Java host asks for it and resizes the window to
+     * may drag: `width,height,resizable`. The host of the page asks for it and resizes the window to
      * match; see docs/api.md. It is the page's own size, not the window's, so asking does not
      * change it. With a panel shown the height is ten times the row's, and the height is the
      * person's to change from there; with the log the width is three times the row's, and that is

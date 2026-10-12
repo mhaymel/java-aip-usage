@@ -1,9 +1,9 @@
 # Local API
 
-The contract between the frontend (`src/main/resources/web/`) and the backend.
-It is deliberately small and independent of Java, so a future Go backend can
-serve the same frontend by providing the same endpoints. The Java implementation
-is `ApiHandler`.
+The contract between the frontend, the page with its style sheet and its scripts, and the backend.
+It is deliberately small and independent of the language the backend is written in: every version of the
+program serves the same frontend by providing the same endpoints with the same shapes. Nothing here is said in
+terms of one implementation; what holds for one version only is in the requirements, in that version's section.
 
 The backend listens on `127.0.0.1` only, on a port chosen by the operating
 system, and serves the frontend at `/`. Every response from `/api/` is JSON
@@ -427,8 +427,8 @@ Read-only. What the About view of the settings shows.
     "log": "C:\\work\\aip\\java-aip-usage.log",
     "history": "C:\\work\\aip\\java-aip-usage.csv"
   },
-  "java": "25.0.1",
-  "javafx": "25.0.4",
+  "runtime": { "name": "Java", "version": "25.0.1" },
+  "toolkit": { "name": "JavaFX", "version": "25.0.4" },
   "system": "Windows 11 10.0",
   "debug": false,
   "fake": false
@@ -438,8 +438,12 @@ Read-only. What the About view of the settings shows.
 - `files`: the **full paths** of the three files. This is the one request that says where a file is; `/api/log` and
   `/api/history` still give a name at most. The server listens on the loopback address only. `history` is the file in
   use, so that of the invented readings while the fake backend is.
-- `java`, `javafx`, `system`: the versions of the runtime and of JavaFX, and the name and version of the operating
-  system. `javafx` is `unknown` in a run with no window.
+- `runtime`, `toolkit`: what the program is built on and the toolkit of its window, each with the `name` it is to be
+  shown under and its `version`. The names are the backend's to say, and the page writes them as they come: in the
+  example they are those of the version written in Java, and a version in another language names its own. The
+  `version` of the toolkit is `unknown` in a run with no window, where it is the window that gives it. (Until
+  version 0.77 these were two texts under the keys `java` and `javafx`, and the page had the two names in it.)
+- `system`: the name and version of the operating system.
 - `debug`, `fake`: whether the program was started with `--debug`, and whether the fake backend is in use.
 
 The logo of the view is the program's icon at 256 pixels, which the server gives the page as `/icon.png`.
@@ -555,14 +559,14 @@ Those are the starting point, not the size the window was dragged to. While the 
 reports flag `3`, the name `settings` (`520,658,3,settings`) and the height of the whole page, the row and its message lines and the settings, so the
 window is exactly as tall as they need, and follows them. The last field names the panel that is open, and is left out when none is: `415,420,1,history`,
 `1215,420,2,log` or `615,420,2,errors` (the error log is half as wide as the log, rounded up). The cost control panel reports flag `3`, with the width of the history's table and the height its two bars need: `415,160,3,cost`. For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
-is whole. The host (`WindowFit`) remembers the height of the history and of the log, in the settings
+is whole. The host remembers the height of the history and of the log, in the settings
 file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. For as long as a panel is named the host gives the window its title bar, whatever the setting `showTitleBar` says, and with none named it follows the setting. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
 resize only what it is told may be: nothing for `0` and `3`, the height for `1`, the height and the width for `2`, and never
 below the size last reported with `0`. The page measures its own content, never the window, so resizing the
-window to match does not change the answer. The Java host (`WindowFit`) ignores anything that is not that
+window to match does not change the answer. The host ignores anything that is not that
 shape (a width or a height of 0 or of more than five digits, a panel name other than `history`, `log`, `errors`, `cost`, `settings` and `debug`, the last of which the page no longer reports: the Debug tab is a tab of the settings), keeps the size it sets
 between 160 x 32 and 2400 x 1600, and does not apply a size twice; a change of the flag or of the panel alone counts as a new size. A different host,
-such as the future Go one, needs only to call the function and resize.
+in a version written in another language, needs only to call the function and resize.
 
 The page exposes nothing else to its host, and the host exposes nothing to the page.
 

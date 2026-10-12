@@ -1438,7 +1438,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
     in use, so in debug mode with the fake backend it is the file of the invented readings;
   - **What it runs on**: the runtime the version of the program is built on and the toolkit of its window, each by its
     name and with its version, and `System` with the name and the version of the operating system. The names of the
-    first two are the version's own (for the Java version, `Java` and `JavaFX`; see The Java implementation);
+    first two are the version's own (for the Java version, `Java` and `JavaFX`; see The Java implementation), and the
+    page has neither in it: the backend says them, and the page writes the names it is given (since version 0.78; until
+    then the two names were written in the page, which was the one thing in it that belonged to one language);
   - **`Debug mode`**: `off`; or `on` when the program was started with `--debug`; or `on, the fake backend is in
     use` while it is.
 - **The lines are a table of two columns**, the name of a thing at the left in the muted gray and what it is at the

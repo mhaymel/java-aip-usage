@@ -2298,8 +2298,12 @@ class ApiTest {
         assertEquals(dir.resolve("settings.json").toAbsolutePath().normalize().toString(), about.at("/files/settings").asText(), "the full path");
         assertEquals(AppFiles.in(dir).log().toAbsolutePath().normalize().toString(), about.at("/files/log").asText());
         assertEquals(AppFiles.in(dir).history().toAbsolutePath().normalize().toString(), about.at("/files/history").asText());
-        assertEquals(System.getProperty("java.version"), about.get("java").asText());
-        assertFalse(about.get("javafx").asText().isBlank());
+        assertEquals("Java", about.at("/runtime/name").asText(), "what it runs on is named by the backend, not by the page");
+        assertEquals(System.getProperty("java.version"), about.at("/runtime/version").asText());
+        assertEquals("JavaFX", about.at("/toolkit/name").asText());
+        assertFalse(about.at("/toolkit/version").asText().isBlank());
+        assertNull(about.get("java"), "the keys that named a language are gone");
+        assertNull(about.get("javafx"));
         assertTrue(about.get("system").asText().startsWith(System.getProperty("os.name")), about.get("system").asText());
         assertFalse(about.get("debug").asBoolean());
         assertFalse(about.get("fake").asBoolean());

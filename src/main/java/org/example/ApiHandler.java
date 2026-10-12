@@ -579,9 +579,9 @@ final class ApiHandler implements HttpHandler {
                 AppInfo.NAME,
                 AppInfo.VERSION,
                 new AboutFiles(absolute(files.settings()), absolute(files.log()), absolute(sources.history())),
-                System.getProperty("java.version", "unknown"),
+                new Named("Java", System.getProperty("java.version", "unknown")),
                 // Set by JavaFX once its toolkit runs; a run with no window, as in a test, has none.
-                System.getProperty("javafx.runtime.version", "unknown"),
+                new Named("JavaFX", System.getProperty("javafx.runtime.version", "unknown")),
                 (System.getProperty("os.name", "unknown") + " " + System.getProperty("os.version", "")).trim(),
                 sources.debug(),
                 sources.fake());
@@ -944,19 +944,31 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
-    /** @param fake whether the fake backend is in use, which it can be only in debug mode */
-    record AboutBody(String name, String version, AboutFiles files, String java, String javafx, String system, boolean debug, boolean fake) {
+    /**
+     * @param runtime what the program is built on, by its name and with its version; the name is this version's own to say
+     * @param toolkit the toolkit of the window, likewise; its version is {@code unknown} in a run that has no window
+     * @param fake whether the fake backend is in use, which it can be only in debug mode
+     */
+    record AboutBody(String name, String version, AboutFiles files, Named runtime, Named toolkit, String system, boolean debug, boolean fake) {
 
         Json toJson() {
             return Json.object()
                     .put("name", name)
                     .put("version", version)
                     .put("files", files.toJson())
-                    .put("java", java)
-                    .put("javafx", javafx)
+                    .put("runtime", runtime.toJson())
+                    .put("toolkit", toolkit.toJson())
                     .put("system", system)
                     .put("debug", debug)
                     .put("fake", fake);
+        }
+    }
+
+    /** A thing the program runs on, as the About view names it: what it is called, and its version. */
+    record Named(String name, String version) {
+
+        Json toJson() {
+            return Json.object().put("name", name).put("version", version);
         }
     }
 

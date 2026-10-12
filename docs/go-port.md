@@ -82,8 +82,8 @@ file names and the log's start line keep `java-aip-usage`.
     eye, with the list at the end of Testing and verification.
 11. **Update the documents** of the new repository: in the requirements, the section The Go implementation, which is
     to say how the Go version is built, started and tested and which toolkit hosts its window; the plan; `api.md`,
-    which is not language-neutral yet (`/api/about` has the keys `java` and `javafx`, and the window host contract
-    speaks of "the Java host", and is to be changed if the contract changed); the README.
+    which is language-neutral already (what the program runs on is named by the backend, under `runtime` and
+    `toolkit` of `/api/about`), and whose window host contract is to be changed if the contract changed; the README.
 
 ## What ports directly
 

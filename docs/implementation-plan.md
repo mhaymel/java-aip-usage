@@ -1971,6 +1971,16 @@ that refuses: that is what this was built for, and is for a person to try.
 - **Tests.** `layout.test.cjs`, the test of the box, now `the gray box of an element with no value is a thin green frame with square corners and nothing in it, and has a width of its own`: no `background` in the rule, no `--box` in the style sheet, `border-radius: 0`, the border in `--ok`, and that `--ok` is the colour of the figures' text. It was changed first and failed against the old style; a fill put back on purpose fails it again.
 - **By eye.** Boxes beside figures, drawn by a headless browser from the style sheet, on the light and on the dark theme: a green frame with square corners in the green of the figures, the page's background inside. Not looked at in the JavaFX window itself.
 
+### 90. The API names no language: what the program runs on is said by the backend
+
+**Status: built (version 0.78).** Requirements: The About view; `docs/api.md`, `GET /api/about`.
+
+- **Why.** The requirements and `api.md` were made to hold for every version of the program, whatever language it is written in. One thing in the API and in the page belonged to Java: `/api/about` had the keys `java` and `javafx`, and the page had the labels `Java` and `JavaFX` written in it.
+- **The API.** `GET /api/about` has `runtime` and `toolkit` in their place, each an object with a `name` and a `version` (`{"name": "Java", "version": "25.0.1"}`). `ApiHandler.AboutBody` holds two `Named`; the names `Java` and `JavaFX` are said there, in the backend, the one place that knows them.
+- **The page.** `index.html`: the two labels are empty (`about-runtime-label`, `about-toolkit-label`), beside `about-runtime` and `about-toolkit`; `app.js` writes the names and the versions it is given. The page shows what it showed, and has no name of a language or a toolkit in it.
+- **`api.md`.** Its head no longer speaks of Java and a future Go backend, nor of `ApiHandler`; the window host contract no longer of the Java host and `WindowFit`.
+- **Tests.** `ApiTest` (the names and versions under the new keys, and the old keys gone), `app.test.cjs` (the labels are what the backend says), `layout.test.cjs` (the two labels are empty in the page, and no `Java` or `JavaFX` is in the page or its scripts).
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built
