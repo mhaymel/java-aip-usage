@@ -28,7 +28,7 @@ class IntervalSearchTest {
     }
 
     @Test
-    void beforeARefusalTheIntervalGoesDownByATenthWithEachAnswerNotBelowTen() {
+    void beforeARefusalTheIntervalGoesDownByATenthRoundedUpToFiveWithEachAnswerNotBelowTen() {
         IntervalSearch search = IntervalSearch.fresh();
         List<Integer> steps = new ArrayList<>();
         for (int i = 0; i < 8; i++) {
@@ -36,27 +36,31 @@ class IntervalSearchTest {
             steps.add(search.interval());
         }
 
-        assertEquals(List.of(54, 49, 45, 41, 37, 34, 31, 28), steps);
+        assertEquals(List.of(55, 50, 45, 40, 35, 30, 25, 20), steps);
         answers(search, 40);
         assertEquals(10, search.interval());
         assertNull(search.refused());
     }
 
     @Test
-    void aRefusalIsRememberedAndTheNextIntervalIsATenthLongerAtLeastASecond() {
+    void aRefusalIsRememberedAndTheNextIntervalIsATenthLongerRoundedUpToFiveAndAtLeastFiveMore() {
         IntervalSearch search = IntervalSearch.of(20, null);
         search.rateLimited();
-        assertEquals(22, search.interval());
+        assertEquals(25, search.interval());
         assertEquals(20, search.refused());
-        assertEquals("22 s (refused at 20 s)", search.describe());
+        assertEquals("25 s (refused at 20 s)", search.describe());
 
         IntervalSearch hundred = IntervalSearch.of(100, null);
         hundred.rateLimited();
         assertEquals(110, hundred.interval());
 
+        IntervalSearch odd = IntervalSearch.of(105, null);
+        odd.rateLimited();
+        assertEquals(120, odd.interval(), "115.5 rounded up to the next 5 is 120");
+
         IntervalSearch ten = IntervalSearch.of(10, null);
         ten.rateLimited();
-        assertEquals(11, ten.interval(), "a tenth of 10 is a second: R + 1");
+        assertEquals(15, ten.interval(), "a tenth of 10 is 1: R + 5");
     }
 
     @Test
@@ -68,50 +72,49 @@ class IntervalSearchTest {
         assertEquals(300, search.interval());
         assertEquals(300, search.refused());
         answers(search, 8);
-        assertEquals(300, search.interval(), "never below R + 1, and R + 1 is above the ceiling: it stays");
+        assertEquals(300, search.interval(), "never below R + 5, and R + 5 is above the ceiling: it stays");
     }
 
     @Test
-    void afterEightAnswersWithoutARefusalItIsASecondShorterButNotAsShortAsTheRefusedOne() {
-        IntervalSearch search = IntervalSearch.of(40, null);
+    void afterEightAnswersWithoutARefusalItIsFiveSecondsShorterButNotAsShortAsTheRefusedOnePlusFive() {
+        IntervalSearch search = IntervalSearch.of(100, null);
         search.rateLimited();
-        assertEquals(44, search.interval());
+        assertEquals(110, search.interval());
 
         answers(search, 7);
-        assertEquals(44, search.interval());
+        assertEquals(110, search.interval());
         answers(search, 1);
-        assertEquals(43, search.interval());
-        answers(search, 8 * 2);
-        assertEquals(41, search.interval(), "a second for every eight answers: 43, 42, 41");
-        answers(search, 8 * 10);
-        assertEquals(search.refused() + 1, search.interval(), "never as short as the refused interval: one above it, which has been forgotten down meanwhile");
-        assertEquals(39, search.refused(), "104 answers, one second forgotten");
+        assertEquals(105, search.interval());
+        answers(search, 8 * 5);
+        assertEquals(105, search.interval(), "one step above the refused interval, 100, and no lower");
+        answers(search, 8 * 5);
+        assertEquals(100, search.interval(), "once the refused interval has been forgotten a step, after 60 answers, to 95");
     }
 
     @Test
     void aRefusalStartsTheCountOfAnswersAgain() {
-        IntervalSearch search = IntervalSearch.of(40, null);
+        IntervalSearch search = IntervalSearch.of(100, null);
         search.rateLimited();
         answers(search, 7);
 
         search.rateLimited();
 
-        assertEquals(44, search.refused());
-        assertEquals(49, search.interval());
+        assertEquals(110, search.refused());
+        assertEquals(125, search.interval());
         answers(search, 7);
-        assertEquals(49, search.interval());
+        assertEquals(125, search.interval());
         answers(search, 1);
-        assertEquals(48, search.interval());
+        assertEquals(120, search.interval());
     }
 
     @Test
-    void theRefusedIntervalIsForgottenASecondForSixtyAnswersAndThenNone() {
+    void theRefusedIntervalIsForgottenAStepForSixtyAnswersAndThenNone() {
         IntervalSearch search = IntervalSearch.of(40, null);
         search.rateLimited();
         answers(search, 59);
         assertEquals(40, search.refused());
         answers(search, 1);
-        assertEquals(39, search.refused());
+        assertEquals(35, search.refused());
 
         IntervalSearch low = IntervalSearch.of(10, null);
         low.rateLimited();
@@ -120,15 +123,33 @@ class IntervalSearchTest {
     }
 
     @Test
-    void aWaitTheServerNamesLongerThanTheStepBecomesTheIntervalAtMostThreeHundred() {
-        IntervalSearch search = IntervalSearch.of(11, null);
+    void everyIntervalIsAMultipleOfFive() {
+        IntervalSearch search = IntervalSearch.fresh();
+        for (int i = 0; i < 3000; i++) {
+            if (i % 37 == 0) {
+                search.rateLimited(i % 3 == 0 ? 0 : 47);
+            } else {
+                search.succeeded();
+            }
+            assertEquals(0, search.interval() % 5, "interval " + search.interval());
+            assertTrue(search.interval() >= 10 && search.interval() <= 300);
+        }
+    }
+
+    @Test
+    void aWaitTheServerNamesLongerThanTheStepBecomesTheIntervalRoundedUpToFiveAtMostThreeHundred() {
+        IntervalSearch search = IntervalSearch.of(10, null);
         search.rateLimited(300);
         assertEquals(300, search.interval());
-        assertEquals(11, search.refused(), "the interval that was refused, not the server's wait");
+        assertEquals(10, search.refused(), "the interval that was refused, not the server's wait");
 
-        IntervalSearch above = IntervalSearch.of(11, null);
+        IntervalSearch above = IntervalSearch.of(10, null);
         above.rateLimited(3600);
         assertEquals(300, above.interval());
+
+        IntervalSearch odd = IntervalSearch.of(10, null);
+        odd.rateLimited(47);
+        assertEquals(50, odd.interval(), "47 seconds, rounded up to the next 5");
 
         IntervalSearch shorter = IntervalSearch.of(50, null);
         shorter.rateLimited(20);
@@ -136,14 +157,16 @@ class IntervalSearchTest {
     }
 
     @Test
-    void savedFiguresThatCannotBeAStateBeginItAnewAndAnIntervalAtTheRefusedOneIsRaised() {
+    void savedFiguresThatCannotBeAStateBeginItAnewAndOthersAreRoundedUpToTheSteps() {
         assertEquals(60, IntervalSearch.of(9, null).interval());
         assertEquals(60, IntervalSearch.of(301, null).interval());
         assertEquals(60, IntervalSearch.of(30, 5).interval());
         assertNull(IntervalSearch.of(30, 5).refused());
-        assertEquals(31, IntervalSearch.of(30, 30).interval());
-        assertEquals(31, IntervalSearch.of(20, 30).interval());
+        assertEquals(35, IntervalSearch.of(30, 30).interval(), "at the refused interval: R + 5");
+        assertEquals(35, IntervalSearch.of(20, 30).interval());
         assertEquals(30, IntervalSearch.of(30, 25).interval());
+        assertEquals(25, IntervalSearch.of(23, null).interval(), "a single second of an earlier version is rounded up");
+        assertEquals(25, IntervalSearch.of(30, 22).refused(), "so is a refused interval");
     }
 
     /** A server that refuses any interval shorter than a limit, as the endpoint was seen to behave. */
@@ -168,7 +191,7 @@ class IntervalSearchTest {
             int first = refusals(limit, 200, search);
             int later = refusals(limit, 1000, search);
 
-            assertTrue(search.interval() >= limit - 1 && search.interval() <= limit + Math.max(3, limit / 8),
+            assertTrue(search.interval() >= limit - 5 && search.interval() <= limit + Math.max(10, limit / 8),
                     "limit " + limit + ": settled at " + search.interval());
             // Once it has settled it is refused about every sixty answers, as the refused interval is forgotten a second at a time.
             assertTrue(later <= 1000 / IntervalSearch.ANSWERS_PER_DECAY + 10, "limit " + limit + ": " + later + " refusals in 1000 answers (" + first + " at first)");
@@ -183,6 +206,6 @@ class IntervalSearchTest {
 
         refusals(20, 9000, search);
 
-        assertTrue(search.interval() <= 24, "settled at " + search.interval());
+        assertTrue(search.interval() <= 30, "settled at " + search.interval());
     }
 }

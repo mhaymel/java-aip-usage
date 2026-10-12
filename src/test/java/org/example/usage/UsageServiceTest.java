@@ -903,18 +903,18 @@ class UsageServiceTest {
 
         service.start();
         await(() -> saved.size() == 1);
-        assertEquals(54, service.effectiveIntervalSeconds(), "an answer before any refusal: a tenth down");
+        assertEquals(55, service.effectiveIntervalSeconds(), "an answer before any refusal: a tenth down, rounded up to 5");
 
         assertTrue(service.refreshNow());
         await(() -> saved.size() == 2);
-        assertEquals(49, service.effectiveIntervalSeconds(), "a manual refresh moves the search as a scheduled one does");
+        assertEquals(50, service.effectiveIntervalSeconds(), "a manual refresh moves the search as a scheduled one does");
 
         assertTrue(service.refreshNow());
         await(() -> saved.size() == 3);
-        assertEquals(54, service.effectiveIntervalSeconds(), "a 429 at 49: a tenth up, ceil(53.9)");
+        assertEquals(55, service.effectiveIntervalSeconds(), "a 429 at 50: a tenth up");
         assertTrue(service.state().rateLimited());
-        assertTrue(service.state().error().endsWith(" Next try in 54 s."), service.state().error());
-        assertEquals(List.of("54 s (no refusal yet)", "49 s (no refusal yet)", "54 s (refused at 49 s)"), saved, "and each step is given to be saved");
+        assertTrue(service.state().error().endsWith(" Next try in 55 s."), service.state().error());
+        assertEquals(List.of("55 s (no refusal yet)", "50 s (no refusal yet)", "55 s (refused at 50 s)"), saved, "and each step is given to be saved");
     }
 
     @Test
@@ -937,8 +937,8 @@ class UsageServiceTest {
         await(() -> calls.get() == 2 && !service.state().refreshing());
 
         assertNotNull(service.state().error());
-        assertEquals(54, service.effectiveIntervalSeconds(), "as it was after the first answer");
-        assertEquals(List.of("54"), saved, "and nothing was given to be saved for it");
+        assertEquals(55, service.effectiveIntervalSeconds(), "as it was after the first answer");
+        assertEquals(List.of("55"), saved, "and nothing was given to be saved for it");
     }
 
     @Test
@@ -953,7 +953,7 @@ class UsageServiceTest {
         }, HOUR);
         started.add(service);
         service.onSearchMoved(moved -> saved.add(moved.describe()));
-        service.setAutomatic(IntervalSearch.of(11, null));
+        service.setAutomatic(IntervalSearch.of(10, null));
         service.start();
         await(() -> service.state().rateLimited() && saved.size() == 1);
 
@@ -961,7 +961,7 @@ class UsageServiceTest {
         long wait = service.secondsUntilNextRefresh().orElseThrow();
         assertTrue(wait > 290 && wait <= 300, "and it is the wait: " + wait);
         assertTrue(service.state().error().endsWith(" Next try in 5 min."), service.state().error());
-        assertEquals(List.of("300 s (refused at 11 s)"), saved, "and what is saved");
+        assertEquals(List.of("300 s (refused at 10 s)"), saved, "and what is saved");
     }
 
     @Test
@@ -988,11 +988,11 @@ class UsageServiceTest {
     void switchedOffTheConfiguredIntervalIsInForceAgainAlsoOneThatWasSetMeanwhile() {
         UsageService service = new UsageService(() -> snapshot(1), Duration.ofSeconds(90));
         started.add(service);
-        service.setAutomatic(IntervalSearch.of(29, 23));
-        assertEquals(29, service.effectiveIntervalSeconds());
+        service.setAutomatic(IntervalSearch.of(30, 25));
+        assertEquals(30, service.effectiveIntervalSeconds());
 
         service.setInterval(Duration.ofSeconds(120));
-        assertEquals(29, service.effectiveIntervalSeconds(), "the configured interval waits while the search is on");
+        assertEquals(30, service.effectiveIntervalSeconds(), "the configured interval waits while the search is on");
 
         service.setAutomatic(null);
         assertFalse(service.automatic());
@@ -1006,13 +1006,13 @@ class UsageServiceTest {
         UsageService service = new UsageService(() -> { calls.incrementAndGet(); return snapshot(1); }, HOUR);
         started.add(service);
         service.onSearchMoved(moved -> saved.add(moved.describe()));
-        service.setAutomatic(IntervalSearch.of(24, 23));
+        service.setAutomatic(IntervalSearch.of(30, 25));
         service.start();
         await(() -> calls.get() == 1 && !service.state().refreshing());
         assertTrue(service.refreshNow());
         await(() -> calls.get() == 2 && !service.state().refreshing());
 
-        assertEquals(24, service.effectiveIntervalSeconds());
-        assertEquals(List.of(), saved, "24 with 23 refused stays what it is");
+        assertEquals(30, service.effectiveIntervalSeconds());
+        assertEquals(List.of(), saved, "30 with 25 refused stays what it is");
     }
 }

@@ -1392,6 +1392,31 @@ test('while the server asks us to slow down the countdown is red, with no messag
     assert.equal(page.el('alert-note').hidden, true, 'and the message is not shown until hovered');
 });
 
+test('with the automatic interval on the countdown is blue; the red of a 429 wins; off it is plain', async () => {
+    const auto = { ...LIMITED, display: { ...LIMITED.display, countdownAlert: null, countdownAuto: true } };
+    const state = { config: CONFIG, status: auto };
+    const page = await load(backendOf(state));
+    assert.match(page.el('countdown').className, /\bauto\b/);
+    assert.doesNotMatch(page.el('countdown').className, /\balert\b/);
+
+    state.status = { ...LIMITED, display: { ...LIMITED.display, countdownAuto: true } };
+    await page.firePoll();
+    assert.match(page.el('countdown').className, /\balert\b/, 'a 429: red');
+    assert.doesNotMatch(page.el('countdown').className, /\bauto\b/, 'and not blue');
+
+    state.status = { ...LIMITED, display: { ...LIMITED.display, countdownAlert: null, countdownAuto: false } };
+    await page.firePoll();
+    assert.doesNotMatch(page.el('countdown').className, /\bauto\b|\balert\b/, 'off: the colour of the text');
+});
+
+test('the tooltip of the countdown may have two lines, and the page shows them as they are', async () => {
+    const status = { ...LIMITED, display: { ...LIMITED.display, countdownAlert: null,
+        countdown: { text: '30s', tooltip: 'Seconds until the next refresh (negative when overdue)\nAutomatic interval is on: the interval is now 35 s' } } };
+    const page = await load(backendOf({ config: CONFIG, status }));
+
+    assert.equal(page.el('countdown').title, 'Seconds until the next refresh (negative when overdue)\nAutomatic interval is on: the interval is now 35 s');
+});
+
 test('hovering the red countdown shows the message in a line under the row, and leaving takes it away', async () => {
     const page = await load(backendOf({ config: CONFIG, status: LIMITED }));
 
@@ -1900,7 +1925,7 @@ test('the blue goes when the note does: switching from a blue note to a panel wi
 
 // ---- the start line is green in the history and gray in the log
 
-test('the history\'s start line is green text and has no gray background class; the failed word is still red', async () => {
+test('the history\'s start line is green text with the start class (the light blue is its rule); the failed word is still red', async () => {
     const history = { ...HISTORY, lines: [
         line(['20:46:11', 'failed', '', ''], { failed: true }),
         line(['20:44:12', 'failed', '', ''], { failed: true, start: true, title: 'The program started here' })] };
@@ -1914,7 +1939,7 @@ test('the history\'s start line is green text and has no gray background class; 
     assert.equal(shown[1].children[1].className, 'failed', 'the failed startup line keeps its red word');
 });
 
-test('the log\'s start line keeps the light gray background class and is not green', async () => {
+test('the log\'s start line has the mark class, the very light blue, and is not green', async () => {
     const log = { ...LOG, lines: ['2026-10-08 19:00:00 INFO    [UsageApp] Starting java-aip-usage v0.20', '2026-10-08 19:00:01 INFO    [UsageService] Usage refresh succeeded'] };
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, log: () => ({ status: 200, body: log }) }));
 

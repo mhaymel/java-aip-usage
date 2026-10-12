@@ -96,6 +96,7 @@ process.env.TZ = 'UTC';
      *                 severityText}, or null
      *   placeholder  text for a row with nothing else to show, or null
      *   countdown    {text, tooltip} for the seconds to the next refresh, or null
+     *   (the display built from it also has countdownAuto, true while the automatic interval is on, as the status says)
      *   message      {kind: 'error'|'stale', text} for the line under the row, or null
      *   stale        the figures predate a failed refresh
      *   refreshing   a refresh is running
@@ -161,7 +162,7 @@ process.env.TZ = 'UTC';
         return Object.assign({}, status, {
             display: {
                 time: d.time, timeTooltip: d.timeTooltip, spend: d.spend, placeholder: d.placeholder, loading: d.loading, variants: d.variants,
-                countdown: d.countdown, interval: { text: '60s', tooltip: 'Time between usage requests' }, deltaUsed: null, deltaTime: null,
+                countdown: d.countdown, countdownAuto: Boolean(status.countdownAuto), interval: { text: '60s', tooltip: 'Time between usage requests' }, deltaUsed: null, deltaTime: null,
                 show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false }, message: d.message, noSpend: d.noSpend || null
             }
         });

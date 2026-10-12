@@ -6,8 +6,10 @@
     --bad: #cf222e;
     /* A note that tells the person something about what they are looking at. */
     --info: #0969da;
-    /* The background of the log's start line of a run. */
-    --mark: #e6e6e6;
+    /* The background of the start line of a run, in the log and in the history: a very light blue. */
+    --mark: #ddf4ff;
+    /* The background of a gray box, a placeholder of the row: the green of the figures, lighter. */
+    --box: #dafbe1;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -15,7 +17,8 @@
         --ok: #3fb950;
         --bad: #f85149;
         --info: #58a6ff;
-        --mark: #30363d;
+        --mark: #0c2d6b;
+        --box: #12301d;
     }
 }
 
@@ -214,8 +217,8 @@ body {
     box-sizing: border-box;
     line-height: 1.15;
     color: transparent;
-    /* The muted gray, #8a8f98, at a third of its strength; the strength is the colour's own, so that the border keeps its. */
-    background: rgba(138, 143, 152, 0.33);
+    /* A light green, the green of the figures lighter, in place of the gray this had; the border keeps the green at its full strength. */
+    background: var(--box);
     /* A thin green border round every gray box, in the green of the figures, inside the box. */
     border: 1px solid var(--ok);
     border-radius: 3px;
@@ -798,17 +801,18 @@ body {
     text-align: left;
 }
 
-/* The log's start line of a run: a light gray background over the whole line. */
+/* The start line of a run, in the log: a very light blue background over the whole line. */
 .panel-lines .mark {
     background: var(--mark);
 }
 
 /*
- * The history's first line of a run: green text, the green of the figures, which is the open panel's button's too, and no background of its own and no bold, so
- * it is the line of every other except for its colour. A failed startup line's `failed` keeps its red through its own rule.
+ * The history's first line of a run: green text, the green of the figures, on the very light blue background of the log's start line, and no bold. A failed
+ * startup line's `failed` keeps its red through its own rule.
  */
 .panel-lines .start {
     color: var(--ok);
+    background: var(--mark);
 }
 
 /* A row of a query that did not succeed says so in red, in the place of its amount. */
@@ -823,7 +827,12 @@ body {
     gap: 2px;
 }
 
-/* While the server says to slow down (HTTP 429) the countdown is red. */
+/* While the automatic interval is on the countdown is blue, the blue of the open panel's button. */
+.countdown.auto {
+    color: var(--info);
+}
+
+/* While the server says to slow down (HTTP 429) the countdown is red; the red wins over the blue. */
 .countdown.alert {
     color: var(--bad);
 }
@@ -855,7 +864,7 @@ body {
 }
 
 /*
- * The button of the panel that is shown is green and bigger: the green of the figures, 24 px with a 16 px icon instead of 20 and 12, and
+ * The button of the panel that is shown is blue and bigger: the blue of the notes, 24 px with a 16 px icon instead of 20 and 12, and
  * heavier lines. 24 px is the refresh button's size, so the row keeps its height. The margin takes back the 4 px it
  * grew by, so that the row is no wider either and nothing beside it moves: opening a panel does not change the window.
  */
@@ -863,7 +872,7 @@ body {
     width: 24px;
     height: 24px;
     margin: -2px;
-    color: var(--ok);
+    color: var(--info);
 }
 
 .icon.active svg {

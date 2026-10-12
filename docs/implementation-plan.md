@@ -1811,7 +1811,7 @@ that refuses: that is what this was built for, and is for a person to try.
 
 ### 78. Blue open icon, light blue startup lines, a blue countdown, 5-second steps, a steady width, light green placeholders
 
-**Status: specified, not yet built (version 0.66).** Requirements: The button of the open panel, The usage history panel, The log panel, Countdown, Tooltips, The automatic interval, Gray boxes.
+**Status: built (version 0.66).** Requirements: The button of the open panel, The usage history panel, The log panel, Countdown, Tooltips, The automatic interval, Gray boxes.
 
 - **Colours (CSS).** The open panel's icon button uses the blue of the notes (`--info`), the other icons are as they were. The start line of the history and of the log has a very light blue background (`#ddf4ff` light, `#0c2d6b` dark; the log's gray
   `#e6e6e6`/`#30363d` goes); the history's text stays green. Every gray box of the row has a light green background (`#dafbe1` light, `#12301d` dark) in place of its gray third; border as before.
@@ -1823,6 +1823,9 @@ that refuses: that is what this was built for, and is for a person to try.
   change of the page's size (a new line). Find what resets it (the width the page asks for is a fixed multiple of the row; the stage is set to it at every size change) and apply the width only when the panel, not the content, changed.
 - **Tests.** `IntervalSearchTest` (the steps, the rounding, a simulated server limit, old saved values); `StatusDisplayTest` (the second tooltip line in both modes, the `automatic` flag); `app.test.cjs` and `layout.test.cjs` (the classes, the red winning, the blue icon, the
   backgrounds); `PanelWindowTest` or a new window test (a narrowed log keeps its width when a line comes).
+- **As built.** The width: `UsageApp.resize` applied the page's width at every change of the page's size; it now keeps the stage's width when the same panel stays open and is sized in width (log, error log), and applies the page's only when a panel is
+  opened or replaced. The search is `IntervalSearch` with `STEP_SECONDS` and `roundUp`. `StatusDisplay.View.countdownAuto` and `modeLine`. The page: `--info` for `.icon.active` and `.countdown.auto` (before `.countdown.alert`), `--mark` and `--box` variables.
+- **Not checked by a test:** the width in a real window (no probe was written for it), and how the colours look.
 
 The requirements have no section "specified, not yet built" any more.
 

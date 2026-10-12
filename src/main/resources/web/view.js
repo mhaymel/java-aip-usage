@@ -19,6 +19,7 @@
      *   variants     {timeShort, timeLong, usedPlain, usedSymbol, limitPlain, limitSymbol} for the preview of the settings, or null
      *   countdown    {text, tooltip} for the seconds to the next refresh, or null
      *   countdownAlert  the message of an HTTP 429, for the red countdown and its hover line, or null
+     *   countdownAuto   whether the automatic interval is on, which makes the countdown blue unless it is red
      *   interval     {text, tooltip} for the time between usage requests
      *   deltaUsed    {text, tooltip} for the change in the amount used, or null
      *   deltaTime    {text, tooltip} for the time since the previous reading, or null
@@ -40,6 +41,7 @@
             variants: d.variants || null,
             countdown: d.countdown || null,
             countdownAlert: d.countdownAlert || null,
+            countdownAuto: Boolean(d.countdownAuto),
             interval: d.interval || null,
             deltaUsed: d.deltaUsed || null,
             deltaTime: d.deltaTime || null,

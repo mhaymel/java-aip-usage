@@ -641,8 +641,10 @@ test('the table probe is never seen: off the page, hidden, and as wide as its co
     assert.ok(css.indexOf('.table-probe {') > css.indexOf('.panel-lines {'), 'it comes after the panel rule it overrides');
 });
 
-test('the button of the open panel is the green of the figures, the one green of the page', () => {
-    assert.match(ruleOf('.icon.active'), /color:\s*var\(--ok\)/);
+test('the button of the open panel is the blue of the notes; the other icons are as they were', () => {
+    assert.match(ruleOf('.icon.active'), /color:\s*var\(--info\)/);
+    assert.doesNotMatch(ruleOf('.icon.active'), /var\(--ok\)/, 'no longer green');
+    assert.doesNotMatch(ruleOf('.icon'), /--info|--ok/, 'the other icons keep the colour of the text');
     assert.doesNotMatch(css, /--active/, 'the vivid green is gone');
     assert.doesNotMatch(css, /#00b341|#3ddc6b/);
     assert.ok(css.indexOf('.icon.active {') > css.indexOf('.icon.tiny {'), 'it comes after the rule giving the buttons their gray, to win');
@@ -786,9 +788,12 @@ test('the General tab has the groups Request, Window and Log, with Title bar bef
 });
 test('the gray box of an element with no value is light, rounded, has a thin green border and a width of its own', () => {
     const rule = ruleOf('.skeleton');
-    assert.match(rule, /background:\s*rgba\(138, 143, 152, 0\.33\)/, 'the muted gray, #8a8f98, at a third of its strength');
-    assert.match(css, /--muted:\s*#8a8f98/, 'which is that gray');
-    assert.doesNotMatch(rule, /opacity/, 'the strength is the gray\'s own, or the border would be as faint');
+    assert.match(rule, /background:\s*var\(--box\)/, 'a light green, from a variable');
+    assert.doesNotMatch(css, /rgba\(138, 143, 152/, 'the gray third is gone');
+    const boxes = [...css.matchAll(/--box:\s*(#[0-9a-f]{6})/g)].map(m => m[1]);
+    assert.deepEqual(boxes, ['#dafbe1', '#12301d'], 'the light theme, then the dark one');
+    assert.ok(css.indexOf('--box: #12301d') > css.indexOf('prefers-color-scheme: dark'), 'the second is in the dark block');
+    assert.doesNotMatch(rule, /opacity/, 'the strength is the colour\'s own, or the border would be as faint');
     assert.match(rule, /border:\s*1px solid var\(--ok\)/, 'the green of the figures, one pixel');
     assert.match(rule, /box-sizing:\s*border-box/, 'inside the box, which is as wide and as tall as it was');
     assert.doesNotMatch(css, /\.placeholder\s*{/, 'the words No data and No usage reported have no style left');
@@ -816,12 +821,12 @@ test('the interval is one entry field with its unit, in the Request section', ()
     assert.equal((request.match(/<select/g) || []).length, 0, 'no dropdown');
 });
 
-test('the history\'s start line is green text with no background and no bold; the log\'s keeps the gray background', () => {
+test('the history\'s start line is green text on the very light blue and not bold; the log\'s has the same blue', () => {
     const start = ruleOf('.panel-lines .start');
-    assert.match(start, /color:\s*var\(--ok\)/, 'the green of the figures, which is the open panel\'s button\'s too');
-    assert.doesNotMatch(start, /background/, 'no special background');
+    assert.match(start, /color:\s*var\(--ok\)/, 'the green of the figures');
+    assert.match(start, /background:\s*var\(--mark\)/, 'the very light blue, as the log\'s start line has it');
     assert.doesNotMatch(start, /font-weight/, 'not bold');
-    assert.match(ruleOf('.panel-lines .mark'), /background:\s*var\(--mark\)/, 'the log keeps its gray, from a variable');
+    assert.match(ruleOf('.panel-lines .mark'), /background:\s*var\(--mark\)/, 'the log\'s start line has the light blue, from a variable');
     assert.doesNotMatch(ruleOf('.panel-lines .mark'), /color/);
 });
 
@@ -848,16 +853,19 @@ test('the percentage, the amounts, the two changes and the request duration are 
         assert.doesNotMatch(ruleOf(rule), /color/, rule + ' stays in the colour of the text');
     }
     assert.match(ruleOf('.countdown.alert'), /color:\s*var\(--bad\)/, 'the red of a back-off stays');
+    assert.match(ruleOf('.countdown.auto'), /color:\s*var\(--info\)/, 'the blue of the open panel\'s button with the automatic interval on');
+    assert.ok(css.indexOf('.countdown.alert {') > css.indexOf('.countdown.auto {'), 'the red comes after the blue, to win');
 });
 
 test('old figures are dimmed, the two changes with the amounts', () => {
     assert.match(ruleOf('.stale .time,\n.stale .spend,\n.stale .delta-used,\n.stale .delta-time,\n.stale .delta-duration'), /opacity:\s*0\.6/);
 });
 
-test('the log\'s start line has a gray for each theme, a light one and a dark one that the light text can be read on', () => {
+test('the start line has a very light blue for each theme, a light one and a dark one that the light text can be read on', () => {
     const colours = [...css.matchAll(/--mark:\s*(#[0-9a-f]{6})/g)].map(m => m[1]);
-    assert.deepEqual(colours, ['#e6e6e6', '#30363d'], 'the light theme, then the dark one');
-    assert.ok(css.indexOf('--mark: #30363d') > css.indexOf('prefers-color-scheme: dark'), 'the second is in the dark block');
+    assert.deepEqual(colours, ['#ddf4ff', '#0c2d6b'], 'the light theme, then the dark one');
+    assert.ok(css.indexOf('--mark: #0c2d6b') > css.indexOf('prefers-color-scheme: dark'), 'the second is in the dark block');
+    assert.doesNotMatch(css, /#e6e6e6|#30363d/, 'the gray is gone');
 });
 
 test('an optional item of the row with no value is a gray box of the item\'s own width, never an unseen gap, and is not dimmed', () => {

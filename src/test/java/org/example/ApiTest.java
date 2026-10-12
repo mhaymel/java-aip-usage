@@ -2161,14 +2161,14 @@ class ApiTest {
                 "{\"autoInterval\": true, \"autoIntervalSeconds\": 29, \"autoLowerSeconds\": 23, \"autoUpperSeconds\": 35}");
         AppRuntime app = start(new FakeFetch());
 
-        // The first refresh was answered with no refusal known: a tenth down, ceil(26.1) = 27. The old bounds are not read.
-        awaitSearch(27);
+        // The first refresh was answered with no refusal known: a tenth down from 30 (29 saved, rounded up), rounded up to 5 and at least 5 less: 25. The old bounds are not read.
+        awaitSearch(25);
 
         JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
-        assertEquals(27, file.get("autoIntervalSeconds").asInt());
+        assertEquals(25, file.get("autoIntervalSeconds").asInt());
         assertFalse(file.has("autoLowerSeconds") || file.has("autoUpperSeconds") || file.has("autoRefusedSeconds"), "no refusal is known, and the old bounds are gone");
-        assertEquals(27, json(get(app, "/api/settings")).at("/settings/usageIntervalSeconds").asInt(), "the interval in force");
-        assertEquals("27s", json(get(app, "/api/status")).at("/display/interval/text").asText(), "which the row shows");
+        assertEquals(25, json(get(app, "/api/settings")).at("/settings/usageIntervalSeconds").asInt(), "the interval in force");
+        assertEquals("25s", json(get(app, "/api/status")).at("/display/interval/text").asText(), "which the row shows");
     }
 
     private void awaitSearch(int seconds) throws Exception {

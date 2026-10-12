@@ -246,7 +246,7 @@ class StatusDisplayTest {
 
         assertEquals("42s", build(s, OptionalLong.of(42), null, Settings.defaults()).countdown().text());
         assertEquals("-3s", build(s, OptionalLong.of(-3), null, Settings.defaults()).countdown().text());
-        assertEquals("Seconds until the next refresh (negative when overdue)",
+        assertEquals("Seconds until the next refresh (negative when overdue)\nAutomatic interval is off: the configured interval is 60 s",
                 build(s, OptionalLong.of(1), null, Settings.defaults()).countdown().tooltip());
         assertNull(build(s, OptionalLong.empty(), null, Settings.defaults()).countdown(), "nothing to count to");
     }
@@ -271,6 +271,19 @@ class StatusDisplayTest {
     }
 
     @Test
+    void theCountdownAndTheIntervalSayWhetherTheAutomaticIntervalIsOnAndTheIntervalNow() {
+        UsageState s = state(spend(SPEND), null, null);
+        Settings on = Settings.defaults().withAutoInterval(true).withUsageIntervalSeconds(35);
+
+        StatusDisplay.View v = build(s, OptionalLong.of(7), null, on);
+
+        assertTrue(v.countdownAuto(), "the page makes the countdown blue");
+        assertEquals("Seconds until the next refresh (negative when overdue)\nAutomatic interval is on: the interval is now 35 s", v.countdown().tooltip());
+        assertEquals("Time between usage requests\nAutomatic interval is on: the interval is now 35 s", v.interval().tooltip());
+        assertFalse(build(s, OptionalLong.of(7), null, Settings.defaults()).countdownAuto());
+    }
+
+    @Test
     void theIntervalIsTheOneInForceAsFinishedText() {
         UsageState s = state(spend(SPEND), null, null);
         Settings every120 = Settings.defaults().withUsageIntervalSeconds(120);
@@ -278,7 +291,7 @@ class StatusDisplayTest {
         StatusDisplay.View v = build(s, OptionalLong.empty(), null, every120);
 
         assertEquals("120s", v.interval().text());
-        assertEquals("Time between usage requests", v.interval().tooltip());
+        assertEquals("Time between usage requests\nAutomatic interval is off: the configured interval is 120 s", v.interval().tooltip());
         assertEquals("60s", build(s).interval().text());
     }
 

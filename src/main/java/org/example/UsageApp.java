@@ -343,7 +343,12 @@ public class UsageApp extends Application {
             decorationWidth = width;
             decorationHeight = height;
         }
+        Optional<WindowFit.Size> before = appliedSize;
         appliedSize = Optional.of(size);
+        // A panel that stays open keeps the width the person gave the window: a new line, or any other change of what the page
+        // asks for, applies the page's own width only when the panel was opened or replaced.
+        boolean keepWidth = size.resize() == WindowFit.Resize.BOTH && before.isPresent() && size.panel() != null
+                && size.panel().equals(before.get().panel()) && before.get().resize() == WindowFit.Resize.BOTH;
         int contentHeight = size.height();
         boolean remembered = "history".equals(size.panel()) || "log".equals(size.panel());
         if (remembered) {
@@ -359,7 +364,7 @@ public class UsageApp extends Application {
         heightSettled.stop();
         // Rounded up: a frame is not always a whole number of pixels wide, and a window a fraction too narrow shows a pixel
         // less of the page than it asked for, which is a pixel of the red border when there is one.
-        double width = Math.ceil(size.width() + decorationWidth);
+        double width = keepWidth ? stage.getWidth() : Math.ceil(size.width() + decorationWidth);
         double height = Math.ceil(contentHeight + decorationHeight);
         if (size.resize() == WindowFit.Resize.NONE) {
             // The content as it is with nothing open: what the person may shrink an open one back to.

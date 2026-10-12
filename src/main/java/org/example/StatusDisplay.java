@@ -55,6 +55,7 @@ final class StatusDisplay {
             Variants variants,
             Tip countdown,
             String countdownAlert,
+            boolean countdownAuto,
             Tip interval,
             Tip deltaUsed,
             Tip deltaTime,
@@ -117,10 +118,13 @@ final class StatusDisplay {
                 loading,
                 variants,
                 countdown.isPresent()
-                        ? new Tip(Formatting.rowSeconds(countdown.getAsLong()), "Seconds until the next refresh (negative when overdue)")
+                        ? new Tip(Formatting.rowSeconds(countdown.getAsLong()),
+                                "Seconds until the next refresh (negative when overdue)\n" + modeLine(settings))
                         : null,
                 alert ? state.error() : null,
-                new Tip(Formatting.rowSeconds(settings.usageIntervalSeconds()), "Time between usage requests"),
+                // The page makes the countdown blue while this is on, unless it is red after an HTTP 429.
+                settings.autoInterval(),
+                new Tip(Formatting.rowSeconds(settings.usageIntervalSeconds()), "Time between usage requests\n" + modeLine(settings)),
                 deltaUsed(change, usage),
                 change == null || change.deltaTime() == null ? null
                         // Never less than 0s, and without the space the history's cell has.
@@ -138,6 +142,16 @@ final class StatusDisplay {
                 // What is to be said of a reading that came and has no spend. It is no message that is always shown: the
                 // page shows it below the row while the mouse is on one of the gray boxes of the amounts.
                 usage == null ? null : usage.noSpendMessage());
+    }
+
+    /**
+     * The line under the tooltip of the countdown and of the interval item that says whether the program finds the interval itself, and the
+     * interval: the one it has found while it does, the configured one while it does not. The settings carry the interval in force.
+     */
+    static String modeLine(Settings settings) {
+        return settings.autoInterval()
+                ? "Automatic interval is on: the interval is now " + settings.usageIntervalSeconds() + " s"
+                : "Automatic interval is off: the configured interval is " + settings.usageIntervalSeconds() + " s";
     }
 
     private static Tip deltaUsed(ApiHandler.DeltaBody change, UsageSnapshot usage) {
