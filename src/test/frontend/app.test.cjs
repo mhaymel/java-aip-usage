@@ -3532,7 +3532,7 @@ test('the window is as wide as the widest tab, whichever tab is shown', async ()
     await page.click('settings-button');
     const widths = [];
     // The fake page lays out nothing: a page is as wide as its id says, and the form is as wide as the pages let into the layout.
-    const WIDE = { 'tab-main': 300, 'tab-history': 180, 'tab-cost': 220, 'tab-debug': 340, 'tab-general': 260 };
+    const WIDE = { 'tab-main': 500, 'tab-history': 480, 'tab-cost': 520, 'tab-debug': 640, 'tab-general': 560 };
     const form = page.el('settings-form');
     form.getBoundingClientRect = () => ({ left: 8, width: Math.max(...Object.keys(WIDE).filter(id => !page.el(id).hidden).map(id => WIDE[id])) });
     page.el('settings-buttons').rect = { left: 8, width: 120, height: 20 };
@@ -3542,16 +3542,16 @@ test('the window is as wide as the widest tab, whichever tab is shown', async ()
         widths.push(Number(page.window.contentSize().split(',')[0]));
     }
 
-    assert.deepEqual(widths, [356, 356, 356, 356, 356], 'the widest tab, 340 and the room at both sides');
-    assert.equal(page.el('tab-history').hidden, false, 'and the tab that was shown is shown again after the measuring');
+    assert.deepEqual(widths, [656, 656, 656, 656, 656], 'the widest tab, 640 and the room at both sides');
+    assert.deepEqual(shownTabs(page), ['general'], 'and the tab that was shown is shown again after the measuring');
 });
 
 test('the window is the width of the widest tab outside debug mode without the Debug tab', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
-    const WIDE = { 'tab-main': 300, 'tab-history': 180, 'tab-cost': 220, 'tab-debug': 340, 'tab-general': 260 };
+    const WIDE = { 'tab-main': 500, 'tab-history': 480, 'tab-cost': 520, 'tab-debug': 640, 'tab-general': 560 };
     page.el('settings-form').getBoundingClientRect = () => ({ left: 8, width: Math.max(...Object.keys(WIDE).filter(id => !page.el(id).hidden).map(id => WIDE[id])) });
     page.el('settings-buttons').rect = { left: 8, width: 120, height: 20 };
 
-    assert.equal(Number(page.window.contentSize().split(',')[0]), 316, 'the Debug tab is not there to widen it');
+    assert.equal(Number(page.window.contentSize().split(',')[0]), 576, 'the Debug tab is not there to widen it');
 });
