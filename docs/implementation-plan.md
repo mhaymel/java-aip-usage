@@ -1839,6 +1839,17 @@ that refuses: that is what this was built for, and is for a person to try.
 - **Tests.** `HistoryDeltasTest` (the first row of a run has a time against the last row of the run before; a failed first row; the first row of the file none; the visible variant without a reset at a hidden start line), `HistoryReaderTest`, `ApiTest` (the cell of a start line),
   `StatusDisplayTest`, `app.test.cjs`, `view.test.cjs`.
 
+### 80. The settings open on the tab they were last on
+
+**Status: specified, not yet built (version 0.68).** Requirements: Settings (the tabs), The About view, The window is restored at start.
+
+- **Stored.** `settingsTab` in `settings.json` (`main`, `history`, `cost`, `debug`, `general`, `about`; anything else is none): `SettingsStore.loadSettingsTab`/`saveSettingsTab`, kept by every other save as `LastWindow` is (add a parameter to `write`, or fold it into `LastWindow`'s neighbours);
+  `IntervalSettings.settingsTab()`/`storeSettingsTab(String)`. The settings view neither shows nor changes it: it is not a `Settings` member and `POST /api/settings` leaves it as it is.
+- **API.** `GET /api/settings` (the body that the view reads at each opening) gets `settingsTab` (string or null); `POST /api/settings-tab` with `{"tab": "general"}` stores it (400 for an unknown name), answered 200; `docs/api.md`.
+- **The page.** The tab shown is remembered in the page while it runs; each change of tab posts it (once per change, not at opening); opening the settings shows the remembered tab, or on the first opening after a start the one in `settingsTab`; `debug` outside debug mode and an unknown name give `Main view`.
+  `restoreView('settings', tab)` and `currentView()` use the same tab (when the window is restored with the settings open, the stored `lastTab` is the same value).
+- **Tests.** `SettingsStoreTest` (the key kept by the other saves, unknown names), `ApiTest` (the post and the get, a bad name), `app.test.cjs` (the tab survives Save, Cancel, the gear and another panel's button; the first opening after a start uses the stored one; `debug` outside debug mode; About).
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built

@@ -503,7 +503,10 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   - **The strip is always whole**: while the settings are shown the window is never narrower than the whole strip of the titles needs, in one line, besides what the widest tab needs. So the
     settings have **no horizontal scrollbar** and every title is seen, also when every element of the main row is hidden and the row alone would make the window very narrow
     (the fault that was: with nothing in the main row the window was so narrow that the strip did not fit and a horizontal scrollbar hid the tabs).
-  - **The settings open on the first tab, `Main view`**, whichever tab was shown last, unless the window is restored at the start with the settings open (see The window is restored at start). The window is as tall as the shown tab needs, and the height follows when the tab is changed; the
+  - **The settings open on the tab they were last on** (since version 0.68; before, always on the first one, `Main view`). However the view was left, by `Save`, by `Cancel`, by the gear or by the button of another panel, the next time it is shown it
+    is on the tab it was on when it was left, `About` included. **That holds across starts, always**: the tab is stored in `settings.json`, under the key `settingsTab` (`main`, `history`, `cost`, `debug`, `general` or `about`), each time the tab is changed, whatever the
+    setting `Restore the window at the start` says, and the first time the settings are shown after a start they are on it. With no tab stored, or one that is not known, or `debug` when the program is not in debug mode, they open on `Main view`. It is no setting of the
+    settings view and is not saved by it (saving the settings leaves it as it is). When the window is restored at the start with the settings open, the tab is the same one (see The window is restored at start). The window is as tall as the shown tab needs, and the height follows when the tab is changed; the
     least width is that of the widest tab, so the window does not change its width from tab to tab.
   - **The buttons `Save` and `Cancel` are under every tab**, `About` included, and are the same on each.
 - **The title bar.** The setting `Title bar`, in the group `Window` before `Stay on top`, on by default and saved under the key
@@ -1397,7 +1400,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   the window, its width and its height, in pixels of its content; and the place of the window on the screen. The keys are `lastPanel`, `lastTab`, `windowWidth`, `windowHeight`, `windowX` and `windowY`. They are no settings
   of the settings view: it neither shows nor changes them, and saving the settings leaves them as they are.
 - **What is restored.** At the next start with the checkbox on, the window has that size and place and the panel is open on the tab as it was, as if the person had opened it. With the settings open the tab
-  is the stored one, and `Debug` is the first one when the program is not in debug mode. The remembered heights of the history and the log (see Remembered heights) are kept as they are; the stored size of
+  is the stored one (the same as `settingsTab`), and `Main view` when the program is not in debug mode and it was `Debug`. The remembered heights of the history and the log (see Remembered heights) are kept as they are; the stored size of
   the window is the one that is used at this start.
 - **Nothing that cannot be is restored.** A value in the file that is not a whole number, a panel or tab that is not known, or a place that no screen shows (a screen that has gone) is left out, and the window
   then has its usual size or place; the other values are still used. A window is never restored larger than the screen it is on.
@@ -1431,7 +1434,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   and not saved is still there when they are shown again, the preview in the row stays as it was, and `Save` and `Cancel` do what they always do.
 - **A button of the row pressed while About is shown** does what it does from any tab: the settings are saved, as
   they stand, and the gear closes the view, or the other panel is shown.
-- **Opening the settings shows the first tab, not About**, each time.
+- **Opening the settings shows the tab it was last on**, `About` too, as for every tab (see Settings).
 - **`JavaFX` is `unknown`** in a run that has no window, as some tests are; a window is what gives it its version.
 - **While it is shown the window has its title bar**, as with the settings, of which it is a part.
 - **The figures are read when the view is opened**, so the path of the history and the line of debug mode say what
