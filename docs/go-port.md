@@ -7,11 +7,20 @@ same look and feel and the same functions. The inputs are [requirements.md](requ
 It was written against version 0.70 of the Java program (about 8,100 lines of Java in 60 files, 3,100 lines of
 frontend, 11,300 lines of JUnit tests and four Node test files).
 
+**Brought up to date for version 0.76** (about 10,300 lines of Java in 70 files, 12,500 lines of JUnit tests). Since
+the analysis, the Java program was changed so that it leans only on what Go also has: the six phases of
+[java-to-go.md](java-to-go.md). Jackson, `BigDecimal`, `java.util.logging`, the texts of exceptions,
+`Process.descendants()` and the lock with its interrupts are gone, each replaced by a small class of the program's own
+that is to be translated. What that settled is marked here: in the summary, in the steps, in the table of what ports
+directly, and in a column of the table of problems. The analysis of the window is as it was, since the window was
+left alone on purpose.
+
 ## Summary
 
 - **About four fifths of the program ports without difficulty.** The backend (usage client, refresh service, history,
-  settings, formatting, API handler, fake backend, log) uses only the JDK and Jackson, and everything it uses has a
-  direct counterpart in Go's standard library. Some of it becomes simpler in Go.
+  settings, formatting, API handler, fake backend, log) uses only the JDK, and everything it uses has a
+  direct counterpart in Go's standard library. Some of it becomes simpler in Go. Since version 0.76 this holds without
+  the reservations of the first analysis: the parts that had no counterpart are now code of the program's own.
 - **The frontend is not ported at all.** `index.html`, `app.css`, `app.js` and `view.js` are plain files served over HTTP,
   with no build step, and their Node tests do not touch the JVM. They are copied as they are. This is what the
   requirements planned for ("keep the frontend as independent from the backend as practical").
@@ -20,19 +29,22 @@ frontend, 11,300 lines of JUnit tests and four Node test files).
   standard library, and no single Go library covers all of what `UsageApp` does. About 900 lines of Java
   (`UsageApp`, `StageSwap`, `WindowDrag`, `Desk`, `AppIcons`) have to be designed anew, and partly written per
   operating system.
-- **Four smaller parts need care**: money without `BigDecimal`, stopping the `claude` process tree, the strict reading of
-  `settings.json`, and the refresh service's lock with a timed wait.
-- **Some requirements describe Java, not the program**, and have to be rewritten before the port, not during it (the
-  lock file of the log, the stack trace of a failed start, Gradle and the JDK toolchain, `./gradlew run --args`).
+- **Four smaller parts needed care, and are prepared**: money without `BigDecimal` (`Amount`), stopping the `claude`
+  process tree (`ProcessTree`, whose run on macOS is outstanding), the strict reading of `settings.json` (the own
+  `Json`), and the refresh service's lock with a timed wait (one loop with a queue). In Go each is a translation.
+- **Some requirements described Java, not the program.** The lock file of the log and the stack trace of a failed
+  start are gone from the program and from the requirements, and no message carries a text of Java's any more. What
+  is left to rewrite for the Go version is the build: Gradle and the JDK toolchain, `./gradlew run --args`, "starts
+  from an IDE as a plain `main` method".
 
 The first decision, on which most of the rest depends, is the window library ([The window](#the-window-the-hard-part)).
 
 ## The steps
 
 1. **Make the requirements language-neutral.** Go through `requirements.md` and mark what is Java's:
-   Non-functional requirements (Java 25, Gradle, the wrapper, `./gradlew run`), the `.lck` file beside the log, the
-   stack trace in `Could not start`, "starts from an IDE as a plain `main` method", and the texts that come from Java
-   exceptions (see problem 17). Decide for each whether the Go version has a counterpart or drops it. Decide the names:
+   Non-functional requirements (Java 25, Gradle, the wrapper, `./gradlew run`) and "starts from an IDE as a plain
+   `main` method". (Done since version 0.76: the `.lck` file beside the log, the stack trace in `Could not start`,
+   and the texts that came from Java exceptions, problem 17.) Decide for each whether the Go version has a counterpart or drops it. Decide the names:
    whether the files stay `java-aip-usage.log`, `java-aip-usage.csv` and `java-aip-usage.fake.csv`, and whether the
    log line `Starting java-aip-usage v…` keeps its wording (the log panel in `view.js` finds the start of a run by it).
 2. **Decide the target systems and the window library**, and prove the choice with a spike before anything else is
@@ -46,13 +58,15 @@ The first decision, on which most of the rest depends, is the window library ([T
 4. **Copy the frontend and its tests** (`src/main/resources/web`, `src/test/frontend`, `src/main/icons`) and embed
    them with `//go:embed`. Run the Node tests in the new repository unchanged.
 5. **Port the backend from the bottom up, each package with its tests**:
-   value types and parser (`UsageSnapshot`, `Spend`, `UsageParser`, with the fixtures) → `Formatting`, `CostControl`,
+   the program's own foundations first, which everything else stands on (`json`, `money.Amount`, `Redaction`,
+   `Failure` and `Fault`, `log.Log`; `Cancel` is `context.Context` and needs no code) → value types and parser
+   (`UsageSnapshot`, `Spend`, `UsageParser`, with the fixtures) → `Formatting`, `CostControl`,
    `HistoryDeltas` → `UsageHistory`, `HistoryReader`, `LatestChangeCache`, `LogTail` → `Settings`, `SettingsStore`,
-   `IntervalSettings`, `LaunchOptions` → `Redaction`, logging → `UsageClient`, `UsageFetcher` → `RefreshSchedule`,
+   `IntervalSettings`, `LaunchOptions` → `Logging` → `UsageClient`, `UsageFetcher` → `RefreshSchedule`,
    `IntervalSearch`, `UsageService` → `FakeBackend` → `StatusDisplay`, `CostPanel`, `ApiHandler`, `LocalWebServer`
    → `AppRuntime`.
-6. **Port the token flow** (`ClaudeTokenProvider`, `CredentialCapture`) with a stand-in for `claude` built from the
-   test binary itself.
+6. **Port the token flow** (`ClaudeTokenProvider`, `CredentialCapture`, `ProcessTree`) with a stand-in for `claude`
+   built from the test binary itself, which like `FakeClaude` can start a second process to be ended with it.
 7. **Run the program without a window**: at this point `go run . --debug` with a browser pointed at the loopback
    address shows the whole interface against the fake backend. This is the check that the API is the same as
    `api.md` says, before the window exists.
@@ -73,11 +87,15 @@ The first decision, on which most of the rest depends, is the window library ([T
 | --- | --- | --- |
 | `com.sun.net.httpserver.HttpServer` on virtual threads | `net/http` | A goroutine per request is the default. `Host` check and `Content-Type` check become one middleware. |
 | `java.net.http.HttpClient` | `net/http` client | See problems 14 and 15 for the two defaults that differ. |
-| Jackson `ObjectMapper`, `JsonNode` | `encoding/json` | Works, with the differences of problems 9 to 11. |
-| Records (`Settings`, `UsageSnapshot`, `Size`, …) | structs | `Optional` and boxed `Double`/`Long`/`Integer` become pointers or a value with an `ok` flag. |
+| The program's own JSON (`Json`, `JsonReader`, `JsonWriter`, a `toJson()` on each answer record); Jackson until 0.70 | the same package translated, or `encoding/json` where it is shown to give the same bytes | The differences of problems 10 to 12 no longer matter: nothing depends on a library. |
+| `Amount`; `BigDecimal` until 0.71 | a struct of an `int64` and an `int` | No decimal library is needed (problem 9). |
+| Records (`Settings`, `UsageSnapshot`, `Size`, …) | structs | `Optional` and boxed `Long`/`Integer` become pointers or a value with an `ok` flag. |
 | Exceptions with a reason (`TokenException.Reason`, `UsageFetchException.status()`) | error types with fields, `errors.As` | |
-| `java.util.logging` with own formatter, console and file handler | `log/slog` with an own handler | Simpler: Go has no log manager with a shutdown hook, so `ShutdownSafeLogManager` and the rule that `Logging` is installed before `UsageApp` is loaded disappear. |
-| `Runtime.addShutdownHook`, `RunOnce` | `os/signal`, `sync.Once` | See problem 19. |
+| `Failure` and `Fault`; the texts of exceptions until 0.73 | `failure.Of(err)` over `errors.Is` and `errors.As` | The same fifteen texts (problem 17). Go can also name a file in use and a full disk, which Java could not tell apart. |
+| `Log` and `Logging`; `java.util.logging` until 0.72 | the same package translated, or `log/slog` with a handler that writes this line | `ShutdownSafeLogManager` and the rule that logging is set up before `UsageApp` is loaded are gone already. |
+| `Cancel`, and `UsageService` as one loop with a queue; a lock, a condition and interrupts until 0.75 | `context.Context`; one goroutine, `chan func()`, `select` with a timer | A translation (problem 13). |
+| `ProcessTree`; `Process.descendants()` until 0.74 | the same two commands through `os/exec` | A job object and a process group can take their place later (problem 18). |
+| `Runtime.addShutdownHook`, `RunOnce` | `os/signal`, `sync.Once` | See problem 20. |
 | Class path resources `/web`, `/icons` | `embed.FS` | One binary with everything in it. |
 | `DateTimeFormatter` patterns | layouts: `2006-01-02 15:04:05`, `15:04`, `2 Jan 2006, 15:04:05` | Go's month names are always English, which is what `Locale.ENGLISH` was for. |
 | `Clock` as a parameter | a `func() time.Time` | |
@@ -250,53 +268,62 @@ Whichever is chosen:
 Severity: **high** — may force a change of the requirements or a large piece of own code; **medium** — solvable, but
 easy to get subtly wrong; **low** — a known difference to remember.
 
-| # | Area | In Java | The problem in Go | Severity | Way out |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Window library | JavaFX: one library, every system | No equivalent. Each option lacks part of what `UsageApp` does (see the table above) | high | Decide first, prove with a spike (step 2). Hide the window behind one Go interface so that the two systems are two files. |
-| 2 | Title bar on and off while running | `StageSwap` | No Go library offers it; frameless is a start-up option in Wails v2 and absent in webview_go | high | Native style change on the window handle. Simpler than the Java way once written. |
-| 3 | Tooltips | Drawn by JavaFX, 14 px by `window.css`, may reach beyond the window | In WebView2 and WKWebView the `title` tooltip is the system's: its size cannot be set. A tooltip drawn by the page in HTML could be 14 px but cannot leave the window, which is often one row high | high | Change the requirement "Bigger tooltips" for the Go version (system size), or build a second, borderless tooltip window in the host. 61 `title` uses in the page are affected. |
-| 4 | Asking the page | `executeScript` returns the value | Script results are asynchronous, or not returned | medium | Injected script and bound functions (above). Reword the host contract in `api.md`. |
-| 5 | Dragging the window | Mouse event filters, `WindowDrag` | No event filters over a native WebView | medium | Page-side `mousedown` through the injected script, system move on the host side. `WindowDrag` is then not needed. |
-| 6 | Pixels and scaling | Logical pixels | Physical pixels in Win32, per-monitor scale | medium | One conversion in the window package; DPI-aware manifest; test on a 150 % monitor and across two monitors. |
-| 7 | WebView2 runtime | The engine is in the JavaFX jars | The runtime must be on the machine (it is on Windows 11, usually on 10). It starts several `msedgewebview2.exe` processes and writes a user-data folder, by default beside the `.exe` | medium | Check at start and say what to install. Put the folder under `%LOCALAPPDATA%`; say so in the requirements, which now promise that only three files are written. |
-| 8 | Console and window in one program | A JVM program has both | A Windows `.exe` is either a console program (a black window opens with it) or a GUI program (no output in the terminal: `--help`, the console log and the usage text on a mistake go nowhere) | medium | Build as GUI (`-H windowsgui`) and attach to the parent's console at start (`AttachConsole`), or ship two binaries. |
-| 9 | Money | `BigDecimal`, `RoundingMode.HALF_UP`, `DecimalFormat("#,##0.00")` | No decimal type and no grouping format in the standard library. `fmt.Sprintf("%.2f", 1.005)` gives `1.00`; the Java program gives `1.01`, because it rounds the decimal form | medium | Keep amounts as `int64` cents wherever possible (the response has `amount_minor`, the settings already use cents). Where a `float64` remains, go through `strconv.FormatFloat(v, 'f', -1, 64)` (the same shortest form as `BigDecimal.valueOf`) into `shopspring/decimal` or own code. Write the grouping by hand. Port `FormattingTest`, `HistoryDeltasTest` and `CostPanelTest` first. |
-| 10 | Strict reading of `settings.json` | `JsonNode`: `isIntegralNumber`, `canConvertToInt`, `null` means absent, each key judged alone | Decoding into a struct fails as a whole on one wrong type, turns `45.0` into 45, and matches keys **without regard to case** (`"LogLevel"` would be taken for `logLevel`) | medium | Decode into `map[string]json.RawMessage` and judge each key by hand, as `SettingsStore` does today; `json.Number` for the whole numbers. |
-| 11 | JSON as written | Jackson's pretty printer: `"key" : value`, `System.lineSeparator()` at the end; no escaping of `<`, `>`, `&` | `MarshalIndent` writes `"key": value`; the encoder writes `\u003c` for `<` unless told otherwise; map keys are sorted, struct fields keep their order; invalid UTF-8 is replaced silently | low | Use a struct for the fixed key order and `SetEscapeHTML(false)`. Decide whether the space before the colon matters (it is in every existing `settings.json`; both forms are read). Affects the pretty-printed response in the log too. |
-| 12 | Trailing text after the JSON | `FAIL_ON_TRAILING_TOKENS` | `json.Unmarshal` refuses it, a `Decoder` does not | low | Use `Unmarshal`, or check for `io.EOF` after the first value. The wording of "not valid JSON: …" comes from Jackson and will differ (see 17). |
-| 13 | Refresh service | `ReentrantLock` with a `Condition` and a timed wait; `Thread.interrupt()` to stop a wait or a request | `sync.Cond` has no timed wait, and a goroutine cannot be interrupted | medium | Redesign, do not transliterate: one goroutine with `select` over a timer, a "changed" channel and a `context`. The 1,000 lines of `UsageServiceTest` are the specification; `testing/synctest` makes the timing tests fast and exact. |
-| 14 | Redirects | `Redirect.NEVER`, so the token never reaches another host | Go's client follows up to 10 redirects by default (it drops `Authorization` only when the host changes) | medium | `CheckRedirect` returning `http.ErrUseLastResponse`. Keep the test. |
-| 15 | Proxy | The requirement is a direct connection | Go's default transport reads `HTTPS_PROXY` and `HTTP_PROXY` from the environment | low | An own `Transport` with `Proxy: nil`. Also for the token capture and the tests on loopback. |
-| 16 | Timeouts | Connect timeout and request timeout apart, `HttpTimeoutException` | One has to be built from `net.Dialer.Timeout`, a `context` deadline and `errors.Is(err, context.DeadlineExceeded)` | low | Small; covered by `UsageClientTest` (the hanging and slow answers). |
-| 17 | Texts that come from exceptions | Several messages the window shows or the log writes end in `e.getMessage()` (`UsageClient` line 129, the JSON parse error, the capture server) | Go's error texts are others (`dial tcp 127.0.0.1:1: connectex: …`, and they differ between Windows and macOS) | medium | List these places in step 1 and give each a text of the program's own, so that the requirements say what is shown. `Could not start` "carries the stack trace": a Go error has none. |
-| 18 | Stopping `claude` and its children | `process.descendants().forEach(destroyForcibly)` | `os/exec` kills one process. On Windows `claude.cmd` runs through `cmd.exe`, which starts `node`: killing `cmd.exe` leaves `node` running | medium | Windows: a job object with `KILL_ON_JOB_CLOSE` (`golang.org/x/sys/windows`). Unix: an own process group and a signal to the group. Two files with build tags. |
-| 19 | Finding `claude` on Windows | Own search through `PATH` and `PATHEXT` (`windowsCommand`), `.cmd` through `cmd.exe /c` | `exec.LookPath` does the search, but its rules are its own: check them against the requirement (Details of the behaviour, "On Windows the command is found the way a shell finds it"), in particular the script `claude` beside `claude.cmd`, the real case of the file name, and that Go refuses a program found in the current directory. Quoting arguments for a batch file is a known trap | medium | Keep the own search as a pure function with its tests (`ClaudeTokenProviderTest`), and use `LookPath` only if it is shown to agree. |
-| 20 | Signals and exit codes | One shutdown hook; the JVM gives 143 and 130 | No hooks: nothing runs at `os.Exit` or when `main` returns unless called. Exit codes are set by hand. Windows has no `SIGTERM`; only Ctrl+C and Ctrl+Break arrive | medium | `signal.Notify`, then the same cleanup through `sync.Once`, then `os.Exit(130)` or `143`. Take care that the window's main loop and the signal goroutine do not both exit first. |
-| 21 | The main thread | JavaFX has its application thread; `Platform.runLater` | The window must run on the OS thread `main` started on (`runtime.LockOSThread`), and everything touching it must be dispatched there; the rest runs in goroutines | medium | One `Dispatch` function in the window interface. The clipboard on Windows is easier than in Java: it needs no toolkit thread. |
-| 22 | Lock file of the log | `java-aip-usage.log.lck`, kept by `FileHandler`, is a stated requirement | Go's logging makes none | low | Drop the requirement, or write and remove the file by hand if a second copy of the program is to be noticed by it. |
-| 23 | Time zones and local times | `LocalDateTime.atZone` has fixed rules for a time that does not exist or exists twice (clock change) | `time.ParseInLocation` and `time.Date` do not promise which of the two it takes | low | Only the history's local timestamps are affected, for one hour a year. Decide and test it; `CostControl.weekdays` and the month and day arithmetic port with `time.Date` and `AddDate`. |
-| 24 | Local server details | `HttpServer` does only what the handler says | `http.ServeMux` redirects unclean paths (`//`, `..`) with 301, `http.FileServer` redirects `/index.html` to `/` and lists directories, and a missing `Content-Type` is guessed from the body | low | Serve the embedded files with an own handler as `LocalWebServer.serveStatic` does, set every `Content-Type` and `X-Content-Type-Options: nosniff`. `LocalWebServerTest` and `ApiTest` (2,500 lines) will find the rest. |
-| 25 | Command line | `LaunchOptions`, own texts, exit code 2 | The `flag` package also accepts `-debug`, prints its own usage text, and has its own messages | low | Port `LaunchOptions` by hand (130 lines) and do not use `flag`. |
-| 26 | Icon | PNGs in four sizes given to the stage | Windows wants an `.ico` in a resource compiled into the `.exe` (`.syso`), macOS an `.icns` in an app bundle; a bare macOS binary has no Dock icon | low | Extend `draw-icon.cjs` to write `.ico` and `.icns`; `go-winres` or `rsrc` in the build. |
-| 27 | Where the files are | The working directory, which is the project root for `./gradlew run` | A double-clicked `.exe` or a shortcut has a working directory nobody chose (it can be `C:\Windows\System32`) | medium | Decide in step 1: the directory of the `.exe`, or the user's configuration directory, and keep the working directory only when started from a terminal. This changes About, the README and the requirements. |
-| 28 | Build without installing anything | Gradle wrapper and toolchain fetch Gradle and the JDK | Go must be installed; `go.mod` can then fetch the exact Go version. With cgo (macOS, or webview_go on Windows) a C compiler is needed as well | low | State it. Without cgo on Windows the promise "a clone and one command" nearly holds. |
-| 29 | Tests of the window | `TitleBarWindowTest`, `PanelWindowTest` and three probes drive real JavaFX windows | They test JavaFX objects and cannot be ported; they have to be written anew against the new host | medium | Keep the rule: asked for by a variable, never in the normal run. Keep the pure parts (`WindowFit`, `RememberedHeights`) pure, as now; their tests port directly. |
-| 30 | Stand-in for `claude` in tests | `FakeClaude`, a Java `main` started as a subprocess with the test class path | Go has no class path to start a second `main` from | low | The usual pattern: the test binary starts itself with an environment variable and plays `claude`. |
-| 31 | Check that the frontend calculates nothing, and the style rules | Tested with Node, outside the JVM | Nothing to port, but the Go build needs a task that runs `node --test` | low | A `Makefile` target, as `frontendTest` is now. |
-| 32 | Bringing the window to the front | On top for 400 ms | Windows lets a program to the front only under conditions; the same trick works with `HWND_TOPMOST`, to be checked when started from a terminal, from the Explorer and from an IDE | low | Part of the spike. |
-| 33 | Line endings | `System.lineSeparator()` for `settings.json` and inside one log message; a fixed line feed for the CSV | Go has no such constant | low | Decide per file and write it down; the CSV rule is already exact. |
-| 34 | Size of the port's verification | 11,300 lines of tests are the real specification of many details | They do not run against Go. Porting them is as much work as porting the code, and skipping them loses the details | medium | Port tests with each package (step 5). `ApiTest` can be made language-neutral: it speaks only HTTP, so it could be kept once and run against both programs. |
+The columns up to "Way out" are the analysis as it was made at version 0.70, and say "In Java" of the program as it was
+then. The last column says where each problem stands at version 0.76: **prepared** means the Java program now does it
+in a way Go can do the same, so that the port translates and does not design; **open** means it is the port's to
+solve. Eight of the thirty-four are prepared or settled (9 to 13, 17, 18 and 22), which are the ones that needed a
+design in the backend; the eight of the window, three of them rated high, are open, and so are the rest, which are
+settings, decisions, the build and the tests of the port itself.
+
+| # | Area | In Java | The problem in Go | Severity | Way out | State at 0.76 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Window library | JavaFX: one library, every system | No equivalent. Each option lacks part of what `UsageApp` does (see the table above) | high | Decide first, prove with a spike (step 2). Hide the window behind one Go interface so that the two systems are two files. | open |
+| 2 | Title bar on and off while running | `StageSwap` | No Go library offers it; frameless is a start-up option in Wails v2 and absent in webview_go | high | Native style change on the window handle. Simpler than the Java way once written. | open |
+| 3 | Tooltips | Drawn by JavaFX, 14 px by `window.css`, may reach beyond the window | In WebView2 and WKWebView the `title` tooltip is the system's: its size cannot be set. A tooltip drawn by the page in HTML could be 14 px but cannot leave the window, which is often one row high | high | Change the requirement "Bigger tooltips" for the Go version (system size), or build a second, borderless tooltip window in the host. 61 `title` uses in the page are affected. | open |
+| 4 | Asking the page | `executeScript` returns the value | Script results are asynchronous, or not returned | medium | Injected script and bound functions (above). Reword the host contract in `api.md`. | open |
+| 5 | Dragging the window | Mouse event filters, `WindowDrag` | No event filters over a native WebView | medium | Page-side `mousedown` through the injected script, system move on the host side. `WindowDrag` is then not needed. | open |
+| 6 | Pixels and scaling | Logical pixels | Physical pixels in Win32, per-monitor scale | medium | One conversion in the window package; DPI-aware manifest; test on a 150 % monitor and across two monitors. | open |
+| 7 | WebView2 runtime | The engine is in the JavaFX jars | The runtime must be on the machine (it is on Windows 11, usually on 10). It starts several `msedgewebview2.exe` processes and writes a user-data folder, by default beside the `.exe` | medium | Check at start and say what to install. Put the folder under `%LOCALAPPDATA%`; say so in the requirements, which now promise that only three files are written. | open |
+| 8 | Console and window in one program | A JVM program has both | A Windows `.exe` is either a console program (a black window opens with it) or a GUI program (no output in the terminal: `--help`, the console log and the usage text on a mistake go nowhere) | medium | Build as GUI (`-H windowsgui`) and attach to the parent's console at start (`AttachConsole`), or ship two binaries. | open |
+| 9 | Money | `BigDecimal`, `RoundingMode.HALF_UP`, `DecimalFormat("#,##0.00")` | No decimal type and no grouping format in the standard library. `fmt.Sprintf("%.2f", 1.005)` gives `1.00`; the Java program gives `1.01`, because it rounds the decimal form | medium | Keep amounts as `int64` cents wherever possible (the response has `amount_minor`, the settings already use cents). Where a `float64` remains, go through `strconv.FormatFloat(v, 'f', -1, 64)` (the same shortest form as `BigDecimal.valueOf`) into `shopspring/decimal` or own code. Write the grouping by hand. Port `FormattingTest`, `HistoryDeltasTest` and `CostPanelTest` first. | **prepared**: `Amount` (phase 2 of java-to-go.md) |
+| 10 | Strict reading of `settings.json` | `JsonNode`: `isIntegralNumber`, `canConvertToInt`, `null` means absent, each key judged alone | Decoding into a struct fails as a whole on one wrong type, turns `45.0` into 45, and matches keys **without regard to case** (`"LogLevel"` would be taken for `logLevel`) | medium | Decode into `map[string]json.RawMessage` and judge each key by hand, as `SettingsStore` does today; `json.Number` for the whole numbers. | **prepared**: own `Json`, each key judged alone (phase 1) |
+| 11 | JSON as written | Jackson's pretty printer: `"key" : value`, `System.lineSeparator()` at the end; no escaping of `<`, `>`, `&` | `MarshalIndent` writes `"key": value`; the encoder writes `\u003c` for `<` unless told otherwise; map keys are sorted, struct fields keep their order; invalid UTF-8 is replaced silently | low | Use a struct for the fixed key order and `SetEscapeHTML(false)`. Decide whether the space before the colon matters (it is in every existing `settings.json`; both forms are read). Affects the pretty-printed response in the log too. | **prepared**: own `JsonWriter` and `toJson()` fix the bytes (phase 1) |
+| 12 | Trailing text after the JSON | `FAIL_ON_TRAILING_TOKENS` | `json.Unmarshal` refuses it, a `Decoder` does not | low | Use `Unmarshal`, or check for `io.EOF` after the first value. The wording of "not valid JSON: …" comes from Jackson and will differ (see 17). | **prepared**: the own reader refuses it (phase 1) |
+| 13 | Refresh service | `ReentrantLock` with a `Condition` and a timed wait; `Thread.interrupt()` to stop a wait or a request | `sync.Cond` has no timed wait, and a goroutine cannot be interrupted | medium | Redesign, do not transliterate: one goroutine with `select` over a timer, a "changed" channel and a `context`. The 1,000 lines of `UsageServiceTest` are the specification; `testing/synctest` makes the timing tests fast and exact. | **prepared**: one loop with a queue, `Cancel` (phase 6) |
+| 14 | Redirects | `Redirect.NEVER`, so the token never reaches another host | Go's client follows up to 10 redirects by default (it drops `Authorization` only when the host changes) | medium | `CheckRedirect` returning `http.ErrUseLastResponse`. Keep the test. | open |
+| 15 | Proxy | The requirement is a direct connection | Go's default transport reads `HTTPS_PROXY` and `HTTP_PROXY` from the environment | low | An own `Transport` with `Proxy: nil`. Also for the token capture and the tests on loopback. | open |
+| 16 | Timeouts | Connect timeout and request timeout apart, `HttpTimeoutException` | One has to be built from `net.Dialer.Timeout`, a `context` deadline and `errors.Is(err, context.DeadlineExceeded)` | low | Small; covered by `UsageClientTest` (the hanging and slow answers). | open |
+| 17 | Texts that come from exceptions | Several messages the window shows or the log writes end in `e.getMessage()` (`UsageClient` line 129, the JSON parse error, the capture server) | Go's error texts are others (`dial tcp 127.0.0.1:1: connectex: …`, and they differ between Windows and macOS) | medium | List these places in step 1 and give each a text of the program's own, so that the requirements say what is shown. `Could not start` "carries the stack trace": a Go error has none. | **prepared**: `Failure`, fifteen fixed texts (phase 4) |
+| 18 | Stopping `claude` and its children | `process.descendants().forEach(destroyForcibly)` | `os/exec` kills one process. On Windows `claude.cmd` runs through `cmd.exe`, which starts `node`: killing `cmd.exe` leaves `node` running | medium | Windows: a job object with `KILL_ON_JOB_CLOSE` (`golang.org/x/sys/windows`). Unix: an own process group and a signal to the group. Two files with build tags. | **prepared**: `ProcessTree`; macOS run outstanding (phase 5) |
+| 19 | Finding `claude` on Windows | Own search through `PATH` and `PATHEXT` (`windowsCommand`), `.cmd` through `cmd.exe /c` | `exec.LookPath` does the search, but its rules are its own: check them against the requirement (Details of the behaviour, "On Windows the command is found the way a shell finds it"), in particular the script `claude` beside `claude.cmd`, the real case of the file name, and that Go refuses a program found in the current directory. Quoting arguments for a batch file is a known trap | medium | Keep the own search as a pure function with its tests (`ClaudeTokenProviderTest`), and use `LookPath` only if it is shown to agree. | open |
+| 20 | Signals and exit codes | One shutdown hook; the JVM gives 143 and 130 | No hooks: nothing runs at `os.Exit` or when `main` returns unless called. Exit codes are set by hand. Windows has no `SIGTERM`; only Ctrl+C and Ctrl+Break arrive | medium | `signal.Notify`, then the same cleanup through `sync.Once`, then `os.Exit(130)` or `143`. Take care that the window's main loop and the signal goroutine do not both exit first. | half prepared: the log is closed by the program alone (phase 3) |
+| 21 | The main thread | JavaFX has its application thread; `Platform.runLater` | The window must run on the OS thread `main` started on (`runtime.LockOSThread`), and everything touching it must be dispatched there; the rest runs in goroutines | medium | One `Dispatch` function in the window interface. The clipboard on Windows is easier than in Java: it needs no toolkit thread. | open |
+| 22 | Lock file of the log | `java-aip-usage.log.lck`, kept by `FileHandler`, is a stated requirement | Go's logging makes none | low | Drop the requirement, or write and remove the file by hand if a second copy of the program is to be noticed by it. | **settled**: no lock file (phase 3) |
+| 23 | Time zones and local times | `LocalDateTime.atZone` has fixed rules for a time that does not exist or exists twice (clock change) | `time.ParseInLocation` and `time.Date` do not promise which of the two it takes | low | Only the history's local timestamps are affected, for one hour a year. Decide and test it; `CostControl.weekdays` and the month and day arithmetic port with `time.Date` and `AddDate`. | open |
+| 24 | Local server details | `HttpServer` does only what the handler says | `http.ServeMux` redirects unclean paths (`//`, `..`) with 301, `http.FileServer` redirects `/index.html` to `/` and lists directories, and a missing `Content-Type` is guessed from the body | low | Serve the embedded files with an own handler as `LocalWebServer.serveStatic` does, set every `Content-Type` and `X-Content-Type-Options: nosniff`. `LocalWebServerTest` and `ApiTest` (2,500 lines) will find the rest. | open |
+| 25 | Command line | `LaunchOptions`, own texts, exit code 2 | The `flag` package also accepts `-debug`, prints its own usage text, and has its own messages | low | Port `LaunchOptions` by hand (130 lines) and do not use `flag`. | open |
+| 26 | Icon | PNGs in four sizes given to the stage | Windows wants an `.ico` in a resource compiled into the `.exe` (`.syso`), macOS an `.icns` in an app bundle; a bare macOS binary has no Dock icon | low | Extend `draw-icon.cjs` to write `.ico` and `.icns`; `go-winres` or `rsrc` in the build. | open |
+| 27 | Where the files are | The working directory, which is the project root for `./gradlew run` | A double-clicked `.exe` or a shortcut has a working directory nobody chose (it can be `C:\Windows\System32`) | medium | Decide in step 1: the directory of the `.exe`, or the user's configuration directory, and keep the working directory only when started from a terminal. This changes About, the README and the requirements. | open |
+| 28 | Build without installing anything | Gradle wrapper and toolchain fetch Gradle and the JDK | Go must be installed; `go.mod` can then fetch the exact Go version. With cgo (macOS, or webview_go on Windows) a C compiler is needed as well | low | State it. Without cgo on Windows the promise "a clone and one command" nearly holds. | open |
+| 29 | Tests of the window | `TitleBarWindowTest`, `PanelWindowTest` and three probes drive real JavaFX windows | They test JavaFX objects and cannot be ported; they have to be written anew against the new host | medium | Keep the rule: asked for by a variable, never in the normal run. Keep the pure parts (`WindowFit`, `RememberedHeights`) pure, as now; their tests port directly. | open |
+| 30 | Stand-in for `claude` in tests | `FakeClaude`, a Java `main` started as a subprocess with the test class path | Go has no class path to start a second `main` from | low | The usual pattern: the test binary starts itself with an environment variable and plays `claude`. | open; `FakeClaude` now also starts a child |
+| 31 | Check that the frontend calculates nothing, and the style rules | Tested with Node, outside the JVM | Nothing to port, but the Go build needs a task that runs `node --test` | low | A `Makefile` target, as `frontendTest` is now. | open |
+| 32 | Bringing the window to the front | On top for 400 ms | Windows lets a program to the front only under conditions; the same trick works with `HWND_TOPMOST`, to be checked when started from a terminal, from the Explorer and from an IDE | low | Part of the spike. | open |
+| 33 | Line endings | `System.lineSeparator()` for `settings.json` and inside one log message; a fixed line feed for the CSV | Go has no such constant | low | Decide per file and write it down; the CSV rule is already exact. | open |
+| 34 | Size of the port's verification | 11,300 lines of tests are the real specification of many details | They do not run against Go. Porting them is as much work as porting the code, and skipping them loses the details | medium | Port tests with each package (step 5). `ApiTest` can be made language-neutral: it speaks only HTTP, so it could be kept once and run against both programs. | open; about 12,500 lines of tests now |
 
 ## What becomes easier in Go
 
 - **One file to hand out.** A single `.exe` of 10 to 15 MB with the page and the icon in it, starting in a fraction of a
   second, in place of a JDK, JavaFX and Gradle. This is the reason for the port.
 - **The title bar** (problem 2) once the native call exists, and the clipboard.
-- **Logging and stopping**: no log manager to outwit, no class-loading order to keep, no warnings about modules and
-  native access.
+- **Logging and stopping**: no warnings about modules and native access. (The log manager to outwit and the
+  class-loading order to keep are gone from the Java program too, since version 0.73.)
 - **Finding the program on Windows**, if `LookPath` is shown to agree with the requirement.
-- **Concurrency**: goroutines and `context` in place of virtual threads, `CompletableFuture`, interrupts and a daemon
-  thread. `UsageService` should come out shorter.
+- **Concurrency**: goroutines and `context` in place of virtual threads, `CompletableFuture` and a daemon
+  thread. `UsageService` is already a loop with messages; in Go it loses the queue and the futures for a channel.
+- **Failures**: Go's errors carry their kind, so `Failure` needs no reading of a number from a text, and can name a
+  file in use and a full disk.
 - **The language of the machine**: nothing to guard against.
 
 ## Open decisions before the port starts
@@ -307,6 +334,14 @@ easy to get subtly wrong; **low** — a known difference to remember.
 4. Where are the settings, the log and the history, for a program started by double click? (Problem 27.)
 5. Do the file names and the log's start line keep `java-aip-usage`?
 6. Is `settings.json` to be read from and written for both versions alike, so that one can take over from the other?
-   (Then problems 10 and 11 are requirements, not details.)
-7. Is the lock file of the log kept? (Problem 22.)
-8. Are the HTTP tests of the API kept once for both programs? (Problem 34.)
+   (It can be now: the form the Java program writes and the rules it reads by are its own code, problems 10 and 11,
+   and the Go version has them by translating it.)
+7. Are the HTTP tests of the API kept once for both programs? (Problem 34.)
+
+Decided since the analysis: the lock file of the log is not kept (problem 22); it is gone from the Java program.
+
+## Outstanding in the Java program
+
+One thing, before the Java program is the finished template: `ProcessTree` ends a process tree with `pgrep` and
+`kill` on macOS, and that has been tested for the commands it builds and their order only, never with a real tree
+there. To be run on a Mac: `./gradlew test --tests '*ClaudeTokenProviderTest' --tests '*ProcessTreeTest'`.
