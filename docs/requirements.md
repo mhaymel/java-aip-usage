@@ -1301,7 +1301,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   **10 seconds** and the most **300 seconds**, both fixed in the program and not settings. The search begins at **60 seconds**, with no refused interval known.
 - **The program remembers one figure, the refused interval `R`**: the interval at which the last 429 came, in whole seconds, or none.
 - **After an HTTP 429** `R` becomes the interval that was refused, and the new interval is the greater of `ceil(1.1 × R)` and `R + 1`, at most 300.
-  So 20 seconds refused is 22, 100 refused is 111.
+  So 20 seconds refused is 22, 100 refused is 110.
 - **Speeding up is slow.** After **8 answers in a row without a 429** the interval is one second shorter, never less than `R + 1` and never less than 10. The count starts
   again at 0 after each step and after each 429. So the interval stays just above what was refused, and sinks one second at a time while nothing is refused, which is why
   the search keeps near the limit and mostly does not run into it.

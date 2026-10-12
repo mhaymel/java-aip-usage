@@ -42,17 +42,17 @@ class PanelWindowTest {
         assertEquals(closed, height(all, "closed-again"), "and back to its size when the panel is hidden");
         assertTrue(all.contains("PROBE history-lines=14:26:53 3.00 4.00 |14:25:53 2.00 2.00 |14:24:53 1.00 2.00 "),
                 "the history panel shows the rows, newest first:\n" + all);
-        assertTrue(all.contains("PROBE log-lines=2026-10-08 19:00:00 INFO    [Probe] probe log line last|2026-10-08 19:00:59 INFO    [Probe] probe log line 59|"),
+        assertTrue(all.contains("PROBE log-lines=19:00:00 INFO    [Probe] probe log line last|19:00:59 INFO    [Probe] probe log line 59|"),
                 "the log panel has the lines newest first:\n" + all);
         assertTrue(all.contains("PROBE log-scroll=0"), "and is scrolled to the top:\n" + all);
-        assertTrue(all.contains("PROBE log-top=2026-10-08 19:00:00 INFO    [Probe] probe log line last"), "so the newest line is the first the person sees:\n" + all);
+        assertTrue(all.contains("PROBE log-top=19:00:00 INFO    [Probe] probe log line last"), "so the newest line is the first the person sees:\n" + all);
         int row = Integer.parseInt(all.lines().filter(l -> l.startsWith("PROBE settings-row=")).findFirst().orElseThrow().substring("PROBE settings-row=".length()));
         assertTrue(width(all, "settings") > row, "with every element hidden the row is narrow, and the settings need more room than it has:\n" + all);
         assertEquals(width(all, "settings"), width(all, "settings-fitted"), "and ask for the same whatever the window's width is:\n" + all);
         assertTrue(all.contains("PROBE settings-lines=0"), "no text of the settings wraps:\n" + all);
         String[] tops = all.lines().filter(l -> l.startsWith("PROBE settings-buttons=")).findFirst().orElseThrow()
                 .substring("PROBE settings-buttons=".length()).split(",");
-        assertTrue(tops.length == 3 && tops[0].equals(tops[1]) && tops[1].equals(tops[2]), "the three buttons are in one row:\n" + all);
+        assertTrue(tops.length == 2 && tops[0].equals(tops[1]), "the two buttons are in one row:\n" + all);
         assertTrue(all.contains("PROBE settings-overflow=0"), "and nothing sticks out at the right:\n" + all);
         assertEquals(width(all, "closed"), width(all, "settings-closed"), "the row's width again when the settings are left:\n" + all);
         assertTrue(all.contains("PROBE other-windows=0"), "no window besides the main one:\n" + all);

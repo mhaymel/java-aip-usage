@@ -283,7 +283,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(28, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(32, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -1018,7 +1018,7 @@ class ApiTest {
         AppRuntime app = start(plan);
         String all = allSettings(60, false, "hh:mm").replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true");
 
-        assertEquals(5, json(get(app, "/api/history")).get("columns").size(), "by default the four and the change of time");
+        assertEquals(4, json(get(app, "/api/history")).get("columns").size(), "by default the four, and no change columns");
         post(app, "/api/settings", all.replace("}", ", \"historyTime\": false, \"historyUsed\": true, \"historyLimit\": false, \"historyCurrent\": false}"));
 
         JsonNode history = json(get(app, "/api/history"));
@@ -1129,10 +1129,10 @@ class ApiTest {
     }
 
     @Test
-    void afterAnHttp429TheLongerWaitIsTheIntervalTheSettingsAndTheRowShow() throws Exception {
+    void afterAnHttp429TheIntervalInForceIsStillTheConfiguredOne() throws Exception {
         FakeFetch fetch = new FakeFetch();
         fetch.answer = () -> {
-            throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429);
+            throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429, java.time.Duration.ofSeconds(300));
         };
         AppRuntime app = start(fetch);
         await(() -> app.service().state().rateLimited());
@@ -1140,26 +1140,10 @@ class ApiTest {
         JsonNode settings = json(get(app, "/api/settings"));
         JsonNode status = json(get(app, "/api/status"));
 
-        assertEquals(120, settings.at("/settings/usageIntervalSeconds").asInt(), "twice the interval, which is what the service waits");
+        assertEquals(60, settings.at("/settings/usageIntervalSeconds").asInt(), "no back-off: the delay is the interval, whatever Retry-After says");
         assertEquals(60, settings.at("/defaults/usageIntervalSeconds").asInt(), "the defaults are the defaults");
-        assertEquals("120s", status.at("/display/interval/text").asText());
+        assertEquals("60s", status.at("/display/interval/text").asText());
         assertEquals(60, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds(), "the file keeps the configured one");
-    }
-
-    @Test
-    void applyingWhileBackingOffSavesWhatTheBoxShowsAsTheInterval() throws Exception {
-        FakeFetch fetch = new FakeFetch();
-        fetch.answer = () -> {
-            throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429);
-        };
-        AppRuntime app = start(fetch);
-        await(() -> app.service().state().rateLimited());
-        int shown = json(get(app, "/api/settings")).at("/settings/usageIntervalSeconds").asInt();
-
-        assertEquals(200, post(app, "/api/settings", allSettings(shown, false, "hh:mm")).statusCode());
-
-        assertEquals(shown, new SettingsStore(dir.resolve("settings.json")).load().usageIntervalSeconds());
-        assertEquals(Duration.ofSeconds(shown), app.service().interval());
     }
 
     @Test
@@ -2154,15 +2138,14 @@ class ApiTest {
                 "{\"autoInterval\": true, \"autoIntervalSeconds\": 29, \"autoLowerSeconds\": 23, \"autoUpperSeconds\": 35}");
         AppRuntime app = start(new FakeFetch());
 
-        // The first refresh was answered: (23 + 29) / 2 = 26, and the upper bound is 29.
-        awaitSearch(26);
+        // The first refresh was answered with no refusal known: a tenth down, ceil(26.1) = 27. The old bounds are not read.
+        awaitSearch(27);
 
         JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
-        assertEquals(26, file.get("autoIntervalSeconds").asInt());
-        assertEquals(23, file.get("autoLowerSeconds").asInt());
-        assertEquals(29, file.get("autoUpperSeconds").asInt());
-        assertEquals(26, json(get(app, "/api/settings")).at("/settings/usageIntervalSeconds").asInt(), "the interval in force");
-        assertEquals("26s", json(get(app, "/api/status")).at("/display/interval/text").asText(), "which the row shows");
+        assertEquals(27, file.get("autoIntervalSeconds").asInt());
+        assertFalse(file.has("autoLowerSeconds") || file.has("autoUpperSeconds") || file.has("autoRefusedSeconds"), "no refusal is known, and the old bounds are gone");
+        assertEquals(27, json(get(app, "/api/settings")).at("/settings/usageIntervalSeconds").asInt(), "the interval in force");
+        assertEquals("27s", json(get(app, "/api/status")).at("/display/interval/text").asText(), "which the row shows");
     }
 
     private void awaitSearch(int seconds) throws Exception {

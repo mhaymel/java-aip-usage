@@ -76,8 +76,8 @@ on the real endpoint:
 ./gradlew run --args="--debug"
 ```
 
-In debug mode the row has a yellow debug button at its right end. It opens the debug
-settings: `Fake backend` switches the fake backend on and off while the program runs,
+In debug mode the settings have a tab `Debug` (reached through the gear, between `Cost control`
+and `General`). It holds the debug settings: `Fake backend` switches the fake backend on and off while the program runs,
 the list beside it says what it answers, and `Placeholder token` sends a placeholder
 to the real endpoint instead of a real token. They are saved in `settings.json`, so
 the next start with `--debug` begins as the last one ended; a start without `--debug`

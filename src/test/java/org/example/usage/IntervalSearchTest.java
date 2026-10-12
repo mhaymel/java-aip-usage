@@ -52,7 +52,7 @@ class IntervalSearchTest {
 
         IntervalSearch hundred = IntervalSearch.of(100, null);
         hundred.rateLimited();
-        assertEquals(111, hundred.interval());
+        assertEquals(110, hundred.interval());
 
         IntervalSearch ten = IntervalSearch.of(10, null);
         ten.rateLimited();
@@ -81,8 +81,11 @@ class IntervalSearchTest {
         assertEquals(44, search.interval());
         answers(search, 1);
         assertEquals(43, search.interval());
+        answers(search, 8 * 2);
+        assertEquals(41, search.interval(), "a second for every eight answers: 43, 42, 41");
         answers(search, 8 * 10);
-        assertEquals(41, search.interval(), "one above the refused interval, 40, and no lower");
+        assertEquals(search.refused() + 1, search.interval(), "never as short as the refused interval: one above it, which has been forgotten down meanwhile");
+        assertEquals(35, search.refused(), "104 answers, five seconds forgotten");
     }
 
     @Test
@@ -165,9 +168,10 @@ class IntervalSearchTest {
             int first = refusals(limit, 200, search);
             int later = refusals(limit, 1000, search);
 
-            assertTrue(search.interval() >= limit && search.interval() <= limit + Math.max(3, limit / 8),
+            assertTrue(search.interval() >= limit - 1 && search.interval() <= limit + Math.max(3, limit / 8),
                     "limit " + limit + ": settled at " + search.interval());
-            assertTrue(later <= 12, "limit " + limit + ": " + later + " refusals in 1000 answers (" + first + " at first)");
+            // Once it has settled it is refused about every twenty answers, as the refused interval is forgotten a second at a time.
+            assertTrue(later <= 1000 / IntervalSearch.ANSWERS_PER_DECAY + 10, "limit " + limit + ": " + later + " refusals in 1000 answers (" + first + " at first)");
         }
     }
 

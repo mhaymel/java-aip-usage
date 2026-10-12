@@ -176,7 +176,7 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFileHoldsTheTwentySevenSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
+    void theFileHoldsTheThirtyOneSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
         JsonNode content = new ObjectMapper().readTree(Files.readString(file()));
@@ -185,7 +185,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "autoIntervalSeconds", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }

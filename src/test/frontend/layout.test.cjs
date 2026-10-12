@@ -149,9 +149,10 @@ test('the settings view is in the panel area, below the strip, and starts hidden
     assert.ok(html.indexOf('id="settings-button"') < html.indexOf('id="settings-view"'));
 });
 
-test('the settings view has the three buttons and a box for the interval, and no buttons for the whole main view', () => {
+test('the settings view has the two buttons and a box for the interval, and no buttons for the whole main view', () => {
     assert.doesNotMatch(html, /settings-maximum|settings-minimum|Maximum view|Minimum view/);
-    for (const id of ['settings-save', 'settings-restore', 'settings-cancel']) {
+    assert.doesNotMatch(html, /settings-restore|Restore defaults/, 'there is no Restore defaults');
+    for (const id of ['settings-save', 'settings-cancel']) {
         assert.match(html, new RegExp('<button[^>]*id="' + id + '"'), id);
     }
     assert.match(html, /<input id="set-usageIntervalSeconds" type="text"/, 'a box to type any number in');
@@ -348,28 +349,29 @@ test('the text of the lists is as large as the page says, twelve pixels when it 
 });
 
 test('the group Request has the checkbox Automatic in the line of the interval, after the field and its unit', () => {
-    const request = html.slice(html.indexOf('<legend>Request</legend>'), html.indexOf('<legend>Main view'));
+    const request = html.slice(html.indexOf('<legend>Request</legend>'), html.indexOf('<legend>Window</legend>'));
     assert.match(request, /<span class="line">\s*<label>Interval\s*<input id="set-usageIntervalSeconds"[^>]*> s<\/label>\s*<label title="[^"]+"><input id="set-autoInterval" type="checkbox"> Automatic<\/label>\s*<\/span>/);
     assert.match(request, /title="Lets the program find the shortest time between usage requests that Anthropic accepts, between 10 and 300 seconds\."/);
     assert.match(css, /\.settings input\[type="text"\]\[disabled\]\s*{\s*opacity:\s*0\.5/, 'the field is grayed while it is not to be typed in');
 });
 
-test('the settings have a button About at the right end of their row of buttons, set apart from the three', () => {
+test('the settings have no button About and no Back: About is a tab', () => {
     const buttons = html.slice(html.indexOf('<p id="settings-buttons" class="buttons">'), html.indexOf('</p>', html.indexOf('id="settings-buttons"')));
-    assert.match(buttons, /<button id="settings-about" class="about-button" type="button" title="About this program">About<\/button>\s*$/, 'the last of the row');
-    assert.match(ruleOf('.settings .about-button'), /margin-left:\s*1[0-9]px/, 'more room before it than between the others');
+    assert.doesNotMatch(buttons, /about/i, 'not in the row of Save and Cancel');
+    assert.doesNotMatch(html, /id="about-back"|settings-about|about-button/);
+    assert.doesNotMatch(css, /about-button/);
     assert.doesNotMatch(html.slice(html.indexOf('<div id="top"'), html.indexOf('<div id="panel"')), /about/i, 'the row of the window has no button for it');
+    assert.match(html, /<button id="tabbtn-about" class="tab" type="button" role="tab" data-tab="about">About<\/button>/);
 });
-
-test('the About view has the logo at 96 pixels, the name and the version, a table of two columns and one button, Back', () => {
-    const view = html.slice(html.indexOf('<div id="about-view"'), html.indexOf('<div id="debug-view"'));
+test('the About view has the logo at 96 pixels, the name and the version, a table of two columns and no button', () => {
+    const view = html.slice(html.indexOf('<div id="about-view"'), html.indexOf('<p id="settings-buttons"'));
     assert.match(view, /^<div id="about-view" class="about" hidden>/, 'hidden until it is asked for');
-    assert.ok(html.indexOf('id="about-view"') > html.indexOf('id="settings-view"') && html.indexOf('id="about-view"') < html.indexOf('id="debug-view"'), 'a part of the settings view');
+    assert.ok(html.indexOf('id="about-view"') > html.indexOf('id="settings-view"') && html.indexOf('id="about-view"') < html.indexOf('id="settings-buttons"'), 'a part of the settings view, above Save and Cancel');
     assert.match(view, /<img id="about-logo" class="about-logo" src="icon\.png" width="96" height="96" alt="[^"]+">/);
     assert.match(view, /<p id="about-name" class="about-name">aip usage<\/p>\s*<p id="about-version" class="about-version"><\/p>/);
     assert.deepEqual([...view.matchAll(/<span class="about-label">([^<]+)<\/span><span(?: class="about-path"><a)? id="(about-[a-z]+)"/g)].map(m => m[1] + ':' + m[2]),
         ['Settings:about-settings', 'Log:about-log', 'Usage history:about-history', 'Java:about-java', 'JavaFX:about-javafx', 'System:about-system', 'Debug mode:about-debug']);
-    assert.deepEqual([...view.matchAll(/<button id="([a-z-]+)"[^>]*>([^<]+)<\/button>/g)].map(m => m[1] + ':' + m[2]), ['about-back:Back'], 'the one button with a text');
+    assert.deepEqual([...view.matchAll(/<button id="([a-z-]+)"[^>]*>([^<]+)<\/button>/g)].map(m => m[1] + ':' + m[2]), [], 'no button with a text');
 
     assert.match(ruleOf('.about-logo'), /width:\s*96px/);
     assert.match(ruleOf('.about-logo'), /height:\s*96px/);
@@ -392,7 +394,7 @@ test('the row keeps room for the usual values only, so that its elements do not 
 });
 
 test('the three paths of About are links that are not bold, each with a button of an icon that copies it', () => {
-    const view = html.slice(html.indexOf('<div id="about-view"'), html.indexOf('<div id="debug-view"'));
+    const view = html.slice(html.indexOf('<div id="about-view"'), html.indexOf('<p id="settings-buttons"'));
     for (const name of ['settings', 'log', 'history']) {
         assert.match(view, new RegExp('<span class="about-path"><a id="about-' + name + '" class="about-link" href="#" title="Open the folder of this file"></a>\\s*<button id="about-copy-' + name
             + '" class="icon tiny copy" type="button" aria-label="Copy the path" title="Copy the path">'), name);
@@ -414,8 +416,8 @@ test('the three paths of About are links that are not bold, each with a button o
     assert.doesNotMatch(link, /user-select/, 'a link cannot be selected either: the button is how a path is copied');
 });
 
-test('the debug view has a group for how the fake backend answers: the account, the increase, the two amounts, the two times', () => {
-    const view = html.slice(html.indexOf('<div id="debug-view"'), html.indexOf('<p id="debug-buttons"'));
+test('the Debug tab has a group for how the fake backend answers: the account, the increase, the two amounts, the two times', () => {
+    const view = html.slice(html.indexOf('<div id="tab-debug"'), html.indexOf('<div id="tab-general"'));
     assert.match(view, /<fieldset id="debug-fake">\s*<legend>Fake backend, scenario normal<\/legend>/);
     assert.match(view, /<label title="[^"]+">Account\s*<select id="debug-fakeAccount"[^>]*><\/select><\/label>/, 'the kinds of account are the backend\'s to name');
     const fields = [...view.matchAll(/<label title="[^"]{30,}">([A-Za-z ]+)\s*<input id="(debug-fake[A-Za-z]+)" class="(number|amount)" type="text"[^>]*> ([A-Za-z]+)<\/label>/g)]
@@ -432,17 +434,17 @@ test('the debug view has a group for how the fake backend answers: the account, 
     assert.match(css, /\.settings input\[type="text"\]\.amount\s*{\s*width:\s*10ch/);
 });
 
-test('the settings have a group Cost control after Request, with the monthly limit, the daily limit and its checkbox Automatic', () => {
-    const order = ['<legend>Request</legend>', '<legend>Cost control</legend>', '<legend>Main view'].map(legend => html.indexOf(legend));
-    assert.ok(order[0] >= 0 && order[0] < order[1] && order[1] < order[2], 'after Request and before Main view');
-    const group = html.slice(order[1], order[2]);
+test('the settings have a tab Cost control, with the monthly limit, the daily limit and its checkbox Automatic', () => {
+    const order = ['id="tab-main"', 'id="tab-history"', 'id="tab-cost"', 'id="tab-debug"', 'id="tab-general"'].map(id => html.indexOf(id));
+    assert.ok(order.every(p => p >= 0) && order.every((p, i) => i === 0 || order[i - 1] < p), 'the pages are in the order of the tabs');
+    const group = html.slice(order[2], order[3]);
+    assert.match(group, /<legend>Cost control<\/legend>/);
     assert.match(group, /<label title="[^"]{40,}">Monthly limit\s*<input id="set-costMonthlyLimit" class="amount" type="text"[^>]*> USD<\/label>/);
     assert.match(group, /<span class="line">\s*<label title="[^"]+">Daily limit\s*<input id="set-costDailyLimit" class="amount" type="text"[^>]*> USD<\/label>\s*<label title="[^"]{40,}"><input id="set-costDailyAutomatic" type="checkbox"> Automatic<\/label>\s*<\/span>/,
         'the checkbox in the line of the field it belongs to');
     assert.match(group, /Monday to Friday/, 'the tooltip says how it is worked out');
     assert.doesNotMatch(group, /\$/, 'the unit is the code: the page has no currency sign');
 });
-
 test('an error in the panel is red', () => {
     assert.match(ruleOf('.panel-error'), /color:\s*var\(--bad\)/);
 });
@@ -692,7 +694,7 @@ test('a checkbox and its text, and a label and its controls, are centred on each
     assert.match(css, /\.settings label input\[type="checkbox"\]\s*{[^}]*margin:\s*0/, 'no margin of the browser to push it off centre');
 });
 
-test('nothing in the settings wraps: every text on one line and the three buttons in one row', () => {
+test('nothing in the settings wraps: every text on one line and the two buttons in one row', () => {
     assert.match(ruleOf('.settings'), /white-space:\s*nowrap/);
     for (const rule of ['.settings label', '.settings .line', '.settings .buttons']) {
         assert.doesNotMatch(ruleOf(rule), /flex-wrap:\s*wrap/, rule);
@@ -700,19 +702,22 @@ test('nothing in the settings wraps: every text on one line and the three button
     assert.match(ruleOf('.settings .buttons'), /width:\s*max-content/, 'measured at its own width');
     assert.match(ruleOf('#settings-form,\n#debug-form'), /width:\s*max-content/);
     assert.match(ruleOf('#settings-form,\n#debug-form'), /min-width:\s*100%/, 'and as wide as the window when that is wider');
+    assert.match(ruleOf('.tabs'), /width:\s*0/, 'the strip of the titles has no width the window is measured to');
+    assert.match(ruleOf('.tabs'), /min-width:\s*100%/);
+    assert.match(ruleOf('.tab-strip'), /overflow-x:\s*auto/, 'it scrolls sideways when it is wider than the view');
     const buttons = html.slice(html.indexOf('<p id="settings-buttons" class="buttons">'), html.indexOf('</p>', html.indexOf('id="settings-buttons"')));
-    assert.deepEqual([...buttons.matchAll(/id="(settings-[a-z]+)"/g)].map(m => m[1]), ['settings-buttons', 'settings-save', 'settings-restore', 'settings-cancel', 'settings-about']);
+    assert.deepEqual([...buttons.matchAll(/id="(settings-[a-z]+)"/g)].map(m => m[1]), ['settings-buttons', 'settings-save', 'settings-cancel']);
     assert.match(ruleOf('.settings .panel-error'), /white-space:\s*normal/, 'a message may break');
 });
 
-test('the history has two new switches, the date and the change columns after them, under the History view heading', () => {
-    const view = html.slice(html.indexOf('<legend>History view</legend>'), html.indexOf('<legend>Log</legend>'));
-    const order = ['set-historyDate', 'set-historyZeroLines', 'set-historyFailedLines', 'set-historyDeltaUsed', 'set-historyDeltaTime'];
+test('the History view tab has the date, the two lines, and a checkbox for every column in the order of the view', () => {
+    const view = html.slice(html.indexOf('<legend>History view</legend>'), html.indexOf('id="tab-cost"'));
+    const order = ['set-historyDate', 'set-historyZeroLines', 'set-historyFailedLines', 'set-historyTime', 'set-historyUsed', 'set-historyLimit', 'set-historyDeltaUsed', 'set-historyDeltaTime', 'set-historyCurrent'];
     const positions = order.map(id => view.indexOf('id="' + id + '"'));
     positions.forEach((p, i) => assert.ok(p >= 0, order[i] + ' is in the History view group'));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+    assert.match(view, /<input id="set-historyCurrent" type="checkbox"> Cur\./);
 });
-
 test('the currency is the right-most column of the history, with the change columns between the budget and it', () => {
     for (const [cols, count] of [['cols-4', 4], ['cols-5', 5], ['cols-6', 6]]) {
         for (const suffix of ['', '.date']) {
@@ -772,17 +777,15 @@ test('the time format is beside the Time checkbox and the currency symbol beside
     assert.match(ruleOf('.settings .line'), /align-items:\s*center/);
 });
 
-test('the settings have a group Window, after Main view and before History view, with Title bar and Stay on top', () => {
-    const order = ['<legend>Request</legend>', '<legend>Main view', '<legend>Window</legend>', '<legend>History view</legend>', '<legend>Log</legend>']
-        .map(legend => html.indexOf(legend));
+test('the General tab has the groups Request, Window and Log, with Title bar before Stay on top', () => {
+    const order = ['id="tab-general"', '<legend>Request</legend>', '<legend>Window</legend>', '<legend>Log</legend>'].map(legend => html.indexOf(legend));
     assert.ok(order.every(p => p >= 0));
     assert.deepEqual([...order].sort((a, b) => a - b), order);
-    const group = html.slice(html.indexOf('<legend>Window</legend>'), html.indexOf('<legend>History view</legend>'));
+    const group = html.slice(html.indexOf('<legend>Window</legend>'), html.indexOf('<legend>Log</legend>'));
     assert.match(group, /<label title="[^"]{40,}"><input id="set-showTitleBar" type="checkbox"> Title bar<\/label>/);
     assert.match(group, /<label title="[^"]{40,}"><input id="set-stayOnTop" type="checkbox"> Stay on top<\/label>/);
     assert.ok(group.indexOf('set-showTitleBar') < group.indexOf('set-stayOnTop'), 'the title bar first');
 });
-
 test('the gray box of an element with no value is light, rounded, has a thin green border and a width of its own', () => {
     const rule = ruleOf('.skeleton');
     assert.match(rule, /background:\s*rgba\(138, 143, 152, 0\.33\)/, 'the muted gray, #8a8f98, at a third of its strength');
@@ -809,7 +812,7 @@ test('the highlighted note is blue, in a colour of its own for each theme, and c
 });
 
 test('the interval is one entry field with its unit, in the Request section', () => {
-    const request = html.slice(html.indexOf('<legend>Request</legend>'), html.indexOf('<legend>Main view'));
+    const request = html.slice(html.indexOf('<legend>Request</legend>'), html.indexOf('<legend>Window</legend>'));
     assert.match(request, /<input id="set-usageIntervalSeconds" type="text"/);
     assert.match(request, /> s<\/label>/, 'the unit s beside it');
     assert.equal((request.match(/<select/g) || []).length, 0, 'no dropdown');
@@ -871,29 +874,32 @@ test('an optional item of the row with no value is a gray box of the item\'s own
 
 // ---- debug mode
 
-test('the debug button is the last thing in the row, after the gear, hidden until the page knows it is debug mode, and yellow', () => {
-    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
-    assert.ok(strip.indexOf('id="settings-button"') < strip.indexOf('id="debug-button"'));
-    const button = strip.slice(strip.indexOf('<button id="debug-button"'));
-    assert.match(button, /^<button id="debug-button" class="icon tiny debug"[^>]*\shidden>/);
-    assert.match(button, /<svg/, 'an icon, not a word');
-    assert.match(ruleOf('.icon.debug,\n.icon.debug.active'), /color:\s*var\(--debug\)/, 'yellow, shown or not');
-    assert.deepEqual([...css.matchAll(/--debug:\s*(#[0-9a-f]{6})/g)].map(m => m[1]), ['#d4a017', '#f2cc60'], 'a yellow for each theme');
+test('there is no debug button in the row, and no yellow of its own', () => {
+    assert.doesNotMatch(html, /debug-button/);
+    assert.doesNotMatch(css, /--debug:|\.icon\.debug/);
+    assert.match(html, /<button id="tabbtn-debug" class="tab" type="button" role="tab" data-tab="debug" hidden>Debug<\/button>/, 'a tab, hidden until the page knows it is debug mode');
 });
-
-test('the debug settings are a view like the settings, with Apply and Cancel and no Restore defaults', () => {
-    const view = html.slice(html.indexOf('<div id="debug-view"'), html.indexOf('<!-- Measured'));
-    assert.match(view, /^<div id="debug-view" class="settings" hidden>/);
-    assert.ok(html.indexOf('id="panel"') < html.indexOf('id="debug-view"') && html.indexOf('id="settings-view"') < html.indexOf('id="debug-view"'), 'in the panel area, after the settings');
+test('the debug settings are a tab of the settings, with the scenario beside the switch of the fake backend, and no buttons of their own', () => {
+    const view = html.slice(html.indexOf('<div id="tab-debug"'), html.indexOf('<div id="tab-general"'));
+    assert.match(view, /^<div id="tab-debug" class="tab-page" hidden>/);
+    assert.doesNotMatch(html, /id="debug-view"|debug-apply|debug-cancel|debug-buttons/);
     for (const id of ['debug-fakeBackend', 'debug-fakeToken']) {
         assert.match(view, new RegExp('<label title="[^"]{40,}"><input id="' + id + '" type="checkbox">'), id);
     }
     assert.match(view, /<select id="debug-fakeScenario"[^>]*><\/select>/, 'the scenarios are the backend\'s to name');
-    assert.deepEqual([...view.matchAll(/<button id="(debug-[a-z]+)"/g)].map(m => m[1]), ['debug-apply', 'debug-cancel']);
     const line = view.match(/<span class="line">([\s\S]*?)<\/span>/)[1];
     assert.ok(line.indexOf('debug-fakeBackend') < line.indexOf('debug-fakeScenario'), 'the scenario is beside the switch of the fake backend');
 });
 
+test('the tabs are in the order Main view, History view, Cost control, Debug, General, About, with an arrow at each end of the strip', () => {
+    const strip = html.slice(html.indexOf('id="settings-tabs"'), html.indexOf('id="settings-form"'));
+    assert.deepEqual([...strip.matchAll(/data-tab="([a-z]+)"[^>]*>([^<]+)</g)].map(m => m[1] + ':' + m[2]),
+        ['main:Main view', 'history:History view', 'cost:Cost control', 'debug:Debug', 'general:General', 'about:About']);
+    assert.ok(strip.indexOf('id="tab-prev"') < strip.indexOf('id="tab-strip"') && strip.indexOf('id="tab-strip"') < strip.indexOf('id="tab-next"'));
+    assert.match(strip, /id="tab-prev"[^>]*title="Previous tab"/);
+    assert.match(strip, /id="tab-next"[^>]*title="Next tab"/);
+    assert.match(css, /\.tab-page\[hidden\]\s*{\s*display:\s*none/);
+});
 test('with a settings view shown the app is as wide as the window, so that the red border goes round the view and not round the row alone', () => {
     const rule = ruleOf('#app.fit');
     assert.match(rule, /min-width:\s*100%/);

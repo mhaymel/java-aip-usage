@@ -125,7 +125,7 @@ public final class PanelProbe {
 
     /**
      * The settings: how wide the page says the window must be for them, and, with the window made that wide as the
-     * application would make it, whether any text wraps, whether the three buttons are in one row and whether anything
+     * application would make it, whether any text wraps, whether the two buttons are in one row and whether anything
      * sticks out at the right.
      */
     private static void settings(WebEngine page, Stage main) {
@@ -135,22 +135,25 @@ public final class PanelProbe {
             page.executeScript(
                     "Array.from(document.querySelectorAll('#settings-form input[id^=\"set-show\"]')).forEach(function (box) {"
                             + " box.checked = false; box.dispatchEvent(new Event('change')); })");
-            System.out.println("PROBE settings-row=" + page.executeScript("Math.ceil(document.getElementById('top').getBoundingClientRect().width)"));
+            // The row's own width: while a panel is open the row is stretched to the window, so it is let go of for the measuring.
+            System.out.println("PROBE settings-row=" + page.executeScript(
+                    "(function () { var t = document.getElementById('top'); t.style.width = 'max-content';"
+                            + " var w = Math.ceil(t.getBoundingClientRect().width); t.style.width = ''; return w; })()"));
             String size = size(page);
             System.out.println("PROBE settings=" + size);
             main.setWidth(main.getWidth() - main.getScene().getWidth() + Integer.parseInt(size.split(",")[0]));
             after(0.7, () -> {
                 System.out.println("PROBE settings-fitted=" + size(page));
                 System.out.println("PROBE settings-lines=" + page.executeScript(
-                        "(function () { var one = document.getElementById('set-logResponse').parentElement.getBoundingClientRect().height;"
+                        "(function () { var one = document.getElementById('set-showPercentage').parentElement.getBoundingClientRect().height;"
                                 + " return Array.from(document.querySelectorAll('#settings-view label, #settings-view .line'))"
                                 + ".filter(function (line) { return line.getBoundingClientRect().height > one * 1.5; }).length; })()"));
                 System.out.println("PROBE settings-buttons=" + page.executeScript(
-                        "['settings-apply', 'settings-restore', 'settings-cancel'].map(function (id) {"
+                        "['settings-save', 'settings-cancel'].map(function (id) {"
                                 + " return Math.round(document.getElementById(id).getBoundingClientRect().top); }).join(',')"));
                 System.out.println("PROBE settings-overflow=" + page.executeScript(
                         "Math.max(0, Math.ceil(Math.max.apply(null, Array.from(document.querySelectorAll('#settings-view label, #settings-view .line,"
-                                + " #settings-view button, #settings-view fieldset')).map(function (e) { return e.getBoundingClientRect().right; }))"
+                                + " #settings-view button:not(.tab), #settings-view fieldset')).map(function (e) { return e.getBoundingClientRect().right; }))"
                                 + " - window.innerWidth))"));
                 click(page, "settings-cancel");
                 after(0.5, () -> {

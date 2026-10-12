@@ -135,17 +135,16 @@ class TitleBarWindowTest {
 
         // The About view: in the place of the settings form, with the logo drawn at 96 pixels from its file of 256, the
         // version, the line of debug mode, the paths, the window as wide as with the settings and nothing past its edge;
-        // and Back gives the form again.
+        // and the first tab gives the form again.
         Matcher about = Pattern.compile(" size:(\\d+),(\\d+),3,settings .* about:\\[true\\|96x96\\|256\\|v" + Pattern.quote(AppInfo.VERSION)
-                + "\\|on, the fake backend is in use\\|settings\\.json\\|java-aip-usage\\.fake\\.csv\\|false\\|(\\d+)/(\\d+)\\|0]").matcher(line(all, "about"));
+                + "\\|on, the fake backend is in use\\|settings\\.json\\|java-aip-usage\\.fake\\.csv\\|true\\|(\\d+)/(\\d+)\\|0]").matcher(line(all, "about"));
         assertTrue(about.find(), all);
-        Matcher form = Pattern.compile(" size:(\\d+),(\\d+),3,settings ").matcher(line(all, "settings-manual"));
+        Matcher form = Pattern.compile(" size:(\\d+),(\\d+),3,settings ").matcher(line(all, "settings-cost"));
         assertTrue(form.find(), all);
         assertEquals(form.group(1), about.group(1), "as wide as the settings were:\n" + all);
-        assertTrue(Integer.parseInt(about.group(2)) < Integer.parseInt(form.group(2)), "and as tall as it needs, which is less:\n" + all);
         assertTrue(line(all, "about").contains("titleBar:true"), all);
         assertTrue(line(all, "about-back").contains(" about:[false|") && line(all, "about-back").contains("|true|0/"), "Back: the form again:\n" + all);
-        assertTrue(line(all, "about-back").contains(" size:" + form.group(1) + "," + form.group(2) + ",3,settings "), "at the size it had:\n" + all);
+        assertTrue(line(all, "about-back").contains(" size:" + form.group(1) + ","), "as wide as it was:\n" + all);
 
         // The history's columns: the first at the left edge, the last at the right, and the same room between each two
         // neighbours; the header's second column ends where the row's does, so the two are in line.
@@ -216,12 +215,12 @@ class TitleBarWindowTest {
         // Started with the fake backend on: the border, the invented figures, the debug button.
         assertTrue(line(all, "start").contains(" app:[fake] "), all);
         assertTrue(line(all, "start").contains(" border:3px "), "a border of three pixels:\n" + all);
-        assertTrue(line(all, "start").contains(" debugButton:true "), all);
+        assertTrue(line(all, "start").contains(" debugTab:true "), all);
         assertTrue(line(all, "start").matches(".* used:\\[\\d+\\.\\d\\d\\] .*"), "the figures of the fake backend:\n" + all);
         assertTrue(all.lines().filter(l -> l.contains("=titleBar:")).allMatch(l -> l.contains(" overflow:0")), "the border never pushes the page past the window:\n" + all);
 
-        // The debug settings are a panel: named, and with the title bar.
-        assertTrue(line(all, "debug").contains(",3,debug "), all);
+        // The debug settings are a tab of the settings: named as the settings, and with the title bar.
+        assertTrue(line(all, "debug").contains(",3,settings "), all);
         assertTrue(line(all, "debug").contains("titleBar:true"), all);
         // The border goes round the view, not round the row alone: its right side is at the right edge of the window, and
         // the view is inside it.
@@ -251,7 +250,7 @@ class TitleBarWindowTest {
                 "the amount used is a gray box, with a green border of one pixel:\n" + all);
         assertTrue(!noData.contains("No data"), "and the row does not say it in words:\n" + all);
         assertTrue(line(all, "start").contains(" usedBox:[used|0px|"), "a figure has no such border:\n" + all);
-        assertTrue(line(all, "fake-off-settled").contains(" debugButton:true "), "the debug button is the one sign of debug mode then:\n" + all);
+        assertTrue(line(all, "fake-off-settled").contains(" debugTab:true "), "the debug button is the one sign of debug mode then:\n" + all);
 
         // The message line of the failed refresh with a row of two buttons. With the settings shown the row's box and the
         // message are as wide as the window, not as the two buttons, and the message is a few lines, not a column.

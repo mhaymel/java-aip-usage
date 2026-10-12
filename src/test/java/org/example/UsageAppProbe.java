@@ -54,12 +54,15 @@ public final class UsageAppProbe {
             drag("drag-button", "settings-button");
             drag("drag-refresh", "refresh");
             step("settings", "settings-button");
+            // The Request group is in the General tab.
+            step("settings-general", "tabbtn-general");
             // Automatic is checked: the field of the interval is disabled at once and shows the interval in force.
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-autoInterval').click()"));
             step("settings-auto", null);
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-autoInterval').click()"));
             step("settings-manual", null);
-            // Cost control: a monthly limit is typed, and the daily one is worked out by the program and shown, not to be typed in.
+            // Cost control, a tab of its own: a monthly limit is typed, and the daily one is worked out by the program and shown, not to be typed in.
+            step("settings-cost", "tabbtn-cost");
             onFx(() -> page().getEngine().executeScript(
                     "var m = document.getElementById('set-costMonthlyLimit'); m.value = '440'; m.dispatchEvent(new Event('change'));"));
             step("cost", null);
@@ -69,10 +72,10 @@ public final class UsageAppProbe {
                     "document.getElementById('set-costDailyAutomatic').click();"
                             + " var m = document.getElementById('set-costMonthlyLimit'); m.value = ''; m.dispatchEvent(new Event('change'));"));
             step("cost-none", null);
-            // The About view, in the place of the form, and the form again.
-            step("about", "settings-about");
+            // The About tab, in the place of the others, and the first tab again.
+            step("about", "tabbtn-about");
             copyPath("about-copy");
-            step("about-back", "about-back");
+            step("about-back", "tabbtn-main");
             step("settings-left", "settings-cancel");
             step("history", "history-button");
             // The zoom: eight presses make the text of the list as large as it gets, and the window as wide as the table needs then.
@@ -106,54 +109,59 @@ public final class UsageAppProbe {
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-all').click()"));
             step("settings-narrow", null);
             step("settings-narrow-left", "settings-cancel");
-            // Debug mode: the debug settings, and the fake backend switched off and on again while the program runs.
-            step("debug", "debug-button");
+            // Debug mode: the Debug tab of the settings, and the fake backend switched off and on again while the program runs.
+            debugTab("debug");
             // How the fake backend answers is shaped here. Another starting amount: the amount begins there, and the row shows it.
             onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeStartAmount').value = '50.00';"));
-            step("fake-start-applied", "debug-apply");
+            step("fake-start-applied", "settings-save");
             Thread.sleep(2000);
             step("fake-start", null);
             // Refusing within an hour: the request that follows the change comes too soon, and is refused with a 429.
-            step("debug-refuse", "debug-button");
+            debugTab("debug-refuse");
             onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeRefuseSeconds').value = '3600';"));
-            step("fake-refuse-applied", "debug-apply");
+            step("fake-refuse-applied", "settings-save");
             Thread.sleep(2000);
             step("fake-refuse", null);
-            step("debug-seat-open", "debug-button");
+            debugTab("debug-seat-open");
             // The fake backend answers as for a seat-based account: gray boxes, and the line that says so only while the
             // mouse is on one of them. It refuses nothing again.
             onFx(() -> page().getEngine().executeScript(
                     "document.getElementById('debug-fakeRefuseSeconds').value = '0'; document.getElementById('debug-fakeAccount').value = 'seat';"));
-            step("seat-applied", "debug-apply");
+            step("seat-applied", "settings-save");
             Thread.sleep(2500);
             step("seat", null);
             point("seat-hover", "used");
             point("seat-away", "refresh");
-            step("debug-seat", "debug-button");
+            debugTab("debug-seat");
             onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeAccount').value = 'usage';"));
             onFx(() -> page().getEngine().executeScript(
                     "document.getElementById('debug-fakeBackend').checked = false; document.getElementById('debug-fakeToken').checked = true;"));
-            step("fake-off", "debug-apply");
+            step("fake-off", "settings-save");
             Thread.sleep(2500);
             step("fake-off-settled", null);
-            // A failed refresh has a message line. With every element of the row hidden the row is the gear and the debug
-            // button: the message must not stand in a column of that width, with the settings shown or with no panel.
+            // A failed refresh has a message line. With every element of the row hidden the row is the gear alone: the message must not stand in a column of that width, with the settings shown or with no panel.
             step("message-settings", "settings-button");
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-all').click(); document.getElementById('set-all').click();"));
             step("message-narrow-settings", null);
-            step("message-narrow-row", "settings-apply");
+            step("message-narrow-row", "settings-save");
             step("message-settings-again", "settings-button");
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-all').click();"));
-            step("message-wide-row", "settings-apply");
-            step("debug-again", "debug-button");
+            step("message-wide-row", "settings-save");
+            debugTab("debug-again");
             onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeBackend').checked = true;"));
-            step("fake-on", "debug-button");
+            step("fake-on", "settings-save");
             Thread.sleep(2500);
             step("fake-on-settled", null);
             onFx(() -> window().close());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /** Opens the settings, shows their Debug tab, and says what there is. */
+    private static void debugTab(String name) throws InterruptedException {
+        step(name + "-settings", "settings-button");
+        step(name, "tabbtn-debug");
     }
 
     /** Presses the button, if one is named, waits for the window to follow, and says what there is. */
@@ -185,7 +193,7 @@ public final class UsageAppProbe {
                     + " content:" + Math.round(window().getScene().getWidth()) + "x" + Math.round(window().getScene().getHeight())
                     + " app:[" + page().getEngine().executeScript("document.getElementById('app').className.trim()") + "]"
                     + " border:" + page().getEngine().executeScript("getComputedStyle(document.getElementById('app')).borderTopWidth")
-                    + " debugButton:" + page().getEngine().executeScript("!document.getElementById('debug-button').hidden")
+                    + " debugTab:" + page().getEngine().executeScript("!document.getElementById('tabbtn-debug').hidden")
                     + " used:[" + page().getEngine().executeScript(
                             "document.getElementById('spend').hidden ? '' : document.getElementById('used').textContent.replace(/\\u00a0/g, '')") + "]"
                     + " overflow:" + page().getEngine().executeScript(

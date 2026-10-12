@@ -63,6 +63,10 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "timeFormat": "hh:mm",
     "historyDeltaUsed": false,
     "historyDeltaTime": false,
+    "historyTime": true,
+    "historyUsed": true,
+    "historyLimit": true,
+    "historyCurrent": true,
     "historyDate": false,
     "historyZeroLines": true,
     "historyFailedLines": true,
@@ -81,9 +85,12 @@ Every setting as the backend has it, read afresh each time the settings view is 
 ```
 
 `timeFormat` is `"hh:mm"` or `"hh:mm:ss"`. The interval is one number, whole seconds within `limits` (5 to 3600), which the settings view takes in a single entry field; there is no
-list of values, so an interval the file holds is shown as it is. `settings.usageIntervalSeconds` (and the status' `display.interval`) is the interval in force: the configured one, or, while the application
-waits longer after HTTP 429s, that longer wait in whole seconds rounded up. Applying values saves what is sent, so applying while backing off saves the longer
-wait as the configured interval. `defaults` and `GET /api/config` are not changed by a back-off.
+list of values, so an interval the file holds is shown as it is. `settings.usageIntervalSeconds` (and the status' `display.interval`) is the interval in force: the configured one, or, with `autoInterval` on, the one the search has found. There is no back-off since version 0.64: an HTTP 429
+changes no delay with `autoInterval` off.
+
+`historyTime`, `historyUsed`, `historyLimit`, `historyDeltaUsed`, `historyDeltaTime` and `historyCurrent` say which columns the history has, in the order of the table (`time`, `used`, `limit`, `Δ used`, `Δ time`, `Cur.`); the four first
+named are on by default, and `POST /api/settings` may leave `historyTime`, `historyUsed`, `historyLimit` and `historyCurrent` out, which keeps what the settings have (the other keys must all be given). `GET /api/history` has
+only the columns that are on, in `columns` and in each line's `cells`.
 The same keys are in `settings.json`, which
 is created with the defaults if it is missing.
 
@@ -93,12 +100,12 @@ is created with the defaults if it is missing.
 requests itself, between 10 and 300 seconds. `POST /api/settings` must give it like every other setting.
 
 Beside `settings`, `defaults` and `limits` the answer has `configuredIntervalSeconds`: the interval that is saved.
-`settings.usageIntervalSeconds` is the interval in force, which is another one while a back-off holds, and, with
-`autoInterval` on, the one the search has found, shorter or longer than the configured one. A page that shows the interval
+`settings.usageIntervalSeconds` is the interval in force, which, with
+`autoInterval` on, is the one the search has found, shorter or longer than the configured one. A page that shows the interval
 in force in its field sends the configured one back when `autoInterval` is on, so that it is kept.
 
-The three figures of the search, `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, are in
-`settings.json` and in no request: the program changes them by itself.
+The two figures of the search, `autoIntervalSeconds` and `autoRefusedSeconds` (the interval at which the last HTTP 429 came; the key is left out for none), are in
+`settings.json` and in no request: the program changes them by itself. The keys `autoLowerSeconds` and `autoUpperSeconds` of versions before 0.64 are not read, and are not written again.
 
 ### Cost control in the settings
 
@@ -206,11 +213,11 @@ The frontend asks for this once at startup, and then polls `/api/status` every
 - `pollIntervalSeconds`: how often the frontend asks the backend for the latest
   state. Always 1. It is read-only: nothing sets it, saves it or changes it. It has no entry under `limits` for that
   reason.
-- `debug`: whether the program was started with `--debug`. The window then shows its debug button; without it there are no
+- `debug`: whether the program was started with `--debug`. The settings window then has a tab `Debug`; without it there are no
   debug settings to ask for (`/api/debug` is a `404`).
 
 The usage interval is the configured one: the saved setting, else the default (see the requirements, Refresh behavior), until the
-frontend changes it. It is not the longer wait of a back-off after HTTP 429s; `GET /api/settings` and the status' `display.interval` have that one.
+frontend changes it. `GET /api/settings` and the status' `display.interval` have the interval in force, which with `autoInterval` on is the search's.
 
 ## `GET /api/status`
 
@@ -303,9 +310,8 @@ texts are in the requirements (How the figures are written).
 - `nextRefreshInSeconds`: whole seconds until the next *scheduled* refresh, to the
   nearest second, worked out by the backend; a frontend shows it and does no counting
   of its own. It is counted from when the most recent request was triggered, by the
-  schedule or by `POST /api/refresh`, plus the wait that applies: the usage interval,
-  or the longer wait while backing off after an HTTP 429. So it starts again after a
-  manual refresh, is longer during a back-off, and moves when the interval changes.
+  schedule or by `POST /api/refresh`, plus the interval in force. So it starts again after a
+  manual refresh, and moves when the interval changes.
   It **can be negative**: that means the refresh is overdue by that many seconds, for
   example because a request is taking longer than the interval. It keeps counting
   while a request runs. It is `null` until the first request has been triggered.
@@ -524,7 +530,7 @@ file, and opens them at the larger of that and the page's own; the error log and
 resize only what it is told may be: nothing for `0` and `3`, the height for `1`, the height and the width for `2`, and never
 below the size last reported with `0`. The page measures its own content, never the window, so resizing the
 window to match does not change the answer. The Java host (`WindowFit`) ignores anything that is not that
-shape (a width or a height of 0 or of more than five digits, a panel name other than `history`, `log`, `errors`, `settings` and `debug`), keeps the size it sets
+shape (a width or a height of 0 or of more than five digits, a panel name other than `history`, `log`, `errors`, `settings` and `debug`, the last of which the page no longer reports: the Debug tab is a tab of the settings), keeps the size it sets
 between 160 x 32 and 2400 x 1600, and does not apply a size twice; a change of the flag or of the panel alone counts as a new size. A different host,
 such as the future Go one, needs only to call the function and resize.
 
