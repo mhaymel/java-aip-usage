@@ -240,6 +240,25 @@
                     </span>
                     <label title="Sends a placeholder instead of a real token to the real endpoint, so that no login is needed; Anthropic will refuse it."><input id="debug-fakeToken" type="checkbox"> Placeholder token</label>
                 </fieldset>
+                <fieldset id="debug-fake">
+                    <legend>Fake backend, scenario normal</legend>
+                    <label title="The kind of account the fake backend answers for: one billed by usage, with an amount used and a budget, or one billed by seat, with no spend.">Account
+                        <select id="debug-fakeAccount" aria-label="The kind of account the fake backend answers for"></select></label>
+                    <label title="At each answer the amount used grows by a whole number of cents drawn at random from 0 to this. 0: it never grows.">Largest increase
+                        <input id="debug-fakeIncreaseCents" class="number" type="text" inputmode="numeric" autocomplete="off" aria-label="Largest increase in cents, from 0 to 100000"> cents</label>
+                    <span class="line">
+                        <label title="The spend limit the fake account reports, in dollars.">Budget
+                            <input id="debug-fakeBudget" class="amount" type="text" inputmode="decimal" autocomplete="off" aria-label="Budget in US dollars"> USD</label>
+                        <label title="The amount used the fake account begins with, in dollars. Changing it begins the amount there again.">Starting amount
+                            <input id="debug-fakeStartAmount" class="amount" type="text" inputmode="decimal" autocomplete="off" aria-label="Starting amount in US dollars"> USD</label>
+                    </span>
+                    <span class="line">
+                        <label title="A request that comes less than this many seconds after the answered one before it gets HTTP 429. 0: it never refuses.">Refuse within
+                            <input id="debug-fakeRefuseSeconds" class="number" type="text" inputmode="numeric" autocomplete="off" aria-label="Refuse within seconds, from 0 to 3600"> s</label>
+                        <label title="Each answer is held back for a time drawn at random from 0 to this many milliseconds. 0: it answers at once.">Longest request
+                            <input id="debug-fakeDelayMillis" class="number" type="text" inputmode="numeric" autocomplete="off" aria-label="Longest request in milliseconds, from 0 to 60000"> ms</label>
+                    </span>
+                </fieldset>
             </div>
             <p id="debug-buttons" class="buttons">
                 <button id="debug-apply" type="button">Apply</button>

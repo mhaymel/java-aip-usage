@@ -1713,11 +1713,35 @@ desktop it runs on. The command it starts is tested, the starting of it is not.
 
 ### 74. The fake backend to configure
 
-**Status: specified, not built (version 0.62).** Six more debug settings, the budget and the starting amount among them, in `Settings`, the store, `/api/debug` and the
-debug view; `FakeBackend` takes them with the scenario and can be given new ones while it runs, as it is given a scenario.
-The random numbers come from a source a test can fix. The scenario `seat-based` and its place in the lists go. The fixed step
-of 1.37 at each answer goes with it: the tests that read `187.39` after one answer are given a fake backend whose increase
-is fixed.
+**Status: built (version 0.62).** Requirement: A fake backend that can be configured.
+
+- **`FakeOptions`** holds the six: the account, the largest increase, the budget, the starting amount, the time within
+  which a request is refused and the longest request, with what each may be and the words for what is wrong.
+- **`FakeBackend`** is started with them and takes others while it runs (`configure`). Its ordinary answer waits for a
+  time that is drawn, refuses a request that comes too soon after the answered one before it, and is otherwise the document
+  of the account. `UsageDocument` keeps the amount used, which begins at the starting amount and grows by what is drawn.
+  The numbers are drawn through a function the backend is given: chance in the program, and in a test what the test says.
+  `FakeBackend.start(scenario)`, which the tests of before use, is the backend as it was, with the full step each time.
+- **Saved** beside the settings like the search and the heights (`SettingsStore.loadFake`, `saveFake`), after the three
+  switches. A file that still names the scenario `seat-based` is read as `normal` with the account `seat`.
+- **`AppRuntime.applyDebug`** takes the options with the three switches: when only the options changed it saves them and
+  tells the backend that runs, so that the amount goes on; when a switch changed it opens the source anew, with them.
+- **The API and the page.** `/api/debug` gives and takes the six, and the kinds of account; the debug view has a group for
+  them. The page formats no number and has no currency sign, by two rules of its own that tests keep: so the two amounts
+  come as finished texts and go back as they were typed, and their unit in the view is `USD`.
+- **The scenario `seat-based` is gone**, with its place in the lists.
+- **Tests.** `FakeBackendTest`: as it was by default; the starting amount and what is drawn; no increase, and past the
+  budget; a seat-based account; refusals by a clock the test moves, counted from the answered request; the wait; other
+  options while it runs; options that cannot be. `SettingsStoreTest`: the six keys, each beside the others, values that
+  cannot be, the old scenario. `ApiTest`: the defaults, the save, what is left out, the refusals. `app.test.cjs`,
+  `layout.test.cjs`: the group, what is sent, the reason in red.
+- **In a real window** (the on-request test, started with an increase of 0): the debug view shows `usage`, 0, 1000.00,
+  186.02, 0 and 0, and the row 186.02 of 1,000.00; a starting amount of 50.00 makes the row show 50.00; refusing within
+  3600 seconds makes the next request a 429, with the countdown in red and the reading kept; the account `seat` gives the
+  gray boxes and the line on hover.
+
+**Not checked by a test.** The amounts growing by chance in a real run, and the automatic interval against a fake backend
+that refuses: that is what this was built for, and is for a person to try.
 
 ### 75. Cost control
 

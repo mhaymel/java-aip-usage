@@ -3318,3 +3318,75 @@ test('when the folder cannot be opened or the path not copied a red line says so
     assert.notEqual(page.el('about-copy-log').title, 'Copied');
     assert.equal(page.timers.filter(t => t.live && t.ms === 1500).length, 0);
 });
+
+// ---- the debug view shapes the fake backend's ordinary answer
+
+const SHAPED = {
+    settings: { fakeBackend: true, fakeScenario: 'normal', fakeToken: false,
+        fakeAccount: 'usage', fakeIncreaseCents: 137, fakeBudget: '1000.00', fakeStartAmount: '186.02', fakeRefuseSeconds: 0, fakeDelayMillis: 0 },
+    scenarios: ['normal', 'http-429', 'slow'],
+    accounts: ['usage', 'seat'],
+};
+
+async function openDebug(state) {
+    const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS, debug: () => ({ status: 200, body: SHAPED }), ...state }));
+    await page.click('debug-button');
+    return page;
+}
+
+test('the debug view shows how the fake backend answers: the account by its name, the amounts as the backend wrote them, the rest as numbers', async () => {
+    const page = await openDebug({});
+
+    assert.equal(page.el('debug-fake').hidden, false);
+    assert.deepEqual(page.el('debug-fakeAccount').children.map(o => o.value + ':' + o.textContent), ['usage:Usage-based', 'seat:Seat-based']);
+    assert.equal(page.el('debug-fakeAccount').value, 'usage');
+    assert.equal(page.el('debug-fakeIncreaseCents').value, '137');
+    assert.equal(page.el('debug-fakeBudget').value, '1000.00');
+    assert.equal(page.el('debug-fakeStartAmount').value, '186.02');
+    assert.equal(page.el('debug-fakeRefuseSeconds').value, '0');
+    assert.equal(page.el('debug-fakeDelayMillis').value, '0');
+});
+
+test('what is typed there is sent with the three switches, whole numbers as numbers and amounts as they were typed, and nothing unchanged is sent', async () => {
+    const page = await openDebug({});
+    await page.click('debug-button');
+    assert.equal(debugPosts(page).length, 0, 'nothing was changed');
+
+    await page.click('debug-button');
+    page.el('debug-fakeAccount').value = 'seat';
+    page.type('debug-fakeIncreaseCents', '50');
+    page.type('debug-fakeBudget', '250');
+    page.type('debug-fakeStartAmount', '12.34');
+    page.type('debug-fakeRefuseSeconds', '30');
+    page.type('debug-fakeDelayMillis', '400');
+    await page.click('debug-apply');
+
+    assert.deepEqual(JSON.parse(debugPosts(page)[0].body), {
+        fakeBackend: true, fakeScenario: 'normal', fakeToken: false,
+        fakeAccount: 'seat', fakeIncreaseCents: 50, fakeBudget: '250', fakeStartAmount: '12.34', fakeRefuseSeconds: 30, fakeDelayMillis: 400,
+    });
+});
+
+test('what is no number is sent as it was typed, and the reason the backend gives keeps the view open in red', async () => {
+    const page = await openDebug({
+        postDebug: () => ({ status: 400, body: { error: 'The largest increase must be a whole number of cents from 0 to 100000.' } }),
+    });
+    page.type('debug-fakeIncreaseCents', 'many');
+
+    await page.click('debug-apply');
+
+    assert.equal(JSON.parse(debugPosts(page)[0].body).fakeIncreaseCents, 'many');
+    assert.equal(page.el('debug-error').textContent, 'The largest increase must be a whole number of cents from 0 to 100000.');
+    assert.equal(page.el('debug-view').hidden, false);
+});
+
+test('a backend that says nothing of how the fake backend answers is sent nothing of it, and the group is not shown', async () => {
+    const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
+    await page.click('debug-button');
+    assert.equal(page.el('debug-fake').hidden, true);
+
+    page.el('debug-fakeBackend').checked = true;
+    await page.click('debug-apply');
+
+    assert.deepEqual(JSON.parse(debugPosts(page)[0].body), { fakeBackend: true, fakeScenario: 'normal', fakeToken: false });
+});

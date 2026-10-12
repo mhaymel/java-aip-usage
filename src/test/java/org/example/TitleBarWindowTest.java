@@ -109,7 +109,7 @@ class TitleBarWindowTest {
 
         // The word of between the amount used and the budget: small, light and gray, and near the foot of the figures.
         assertTrue(line(all, "start").matches(".* of:\\[ of \\|14px\\|400\\|rgb\\(138, 143, 152\\)\\|[0-3]] .*"), all);
-        assertTrue(line(all, "start").contains("187.39 of 1,000.00"), "the row reads so:\n" + all);
+        assertTrue(line(all, "start").contains("186.02 of 1,000.00"), "the row reads so:\n" + all);
 
         // The zoom of the lists: the text of the history is 12 pixels with a line of 15, eight presses make it 20, the largest, with a
         // line of 25, the window is wider for the wider table, and eight presses back give what there was.
@@ -261,6 +261,14 @@ class TitleBarWindowTest {
         // A row that is wider than that keeps its own width.
         Matcher wide = Pattern.compile(" size:(\\d+),").matcher(line(all, "message-wide-row"));
         assertTrue(wide.find() && Integer.parseInt(wide.group(1)) > 400, "every element on: the row's own width:\n" + all);
+
+        // The debug view says how the fake backend answers, as it was started here: an account billed by usage that does not grow.
+        assertTrue(line(all, "debug").contains(" fake:[usage|0|1000.00|186.02|0|0|"), all);
+        // Another starting amount: the amount begins there, and the row shows exactly that, since it does not grow.
+        assertTrue(line(all, "fake-start").contains(" used:[50.00] "), all);
+        // Refusing within an hour: the request after the change is refused, and the countdown says so in red.
+        assertTrue(line(all, "fake-refuse").matches(".* fake:\\[usage\\|0\\|1000\\.00\\|50\\.00\\|3600\\|0\\|countdown alert] .*"), all);
+        assertTrue(line(all, "fake-refuse").contains(" used:[50.00] "), "the reading before the refusal stays:\n" + all);
 
         // A seat-based account: gray boxes and no line; the line that says so while the mouse is on a box, muted, and the
         // window taller by it; and gone again, with the window as tall as it was, when the mouse is elsewhere.

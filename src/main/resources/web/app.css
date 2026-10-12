@@ -516,6 +516,15 @@ body {
     border-radius: 4px;
 }
 
+/* The fields of the debug view hold longer numbers than the interval's: six digits, and amounts of dollars and cents. */
+.settings input[type="text"].number {
+    width: 7ch;
+}
+
+.settings input[type="text"].amount {
+    width: 10ch;
+}
+
 /* The interval's field while the program finds the interval itself: it shows that interval, and is not to be typed in. */
 .settings input[type="text"][disabled] {
     opacity: 0.5;

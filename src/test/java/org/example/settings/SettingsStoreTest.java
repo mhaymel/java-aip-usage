@@ -183,7 +183,8 @@ class SettingsStoreTest {
 
         assertEquals(
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
-                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "logLevel", "logDate", "listFontSize", "autoInterval",
+                        "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
+                        "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
                         "autoIntervalSeconds", "autoLowerSeconds", "autoUpperSeconds", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
@@ -440,5 +441,73 @@ class SettingsStoreTest {
 
             assertEquals(SettingsStore.Search.BEGINNING, new SettingsStore(file()).loadSearch(), bad);
         }
+    }
+
+    // ---- how the fake backend answers, beside the settings
+
+    @Test
+    void theFakeBackendsOptionsAreTheDefaultsUntilTheyAreSavedAndComeBackAsSaved() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        assertEquals(org.example.fake.FakeOptions.DEFAULTS, store.loadFake(), "no file: as the fake backend always was");
+
+        org.example.fake.FakeOptions shaped = new org.example.fake.FakeOptions(org.example.fake.FakeOptions.Account.SEAT, 50, 25_000, 1_234, 30, 400);
+        store.saveFake(shaped);
+
+        assertEquals(shaped, store.loadFake());
+        String content = Files.readString(file());
+        assertTrue(content.contains("\"fakeAccount\" : \"seat\""), content);
+        assertTrue(content.contains("\"fakeIncreaseCents\" : 50"), content);
+        assertTrue(content.contains("\"fakeBudget\" : 250.00"), "in dollars: " + content);
+        assertTrue(content.contains("\"fakeStartAmount\" : 12.34"), content);
+        assertTrue(content.contains("\"fakeRefuseSeconds\" : 30"), content);
+        assertTrue(content.contains("\"fakeDelayMillis\" : 400"), content);
+    }
+
+    @Test
+    void savingTheSettingsTheHeightsOrTheSearchLeavesTheFakeBackendsOptionsAsTheyAreAndTheOtherWayRound() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        org.example.fake.FakeOptions shaped = new org.example.fake.FakeOptions(org.example.fake.FakeOptions.Account.USAGE, 5, 30_000, 100, 10, 20);
+        store.saveFake(shaped);
+
+        store.save(interval(45));
+        store.saveHeights(new SettingsStore.Heights(640, 500));
+        store.saveSearch(new SettingsStore.Search(29, 23, 35));
+        assertEquals(shaped, store.loadFake());
+
+        store.saveFake(org.example.fake.FakeOptions.DEFAULTS);
+        assertEquals(45, store.load().usageIntervalSeconds());
+        assertEquals(new SettingsStore.Heights(640, 500), store.loadHeights());
+        assertEquals(new SettingsStore.Search(29, 23, 35), store.loadSearch());
+    }
+
+    @Test
+    void aValueOfTheFakeBackendThatCannotBeHasItsDefault() throws IOException {
+        Files.writeString(file(), "{\"fakeAccount\": \"team\", \"fakeIncreaseCents\": \"many\", \"fakeBudget\": 12.345, \"fakeRefuseSeconds\": 2.5, \"fakeDelayMillis\": 250}");
+
+        org.example.fake.FakeOptions read = new SettingsStore(file()).loadFake();
+
+        assertEquals(new org.example.fake.FakeOptions(org.example.fake.FakeOptions.Account.USAGE, 137, 100_000, 18_602, 0, 250), read,
+                "each value that is not one has its default, and the one that is stays");
+    }
+
+    @Test
+    void optionsOfTheFakeBackendThatDoNotGoTogetherAreTheDefaults() throws IOException {
+        Files.writeString(file(), "{\"fakeAccount\": \"seat\", \"fakeBudget\": 10.00, \"fakeStartAmount\": 20.00}");
+
+        org.example.fake.FakeOptions read = new SettingsStore(file()).loadFake();
+
+        assertEquals(org.example.fake.FakeOptions.Account.SEAT, read.account(), "the kind of account is kept");
+        assertEquals(100_000, read.budgetCents(), "a starting amount above the budget: neither is believed");
+        assertEquals(18_602, read.startCents());
+    }
+
+    @Test
+    void aFileThatStillNamesTheScenarioForASeatBasedAccountIsTheOrdinaryAnswerOfSuchAnAccount() throws IOException {
+        Files.writeString(file(), "{\"fakeBackend\": true, \"fakeScenario\": \"seat-based\"}");
+        SettingsStore store = new SettingsStore(file());
+
+        assertEquals(org.example.fake.Scenario.NORMAL, store.load().fakeScenario());
+        assertEquals(org.example.fake.FakeOptions.Account.SEAT, store.loadFake().account());
+        assertTrue(store.load().fakeBackend());
     }
 }

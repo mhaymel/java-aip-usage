@@ -24,8 +24,9 @@ import java.util.concurrent.CountDownLatch;
 public final class UsageAppProbe {
 
     public static void main(String[] args) throws Exception {
-        // The fake backend is a debug setting now, and counts only in debug mode.
-        Files.writeString(Path.of("settings.json"), "{\"showTitleBar\": false, \"fakeBackend\": true}");
+        // The fake backend is a debug setting now, and counts only in debug mode. Its amount does not grow here, so that
+        // what the row shows can be said in advance: 186.02 of 1,000.00.
+        Files.writeString(Path.of("settings.json"), "{\"showTitleBar\": false, \"fakeBackend\": true, \"fakeIncreaseCents\": 0}");
         // The probe starts the window class itself, which logs to the console only, so the log panel gets a file of its own.
         Files.writeString(Path.of("java-aip-usage.log"), String.join("\n",
                 "2026-10-11 13:24:01 INFO    [A] one",
@@ -97,16 +98,29 @@ public final class UsageAppProbe {
             step("settings-narrow-left", "settings-cancel");
             // Debug mode: the debug settings, and the fake backend switched off and on again while the program runs.
             step("debug", "debug-button");
+            // How the fake backend answers is shaped here. Another starting amount: the amount begins there, and the row shows it.
+            onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeStartAmount').value = '50.00';"));
+            step("fake-start-applied", "debug-apply");
+            Thread.sleep(2000);
+            step("fake-start", null);
+            // Refusing within an hour: the request that follows the change comes too soon, and is refused with a 429.
+            step("debug-refuse", "debug-button");
+            onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeRefuseSeconds').value = '3600';"));
+            step("fake-refuse-applied", "debug-apply");
+            Thread.sleep(2000);
+            step("fake-refuse", null);
+            step("debug-seat-open", "debug-button");
             // The fake backend answers as for a seat-based account: gray boxes, and the line that says so only while the
-            // mouse is on one of them.
-            onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeScenario').value = 'seat-based';"));
+            // mouse is on one of them. It refuses nothing again.
+            onFx(() -> page().getEngine().executeScript(
+                    "document.getElementById('debug-fakeRefuseSeconds').value = '0'; document.getElementById('debug-fakeAccount').value = 'seat';"));
             step("seat-applied", "debug-apply");
             Thread.sleep(2500);
             step("seat", null);
             point("seat-hover", "used");
             point("seat-away", "refresh");
             step("debug-seat", "debug-button");
-            onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeScenario').value = 'normal';"));
+            onFx(() -> page().getEngine().executeScript("document.getElementById('debug-fakeAccount').value = 'usage';"));
             onFx(() -> page().getEngine().executeScript(
                     "document.getElementById('debug-fakeBackend').checked = false; document.getElementById('debug-fakeToken').checked = true;"));
             step("fake-off", "debug-apply");
@@ -232,6 +246,11 @@ public final class UsageAppProbe {
                                     + " Array.prototype.forEach.call(row.children, function (c) { var b = c.getBoundingClientRect(); out.push(Math.round(b.left - box.left) + '-' + Math.round(b.right - box.left)); });"
                                     + " var head = document.querySelector('#panel-lines .head'); out.push(head ? Math.round(head.children[1].getBoundingClientRect().right - box.left) : 0);"
                                     + " return out.join(' '); })()") + "]"
+                    // The fake backend's fields in the debug view, and whether the countdown says that requests are refused.
+                    + " fake:[" + page().getEngine().executeScript(
+                            "(function () { var v = function (id) { return document.getElementById(id).value; };"
+                                    + " return v('debug-fakeAccount') + '|' + v('debug-fakeIncreaseCents') + '|' + v('debug-fakeBudget') + '|' + v('debug-fakeStartAmount')"
+                                    + " + '|' + v('debug-fakeRefuseSeconds') + '|' + v('debug-fakeDelayMillis') + '|' + document.getElementById('countdown').className; })()") + "]"
                     + " end");
             System.out.flush();
         });

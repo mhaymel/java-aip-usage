@@ -600,12 +600,39 @@
     /** The debug settings as the backend gave them when the view was opened or last saved; null when they could not be read. */
     var debugShown = null;
 
+    // How the fake backend's ordinary answer is shaped: the fields of the debug view that hold a number, by their setting.
+    var FAKE_NUMBERS = ['fakeIncreaseCents', 'fakeBudget', 'fakeStartAmount', 'fakeRefuseSeconds', 'fakeDelayMillis'];
+    // The kinds of account by the name the view shows for each.
+    var ACCOUNT_NAMES = { usage: 'Usage-based', seat: 'Seat-based' };
+
+    // Of those, the amounts of dollars: the backend gives them as finished texts, `1000.00`, and takes them as they are typed.
+    var FAKE_AMOUNTS = { fakeBudget: true, fakeStartAmount: true };
+
+    /**
+     * What is typed in a field of the debug view, as it is sent: a whole number as a number, an amount as its text, and
+     * anything else as it is, for the backend to say what is wrong with it. Nothing is worked out or formatted here.
+     */
+    function typedNumber(key) {
+        var text = String($('debug-' + key).value).trim();
+        return !FAKE_AMOUNTS[key] && /^\d+$/.test(text) ? Number(text) : text;
+    }
+
     function readDebugForm() {
-        return {
+        var values = {
             fakeBackend: Boolean($('debug-fakeBackend').checked),
             fakeScenario: $('debug-fakeScenario').value,
             fakeToken: Boolean($('debug-fakeToken').checked)
         };
+        // What the backend gave of the fake backend's answer is sent back; a backend that said nothing of it is sent nothing.
+        if (debugShown && 'fakeAccount' in debugShown) {
+            values.fakeAccount = $('debug-fakeAccount').value;
+        }
+        FAKE_NUMBERS.forEach(function (key) {
+            if (debugShown && key in debugShown) {
+                values[key] = typedNumber(key);
+            }
+        });
+        return values;
     }
 
     async function loadDebug() {
@@ -623,6 +650,20 @@
             $('debug-fakeBackend').checked = Boolean(body.settings.fakeBackend);
             $('debug-fakeScenario').value = body.settings.fakeScenario;
             $('debug-fakeToken').checked = Boolean(body.settings.fakeToken);
+            // How the fake backend answers: the kinds of account are the backend's to name, like the scenarios.
+            show('debug-fake', 'fakeAccount' in body.settings);
+            $('debug-fakeAccount').replaceChildren.apply($('debug-fakeAccount'), (body.accounts || []).map(function (name) {
+                var option = document.createElement('option');
+                option.value = name;
+                option.textContent = ACCOUNT_NAMES[name] || name;
+                return option;
+            }));
+            if ('fakeAccount' in body.settings) {
+                $('debug-fakeAccount').value = body.settings.fakeAccount;
+            }
+            FAKE_NUMBERS.forEach(function (key) {
+                $('debug-' + key).value = key in body.settings ? String(body.settings[key]) : '';
+            });
             show('debug-form', true);
         } catch (e) {
             debugShown = null;

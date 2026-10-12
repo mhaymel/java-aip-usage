@@ -84,6 +84,26 @@ public final class IntervalSettings {
         LOG.log(System.Logger.Level.DEBUG, "The " + panel + " window height is now " + pixels + " px");
     }
 
+    /** How the fake backend's ordinary answer is shaped, as saved; the defaults if it never was. */
+    public synchronized org.example.fake.FakeOptions fakeOptions() {
+        return store.loadFake();
+    }
+
+    /**
+     * Saves how the fake backend's ordinary answer is shaped.
+     *
+     * @throws SettingsException if the file cannot be written; nothing is changed then
+     */
+    public synchronized void storeFake(org.example.fake.FakeOptions options) {
+        try {
+            store.saveFake(options);
+        } catch (IOException e) {
+            LOG.log(System.Logger.Level.WARNING, "Could not save the fake backend's options to " + store.file(), e);
+            throw new SettingsException("The settings could not be saved: " + e.getMessage(), e);
+        }
+        LOG.log(System.Logger.Level.INFO, "The fake backend's options changed: " + options);
+    }
+
     /** Where the search for the automatic interval was when it was last saved; its beginning if it never was. */
     public synchronized SettingsStore.Search storedSearch() {
         return store.loadSearch();

@@ -44,7 +44,15 @@ public final class FakeBackend implements AutoCloseable {
 
     private final HttpServer server;
 
-    private final UsageDocument document = new UsageDocument();
+    private final UsageDocument document;
+
+    /** Draws a whole number from 0 to the most given: the cents an amount grows by, the milliseconds an answer waits. */
+    private final java.util.function.IntUnaryOperator dice;
+
+    private volatile FakeOptions options;
+
+    /** When the request before this one was answered and not refused, by the clock, in milliseconds; 0 before any was. */
+    private long lastAnsweredMillis;
 
     private final Clock clock;
 
@@ -54,10 +62,13 @@ public final class FakeBackend implements AutoCloseable {
     /** Read on each request, written when the scenario is switched while the server runs. */
     private volatile Scenario scenario;
 
-    private FakeBackend(HttpServer server, Scenario scenario, Clock clock) {
+    private FakeBackend(HttpServer server, Scenario scenario, Clock clock, FakeOptions options, java.util.function.IntUnaryOperator dice) {
         this.server = server;
         this.scenario = scenario;
         this.clock = clock;
+        this.options = options;
+        this.dice = dice;
+        this.document = new UsageDocument(options, dice);
     }
 
     /** Binds an ephemeral loopback port and starts answering with {@code scenario}. */
@@ -65,14 +76,28 @@ public final class FakeBackend implements AutoCloseable {
         return start(scenario, Clock.systemUTC());
     }
 
+    /**
+     * The fake backend as it was before it could be shaped, and without chance: an account billed by usage whose amount
+     * grows by 1.37 at every answer, so that what it answers can be said in advance.
+     */
     static FakeBackend start(Scenario scenario, Clock clock) throws IOException {
+        return start(scenario, clock, FakeOptions.DEFAULTS, most -> most);
+    }
+
+    /** The fake backend shaped by the options, with chance: the amount grows, and an answer waits, by a number that is drawn. */
+    public static FakeBackend start(Scenario scenario, FakeOptions options) throws IOException {
+        return start(scenario, Clock.systemUTC(), options, most -> most <= 0 ? 0 : java.util.concurrent.ThreadLocalRandom.current().nextInt(most + 1));
+    }
+
+    /** @param dice given a most, a whole number from 0 to it: chance in the program, and what a test says in a test */
+    static FakeBackend start(Scenario scenario, Clock clock, FakeOptions options, java.util.function.IntUnaryOperator dice) throws IOException {
         InetSocketAddress address = new InetSocketAddress(InetAddress.getLoopbackAddress(), 0);
         HttpServer server = HttpServer.create(address, 0);
         // Virtual threads are daemon threads, so a held request cannot keep the JVM alive,
         // and a slow or hanging answer does not stop the server answering anything else.
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
 
-        FakeBackend backend = new FakeBackend(server, scenario, clock);
+        FakeBackend backend = new FakeBackend(server, scenario, clock, options, dice);
         server.createContext("/", backend::notFound);
         server.createContext(org.example.usage.UsageClient.USAGE_PATH, backend::usage);
         server.createContext("/scenario", backend::switchScenario);
@@ -99,6 +124,28 @@ public final class FakeBackend implements AutoCloseable {
         LOG.log(System.Logger.Level.INFO, "The fake backend scenario is now " + wanted.optionName());
     }
 
+    public FakeOptions options() {
+        return options;
+    }
+
+    /**
+     * Takes other options while it runs: the next answer is shaped by them. The amount used goes on from where it is,
+     * unless the starting amount is another one.
+     */
+    public void configure(FakeOptions wanted) {
+        this.options = wanted;
+        document.configure(wanted);
+        LOG.log(System.Logger.Level.INFO, "The fake backend is now " + describe(wanted));
+    }
+
+    /** As the log says the options. */
+    static String describe(FakeOptions options) {
+        return options.account() == FakeOptions.Account.SEAT
+                ? "a seat-based account, refusing within " + options.refuseSeconds() + " s, answering within " + options.delayMillis() + " ms"
+                : "a usage-based account growing by up to " + options.increaseCents() + " cents, refusing within " + options.refuseSeconds()
+                        + " s, answering within " + options.delayMillis() + " ms";
+    }
+
     @Override
     public void close() {
         closed.countDown();
@@ -121,7 +168,7 @@ public final class FakeBackend implements AutoCloseable {
         }
         Scenario answering = scenario;
         switch (answering) {
-            case NORMAL -> send(exchange, 200, document.next(clock.instant()), 0);
+            case NORMAL -> ordinary(exchange);
             case HTTP_401 -> send(exchange, 401, UsageDocument.error("authentication_error"), 0);
             case HTTP_403 -> send(exchange, 403, UsageDocument.error("permission_error"), 0);
             case HTTP_429 -> send(exchange, 429, UsageDocument.error("rate_limit_error"), 0);
@@ -131,7 +178,6 @@ public final class FakeBackend implements AutoCloseable {
             case NOT_JSON -> send(exchange, 200, "this is not JSON, it is a sentence", 0);
             case EMPTY -> send(exchange, 200, "", 0);
             case NO_SPEND_NO_WINDOWS -> send(exchange, 200, UsageDocument.neitherSpendNorWindows(), 0);
-            case SEAT_BASED -> send(exchange, 200, UsageDocument.seatBased(), 0);
             case TRAILING_TEXT -> send(exchange, 200, document.withTrailingText(clock.instant()), 0);
             case SLOW -> {
                 if (hold(SLOW_ANSWER)) {
@@ -150,6 +196,37 @@ public final class FakeBackend implements AutoCloseable {
     }
 
     /** Switches the scenario: {@code POST /scenario} with the name as the body. */
+    /**
+     * The ordinary answer, as the options shape it: held back for a time that is drawn, refused when the request comes too
+     * soon after the answered one before it, and otherwise the usage document of the kind of account.
+     */
+    private void ordinary(HttpExchange exchange) throws IOException {
+        FakeOptions now = options;
+        int wait = now.delayMillis() <= 0 ? 0 : Math.max(0, Math.min(now.delayMillis(), dice.applyAsInt(now.delayMillis())));
+        if (wait > 0 && !hold(Duration.ofMillis(wait))) {
+            exchange.close();
+            return;
+        }
+        if (tooSoon(now)) {
+            send(exchange, 429, UsageDocument.error("rate_limit_error"), 0);
+            return;
+        }
+        send(exchange, 200, now.account() == FakeOptions.Account.SEAT ? UsageDocument.seatBased() : document.next(clock.instant()), 0);
+    }
+
+    /**
+     * Whether this request comes too soon after the one before it that was answered. A request that is refused is not
+     * one that was answered, so a client that keeps asking too soon is refused until it has waited long enough.
+     */
+    private synchronized boolean tooSoon(FakeOptions now) {
+        long at = clock.millis();
+        if (now.refuseSeconds() > 0 && lastAnsweredMillis != 0 && at - lastAnsweredMillis < now.refuseSeconds() * 1000L) {
+            return true;
+        }
+        lastAnsweredMillis = at;
+        return false;
+    }
+
     private void switchScenario(HttpExchange exchange) throws IOException {
         try (exchange) {
             if (!exchange.getRequestMethod().equals("POST")) {

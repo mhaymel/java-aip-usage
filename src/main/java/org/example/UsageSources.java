@@ -39,6 +39,19 @@ interface UsageSources {
      */
     void applyDebug(boolean fakeBackend, Scenario scenario, boolean fakeToken);
 
+    /** How the fake backend's ordinary answer is shaped at the moment. */
+    default org.example.fake.FakeOptions fakeOptions() {
+        return org.example.fake.FakeOptions.DEFAULTS;
+    }
+
+    /**
+     * The three switches of debug mode, and how the fake backend's ordinary answer is shaped. Options alone that change
+     * are given to the fake backend that runs; a switch that changes opens the source of usage anew.
+     */
+    default void applyDebug(boolean fakeBackend, Scenario scenario, boolean fakeToken, org.example.fake.FakeOptions options) {
+        applyDebug(fakeBackend, scenario, fakeToken);
+    }
+
     /**
      * One source of usage.
      *
@@ -54,5 +67,10 @@ interface UsageSources {
     interface Factory {
 
         Source open(boolean fakeBackend, Scenario scenario, boolean fakeToken) throws Exception;
+
+        /** As above, with how the fake backend's ordinary answer is shaped; a factory that has no use for that need not say so. */
+        default Source open(boolean fakeBackend, Scenario scenario, boolean fakeToken, org.example.fake.FakeOptions options) throws Exception {
+            return open(fakeBackend, scenario, fakeToken);
+        }
     }
 }

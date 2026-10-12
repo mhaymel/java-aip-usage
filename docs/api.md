@@ -126,13 +126,31 @@ leaves them as they are.
 
 ```json
 {
-  "settings": { "fakeBackend": false, "fakeScenario": "normal", "fakeToken": false },
-  "scenarios": ["normal", "http-401", "http-403", "http-429", "http-429-retry-after", "http-500", "not-json", "empty", "no-spend-no-windows", "seat-based", "trailing-text", "slow", "hang"]
+  "settings": {
+    "fakeBackend": false, "fakeScenario": "normal", "fakeToken": false,
+    "fakeAccount": "usage", "fakeIncreaseCents": 137, "fakeBudget": "1000.00", "fakeStartAmount": "186.02",
+    "fakeRefuseSeconds": 0, "fakeDelayMillis": 0
+  },
+  "scenarios": ["normal", "http-401", "http-403", "http-429", "http-429-retry-after", "http-500", "not-json", "empty", "no-spend-no-windows", "trailing-text", "slow", "hang"],
+  "accounts": ["usage", "seat"]
 }
 ```
 
 - `fakeBackend`: usage comes from the fake backend the program starts itself. `fakeScenario`: what that backend answers, one of
   `scenarios`. `fakeToken`: a placeholder bearer is sent to the real endpoint instead of a real token.
+- **How the fake backend's ordinary answer is shaped**, for the scenario `normal`: `fakeAccount`, one of `accounts`
+  (`usage`: an answer with spend; `seat`: one with no spend and the limits of a session and of a week);
+  `fakeIncreaseCents`, the most the amount used grows by at an answer, 0 to 100000; `fakeBudget` and `fakeStartAmount`,
+  amounts in dollars as finished texts with two decimals, the budget from 0.01 to 1,000,000 and the starting amount from 0
+  to the budget; `fakeRefuseSeconds`, 0 to 3600: a request that comes less than that long after the answered one before
+  it gets a 429; `fakeDelayMillis`, 0 to 60000: the longest an answer is held back.
+- In a `POST` these six may be given or left out, and what is left out stays as it is. An amount may be a number or the
+  text of one, `250` or `"250.00"`, with two decimals at most. When only these change, the fake backend that runs is
+  told and a refresh follows; the source of usage is not opened anew.
+- `400` for one of them that cannot be, with the reason: `The largest increase must be a whole number of cents from 0 to
+  100000.`, `The budget must be an amount from 0.01 to 1,000,000.`, `The starting amount must be an amount from 0 to the
+  budget.`, `The time within which a request is refused must be a whole number of seconds from 0 to 3600.`, `The longest
+  request must be a whole number of milliseconds from 0 to 60000.`, `The setting fakeAccount must be one of usage, seat.`
 - `POST` takes an object with the three keys. `200`: saved in `settings.json` and in force at once; the body is that of `GET`.
   Where usage comes from is opened anew: a fake backend is started or stopped, a usage request under way is given up, the reading
   on show is replaced by the newest of the new source's own history or by none, and a refresh follows.
@@ -297,7 +315,7 @@ do (for example log in with Claude Code).
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.61", "..."],
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.62", "..."],
   "hidden": false,
   "level": "info",
   "date": false

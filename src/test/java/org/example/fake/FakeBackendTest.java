@@ -234,13 +234,170 @@ class FakeBackendTest {
         }
     }
 
+    // ---- the ordinary answer, shaped by the options
+
+    /** A clock a test moves by hand. */
+    private static final class HandClock extends java.time.Clock {
+
+        private java.time.Instant now = java.time.Instant.parse("2026-10-11T12:00:00Z");
+
+        void forward(Duration by) {
+            now = now.plus(by);
+        }
+
+        @Override
+        public java.time.ZoneId getZone() {
+            return java.time.ZoneOffset.UTC;
+        }
+
+        @Override
+        public java.time.Clock withZone(java.time.ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public java.time.Instant instant() {
+            return now;
+        }
+    }
+
+    private final List<FakeBackend> shaped = new ArrayList<>();
+
+    @AfterEach
+    void closeShaped() {
+        shaped.forEach(FakeBackend::close);
+    }
+
+    private FakeBackend shaped(FakeOptions options, java.time.Clock clock, java.util.function.IntUnaryOperator dice) throws IOException {
+        FakeBackend backend = FakeBackend.start(Scenario.NORMAL, clock, options, dice);
+        shaped.add(backend);
+        return backend;
+    }
+
+    private static FakeOptions options(FakeOptions.Account account, int increase, long budget, long start, int refuse, int delay) {
+        return new FakeOptions(account, increase, budget, start, refuse, delay);
+    }
+
     @Test
-    void theSeatBasedScenarioIsAReadingWithNoSpendAndTheLimitsOfSuchAnAccount() throws Exception {
-        org.example.usage.UsageSnapshot reading = fetch(start(Scenario.SEAT_BASED));
+    void asItWasTheFakeBackendBeginsAt18602OfAThousandAndGrowsBy137() throws Exception {
+        FakeBackend backend = start(Scenario.NORMAL);
+
+        assertEquals(187.39, fetch(backend).spend().used(), 0.0001, "186.02 and the full step, with no chance in a test");
+        assertEquals(188.76, fetch(backend).spend().used(), 0.0001);
+        assertEquals(1000.0, fetch(backend).spend().limit(), 0.0001);
+        assertEquals(FakeOptions.DEFAULTS, backend.options());
+    }
+
+    @Test
+    void theAmountBeginsAtTheStartingAmountAndGrowsByWhatIsDrawnUpToTheLargestIncrease() throws Exception {
+        List<Integer> asked = new ArrayList<>();
+        int[] draws = {0, 25, 50};
+        FakeBackend backend = shaped(options(FakeOptions.Account.USAGE, 50, 20_000, 1_000, 0, 0), java.time.Clock.systemUTC(),
+                most -> { asked.add(most); return draws[asked.size() - 1]; });
+
+        assertEquals(10.00, fetch(backend).spend().used(), 0.0001, "a draw of nothing: it may not grow at all");
+        assertEquals(10.25, fetch(backend).spend().used(), 0.0001);
+        UsageSnapshot third = fetch(backend);
+        assertEquals(10.75, third.spend().used(), 0.0001);
+        assertEquals(200.0, third.spend().limit(), 0.0001, "the budget");
+        assertEquals(List.of(50, 50, 50), asked, "each time a number from 0 to the largest increase");
+    }
+
+    @Test
+    void anIncreaseOfNothingNeverGrowsAndAnAmountPastTheBudgetGoesOn() throws Exception {
+        FakeBackend still = shaped(options(FakeOptions.Account.USAGE, 0, 10_000, 500, 0, 0), java.time.Clock.systemUTC(), most -> most);
+        assertEquals(5.0, fetch(still).spend().used(), 0.0001);
+        assertEquals(5.0, fetch(still).spend().used(), 0.0001);
+
+        FakeBackend over = shaped(options(FakeOptions.Account.USAGE, 600, 1_000, 900, 0, 0), java.time.Clock.systemUTC(), most -> most);
+        UsageSnapshot reading = fetch(over);
+        assertEquals(15.0, reading.spend().used(), 0.0001, "past the budget of 10.00, as an account that spent more than its limit");
+        assertEquals(150, reading.spend().percent());
+    }
+
+    @Test
+    void aSeatBasedAccountAnswersWithNoSpendAndTheLimitsOfSuchAnAccount() throws Exception {
+        FakeBackend backend = shaped(options(FakeOptions.Account.SEAT, 137, 100_000, 18_602, 0, 0), java.time.Clock.systemUTC(), most -> most);
+
+        UsageSnapshot reading = fetch(backend);
 
         assertTrue(reading.isEmpty(), "spend is there and not enabled");
         assertTrue(reading.otherLimits(), "with the limits of a session and of a week");
-        assertEquals(org.example.usage.UsageSnapshot.NO_SPEND_SEAT_BASED, reading.noSpendMessage());
-        assertEquals("seat-based", Scenario.SEAT_BASED.optionName());
+        assertEquals(UsageSnapshot.NO_SPEND_SEAT_BASED, reading.noSpendMessage());
+        assertTrue(Scenario.ofOptionName("seat-based").isEmpty(), "the scenario there was for it is gone: the account took its place");
+    }
+
+    @Test
+    void aRequestThatComesTooSoonAfterTheOneBeforeItIsRefusedUntilTheClientHasWaited() throws Exception {
+        HandClock clock = new HandClock();
+        FakeBackend backend = shaped(options(FakeOptions.Account.USAGE, 137, 100_000, 18_602, 30, 0), clock, most -> most);
+
+        assertNotNull(fetch(backend), "the first is answered");
+        clock.forward(Duration.ofSeconds(29));
+        UsageFetchException refused = assertThrows(UsageFetchException.class, () -> fetch(backend));
+        assertEquals(429, refused.status());
+        assertEquals(Duration.ZERO, refused.retryAfter(), "it names no wait");
+
+        clock.forward(Duration.ofSeconds(1));
+        assertEquals(188.76, fetch(backend).spend().used(), 0.0001, "30 seconds after the answered one: answered, and the refusal grew nothing");
+        clock.forward(Duration.ofSeconds(29));
+        assertThrows(UsageFetchException.class, () -> fetch(backend), "counted from the answer, not from the refusal before it");
+        clock.forward(Duration.ofSeconds(29));
+        assertNotNull(fetch(backend));
+    }
+
+    @Test
+    void withNothingToRefuseWithinEveryRequestIsAnswered() throws Exception {
+        HandClock clock = new HandClock();
+        FakeBackend backend = shaped(options(FakeOptions.Account.USAGE, 137, 100_000, 18_602, 0, 0), clock, most -> most);
+
+        for (int i = 0; i < 5; i++) {
+            assertNotNull(fetch(backend));
+        }
+    }
+
+    @Test
+    void anAnswerIsHeldBackForTheTimeThatIsDrawnUpToTheLongestRequest() throws Exception {
+        List<Integer> asked = new ArrayList<>();
+        // Asked twice at an answer: for the wait, and for the cents.
+        FakeBackend backend = shaped(options(FakeOptions.Account.USAGE, 137, 100_000, 18_602, 0, 400), java.time.Clock.systemUTC(),
+                most -> { asked.add(most); return most == 400 ? 300 : most; });
+
+        long began = System.nanoTime();
+        fetch(backend);
+        long took = Duration.ofNanos(System.nanoTime() - began).toMillis();
+
+        assertTrue(took >= 290, "held back for the 300 milliseconds drawn: " + took);
+        assertEquals(List.of(400, 137), asked);
+    }
+
+    @Test
+    void otherOptionsTakeEffectWhileItRunsAndTheAmountGoesOnUnlessTheStartingAmountIsAnother() throws Exception {
+        FakeBackend backend = shaped(options(FakeOptions.Account.USAGE, 100, 100_000, 1_000, 0, 0), java.time.Clock.systemUTC(), most -> most);
+        assertEquals(11.0, fetch(backend).spend().used(), 0.0001);
+
+        backend.configure(options(FakeOptions.Account.USAGE, 10, 50_000, 1_000, 0, 0));
+        UsageSnapshot next = fetch(backend);
+        assertEquals(11.10, next.spend().used(), 0.0001, "on from where it was, by the new increase");
+        assertEquals(500.0, next.spend().limit(), 0.0001, "against the new budget");
+
+        backend.configure(options(FakeOptions.Account.USAGE, 10, 50_000, 2_000, 0, 0));
+        assertEquals(20.10, fetch(backend).spend().used(), 0.0001, "another starting amount: it begins there again");
+
+        backend.configure(options(FakeOptions.Account.SEAT, 10, 50_000, 2_000, 0, 0));
+        assertTrue(fetch(backend).isEmpty(), "and another kind of account at once");
+    }
+
+    @Test
+    void optionsThatCannotBeSayWhy() {
+        assertTrue(FakeOptions.DEFAULTS.fault().isEmpty());
+        assertTrue(options(FakeOptions.Account.USAGE, 0, 1, 0, 0, 0).fault().isEmpty(), "the least of everything");
+        assertTrue(options(FakeOptions.Account.USAGE, 100_000, 100_000_000L, 100_000_000L, 3_600, 60_000).fault().isEmpty(), "and the most");
+        assertTrue(options(FakeOptions.Account.USAGE, -1, 100_000, 0, 0, 0).fault().get().startsWith("The largest increase"));
+        assertTrue(options(FakeOptions.Account.USAGE, 100_001, 100_000, 0, 0, 0).fault().get().startsWith("The largest increase"));
+        assertTrue(options(FakeOptions.Account.USAGE, 1, 0, 0, 0, 0).fault().get().startsWith("The budget"));
+        assertTrue(options(FakeOptions.Account.USAGE, 1, 100, 101, 0, 0).fault().get().startsWith("The starting amount"), "more than the budget");
+        assertTrue(options(FakeOptions.Account.USAGE, 1, 100, 0, 3_601, 0).fault().get().startsWith("The time within which"));
+        assertTrue(options(FakeOptions.Account.USAGE, 1, 100, 0, 0, 60_001).fault().get().startsWith("The longest request"));
     }
 }

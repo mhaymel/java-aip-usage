@@ -202,12 +202,85 @@ final class ApiHandler implements HttpHandler {
 
     private DebugBody debugBody() {
         Settings now = settings.current();
+        org.example.fake.FakeOptions fake = sources.fakeOptions();
         return new DebugBody(
-                new DebugValues(now.fakeBackend(), now.fakeScenario().optionName(), now.fakeToken()),
-                java.util.Arrays.stream(org.example.fake.Scenario.values()).map(org.example.fake.Scenario::optionName).toList());
+                new DebugValues(now.fakeBackend(), now.fakeScenario().optionName(), now.fakeToken(),
+                        fake.account().json(), fake.increaseCents(), java.math.BigDecimal.valueOf(fake.budgetCents(), 2).toPlainString(),
+                        java.math.BigDecimal.valueOf(fake.startCents(), 2).toPlainString(), fake.refuseSeconds(), fake.delayMillis()),
+                java.util.Arrays.stream(org.example.fake.Scenario.values()).map(org.example.fake.Scenario::optionName).toList(),
+                java.util.Arrays.stream(org.example.fake.FakeOptions.Account.values()).map(org.example.fake.FakeOptions.Account::json).toList());
     }
 
-    /** All three must be given. They are saved and take effect at once: the source of usage is opened anew and a refresh follows. */
+    /**
+     * How the fake backend's ordinary answer is shaped, from a request. A value that is not given stays what it is; one
+     * that is given and cannot be is refused, and so are options that do not go together.
+     */
+    private org.example.fake.FakeOptions fakeOptions(JsonNode body) {
+        org.example.fake.FakeOptions now = sources.fakeOptions();
+        org.example.fake.FakeOptions.Account account = now.account();
+        JsonNode kind = body.get("fakeAccount");
+        if (kind != null && !kind.isNull()) {
+            account = (kind.isTextual() ? org.example.fake.FakeOptions.Account.fromJson(kind.textValue())
+                    : java.util.Optional.<org.example.fake.FakeOptions.Account>empty())
+                    .orElseThrow(() -> new InvalidSettingException(
+                            "The setting fakeAccount must be one of " + org.example.fake.FakeOptions.Account.names() + "."));
+        }
+        org.example.fake.FakeOptions wanted = new org.example.fake.FakeOptions(
+                account,
+                wholeOf(body, "fakeIncreaseCents", now.increaseCents(), "The largest increase must be a whole number of cents from 0 to "
+                        + org.example.fake.FakeOptions.MAX_INCREASE_CENTS + "."),
+                centsOf(body, "fakeBudget", now.budgetCents(), "The budget must be an amount from 0.01 to 1,000,000."),
+                centsOf(body, "fakeStartAmount", now.startCents(), "The starting amount must be an amount from 0 to the budget."),
+                wholeOf(body, "fakeRefuseSeconds", now.refuseSeconds(), "The time within which a request is refused must be a whole number of seconds from 0 to "
+                        + org.example.fake.FakeOptions.MAX_REFUSE_SECONDS + "."),
+                wholeOf(body, "fakeDelayMillis", now.delayMillis(), "The longest request must be a whole number of milliseconds from 0 to "
+                        + org.example.fake.FakeOptions.MAX_DELAY_MILLIS + "."));
+        wanted.fault().ifPresent(fault -> {
+            throw new InvalidSettingException(fault);
+        });
+        return wanted;
+    }
+
+    private static int wholeOf(JsonNode body, String key, int kept, String refusal) {
+        JsonNode value = body.get(key);
+        if (value == null || value.isNull()) {
+            return kept;
+        }
+        if (!value.isIntegralNumber() || !value.canConvertToInt()) {
+            throw new InvalidSettingException(refusal);
+        }
+        return value.intValue();
+    }
+
+    /**
+     * An amount in dollars with two decimals at most, as cents. It may be a number or the text of one, `250` or
+     * `"250.00"`: the page sends what was typed, and works nothing out.
+     */
+    private static long centsOf(JsonNode body, String key, long kept, String refusal) {
+        JsonNode value = body.get(key);
+        if (value == null || value.isNull()) {
+            return kept;
+        }
+        try {
+            java.math.BigDecimal amount;
+            if (value.isNumber()) {
+                amount = value.decimalValue();
+            } else if (value.isTextual() && value.textValue().matches("\\d{1,9}(\\.\\d{1,2})?")) {
+                amount = new java.math.BigDecimal(value.textValue());
+            } else {
+                throw new InvalidSettingException(refusal);
+            }
+            return amount.movePointRight(2).longValueExact();
+        } catch (ArithmeticException e) {
+            throw new InvalidSettingException(refusal);
+        }
+    }
+
+    /**
+     * The three switches must be given; how the fake backend answers may be, and what is not given of that stays as it is.
+     * They are saved and take effect at once: the source of usage is opened anew when a switch changed, the fake backend
+     * that runs is told when only its answer did, and a refresh follows.
+     */
     private void updateDebug(HttpExchange exchange) throws IOException {
         requireJson(exchange);
         JsonNode body = readJson(exchange);
@@ -221,7 +294,7 @@ final class ApiHandler implements HttpHandler {
                     (name.isTextual() ? org.example.fake.Scenario.ofOptionName(name.textValue()) : java.util.Optional.<org.example.fake.Scenario>empty())
                             .orElseThrow(() -> new InvalidSettingException(
                                     "The setting fakeScenario must be one of " + org.example.fake.Scenario.names() + "."));
-            sources.applyDebug(fakeBackend, scenario, flag(body, "fakeToken"));
+            sources.applyDebug(fakeBackend, scenario, flag(body, "fakeToken"), fakeOptions(body));
         } catch (InvalidSettingException e) {
             throw new ApiException(400, e.getMessage(), null);
         } catch (SettingsException e) {
@@ -716,10 +789,13 @@ final class ApiHandler implements HttpHandler {
     record AboutFiles(String settings, String log, String history) {
     }
 
-    record DebugValues(boolean fakeBackend, String fakeScenario, boolean fakeToken) {
+    /** @param fakeBudget in dollars, as a finished text with two decimals, as is {@code fakeStartAmount}; the increase is in cents */
+    record DebugValues(boolean fakeBackend, String fakeScenario, boolean fakeToken, String fakeAccount, int fakeIncreaseCents,
+            String fakeBudget, String fakeStartAmount, int fakeRefuseSeconds, int fakeDelayMillis) {
     }
 
-    record DebugBody(DebugValues settings, List<String> scenarios) {
+    /** @param accounts the kinds of account the fake backend can answer for, as {@code scenarios} are what it can answer */
+    record DebugBody(DebugValues settings, List<String> scenarios, List<String> accounts) {
     }
 
     record SettingValues(

@@ -196,9 +196,18 @@ public class UsageApp extends Application {
      * real token or, when the debug settings ask for it, a placeholder.
      */
     private static UsageSources.Factory sources(LaunchOptions options, ResponseLog responseLog) {
-        return (fakeBackend, scenario, fakeToken) -> {
+        return new UsageSources.Factory() {
+
+            @Override
+            public UsageSources.Source open(boolean fakeBackend, Scenario scenario, boolean fakeToken) throws Exception {
+                return open(fakeBackend, scenario, fakeToken, org.example.fake.FakeOptions.DEFAULTS);
+            }
+
+            @Override
+            public UsageSources.Source open(boolean fakeBackend, Scenario scenario, boolean fakeToken, org.example.fake.FakeOptions fake)
+                    throws Exception {
             if (fakeBackend) {
-                FakeBackend backend = FakeBackend.start(scenario);
+                FakeBackend backend = FakeBackend.start(scenario, fake);
                 return new UsageSources.Source(
                         new UsageFetcher(new PlaceholderTokenProvider(), UsageClient.create(UsageClient.usageUri(backend.baseUrl()), responseLog)),
                         true, Optional.of(backend.baseUrl()), backend);
@@ -207,6 +216,7 @@ public class UsageApp extends Application {
             TokenProvider tokens = fakeToken ? new PlaceholderTokenProvider() : ClaudeTokenProvider.create();
             return new UsageSources.Source(
                     new UsageFetcher(tokens, UsageClient.create(UsageClient.usageUri(base), responseLog)), false, Optional.of(base), null);
+            }
         };
     }
 

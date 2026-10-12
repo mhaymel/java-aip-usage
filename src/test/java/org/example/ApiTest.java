@@ -2248,4 +2248,78 @@ class ApiTest {
         assertEquals(500, copy.statusCode());
         assertEquals("The path could not be copied: no such program", json(copy).get("error").asText());
     }
+
+    // ---- the fake backend's options, with the debug settings
+
+    private static final String SWITCHES = "\"fakeBackend\": false, \"fakeScenario\": \"normal\", \"fakeToken\": false";
+
+    @Test
+    void theDebugSettingsSayHowTheFakeBackendAnswersWhichIsAsItAlwaysDidByDefault() throws Exception {
+        AppRuntime app = start(new FakeFetch(), LaunchOptions.parse(List.of("--debug")));
+
+        JsonNode debug = json(get(app, "/api/debug"));
+
+        assertEquals("usage", debug.at("/settings/fakeAccount").asText());
+        assertEquals(137, debug.at("/settings/fakeIncreaseCents").asInt());
+        assertEquals("1000.00", debug.at("/settings/fakeBudget").asText(), "in dollars, as a finished text");
+        assertEquals("186.02", debug.at("/settings/fakeStartAmount").asText());
+        assertEquals(0, debug.at("/settings/fakeRefuseSeconds").asInt());
+        assertEquals(0, debug.at("/settings/fakeDelayMillis").asInt());
+        assertEquals(List.of("usage", "seat"), java.util.stream.StreamSupport.stream(debug.get("accounts").spliterator(), false).map(JsonNode::asText).toList());
+        assertFalse(debug.get("scenarios").toString().contains("seat-based"), "the scenario for a seat-based account is gone");
+    }
+
+    @Test
+    void theFakeBackendsOptionsAreSavedWithTheDebugSettingsAndWhatIsNotGivenStaysAsItIs() throws Exception {
+        AppRuntime app = start(new FakeFetch(), LaunchOptions.parse(List.of("--debug")));
+
+        HttpResponse<String> saved = post(app, "/api/debug", "{" + SWITCHES
+                + ", \"fakeAccount\": \"seat\", \"fakeIncreaseCents\": 50, \"fakeBudget\": 250, \"fakeStartAmount\": 12.34, \"fakeRefuseSeconds\": 30, \"fakeDelayMillis\": 400}");
+
+        assertEquals(200, saved.statusCode(), saved.body());
+        JsonNode settings = json(saved).get("settings");
+        assertEquals("seat", settings.get("fakeAccount").asText());
+        assertEquals("250.00", settings.get("fakeBudget").asText());
+        assertEquals("12.34", settings.get("fakeStartAmount").asText());
+        JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+        assertEquals("seat", file.get("fakeAccount").asText());
+        assertEquals(50, file.get("fakeIncreaseCents").asInt());
+        assertEquals(30, file.get("fakeRefuseSeconds").asInt());
+        assertEquals(400, file.get("fakeDelayMillis").asInt());
+
+        // An amount as the page sends it, the text that was typed.
+        assertEquals("75.50", json(post(app, "/api/debug", "{" + SWITCHES + ", \"fakeBudget\": \"75.5\"}")).at("/settings/fakeBudget").asText());
+        post(app, "/api/debug", "{" + SWITCHES + ", \"fakeBudget\": 250}");
+        // The three switches alone: the rest is kept.
+        JsonNode kept = json(post(app, "/api/debug", "{" + SWITCHES + "}")).get("settings");
+        assertEquals("seat", kept.get("fakeAccount").asText());
+        assertEquals(50, kept.get("fakeIncreaseCents").asInt());
+        // And one of them alone.
+        JsonNode one = json(post(app, "/api/debug", "{" + SWITCHES + ", \"fakeIncreaseCents\": 7}")).get("settings");
+        assertEquals(7, one.get("fakeIncreaseCents").asInt());
+        assertEquals(400, one.get("fakeDelayMillis").asInt());
+    }
+
+    @Test
+    void anOptionOfTheFakeBackendThatCannotBeIsRefusedWithTheReasonAndNothingIsSaved() throws Exception {
+        AppRuntime app = start(new FakeFetch(), LaunchOptions.parse(List.of("--debug")));
+        java.util.Map<String, String> refusals = new java.util.LinkedHashMap<>();
+        refusals.put("\"fakeAccount\": \"team\"", "The setting fakeAccount must be one of usage, seat.");
+        refusals.put("\"fakeIncreaseCents\": 1.5", "The largest increase must be a whole number of cents from 0 to 100000.");
+        refusals.put("\"fakeIncreaseCents\": 100001", "The largest increase must be a whole number of cents from 0 to 100000.");
+        refusals.put("\"fakeBudget\": 0", "The budget must be an amount from 0.01 to 1,000,000.");
+        refusals.put("\"fakeBudget\": 12.345", "The budget must be an amount from 0.01 to 1,000,000.");
+        refusals.put("\"fakeBudget\": \"1e3\"", "The budget must be an amount from 0.01 to 1,000,000.");
+        refusals.put("\"fakeBudget\": \"12.345\"", "The budget must be an amount from 0.01 to 1,000,000.");
+        refusals.put("\"fakeBudget\": 100, \"fakeStartAmount\": 100.01", "The starting amount must be an amount from 0 to the budget.");
+        refusals.put("\"fakeRefuseSeconds\": 3601", "The time within which a request is refused must be a whole number of seconds from 0 to 3600.");
+        refusals.put("\"fakeDelayMillis\": -1", "The longest request must be a whole number of milliseconds from 0 to 60000.");
+
+        for (java.util.Map.Entry<String, String> refusal : refusals.entrySet()) {
+            HttpResponse<String> answer = post(app, "/api/debug", "{" + SWITCHES + ", " + refusal.getKey() + "}");
+            assertEquals(400, answer.statusCode(), refusal.getKey());
+            assertEquals(refusal.getValue(), json(answer).get("error").asText(), refusal.getKey());
+        }
+        assertEquals(137, json(get(app, "/api/debug")).at("/settings/fakeIncreaseCents").asInt(), "as it was");
+    }
 }

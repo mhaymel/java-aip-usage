@@ -1516,6 +1516,54 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **When it cannot be done**, the system refusing to open the folder or the clipboard not being there, a red line in
   the view says `The folder could not be opened: <reason>` or `The path could not be copied: <reason>`.
 
+### A fake backend that can be configured
+
+- **The ordinary answer of the fake backend can be shaped** (since version 0.62), in the debug settings view, beside the switch of the fake
+  backend and its scenario. The settings below are for the scenario `normal`; the other scenarios stay the fixed
+  test cases they are.
+- **The kind of account**, a dropdown `Account` with two values:
+
+  | Value | The answer |
+  | --- | --- |
+  | `Usage-based` | a usage document with spend: an amount used that grows, and a budget; the default |
+  | `Seat-based` | a usage document with no spend and the limits of a session and of a week, as such an account has |
+
+- **The scenario `seat-based` goes**, which was the one way to get the second kind since version 0.56: the account
+  takes its place. A settings file that still names it has `normal` with the account `Seat-based`.
+- **How much the amount used grows.** A field `Largest increase`, in **cents**: at each answer the amount used grows
+  by a whole number of cents drawn at random, evenly, from 0 to that value. 0 means it never grows. Default 137, which is the step
+  it grew by at every answer until now, from 0 to 100,000. It has no meaning for a seat-based account.
+- **The budget and the amount it starts with.** Two fields, in dollars with up to two decimals: `Budget`, the spend
+  limit the fake account reports, default 1,000.00; and `Starting amount`, the amount used it begins with, default
+  186.02. Both are what they were fixed at until now. The budget is from 0.01 to 1,000,000 and the starting amount
+  from 0 to the budget. They have no meaning for a seat-based account.
+- **The amount used begins at the starting amount** when the fake backend is switched on, at the start of the program
+  and whenever the starting amount is changed; a change of another setting lets it go on from where it is. It goes on
+  past the budget when it reaches it, as an account that has spent more than its limit, and the percentage with it.
+- **When the fake backend refuses.** A field `Refuse within`, in seconds: a request that comes less than that long
+  after the request before it that was answered gets an **HTTP 429**, with no `retry-after`; any other gets the usage
+  document. 0 means it never refuses. Default 0, from 0 to 3,600. A refused request does not count as answered, so a
+  client that keeps asking too soon is refused until it has waited long enough.
+- **How long an answer takes.** A field `Longest request`, in milliseconds: each answer, a 429 included, is held back
+  for a time drawn at random, evenly, from 0 to that value. 0 means it answers at once. Default 0, from 0 to 60,000.
+- **They are debug settings like the others**: saved in `settings.json`, under the keys `fakeAccount` (`usage` or
+  `seat`), `fakeIncreaseCents`, `fakeBudget`, `fakeStartAmount`, `fakeRefuseSeconds` and `fakeDelayMillis`; they take effect when the debug view is
+  saved, without a restart; and without `--debug` they count for nothing.
+- **A value that is not a whole number in its range** keeps the view open with the reason in red, as a wrong interval
+  does in the settings; such a value in the file has the default.
+- **Where they are in the view**: a group of their own, headed `Fake backend, scenario normal`, below the group of the
+  three switches; each field has its unit after it, `cents`, `USD`, `s` or `ms`, and a tooltip that says what it does.
+  The page has no currency sign, so the unit of the two amounts is the code.
+- **The amounts are typed in dollars**, `250` or `250.00`, and shown with two decimals.
+- **What is not given of them in a request stays as it is**, so the three switches can be saved alone.
+- **A change of them alone does not open the source anew**: the fake backend that runs is told, and a refresh follows.
+  A change of a switch opens it anew, and the amount then begins at the starting amount.
+- **In the program the numbers are drawn by chance; in a test they are what the test says.**
+- **The log** says the options when they change: `The fake backend is now a usage-based account growing by up to <N>
+  cents, refusing within <N> s, answering within <N> ms`, or `a seat-based account, refusing within ...`.
+- **What they are for**: the automatic interval can be tried against a backend that refuses requests that come too
+  soon, and the row against amounts that move by a known step.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1608,49 +1656,11 @@ backend switched while the program runs, and the mark that says its figures are 
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
-## A fake backend to configure, and cost control
+## Cost control
 
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.61; where
-this section says otherwise, this section is what is to be built. Each passage moves into the description of the program
-when it is built (see the implementation plan, phases 74 and 75).
-
-### A fake backend that can be configured
-
-- **The ordinary answer of the fake backend can be shaped**, in the debug settings view, beside the switch of the fake
-  backend and its scenario. The settings below are for the scenario `normal`; the other scenarios stay the fixed
-  test cases they are.
-- **The kind of account**, a dropdown `Account` with two values:
-
-  | Value | The answer |
-  | --- | --- |
-  | `Usage-based` | a usage document with spend: an amount used that grows, and a budget; the default |
-  | `Seat-based` | a usage document with no spend and the limits of a session and of a week, as such an account has |
-
-- **The scenario `seat-based` goes**, which was the one way to get the second kind since version 0.56: the account
-  takes its place. A settings file that still names it has `normal` with the account `Seat-based`.
-- **How much the amount used grows.** A field `Largest increase`, in **cents**: at each answer the amount used grows
-  by a whole number of cents drawn at random, evenly, from 0 to that value. 0 means it never grows. Default 137, which is the step
-  it grew by at every answer until now, from 0 to 100,000. It has no meaning for a seat-based account.
-- **The budget and the amount it starts with.** Two fields, in dollars with up to two decimals: `Budget`, the spend
-  limit the fake account reports, default 1,000.00; and `Starting amount`, the amount used it begins with, default
-  186.02. Both are what they were fixed at until now. The budget is from 0.01 to 1,000,000 and the starting amount
-  from 0 to the budget. They have no meaning for a seat-based account.
-- **The amount used begins at the starting amount** when the fake backend is switched on, at the start of the program
-  and whenever the starting amount is changed; a change of another setting lets it go on from where it is. It goes on
-  past the budget when it reaches it, as an account that has spent more than its limit, and the percentage with it.
-- **When the fake backend refuses.** A field `Refuse within`, in seconds: a request that comes less than that long
-  after the request before it that was answered gets an **HTTP 429**, with no `retry-after`; any other gets the usage
-  document. 0 means it never refuses. Default 0, from 0 to 3,600. A refused request does not count as answered, so a
-  client that keeps asking too soon is refused until it has waited long enough.
-- **How long an answer takes.** A field `Longest request`, in milliseconds: each answer, a 429 included, is held back
-  for a time drawn at random, evenly, from 0 to that value. 0 means it answers at once. Default 0, from 0 to 60,000.
-- **They are debug settings like the others**: saved in `settings.json`, under the keys `fakeAccount` (`usage` or
-  `seat`), `fakeIncreaseCents`, `fakeBudget`, `fakeStartAmount`, `fakeRefuseSeconds` and `fakeDelayMillis`; they take effect when the debug view is
-  saved, without a restart; and without `--debug` they count for nothing.
-- **A value that is not a whole number in its range** keeps the view open with the reason in red, as a wrong interval
-  does in the settings; such a value in the file has the default.
-- **What they are for**: the automatic interval can be tried against a backend that refuses requests that come too
-  soon, and the row against amounts that move by a known step.
+**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.62; where
+this section says otherwise, this section is what is to be built. It moves into the description of the program
+when it is built (see the implementation plan, phase 75).
 
 ### Cost control: a monthly and a daily limit, as settings
 
@@ -1720,7 +1730,7 @@ These are things the program does that the sections above do not say, written do
 - **The URL, more exactly.** The scheme is read without regard to case, so `HTTP://127.0.0.1:8080` is accepted, and kept as typed. One
   trailing slash is dropped, not several. The message of a bad URL gives it trimmed.
 - **The scenario names** of the fake backend, which the debug settings offer, are `normal`, `http-401`, `http-403`, `http-429`,
-  `http-429-retry-after`, `http-500`, `not-json`, `empty`, `no-spend-no-windows`, `seat-based`, `trailing-text`, `slow` and `hang` (see Fake
+  `http-429-retry-after`, `http-500`, `not-json`, `empty`, `no-spend-no-windows`, `trailing-text`, `slow` and `hang` (see Fake
   backend for what each answers).
 - **The usage text** is this, word for word. The default URL in it is the one the program uses, so the text cannot say one thing and
   the program do another:
@@ -2061,7 +2071,6 @@ mode); nothing else is needed and nothing else has to be started.
   | `not-json` | 200 | the text `this is not JSON, it is a sentence` |
   | `empty` | 200 | no body |
   | `no-spend-no-windows` | 200 | `{"detail": "this is not a usage document", "limits": [], "member_dashboard_available": false}` |
-  | `seat-based` | 200 | what Anthropic answers for a seat-based account, cut down: the limits of a session and of a week, and a `spend` that is there with `"enabled": false`; the program reads it as a reading with no spend |
   | `trailing-text` | 200 | the usage document, and on a line after it `and then some text that has no business here` |
   | `slow` | 200 | the usage document, after 25 seconds |
   | `hang` | none | nothing: the request is held for up to 5 minutes and then closed without an answer |

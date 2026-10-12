@@ -414,6 +414,24 @@ test('the three paths of About are links that are not bold, each with a button o
     assert.doesNotMatch(link, /user-select/, 'a link cannot be selected either: the button is how a path is copied');
 });
 
+test('the debug view has a group for how the fake backend answers: the account, the increase, the two amounts, the two times', () => {
+    const view = html.slice(html.indexOf('<div id="debug-view"'), html.indexOf('<p id="debug-buttons"'));
+    assert.match(view, /<fieldset id="debug-fake">\s*<legend>Fake backend, scenario normal<\/legend>/);
+    assert.match(view, /<label title="[^"]+">Account\s*<select id="debug-fakeAccount"[^>]*><\/select><\/label>/, 'the kinds of account are the backend\'s to name');
+    const fields = [...view.matchAll(/<label title="[^"]{30,}">([A-Za-z ]+)\s*<input id="(debug-fake[A-Za-z]+)" class="(number|amount)" type="text"[^>]*> ([A-Za-z]+)<\/label>/g)]
+        .map(m => m[1].trim() + '|' + m[2] + '|' + m[3] + '|' + m[4]);
+    assert.deepEqual(fields, [
+        'Largest increase|debug-fakeIncreaseCents|number|cents',
+        'Budget|debug-fakeBudget|amount|USD',
+        'Starting amount|debug-fakeStartAmount|amount|USD',
+        'Refuse within|debug-fakeRefuseSeconds|number|s',
+        'Longest request|debug-fakeDelayMillis|number|ms',
+    ], 'each with its unit after the field, and a tooltip that says what it does');
+    assert.ok(html.indexOf('id="debug-fake"') > html.indexOf('id="debug-fakeToken"'), 'after the three switches');
+    assert.match(css, /\.settings input\[type="text"\]\.number\s*{\s*width:\s*7ch/);
+    assert.match(css, /\.settings input\[type="text"\]\.amount\s*{\s*width:\s*10ch/);
+});
+
 test('an error in the panel is red', () => {
     assert.match(ruleOf('.panel-error'), /color:\s*var\(--bad\)/);
 });

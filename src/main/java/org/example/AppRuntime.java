@@ -126,8 +126,8 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         Settings saved = settings.current();
         // Without --debug the debug settings count for nothing: usage is real, with a real token, whatever the file says.
         runtime.source = options.debug()
-                ? runtime.open(saved.fakeBackend(), saved.fakeScenario(), saved.fakeToken())
-                : runtime.open(false, Scenario.NORMAL, false);
+                ? runtime.open(saved.fakeBackend(), saved.fakeScenario(), saved.fakeToken(), settings.fakeOptions())
+                : runtime.open(false, Scenario.NORMAL, false, org.example.fake.FakeOptions.DEFAULTS);
         if (options.debug()) {
             LOG.log(System.Logger.Level.INFO, "Debug mode (--debug)");
         }
@@ -158,9 +158,9 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         return runtime;
     }
 
-    private Source open(boolean fakeBackend, Scenario scenario, boolean fakeToken) throws IOException {
+    private Source open(boolean fakeBackend, Scenario scenario, boolean fakeToken, org.example.fake.FakeOptions fake) throws IOException {
         try {
-            return factory.open(fakeBackend, scenario, fakeToken);
+            return factory.open(fakeBackend, scenario, fakeToken, fake);
         } catch (IOException | RuntimeException e) {
             throw e;
         } catch (Exception e) {
@@ -269,24 +269,48 @@ final class AppRuntime implements AutoCloseable, UsageSources {
      * own history takes its place, or nothing, and a refresh follows at once. A request under way is given up.
      */
     @Override
+    public org.example.fake.FakeOptions fakeOptions() {
+        return settings.fakeOptions();
+    }
+
+    @Override
     public synchronized void applyDebug(boolean fakeBackend, Scenario scenario, boolean fakeToken) {
+        applyDebug(fakeBackend, scenario, fakeToken, settings.fakeOptions());
+    }
+
+    @Override
+    public synchronized void applyDebug(boolean fakeBackend, Scenario scenario, boolean fakeToken, org.example.fake.FakeOptions fake) {
         if (!debug) {
             throw new IllegalStateException("not in debug mode");
         }
         Settings before = settings.current();
         Settings wanted = before.withDebug(fakeBackend, scenario, fakeToken);
+        org.example.fake.FakeOptions fakeBefore = settings.fakeOptions();
+        if (wanted.equals(before) && fake.equals(fakeBefore)) {
+            return;
+        }
         if (wanted.equals(before)) {
+            // Only how the fake backend answers has changed: it is saved, and the backend that runs is told, so that the
+            // amount it has reached goes on from where it is. A refresh follows, as after any change of the debug settings.
+            settings.storeFake(fake);
+            if (source != null && source.resource() instanceof org.example.fake.FakeBackend running) {
+                running.configure(fake);
+            }
+            service.refreshNow();
             return;
         }
         Source fresh;
         try {
-            fresh = open(fakeBackend, scenario, fakeToken);
+            fresh = open(fakeBackend, scenario, fakeToken, fake);
         } catch (IOException | RuntimeException e) {
             LOG.log(System.Logger.Level.WARNING, "The debug settings could not be applied: " + e.getMessage());
             throw new SettingsException("The debug settings could not be applied: " + e.getMessage(), e);
         }
         try {
             settings.apply(wanted);
+            if (!fake.equals(fakeBefore)) {
+                settings.storeFake(fake);
+            }
         } catch (RuntimeException e) {
             close(fresh);
             throw e;

@@ -74,6 +74,21 @@ public final class SettingsStore {
 
     static final String LIST_FONT_SIZE_KEY = "listFontSize";
 
+    static final String FAKE_ACCOUNT_KEY = "fakeAccount";
+
+    static final String FAKE_INCREASE_KEY = "fakeIncreaseCents";
+
+    static final String FAKE_BUDGET_KEY = "fakeBudget";
+
+    static final String FAKE_START_KEY = "fakeStartAmount";
+
+    static final String FAKE_REFUSE_KEY = "fakeRefuseSeconds";
+
+    static final String FAKE_DELAY_KEY = "fakeDelayMillis";
+
+    /** The scenario there was for a seat-based account, which the account of the options took the place of. */
+    private static final String OLD_SEAT_SCENARIO = "seat-based";
+
     static final String AUTO_INTERVAL_KEY = "autoInterval";
 
     static final String AUTO_SECONDS_KEY = "autoIntervalSeconds";
@@ -236,7 +251,7 @@ public final class SettingsStore {
                 throw new IOException("the settings file is not a JSON object");
             }
         }
-        write(load(), heights, loadSearch());
+        write(load(), heights, loadSearch(), loadFake());
     }
 
     /** The scenario of the fake backend, by its name; a name that is none of them is logged and passed over. */
@@ -244,6 +259,10 @@ public final class SettingsStore {
         JsonNode node = root.get(FAKE_SCENARIO_KEY);
         if (node == null || node.isNull()) {
             return fallback;
+        }
+        if (node.isTextual() && OLD_SEAT_SCENARIO.equals(node.textValue())) {
+            // What that scenario answered is the ordinary answer of a seat-based account now (see loadFake).
+            return org.example.fake.Scenario.NORMAL;
         }
         java.util.Optional<org.example.fake.Scenario> named =
                 node.isTextual() ? org.example.fake.Scenario.ofOptionName(node.textValue()) : java.util.Optional.empty();
@@ -326,7 +345,79 @@ public final class SettingsStore {
      * @throws IOException if the file cannot be written; it is then unchanged
      */
     public void save(Settings settings) throws IOException {
-        write(settings, Files.exists(file) ? loadHeights() : Heights.NONE, Files.exists(file) ? loadSearch() : Search.BEGINNING);
+        boolean there = Files.exists(file);
+        write(settings, there ? loadHeights() : Heights.NONE, there ? loadSearch() : Search.BEGINNING,
+                there ? loadFake() : org.example.fake.FakeOptions.DEFAULTS);
+    }
+
+    /**
+     * How the fake backend's ordinary answer is shaped, as saved; a value the file lacks, or one that cannot be, has its
+     * default, and options that do not go together are the defaults. They are debug settings: in the settings file, and
+     * no settings of the settings view. Never fails.
+     */
+    public org.example.fake.FakeOptions loadFake() {
+        org.example.fake.FakeOptions defaults = org.example.fake.FakeOptions.DEFAULTS;
+        try {
+            JsonNode root = mapper.readTree(Files.readString(file));
+            if (root == null || !root.isObject()) {
+                return defaults;
+            }
+            JsonNode account = root.get(FAKE_ACCOUNT_KEY);
+            JsonNode scenario = root.get(FAKE_SCENARIO_KEY);
+            org.example.fake.FakeOptions.Account kind = account != null && account.isTextual()
+                    ? org.example.fake.FakeOptions.Account.fromJson(account.textValue()).orElse(defaults.account())
+                    // A file of before the account, whose scenario was the one for a seat-based account.
+                    : scenario != null && scenario.isTextual() && OLD_SEAT_SCENARIO.equals(scenario.textValue())
+                            ? org.example.fake.FakeOptions.Account.SEAT : defaults.account();
+            org.example.fake.FakeOptions read = new org.example.fake.FakeOptions(
+                    kind,
+                    whole(root, FAKE_INCREASE_KEY, defaults.increaseCents()),
+                    cents(root, FAKE_BUDGET_KEY, defaults.budgetCents()),
+                    cents(root, FAKE_START_KEY, defaults.startCents()),
+                    whole(root, FAKE_REFUSE_KEY, defaults.refuseSeconds()),
+                    whole(root, FAKE_DELAY_KEY, defaults.delayMillis()));
+            if (read.fault().isPresent()) {
+                LOG.log(System.Logger.Level.WARNING, "Ignoring the fake backend's options in " + file + ": " + read.fault().get());
+                return new org.example.fake.FakeOptions(kind, defaults.increaseCents(), defaults.budgetCents(), defaults.startCents(),
+                        defaults.refuseSeconds(), defaults.delayMillis());
+            }
+            return read;
+        } catch (IOException e) {
+            return defaults;
+        }
+    }
+
+    private static int whole(JsonNode root, String key, int fallback) {
+        JsonNode node = root.get(key);
+        return node != null && node.isIntegralNumber() && node.canConvertToInt() ? node.intValue() : fallback;
+    }
+
+    /** An amount of the file, in dollars with two decimals at most, as cents; anything else is the fallback. */
+    private static long cents(JsonNode root, String key, long fallback) {
+        JsonNode node = root.get(key);
+        if (node == null || !node.isNumber()) {
+            return fallback;
+        }
+        try {
+            return node.decimalValue().movePointRight(2).longValueExact();
+        } catch (ArithmeticException e) {
+            return fallback;
+        }
+    }
+
+    /**
+     * Stores the fake backend's options, keeping the settings, the heights and the search the file has.
+     *
+     * @throws IOException if the file cannot be written; it is then unchanged
+     */
+    public void saveFake(org.example.fake.FakeOptions options) throws IOException {
+        if (Files.exists(file)) {
+            JsonNode root = mapper.readTree(Files.readString(file));
+            if (root == null || !root.isObject()) {
+                throw new IOException("the settings file is not a JSON object");
+            }
+        }
+        write(load(), loadHeights(), loadSearch(), options);
     }
 
     /**
@@ -375,10 +466,10 @@ public final class SettingsStore {
                 throw new IOException("the settings file is not a JSON object");
             }
         }
-        write(load(), loadHeights(), search);
+        write(load(), loadHeights(), search, loadFake());
     }
 
-    private void write(Settings settings, Heights heights, Search search) throws IOException {
+    private void write(Settings settings, Heights heights, Search search, org.example.fake.FakeOptions fake) throws IOException {
         ObjectNode root = mapper.createObjectNode();
         root.put(USAGE_KEY, settings.usageIntervalSeconds());
         root.put(LOG_RESPONSE_KEY, settings.logResponse());
@@ -407,6 +498,12 @@ public final class SettingsStore {
         root.put(FAKE_BACKEND_KEY, settings.fakeBackend());
         root.put(FAKE_SCENARIO_KEY, settings.fakeScenario().optionName());
         root.put(FAKE_TOKEN_KEY, settings.fakeToken());
+        root.put(FAKE_ACCOUNT_KEY, fake.account().json());
+        root.put(FAKE_INCREASE_KEY, fake.increaseCents());
+        root.put(FAKE_BUDGET_KEY, java.math.BigDecimal.valueOf(fake.budgetCents(), 2));
+        root.put(FAKE_START_KEY, java.math.BigDecimal.valueOf(fake.startCents(), 2));
+        root.put(FAKE_REFUSE_KEY, fake.refuseSeconds());
+        root.put(FAKE_DELAY_KEY, fake.delayMillis());
         root.put(LOG_LEVEL_KEY, settings.logLevel().json());
         root.put(LOG_DATE_KEY, settings.logDate());
         root.put(LIST_FONT_SIZE_KEY, settings.listFontSize());

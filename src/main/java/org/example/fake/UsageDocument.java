@@ -16,31 +16,47 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 final class UsageDocument {
 
-    /** Minor units added per reading: a few cents, as a working account would show. */
-    private static final long SPEND_STEP_MINOR = 137;
-
-    private static final long SPEND_START_MINOR = 18_602;
-
-    private static final long SPEND_LIMIT_MINOR = 100_000;
-
     private final AtomicInteger readings = new AtomicInteger();
 
-    /** How many bodies have been built, which is how far the figures have moved. */
+    /** Draws the cents the amount used grows by at an answer: a whole number from 0 to the most there may be. */
+    private final java.util.function.IntUnaryOperator dice;
+
+    private FakeOptions options;
+
+    /** What the account has spent, in cents: it begins at the starting amount and grows at each answer. */
+    private long usedMinor;
+
+    UsageDocument() {
+        this(FakeOptions.DEFAULTS, most -> most);
+    }
+
+    /** @param dice given the most the amount may grow by, in cents, says by how much it does: a whole number from 0 to that */
+    UsageDocument(FakeOptions options, java.util.function.IntUnaryOperator dice) {
+        this.options = options;
+        this.dice = dice;
+        this.usedMinor = options.startCents();
+    }
+
     int readings() {
         return readings.get();
     }
 
     /**
-     * The next reading, a little further on than the last.
-     *
-     * @param now when it is asked for; nothing in the document is a time, so it
-     *            is not written anywhere, and is taken so that the callers need not change
-     *            the day the document carries one
+     * Takes other options while the backend runs. The amount used goes on from where it is, unless the starting amount
+     * is another one: then it begins there again.
      */
-    String next(Instant now) {
-        int reading = readings.incrementAndGet();
-        long usedMinor = SPEND_START_MINOR + reading * SPEND_STEP_MINOR;
-        int percent = (int) (usedMinor * 100 / SPEND_LIMIT_MINOR);
+    synchronized void configure(FakeOptions wanted) {
+        if (wanted.startCents() != options.startCents()) {
+            usedMinor = wanted.startCents();
+        }
+        options = wanted;
+    }
+
+    synchronized String next(Instant now) {
+        readings.incrementAndGet();
+        usedMinor += Math.max(0, Math.min(options.increaseCents(), dice.applyAsInt(options.increaseCents())));
+        long limitMinor = options.budgetCents();
+        int percent = (int) (usedMinor * 100 / limitMinor);
 
         // Written out rather than assembled with Jackson: the point is to send exactly
         // what the endpoint sends, oddities and all, which a serialised model would tidy.
@@ -75,11 +91,11 @@ final class UsageDocument {
                   "seven_day_breakdown": null
                 }
                 """,
-                SPEND_LIMIT_MINOR,
+                limitMinor,
                 usedMinor,
-                usedMinor * 100.0 / SPEND_LIMIT_MINOR,
+                usedMinor * 100.0 / limitMinor,
                 usedMinor,
-                SPEND_LIMIT_MINOR,
+                limitMinor,
                 percent,
                 percent >= 80 ? "warning" : "normal");
     }
