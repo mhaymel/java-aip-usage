@@ -263,8 +263,8 @@ The four icon buttons sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
 
 **The button of the open panel is green, and bigger.** Of the log, history, error log and settings buttons, the one whose panel is
-shown stands out so that it is seen at a glance: it is green, a vivid green and not the darker green of the figures (about
-`#00b341` on the light theme and `#3ddc6b` on the dark one), its button is 24 pixels instead of 20 and its icon 16 pixels
+shown stands out so that it is seen at a glance: it is green, **the green of the figures and of the text** (`#1a7f37` on the light theme and `#3fb950` on the dark one; since version 0.65 the one green,
+where before the icons had a more vivid one, `#00b341` and `#3ddc6b`, which looked different from the text), its button is 24 pixels instead of 20 and its icon 16 pixels
 instead of 12, and its lines are heavier (about 2.2 instead of 1.6; the gear, which is 13 pixels and drawn on a finer grid, is made to look the same). Twenty-four pixels is
 the height of the refresh button, so the row keeps its height and the window does not change size when a panel is opened or
 closed. When that panel is closed, or another is opened, the new one turns green and bigger and the one that was goes back to
@@ -368,33 +368,30 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
 
 **Changes between readings**
 
-- The change in the amount used is the amount used minus that of the row just before it in the
-  history; the time since the previous reading is the time between the two rows. The backend works
+- **The change in the amount used** (since version 0.65) is the amount used of a line minus the amount used of **the last earlier line that has an amount used**, whatever lies between: failed lines
+  have none and are ignored, and so is the run they belong to; the start line of a run is a line like any other. Only a line that has an amount used has a change in the amount used. **When there is no earlier
+  line with an amount used, the change is the amount used itself.** The arithmetic is exact, on the text of the file. This is worked out on the whole file: the lines the history hides (see Hiding lines) change
+  no figure. **The history shows it only when it is greater than 0.00**: a change of zero or less is an empty cell, so the column shows what was spent. **The row shows it whenever the reading has an amount used**,
+  also a change of 0.00, as written below, and a gray box when the reading has none. (This takes the place of the rules of earlier versions: against the row directly before, in the same run only, with nothing for a
+  start line, for a line after a failed one, and for a fall.)
+- **The time since the previous reading** is the time between two rows. The backend works
   both out from the history file and sends them with the status. The row shows the values of the
   newest reading, and the history panel those of each row (see Settings for the switches).
-- The two are worked out only between rows of the same run, which is from a row whose status marks
-  a start (see Usage history) to the row before the next such row. The first row of a run has neither.
-- The time since the previous reading is counted to the row directly before it, a failed one
-  included, so a failed row has a time and the row after it counts from the failed row. The change in
-  the amount used is likewise against the row directly before: if that row is a failed one, with no
-  amounts, there is no change, and a failed row itself has none.
+- **The time since the previous reading** is worked out only between rows of the same run, which is from a row whose status marks
+  a start (see Usage history) to the row before the next such row. The first row of a run has none.
+- It is counted to the row directly before it, a failed one included, so a failed row has a time and the row after it counts from the failed row.
 - A value that cannot be worked out is left empty, not shown as zero.
-- **In the history the two are worked out on the lines that are shown.** When the history leaves lines out (see Hiding lines),
-  the change in the amount used and the time since the previous reading of a line are those against the previous
-  line that is shown in the same run, not against the row directly before it in the file: with the unchanged readings hidden, the time is the
-  time since the previous reading that is shown, and so is the change. A run is still what the whole file says: a row whose status marks a start begins
-  a run even if it is hidden, and the first line shown of a run has neither. The main row's items are not affected by what the history hides: they
-  are worked out against the row directly before, as above.
-- **A change in the amount used of exactly zero is left empty too**, as if it could not be worked out: no `0.00` in
-  the history column and no change item in the row. It is a figure that says nothing. The time since the previous
-  reading is shown whatever it is.
-- **The arithmetic is exact, on the text of the file**: `10.25` less `10.00` is `0.25`, and an amount that went
-  down gives a negative change. A time of no seconds at all is a value, `0 s`; only a negative one is empty. Each
-  of the two is given when it can be worked out, whether or not the other can.
+- **In the history the time since the previous reading is worked out on the lines that are shown.** When the history leaves lines out (see Hiding lines),
+  the time of a line is that against the previous line that is shown in the same run, not against the row directly before it in the file: with the unchanged readings hidden, the time is the
+  time since the previous reading that is shown. A run is still what the whole file says: a row whose status marks a start begins
+  a run even if it is hidden, and the first line shown of a run has none. The change in the amount used is not affected by what the history hides (above), and neither are the main row's items.
+- **The time is a value even at no seconds at all**, `0 s`; only a negative one is empty. A time is given when it can be worked out, whether or not the change can.
+- **A zero usage line is still defined as before**, by a change of exactly zero against the row directly before it in the same run, the startup lines counting as zero usage lines (see Hiding lines): the
+  new rule for the change in the amount used changes what a column shows, and not which lines are zero usage lines.
 - **The time is the difference of the two local times as they are written.** Across a change of the clocks it is
   therefore an hour too long when they go forward, and too short, or empty, when they go back.
-- **A row that follows a failed row has no change in the amount**, so it is never a zero usage line and is always
-  shown, even when its amount is the one of the last good reading.
+- **A row that follows a failed row is never a zero usage line** (it has no change against the row directly before it) and is always
+  shown, even when its amount is the one of the last good reading; its change in the amount used, in the column and in the row, is against the last line that has an amount.
 
 **Settings**
 
@@ -464,6 +461,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Show the request duration in the row | on, off | off |
   | Keep the window above every other window (`Stay on top`) | on, off | off |
   | Show the title bar of the window (`Title bar`) | on, off | on |
+  | Restore the window at start (`Restore the window at start`) | on, off | off |
   | Time format in the row | hours and minutes, or hours, minutes and seconds | hours and minutes |
   | Show the date in the history, as well as the time | on, off | off |
   | Show the zero usage lines in the history | on, off | on |
@@ -497,9 +495,13 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   `Main view`, `History view`, `Cost control`, `Debug` (only in debug mode, see Debug mode), `General` and `About`.
   - `Main view` holds the elements of the row and the properties of the amounts and of the time; `History view` the checkboxes of the history (below);
     `Cost control` the limits (see Cost control); `Debug` the debug settings; `General` the groups `Request`, `Window` and `Log`; `About` the About view (see The About view).
-  - **The titles are a strip**, all of them in one line over the tab, each clickable; the one shown is marked. If the strip is wider than the view, it scrolls sideways.
-  - **Two arrows**, one at each end of the strip, step to the previous and to the next tab, and are disabled at the first and at the last.
-  - **The settings always open on the first tab, `Main view`**, whichever tab was shown last. The window is as tall as the shown tab needs, and the height follows when the tab is changed; the
+  - **The titles are a strip**, all of them in one line over the tab, each clickable. **The tab that is shown is marked in blue, not green** (since version 0.65): its title and its line are in the blue of the notes,
+    `#0969da` on the light theme and `#58a6ff` on the dark one.
+  - **There are no arrows** (since version 0.65; version 0.64 had two, to step to the previous and the next tab). A tab is reached by its title.
+  - **The strip is always whole**: while the settings are shown the window is never narrower than the whole strip of the titles needs, in one line, besides what the widest tab needs. So the
+    settings have **no horizontal scrollbar** and every title is seen, also when every element of the main row is hidden and the row alone would make the window very narrow
+    (the fault that was: with nothing in the main row the window was so narrow that the strip did not fit and a horizontal scrollbar hid the tabs).
+  - **The settings open on the first tab, `Main view`**, whichever tab was shown last, unless the window is restored at the start with the settings open (see The window is restored at start). The window is as tall as the shown tab needs, and the height follows when the tab is changed; the
     least width is that of the widest tab, so the window does not change its width from tab to tab.
   - **The buttons `Save` and `Cancel` are under every tab**, `About` included, and are the same on each.
 - **The title bar.** The setting `Title bar`, in the group `Window` before `Stay on top`, on by default and saved under the key
@@ -694,7 +696,7 @@ The history is shown inside the main window, not in a window of its own.
   file and sent with the rows. The titles are a delta symbol, a space, and `used` or `time`: they sit
   beside the `used` column and are told apart from it by the symbol. Each column is shown only when its setting
   is on, and both are off by default; the columns are between `limit` and the currency, which stays the last. An empty value is an
-  empty cell, and a change in the amount used of zero is an empty cell too, not `0.00`. **The time is in whole seconds, with the unit,
+  empty cell, and a change in the amount used that is not greater than 0.00 is an empty cell too, not `0.00` (since version 0.65, see Changes between readings). **The time is in whole seconds, with the unit,
   never in minutes or hours**: `63 s`, `126 s`, `3600 s`. (The row's item is in seconds too, but written without the space, `63s`.)
 - **Hiding lines.** Two settings (see Settings) say whether the history shows its zero usage lines and its failed lines; both are
   shown unless switched off. A **zero usage line** is a line whose change in the amount used, as under Changes between readings (against the
@@ -719,8 +721,8 @@ The history is shown inside the main window, not in a window of its own.
   time, empty amounts and empty currency, and the word `failed` in red in the `used` column.
 - The line of the first row recorded after the program started (a row whose `status` is `start` or
   `start-failed` in the file, see Usage history) is shown **in green text**, the whole line, so
-  where each run begins can be seen at a glance: the vivid green of the button of the open panel (`#00b341` on the light theme,
-  `#3ddc6b` on the dark one). **It has no special background**: the background is that of every other line, not gray and not
+  where each run begins can be seen at a glance: the green of the figures, which is also that of the icon of the open panel (`#1a7f37` on the light theme,
+  `#3fb950` on the dark one). **It has no special background**: the background is that of every other line, not gray and not
   coloured, and the line is not bold. (A failed startup line keeps its red `failed` in the place of the amount; the rest of its
   text is green.) The file can hold several such rows, one for each run; each is marked. The `status`, `interval` and `duration_ms` columns themselves are not shown in
   the panel.
@@ -1381,6 +1383,22 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **After a failed refresh** that follows a reading with no spend, the red line of the failure is there as always, and
   this line beside it while the mouse is on a box.
 
+### The window is restored at start
+
+- **The program stores on shutdown what the window showed, and starts as it was** (since version 0.65), when the checkbox `Restore the window at start` is on. It is in the tab `General`, in the group `Window`,
+  **off by default** and saved under the key `restoreWindow`. Off, the program starts as before, with the row alone, and stores nothing.
+- **What is stored**, in `settings.json`, when the program stops (by closing the window or by the system's stop): the panel that was open, `log`, `history`, `errors` or `settings` or none, and for the settings the tab that was shown; the size of
+  the window, its width and its height, in pixels of its content; and the place of the window on the screen. The keys are `lastPanel`, `lastTab`, `windowWidth`, `windowHeight`, `windowX` and `windowY`. They are no settings
+  of the settings view: it neither shows nor changes them, and saving the settings leaves them as they are.
+- **What is restored.** At the next start with the checkbox on, the window has that size and place and the panel is open on the tab as it was, as if the person had opened it. With the settings open the tab
+  is the stored one, and `Debug` is the first one when the program is not in debug mode. The remembered heights of the history and the log (see Remembered heights) are kept as they are; the stored size of
+  the window is the one that is used at this start.
+- **Nothing that cannot be is restored.** A value in the file that is not a whole number, a panel or tab that is not known, or a place that no screen shows (a screen that has gone) is left out, and the window
+  then has its usual size or place; the other values are still used. A window is never restored larger than the screen it is on.
+- **The title bar** is as the rules say: a panel that is open has it, whatever the setting says.
+- **The log** says at the start, at the debug level, `The window is restored: <panel>, <width> x <height> at <x>, <y>`.
+- **It is stored once**, at the end, and not while the program runs: a program that was stopped by force keeps what was stored the time before.
+
 ### The About view
 
 - **The program has an About view** (since version 0.57), which says what the program is and shows its logo larger than an icon can.
@@ -1402,7 +1420,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The text cannot be selected**, like everything in the window (see Nothing in the window can be selected); a path
   is copied with the button beside it (see The paths of the About view are links, with a button to copy each). A path that is longer than the view is wide is broken over lines; it never makes the
   window wider.
-- **It has no button of its own**: `Back` is gone, the other tabs are reached by the strip and the arrows.
+- **It has no button of its own**: `Back` is gone, the other tabs are reached by the strip.
 - **The settings are kept as they were.** Showing the tab saves nothing and loses nothing: what was changed in the other tabs
   and not saved is still there when they are shown again, the preview in the row stays as it was, and `Save` and `Cancel` do what they always do.
 - **A button of the row pressed while About is shown** does what it does from any tab: the settings are saved, as
@@ -1590,7 +1608,7 @@ backend switched while the program runs, and the mark that says its figures are 
   It no longer has an option to contradict it; while the fake backend is in use the URL is simply not used.
 - **There is no debug button** (since version 0.64; before, a yellow bug button at the right of the gear opened a view of its own). **The debug settings are the tab `Debug` of the
   settings**, between `Cost control` and `General`, reached through the gear like every other tab, and only in debug mode: without `--debug` there is no such tab, and nothing in
-  the strip or the arrows tells of it. It is saved by `Save` and left by `Cancel` like the others (see Settings), and a save that fails keeps the view open.
+  the strip tells of it. It is saved by `Save` and left by `Cancel` like the others (see Settings), and a save that fails keeps the view open.
 - **The tab `Debug` is part of the settings for the title bar**: while it is shown the window has its title bar, whatever the setting `Title bar` says (see Settings).
 - **The tab, exactly.** One group, headed `Debug mode`: a checkbox `Fake backend` with a dropdown beside it, in the same
   line, that names the scenarios the backend knows; and a checkbox `Placeholder token`. Each has a tooltip that says what it
@@ -1907,8 +1925,7 @@ These are things the program does that the sections above do not say, written do
 
 **The look of the page**
 
-- **Colours** follow the operating system's light or dark setting, and there is no setting for it. `muted` is `#8a8f98` in both; the green of the figures is `#1a7f37` and `#3fb950`, the red of errors `#cf222e` and `#f85149`, the open
-  panel's button `#00b341` and `#3ddc6b`, the blue of notes `#0969da` and `#58a6ff`. Background and text are the system's. There is no amber, and no colour stands for a severity.
+- **Colours** follow the operating system's light or dark setting, and there is no setting for it. `muted` is `#8a8f98` in both; the green of the figures, of the text of the startup lines and of the icon of the open panel is `#1a7f37` and `#3fb950`, the red of errors `#cf222e` and `#f85149`, the blue of notes `#0969da` and `#58a6ff`. Background and text are the system's. There is no amber, and no colour stands for a severity.
 - The refresh icon turns round and round while a refresh is running. When a refresh has failed and the figures are old they are dimmed to 60 percent: the time, the amounts, the percentage, the change in the amount used, the time since the previous reading and the request duration, not the countdown, the interval or the buttons. It is the same green, less opaque, not another colour.
 - The icons are: refresh, an arrow round a circle; log, a sheet with lines; history, a table; error log, a triangle with an exclamation mark; settings, a gear. An icon button has a border that is invisible and turns muted gray when the pointer is over it or it has the keyboard focus.
 - A time that the backend gave no tooltip for has the tooltip `Last update`.
@@ -2196,10 +2213,10 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
   `historyHeight` and `logHeight`. Where this document says "in the project root, beside `gradlew`", the files are in the working directory the program was
   started from, which is the project root for `./gradlew run` and for an IDE run configuration set as the notes say.
-- **The settings file as written.** One JSON object, printed over several lines, with the keys always in the order above, the two heights last and always there, as `0` when none is remembered. Every save writes the whole file
+- **The settings file as written.** One JSON object, printed over several lines, with the keys always in the order above, the two heights last and always there, as `0` when none is remembered. The keys of the restored window (`lastPanel`, `lastTab`, `windowWidth`, `windowHeight`, `windowX`, `windowY`) come after the heights, and are written only when the program has stored them. Every save writes the whole file
   anew from what the program holds, so a key that is not a setting, the old `pollIntervalSeconds` or one added by hand, is gone after the first save, and a value that was not valid is replaced by its default there;
   storing a remembered height is such a save. The new file is written beside the old one as `settings.json.tmp`, which is not left behind whether or not the save succeeded; a save that fails leaves the file as it was.
 - **How the settings file is read.** No value is turned into another: the interval and the heights must be whole JSON numbers (`"45"`, `45.5` and `true` are refused), a switch must be `true` or `false` (`"yes"` is

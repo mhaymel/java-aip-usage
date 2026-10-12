@@ -1788,6 +1788,22 @@ that refuses: that is what this was built for, and is for a person to try.
   and few 429s); `UsageServiceTest` (a 429 with `Automatic` off leaves the delay at the interval, whatever `Retry-After` says); `SettingsStoreTest` (the new keys, an old file); `ApiTest`, `HistoryReaderTest` (each column off and on);
   `app.test.cjs`, `layout.test.cjs` (strip, arrows, first tab, no `Restore defaults`, no debug button, the debug tab only in debug mode, About as a tab with `Save` and `Cancel`). The on-request real-window test: the heights and widths of the tabs.
 
+### 77. Blue tab, no arrows, a whole strip, the change in the amount, restoring the window, one green
+
+**Status: specified, not yet built (version 0.65).** Requirements: Settings (the tabs), Changes between readings, The usage history, The window is restored at start, The look of the page, The button of the open panel.
+
+- **Tabs.** The selected tab is blue (`--note` blue of the history note, `#0969da` / `#58a6ff`), not `--active`; the two arrows and their code and tests go; the window's least width while the settings are shown is
+  the width of the whole strip, in one line, besides the widest tab, so there is no horizontal scrollbar (measure the strip's `scrollWidth` as the tabs are measured; a test with every row element hidden).
+- **One green.** `--active` goes: the open panel's button and the startup lines of the history use `--ok`. The size of the open button stays.
+- **The change in the amount used.** `HistoryDeltas` works out each row's change against the last earlier row of the whole file that has an amount used (failed rows skipped, no run border), and the amount itself when
+  there is none; only a row with an amount has one. Computed on the file, not on the shown lines; the time since the previous reading keeps its rule (on the shown lines, the same run). The history shows it only when it is greater than
+  0.00, the row shows it whenever the reading has an amount (0.00 included), a gray box when it has none. The zero usage line is defined as before and still hides lines.
+- **Restoring the window.** `Settings.restoreWindow` (key `restoreWindow`, off by default; checkbox in `General > Window`); `SettingsStore` reads and writes six keys of the last window (`lastPanel`, `lastTab`, `windowWidth`, `windowHeight`,
+  `windowX`, `windowY`) beside the heights, and the settings view neither shows nor changes them. `UsageApp` stores them in the shutdown hook (when the setting is on), restores them at start after the page is loaded
+  (size and place, the place checked against the screens, never larger than the screen), and asks the page to open the panel and tab through a call of the page (`window.restore(panel, tab)`). Left-out values give the usual size.
+- **Tests.** `HistoryDeltasTest` (failed lines skipped, a first line with no earlier value, hidden lines changing nothing, a fall), `ApiTest` (history cells empty at zero, the row's change), `SettingsStoreTest` (the keys, bad values),
+  `app.test.cjs` and `layout.test.cjs` (no arrows, the blue, the strip's width, the green, the checkbox, `restore`), and a window test (a stored size and place restored, a place off every screen left out).
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built
