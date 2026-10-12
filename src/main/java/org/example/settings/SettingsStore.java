@@ -102,6 +102,20 @@ public final class SettingsStore {
     /** The interval at which the last refusal came; left out for none. The keys of the lower and upper bound of earlier versions are read no more. */
     static final String AUTO_REFUSED_KEY = "autoRefusedSeconds";
 
+    static final String RESTORE_WINDOW_KEY = "restoreWindow";
+
+    static final String LAST_PANEL_KEY = "lastPanel";
+
+    static final String LAST_TAB_KEY = "lastTab";
+
+    static final String WINDOW_WIDTH_KEY = "windowWidth";
+
+    static final String WINDOW_HEIGHT_KEY = "windowHeight";
+
+    static final String WINDOW_X_KEY = "windowX";
+
+    static final String WINDOW_Y_KEY = "windowY";
+
     static final String HISTORY_TIME_KEY = "historyTime";
 
     static final String HISTORY_USED_KEY = "historyUsed";
@@ -203,7 +217,8 @@ public final class SettingsStore {
                 flag(root, HISTORY_TIME_KEY, defaults.historyTime()),
                 flag(root, HISTORY_USED_KEY, defaults.historyUsed()),
                 flag(root, HISTORY_LIMIT_KEY, defaults.historyLimit()),
-                flag(root, HISTORY_CURRENT_KEY, defaults.historyCurrent()));
+                flag(root, HISTORY_CURRENT_KEY, defaults.historyCurrent()),
+                flag(root, RESTORE_WINDOW_KEY, defaults.restoreWindow()));
     }
 
     /**
@@ -269,7 +284,7 @@ public final class SettingsStore {
                 throw new IOException("the settings file is not a JSON object");
             }
         }
-        write(load(), heights, loadSearch(), loadFake());
+        write(load(), heights, loadSearch(), loadFake(), loadLast());
     }
 
     /** The scenario of the fake backend, by its name; a name that is none of them is logged and passed over. */
@@ -400,7 +415,7 @@ public final class SettingsStore {
     public void save(Settings settings) throws IOException {
         boolean there = Files.exists(file);
         write(settings, there ? loadHeights() : Heights.NONE, there ? loadSearch() : Search.BEGINNING,
-                there ? loadFake() : org.example.fake.FakeOptions.DEFAULTS);
+                there ? loadFake() : org.example.fake.FakeOptions.DEFAULTS, there ? loadLast() : LastWindow.NONE);
     }
 
     /**
@@ -470,7 +485,7 @@ public final class SettingsStore {
                 throw new IOException("the settings file is not a JSON object");
             }
         }
-        write(load(), loadHeights(), loadSearch(), options);
+        write(load(), loadHeights(), loadSearch(), options, loadLast());
     }
 
     /**
@@ -508,6 +523,63 @@ public final class SettingsStore {
     }
 
     /**
+     * What the window showed when the program last stopped: the panel that was open ({@code log}, {@code history}, {@code errors} or
+     * {@code settings}) and for the settings the tab, the size of the window's content and the place of the window. Each is
+     * {@code null} when it was not stored or cannot be. They are in the settings file but are no settings of the settings view.
+     */
+    public record LastWindow(String panel, String tab, Integer width, Integer height, Integer x, Integer y) {
+
+        public static final LastWindow NONE = new LastWindow(null, null, null, null, null, null);
+    }
+
+    private static final java.util.Set<String> PANELS = java.util.Set.of("log", "history", "errors", "settings");
+
+    private static final java.util.Set<String> TABS = java.util.Set.of("main", "history", "cost", "debug", "general", "about");
+
+    /** The last window as stored; a value that is not a known name or a whole number is left out. Never fails. */
+    public LastWindow loadLast() {
+        try {
+            JsonNode root = mapper.readTree(Files.readString(file));
+            if (root == null || !root.isObject()) {
+                return LastWindow.NONE;
+            }
+            String panel = name(root, LAST_PANEL_KEY, PANELS);
+            return new LastWindow(panel, panel == null ? null : name(root, LAST_TAB_KEY, TABS),
+                    pixels(root, WINDOW_WIDTH_KEY, 1, MAX_HEIGHT), pixels(root, WINDOW_HEIGHT_KEY, 1, MAX_HEIGHT),
+                    pixels(root, WINDOW_X_KEY, -MAX_HEIGHT, MAX_HEIGHT), pixels(root, WINDOW_Y_KEY, -MAX_HEIGHT, MAX_HEIGHT));
+        } catch (IOException e) {
+            return LastWindow.NONE;
+        }
+    }
+
+    private static String name(JsonNode root, String key, java.util.Set<String> known) {
+        JsonNode node = root.get(key);
+        return node != null && node.isTextual() && known.contains(node.textValue()) ? node.textValue() : null;
+    }
+
+    private static Integer pixels(JsonNode root, String key, int least, int most) {
+        JsonNode node = root.get(key);
+        boolean usable = node != null && node.isIntegralNumber() && node.canConvertToInt()
+                && node.intValue() >= least && node.intValue() <= most;
+        return usable ? node.intValue() : null;
+    }
+
+    /**
+     * Stores the last window, keeping everything else the file has.
+     *
+     * @throws IOException if the file cannot be written; it is then unchanged
+     */
+    public void saveLast(LastWindow last) throws IOException {
+        if (Files.exists(file)) {
+            JsonNode root = mapper.readTree(Files.readString(file));
+            if (root == null || !root.isObject()) {
+                throw new IOException("the settings file is not a JSON object");
+            }
+        }
+        write(load(), loadHeights(), loadSearch(), loadFake(), last);
+    }
+
+    /**
      * Stores the search, keeping the settings and the heights the file has.
      *
      * @throws IOException if the file cannot be written; it is then unchanged
@@ -519,10 +591,10 @@ public final class SettingsStore {
                 throw new IOException("the settings file is not a JSON object");
             }
         }
-        write(load(), loadHeights(), search, loadFake());
+        write(load(), loadHeights(), search, loadFake(), loadLast());
     }
 
-    private void write(Settings settings, Heights heights, Search search, org.example.fake.FakeOptions fake) throws IOException {
+    private void write(Settings settings, Heights heights, Search search, org.example.fake.FakeOptions fake, LastWindow last) throws IOException {
         ObjectNode root = mapper.createObjectNode();
         root.put(USAGE_KEY, settings.usageIntervalSeconds());
         root.put(LOG_RESPONSE_KEY, settings.logResponse());
@@ -574,8 +646,28 @@ public final class SettingsStore {
         root.put(HISTORY_USED_KEY, settings.historyUsed());
         root.put(HISTORY_LIMIT_KEY, settings.historyLimit());
         root.put(HISTORY_CURRENT_KEY, settings.historyCurrent());
+        root.put(RESTORE_WINDOW_KEY, settings.restoreWindow());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
+        // What the window showed when the program last stopped; only what was stored is written.
+        if (last.panel() != null) {
+            root.put(LAST_PANEL_KEY, last.panel());
+        }
+        if (last.tab() != null) {
+            root.put(LAST_TAB_KEY, last.tab());
+        }
+        if (last.width() != null) {
+            root.put(WINDOW_WIDTH_KEY, last.width().intValue());
+        }
+        if (last.height() != null) {
+            root.put(WINDOW_HEIGHT_KEY, last.height().intValue());
+        }
+        if (last.x() != null) {
+            root.put(WINDOW_X_KEY, last.x().intValue());
+        }
+        if (last.y() != null) {
+            root.put(WINDOW_Y_KEY, last.y().intValue());
+        }
 
         Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
         try {

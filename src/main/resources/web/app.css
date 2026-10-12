@@ -4,8 +4,6 @@
     --muted: #8a8f98;
     --ok: #1a7f37;
     --bad: #cf222e;
-    /* The button of the open panel: a vivid green, easier to see than the severity green. */
-    --active: #00b341;
     /* A note that tells the person something about what they are looking at. */
     --info: #0969da;
     /* The background of the log's start line of a run. */
@@ -16,7 +14,6 @@
     :root {
         --ok: #3fb950;
         --bad: #f85149;
-        --active: #3ddc6b;
         --info: #58a6ff;
         --mark: #30363d;
     }
@@ -400,9 +397,9 @@ body {
 }
 
 /*
- * The tabs of the settings: an arrow at each end that steps to the previous and the next tab, and between them the titles of all the
- * tabs in a strip that scrolls sideways when it is wider than the view. The strip has no width of its own that the window is measured
- * to: it is as wide as the view, whatever its titles come to.
+ * The tabs of the settings: the titles of all the tabs in one strip. The window is never narrower than the whole strip needs (the page
+ * measures the strip's scroll width), so it has no scrollbar to show; should the view still be narrower, it scrolls sideways unseen.
+ * The box itself is as wide as the view and has no width of its own that the form could be measured by.
  */
 .tabs {
     display: flex;
@@ -436,12 +433,8 @@ body {
 }
 
 .settings .tab[aria-selected="true"] {
-    color: CanvasText;
-    border-bottom-color: var(--active, #00b341);
-}
-
-.tab-arrow {
-    flex: 0 0 auto;
+    color: var(--info);
+    border-bottom-color: var(--info);
 }
 
 .tab-page[hidden] {
@@ -811,11 +804,11 @@ body {
 }
 
 /*
- * The history's first line of a run: green text, the vivid green of the open panel's button, and no background of its own and no bold, so
+ * The history's first line of a run: green text, the green of the figures, which is the open panel's button's too, and no background of its own and no bold, so
  * it is the line of every other except for its colour. A failed startup line's `failed` keeps its red through its own rule.
  */
 .panel-lines .start {
-    color: var(--active);
+    color: var(--ok);
 }
 
 /* A row of a query that did not succeed says so in red, in the place of its amount. */
@@ -862,7 +855,7 @@ body {
 }
 
 /*
- * The button of the panel that is shown is green and bigger: a vivid green, 24 px with a 16 px icon instead of 20 and 12, and
+ * The button of the panel that is shown is green and bigger: the green of the figures, 24 px with a 16 px icon instead of 20 and 12, and
  * heavier lines. 24 px is the refresh button's size, so the row keeps its height. The margin takes back the 4 px it
  * grew by, so that the row is no wider either and nothing beside it moves: opening a panel does not change the window.
  */
@@ -870,7 +863,7 @@ body {
     width: 24px;
     height: 24px;
     margin: -2px;
-    color: var(--active);
+    color: var(--ok);
 }
 
 .icon.active svg {

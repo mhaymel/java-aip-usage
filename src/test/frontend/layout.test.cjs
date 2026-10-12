@@ -219,7 +219,7 @@ test('the panel is below the strip and below every message line, and closed at t
 
 /** The declarations of the rule for one selector in app.css. */
 function ruleOf(selector) {
-    const escaped = selector.replace(/[.#()>:*+?^$|]/g, '\\$&');
+    const escaped = selector.replace(/[.#()>:*+?^$|\[\]]/g, '\\$&');
     const match = css.match(new RegExp('(?:^|\\n)' + escaped + '\\s*{([^}]*)}'));
     assert.ok(match, 'no rule for ' + selector);
     return match[1];
@@ -641,12 +641,10 @@ test('the table probe is never seen: off the page, hidden, and as wide as its co
     assert.ok(css.indexOf('.table-probe {') > css.indexOf('.panel-lines {'), 'it comes after the panel rule it overrides');
 });
 
-test('the button of the open panel is a vivid green, easier to see than the severity green', () => {
-    assert.match(ruleOf('.icon.active'), /color:\s*var\(--active\)/);
-    assert.notEqual(css.match(/--active:\s*(#[0-9a-f]{6})/g).length, 0);
-    const colours = [...css.matchAll(/--active:\s*(#[0-9a-f]{6})/g)].map(m => m[1]);
-    assert.deepEqual(colours, ['#00b341', '#3ddc6b'], 'the light theme, then the dark one');
-    assert.ok(css.indexOf('--active: #3ddc6b') > css.indexOf('prefers-color-scheme: dark'), 'the second is in the dark block');
+test('the button of the open panel is the green of the figures, the one green of the page', () => {
+    assert.match(ruleOf('.icon.active'), /color:\s*var\(--ok\)/);
+    assert.doesNotMatch(css, /--active/, 'the vivid green is gone');
+    assert.doesNotMatch(css, /#00b341|#3ddc6b/);
     assert.ok(css.indexOf('.icon.active {') > css.indexOf('.icon.tiny {'), 'it comes after the rule giving the buttons their gray, to win');
 });
 
@@ -820,7 +818,7 @@ test('the interval is one entry field with its unit, in the Request section', ()
 
 test('the history\'s start line is green text with no background and no bold; the log\'s keeps the gray background', () => {
     const start = ruleOf('.panel-lines .start');
-    assert.match(start, /color:\s*var\(--active\)/, 'the vivid green of the open panel\'s button');
+    assert.match(start, /color:\s*var\(--ok\)/, 'the green of the figures, which is the open panel\'s button\'s too');
     assert.doesNotMatch(start, /background/, 'no special background');
     assert.doesNotMatch(start, /font-weight/, 'not bold');
     assert.match(ruleOf('.panel-lines .mark'), /background:\s*var\(--mark\)/, 'the log keeps its gray, from a variable');
@@ -891,13 +889,13 @@ test('the debug settings are a tab of the settings, with the scenario beside the
     assert.ok(line.indexOf('debug-fakeBackend') < line.indexOf('debug-fakeScenario'), 'the scenario is beside the switch of the fake backend');
 });
 
-test('the tabs are in the order Main view, History view, Cost control, Debug, General, About, with an arrow at each end of the strip', () => {
+test('the tabs are in the order Main view, History view, Cost control, Debug, General, About, with no arrows', () => {
     const strip = html.slice(html.indexOf('id="settings-tabs"'), html.indexOf('id="settings-form"'));
     assert.deepEqual([...strip.matchAll(/data-tab="([a-z]+)"[^>]*>([^<]+)</g)].map(m => m[1] + ':' + m[2]),
         ['main:Main view', 'history:History view', 'cost:Cost control', 'debug:Debug', 'general:General', 'about:About']);
-    assert.ok(strip.indexOf('id="tab-prev"') < strip.indexOf('id="tab-strip"') && strip.indexOf('id="tab-strip"') < strip.indexOf('id="tab-next"'));
-    assert.match(strip, /id="tab-prev"[^>]*title="Previous tab"/);
-    assert.match(strip, /id="tab-next"[^>]*title="Next tab"/);
+    assert.doesNotMatch(html, /tab-prev|tab-next|tab-arrow/, 'no arrows');
+    assert.match(ruleOf('.settings .tab[aria-selected="true"]'), /color:\s*var\(--info\)/, 'the tab shown is blue');
+    assert.match(ruleOf('.settings .tab[aria-selected="true"]'), /border-bottom-color:\s*var\(--info\)/);
     assert.match(css, /\.tab-page\[hidden\]\s*{\s*display:\s*none/);
 });
 test('with a settings view shown the app is as wide as the window, so that the red border goes round the view and not round the row alone', () => {

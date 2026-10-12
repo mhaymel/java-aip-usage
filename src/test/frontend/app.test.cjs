@@ -163,7 +163,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true, autoInterval: false,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, showTitleBar: true, autoInterval: false,
     costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
     historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
 };
@@ -925,7 +925,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true, autoInterval: false,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
         historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
     });
@@ -2337,8 +2337,8 @@ test('the Debug tab is there in debug mode and never otherwise, and there is no 
     assert.equal(plain.el('tabbtn-debug').hidden, true);
     await plain.click('settings-button');
     assert.equal(plain.calls.filter(c => c.url === '/api/debug').length, 0, 'and nothing is asked about debug settings');
-    await plain.click('tab-prev');
-    for (let i = 0; i < 5; i++) { await plain.click('tab-next'); }
+    assert.equal(plain.el('tabbtn-debug').hidden, true, 'no title in the strip for it');
+    await plain.click('tabbtn-about');
     assert.equal(plain.el('about-view').hidden, false, 'the strip goes from the first tab to About with no Debug tab between');
 
     const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
@@ -3444,33 +3444,27 @@ test('a title in the strip shows its tab, and only that one', async () => {
     }
 });
 
-test('the arrows step to the previous and the next tab, and are disabled at the ends', async () => {
+test('there are no arrows: a tab is reached by its title, and the tab shown is marked', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
-    assert.equal(page.el('tab-prev').attrs.disabled, '', 'nothing before the first');
-    assert.equal(page.el('tab-next').attrs.disabled, undefined);
+    assert.equal(page.el('tab-prev'), undefined, 'no arrow to the previous tab');
+    assert.equal(page.el('tab-next'), undefined, 'no arrow to the next tab');
 
     const seen = [];
-    for (let i = 0; i < 4; i++) {
-        await page.click('tab-next');
+    for (const tab of ['history', 'cost', 'general', 'about', 'main']) {
+        await page.click('tabbtn-' + tab);
         seen.push(shownTabs(page)[0]);
+        assert.equal(page.el('tabbtn-' + tab).attrs['aria-selected'], 'true');
     }
-    assert.deepEqual(seen, ['history', 'cost', 'general', 'about'], 'without the Debug tab, outside debug mode');
-    assert.equal(page.el('tab-next').attrs.disabled, '', 'nothing after the last');
-    assert.equal(page.el('tab-prev').attrs.disabled, undefined);
-
-    await page.click('tab-next');
-    assert.deepEqual(shownTabs(page), ['about'], 'a disabled arrow does not wrap round');
-    await page.click('tab-prev');
-    assert.deepEqual(shownTabs(page), ['general']);
+    assert.deepEqual(seen, ['history', 'cost', 'general', 'about', 'main']);
 });
 
 test('in debug mode the Debug tab is between Cost control and General', async () => {
     const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
     const order = [];
-    for (let i = 0; i < 5; i++) {
-        await page.click('tab-next');
+    for (const tab of ['history', 'cost', 'debug', 'general', 'about']) {
+        await page.click('tabbtn-' + tab);
         order.push(shownTabs(page)[0]);
     }
     assert.deepEqual(order, ['history', 'cost', 'debug', 'general', 'about']);
@@ -3554,4 +3548,83 @@ test('the window is the width of the widest tab outside debug mode without the D
     page.el('settings-buttons').rect = { left: 8, width: 120, height: 20 };
 
     assert.equal(Number(page.window.contentSize().split(',')[0]), 576, 'the Debug tab is not there to widen it');
+});
+
+test('with the whole strip of the titles wider than everything else the window is as wide as the strip, so the settings have no scrollbar and every title is seen', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('app').rect = { left: 0, width: 120, height: 300 };
+    page.el('settings-form').rect = { left: 8, width: 200, height: 200 };
+    page.el('settings-buttons').rect = { left: 8, width: 150, height: 20 };
+    page.el('tab-strip').rect = { left: 8, width: 120, height: 24 };
+    page.el('tab-strip').scrollWidth = 600;
+
+    assert.equal(page.window.contentSize(), '616,300,3,settings', 'the strip, with the room at its left again at its right');
+
+    page.el('tab-strip').scrollWidth = 150;
+    assert.equal(page.window.contentSize(), '400,300,3,settings', 'a strip that fits changes nothing: the row is the widest');
+});
+
+test('currentView says which panel is open and, for the settings, the tab; and nothing before the page is ready or while none is open', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    assert.equal(page.window.currentView(), '', 'no panel');
+
+    await page.click('history-button');
+    assert.equal(page.window.currentView(), 'history,');
+    await page.click('settings-button');
+    assert.equal(page.window.currentView(), 'settings,main');
+    await page.click('tabbtn-general');
+    assert.equal(page.window.currentView(), 'settings,general');
+    await page.click('settings-cancel');
+    await page.click('log-button');
+    assert.equal(page.window.currentView(), 'log,');
+    await page.click('errors-button');
+    assert.equal(page.window.currentView(), 'errors,');
+});
+
+test('restoreView opens the panel, and the tab of the settings, as if the buttons had been pressed, and ignores what it does not know', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    assert.equal(page.window.restoreView('history', ''), true);
+    assert.equal(page.window.currentView(), 'history,');
+    assert.equal(page.el('panel').hidden, false);
+
+    assert.equal(page.window.restoreView('settings', 'general'), true);
+    await settle();
+    assert.equal(page.window.currentView(), 'settings,general');
+    assert.equal(page.el('settings-view').hidden, false);
+
+    assert.equal(page.window.restoreView('settings', 'nonsense'), true);
+    assert.equal(page.window.currentView(), 'settings,main', 'an unknown tab: the first one');
+    assert.equal(page.window.restoreView('settings', 'debug'), true);
+    assert.equal(page.window.currentView(), 'settings,main', 'no Debug tab outside debug mode');
+
+    assert.equal(page.window.restoreView('nothing', ''), true, 'nothing to open, so nothing to ask again');
+    assert.equal(page.window.currentView(), 'settings,main', 'and what was shown stays');
+});
+
+test('in debug mode restoreView opens the Debug tab', async () => {
+    const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
+
+    assert.equal(page.window.restoreView('settings', 'debug'), true);
+
+    assert.equal(page.window.currentView(), 'settings,debug');
+});
+
+test('restoreView is false while the page has not its configuration, and currentView is empty then', async () => {
+    const page = await load(async call => (call.url === '/api/config' ? { status: 500, body: {} } : { status: 200, body: {} }));
+
+    assert.equal(page.window.restoreView('log', ''), false, 'not ready: ask again');
+    assert.equal(page.window.currentView(), '');
+});
+
+test('the checkbox that restores the window at start is in the General tab, in the group Window, off by default, and sent with the rest', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.el('set-restoreWindow').checked, false, 'off by default');
+
+    page.el('set-restoreWindow').checked = true;
+    await page.click('settings-save');
+
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).restoreWindow, true);
 });

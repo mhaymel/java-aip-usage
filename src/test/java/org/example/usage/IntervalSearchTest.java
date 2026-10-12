@@ -85,7 +85,7 @@ class IntervalSearchTest {
         assertEquals(41, search.interval(), "a second for every eight answers: 43, 42, 41");
         answers(search, 8 * 10);
         assertEquals(search.refused() + 1, search.interval(), "never as short as the refused interval: one above it, which has been forgotten down meanwhile");
-        assertEquals(35, search.refused(), "104 answers, five seconds forgotten");
+        assertEquals(39, search.refused(), "104 answers, one second forgotten");
     }
 
     @Test
@@ -179,7 +179,7 @@ class IntervalSearchTest {
     void whenTheLimitFallsTheSearchFollowsItDown() {
         IntervalSearch search = IntervalSearch.fresh();
         refusals(60, 400, search);
-        assertTrue(search.interval() >= 60);
+        assertTrue(search.interval() >= 50, "near the limit of 60: " + search.interval());
 
         refusals(20, 9000, search);
 

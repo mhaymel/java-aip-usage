@@ -104,6 +104,20 @@ public final class IntervalSettings {
         LOG.log(System.Logger.Level.INFO, "The fake backend's options changed: " + options);
     }
 
+    /** What the window showed when the program last stopped, as stored; nothing if it never was. */
+    public synchronized SettingsStore.LastWindow lastWindow() {
+        return store.loadLast();
+    }
+
+    /** Remembers what the window shows. A file that cannot be written is logged and nothing more: it is only a convenience. */
+    public synchronized void storeLastWindow(SettingsStore.LastWindow last) {
+        try {
+            store.saveLast(last);
+        } catch (IOException e) {
+            LOG.log(System.Logger.Level.WARNING, "Could not save the last window to " + store.file() + ": " + e.getMessage());
+        }
+    }
+
     /** Where the search for the automatic interval was when it was last saved; its beginning if it never was. */
     public synchronized SettingsStore.Search storedSearch() {
         return store.loadSearch();

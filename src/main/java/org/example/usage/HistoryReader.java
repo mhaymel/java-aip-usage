@@ -32,8 +32,9 @@ public final class HistoryReader {
      * @param rows the newest rows, latest first, as many as were asked for; each has the four columns and
      *     three more: the status ({@code start}, {@code failed},
      *     {@code start-failed} or empty), the interval in seconds and the duration in milliseconds
-     * @param deltas the differences, one for each of {@code rows}, in the same order, against the previous row
-     *     that is shown in the same run; see {@link HistoryDeltas#computeVisible}
+     * @param deltas the differences, one for each of {@code rows}, in the same order: the time against the previous row
+     *     that is shown in the same run (see {@link HistoryDeltas#computeVisible}), and the change in the amount used against the
+     *     last earlier row that has an amount (see {@link HistoryDeltas#amountChanges})
      * @param hiddenZero how many rows the filter left out for being zero usage lines
      * @param hiddenFailed how many rows it left out for being failed lines
      * @param visible how many rows are left once the filter has hidden what it hides, which can be more than {@code rows}
@@ -110,7 +111,8 @@ public final class HistoryReader {
             }
         }
         // The differences of what is shown are of each row to the previous one shown in its run, so they are worked out before sorting.
-        List<HistoryDeltas.Delta> all = HistoryDeltas.computeVisible(rows, visible);
+        // The change in the amount used is not: it is against the last earlier row that has an amount, whatever is hidden.
+        List<HistoryDeltas.Delta> all = HistoryDeltas.withAmountChanges(rows, HistoryDeltas.computeVisible(rows, visible));
         // Newest first; of two with the same time, the one written later.
         order.sort(Comparator.<Integer, String>comparing(i -> rows.get(i).get(0)).thenComparing(Comparator.naturalOrder()).reversed());
         List<Integer> shown = order.subList(0, Math.min(limit, order.size()));

@@ -20,6 +20,10 @@ import java.util.Locale;
  * is earlier than the one before it (the clock was set back). The times are the local times of the
  * file, which does not say its zone, so across a change of the clocks the difference is that of the
  * wall clock.
+ *
+ * <p>The change in the amount used that is shown is another figure ({@link #amountChanges}): against the last earlier row of the
+ * whole file that has an amount, failed rows and run borders ignored, and the amount itself when there is none. The first,
+ * against the row directly before, only says which rows are zero usage lines.
  */
 public final class HistoryDeltas {
 
@@ -73,6 +77,47 @@ public final class HistoryDeltas {
             previous = i;
         }
         return deltas;
+    }
+
+    /**
+     * The change in the amount used of each row, against the last earlier row of the file that has an amount: failed rows have none
+     * and are passed over, and so are the borders of runs. A row with no amount has no change, and when no earlier row has an amount the
+     * change is the amount itself. Not affected by what the history hides.
+     *
+     * @param rows the rows in the order of the file
+     * @return one change for each row, in the same order; {@code null} for a row that has no amount used
+     */
+    public static List<BigDecimal> amountChanges(List<List<String>> rows) {
+        List<BigDecimal> changes = new ArrayList<>(rows.size());
+        BigDecimal last = null;
+        for (List<String> row : rows) {
+            BigDecimal amount = amount(row);
+            if (amount == null) {
+                changes.add(null);
+                continue;
+            }
+            changes.add(last == null ? amount : amount.subtract(last));
+            last = amount;
+        }
+        return changes;
+    }
+
+    /** The deltas of the shown rows: the time of {@code times}, and the change in the amount used of {@link #amountChanges}. */
+    public static List<Delta> withAmountChanges(List<List<String>> rows, List<Delta> times) {
+        List<BigDecimal> changes = amountChanges(rows);
+        List<Delta> deltas = new ArrayList<>(rows.size());
+        for (int i = 0; i < rows.size(); i++) {
+            deltas.add(new Delta(changes.get(i), times.get(i).seconds()));
+        }
+        return deltas;
+    }
+
+    private static BigDecimal amount(List<String> row) {
+        try {
+            return row.get(1).isBlank() ? null : new BigDecimal(row.get(1));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static boolean beginsRun(List<String> row) {

@@ -283,7 +283,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(32, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(33, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -1001,7 +1001,7 @@ class ApiTest {
         assertEquals("Cur.", history.at("/columns/5").asText(), "the currency is the right-most column");
         assertEquals("+0.05", history.at("/lines/0/cells/3").asText());
         assertEquals("63 s", history.at("/lines/0/cells/4").asText());
-        assertEquals("", history.at("/lines/1/cells/3").asText(), "the first line of the run has none");
+        assertEquals("+10.00", history.at("/lines/1/cells/3").asText(), "no earlier line has an amount: the change is the amount itself");
         assertEquals("", history.at("/lines/1/cells/4").asText());
 
         JsonNode change = json(get(app, "/api/status")).get("change");
@@ -1046,6 +1046,29 @@ class ApiTest {
     }
 
     @Test
+    void theHistoryShowsAChangeOnlyWhenItIsGreaterThanZeroAndTheRowShowsAFallToo() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,10.40,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:00,10.40,1000.00,USD,,60,400",
+                "2026-10-08 14:02:00,,,,failed,60,5000",
+                "2026-10-08 14:03:00,10.30,1000.00,USD,,60,400");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", withSwitches(true, true));
+
+        JsonNode lines = json(get(app, "/api/history")).get("lines");
+
+        assertEquals("", lines.get(0).at("/cells/3").asText(), "a fall shows nothing in the history");
+        assertEquals("", lines.get(1).at("/cells/3").asText(), "the failed line has no amount");
+        assertEquals("", lines.get(2).at("/cells/3").asText(), "no change: nothing");
+        assertEquals("+10.40", lines.get(3).at("/cells/3").asText(), "the first line: the amount itself");
+
+        JsonNode change = json(get(app, "/api/status")).get("change");
+        assertEquals(-0.10, change.get("delta_used").asDouble(), 0.0001, "the row has the fall, against the last earlier amount");
+    }
+
+    @Test
     void theStatusCarriesTheFinishedDisplayAndItFollowsTheSettings() throws Exception {
         AppRuntime app = start(new FakeFetch());
         await(() -> app.service().state().snapshot() != null);
@@ -1081,7 +1104,7 @@ class ApiTest {
         // FakeFetch answers the same amount twice: no change, so the cell is empty, never 0.00.
         assertEquals("", on.at("/lines/0/cells/3").asText());
         assertTrue(on.at("/lines/0/cells/4").asText().endsWith(" s"), "the time is in seconds");
-        assertEquals("", on.at("/lines/1/cells/3").asText(), "the first line of the run");
+        assertEquals("+186.02", on.at("/lines/1/cells/3").asText(), "the first line has no earlier amount: the change is the amount");
     }
 
     @Test
@@ -1320,8 +1343,8 @@ class ApiTest {
         // Shown, newest first: 14:06 (10.20), 14:04 (10.05), 14:02 (10.05). The startup line 14:00 is hidden with the zero usage lines.
         assertEquals(3, lines.size());
         assertEquals("+0.15", lines.get(0).at("/cells/3").asText(), "against 14:04, the previous line shown");
-        assertEquals("", lines.get(1).at("/cells/3").asText(), "14:04 is the same as 14:02 shown before it: no change to show");
-        assertEquals("", lines.get(2).at("/cells/3").asText(), "14:02 has no line shown before it in its run: the startup line is hidden, so it has no change either");
+        assertEquals("", lines.get(1).at("/cells/3").asText(), "14:04 is the same as 14:02, the last earlier line with an amount (14:03 failed is ignored): nothing greater than 0.00");
+        assertEquals("+0.05", lines.get(2).at("/cells/3").asText(), "14:02 against 14:01, which is hidden: the change does not depend on what is hidden");
     }
 
     @Test
@@ -1341,7 +1364,7 @@ class ApiTest {
     }
 
     @Test
-    void aHiddenLineThatBeginsARunStillBeginsItSoTheNextLineShownHasNoChange() throws Exception {
+    void aHiddenLineThatBeginsARunStillBeginsItForTheTimeButNotForTheChangeInTheAmount() throws Exception {
         writeHistory(CSV_HEADER,
                 "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
                 "2026-10-08 14:01:00,10.10,1000.00,USD,,60,400",
@@ -1352,7 +1375,7 @@ class ApiTest {
 
         // The start-failed line is hidden. 15:01 would have been compared with 14:01 across the two runs; it is not.
         assertEquals("15:01:00", lines.get(0).at("/cells/0").asText());
-        assertEquals("", lines.get(0).at("/cells/3").asText(), "no change across a run that began, hidden or not");
+        assertEquals("+0.20", lines.get(0).at("/cells/3").asText(), "the change is against 14:01, across the run that began, failed lines being ignored");
         assertFalse(lines.get(0).get("start").asBoolean(), "and it is not itself a start line");
     }
 

@@ -190,7 +190,8 @@ class HistoryReaderTest {
         assertEquals(List.of("2026-10-08 14:30:53", "2026-10-08 14:26:53", "2026-10-08 14:25:53"), times(table));
         assertEquals(3, table.deltas().size(), "one for each row shown");
         assertEquals(240L, table.deltas().get(0).seconds());
-        assertEquals(null, table.deltas().get(0).used(), "the row before it failed");
+        assertEquals(new java.math.BigDecimal("0.50"), table.deltas().get(0).used(), "against 14:25, the last earlier row with an amount: the failed row is ignored");
+        assertEquals(null, table.deltas().get(1).used(), "a failed row has no amount, so no change");
         assertEquals(60L, table.deltas().get(1).seconds());
         assertEquals(new java.math.BigDecimal("0.50"), table.deltas().get(2).used());
     }
@@ -233,7 +234,7 @@ class HistoryReaderTest {
     }
 
     @Test
-    void whenTheStartupLineIsHiddenTheNextLineShownOfItsRunHasNoChange() throws IOException {
+    void whenTheStartupLineIsHiddenTheNextLineShownOfItsRunHasNoTimeButStillAChange() throws IOException {
         Path file = write(HEADER
                 + "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400\n"
                 + "2026-10-08 14:01:00,10.10,1000.00,USD,,60,400\n");
@@ -241,7 +242,7 @@ class HistoryReaderTest {
         HistoryReader.Table noZero = HistoryReader.read(file, 100, new HistoryReader.Filter(false, true));
 
         assertEquals(List.of("2026-10-08 14:01:00"), times(noZero));
-        assertEquals(HistoryDeltas.Delta.NONE, noZero.deltas().get(0));
+        assertEquals(new HistoryDeltas.Delta(new java.math.BigDecimal("0.10"), null), noZero.deltas().get(0), "no time, since the startup line is hidden; the change does not depend on it");
         assertEquals(1, noZero.visible());
     }
 }

@@ -7,10 +7,12 @@ import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Worker;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.web.WebView;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
@@ -18,6 +20,7 @@ import javafx.util.Duration;
 import org.example.fake.FakeBackend;
 import org.example.fake.Scenario;
 import org.example.settings.LaunchOptions;
+import org.example.settings.SettingsStore;
 import org.example.token.ClaudeTokenProvider;
 import org.example.token.PlaceholderTokenProvider;
 import org.example.token.TokenProvider;
@@ -98,6 +101,25 @@ public class UsageApp extends Application {
 
     private boolean fitFailureReported;
 
+    private WebView page;
+
+    /** What the window is to be restored to once the page can show it; {@code null} when nothing is, or it has been. */
+    private SettingsStore.LastWindow restoring;
+
+    /** Whether the page has opened the panel that is being restored, after which its size is applied once. */
+    private boolean restoredViewOpen;
+
+    /** What the window showed at the last tick, kept so that it can be stored when the program stops, from any thread. */
+    private volatile String lastView = "";
+
+    private volatile double lastX = Double.NaN;
+
+    private volatile double lastY = Double.NaN;
+
+    private volatile double lastContentWidth = Double.NaN;
+
+    private volatile double lastContentHeight = Double.NaN;
+
     /** True for the moment at startup in which the window is held on top to bring it to the front; the setting waits for it. */
     private boolean raising;
 
@@ -121,6 +143,7 @@ public class UsageApp extends Application {
         running = this;
 
         WebView webView = new WebView();
+        this.page = webView;
         logLoadResult(webView);
         webView.getEngine().load(runtime.baseUri().toString());
 
@@ -141,6 +164,7 @@ public class UsageApp extends Application {
         // The window is as big as the page needs and no bigger, so there is nothing to drag,
         // except while a panel is shown; see resize, which sets the limits that say what may be dragged.
         stage.setResizable(true);
+        restorePlace(stage);
         heightSettled.setOnFinished(event -> rememberDraggedHeight(this.stage));
         watchHeight(stage);
         stage.show();
@@ -398,6 +422,7 @@ public class UsageApp extends Application {
             Object reported = webView.getEngine().executeScript(ASK_CONTENT_SIZE);
             WindowFit.parse(reported).ifPresent(size -> panelOpen = size.panel() != null);
             WindowFit.next(reported, appliedSize).ifPresent(size -> resize(stage, size));
+            followView(webView, reported);
         } catch (RuntimeException e) {
             // The page is not ready, or is being replaced. Say so once, not every tick.
             if (!fitFailureReported) {
@@ -405,6 +430,104 @@ public class UsageApp extends Application {
                 LOG.log(Level.WARNING, "Could not ask the page for its size: " + e.getMessage());
             }
         }
+    }
+
+    /**
+     * Puts the window where it was when the program last stopped, when that is asked for and the place is on a screen that
+     * is there. The size and the panel follow with the page (see {@link #followView}).
+     */
+    private void restorePlace(Stage window) {
+        SettingsStore.LastWindow last = runtime.settings().current().restoreWindow() ? runtime.settings().lastWindow() : null;
+        restoring = last == null || (last.panel() == null && last.x() == null) ? null : last;
+        if (restoring == null || restoring.x() == null || restoring.y() == null) {
+            return;
+        }
+        double width = restoring.width() == null ? INITIAL_WIDTH : restoring.width();
+        double height = restoring.height() == null ? INITIAL_HEIGHT : restoring.height();
+        if (Screen.getScreensForRectangle(restoring.x(), restoring.y(), width, height).isEmpty()) {
+            LOG.log(Level.DEBUG, "The stored place of the window is on no screen: " + restoring.x() + ", " + restoring.y());
+            return;
+        }
+        window.setX(restoring.x());
+        window.setY(restoring.y());
+    }
+
+    /**
+     * Each tick: remembers what the window shows, for storing when the program stops, and, while a restore is waiting, asks
+     * the page to open the panel that was open and then applies the size once, when the window has the panel's size.
+     */
+    private void followView(WebView webView, Object reported) {
+        try {
+            Object view = webView.getEngine().executeScript(
+                    "typeof window.currentView === 'function' ? String(window.currentView()) : ''");
+            lastView = view == null ? "" : view.toString();
+        } catch (RuntimeException e) {
+            lastView = "";
+        }
+        if (!Double.isNaN(decorationWidth) && !Double.isNaN(decorationHeight)) {
+            lastContentWidth = stage.getWidth() - decorationWidth;
+            lastContentHeight = stage.getHeight() - decorationHeight;
+        }
+        lastX = stage.getX();
+        lastY = stage.getY();
+        if (restoring == null) {
+            return;
+        }
+        if (restoring.panel() == null) {
+            restoring = null;
+            return;
+        }
+        if (!restoredViewOpen) {
+            Object done = webView.getEngine().executeScript("typeof window.restoreView === 'function' ? window.restoreView('"
+                    + restoring.panel() + "', '" + (restoring.tab() == null ? "" : restoring.tab()) + "') : false");
+            restoredViewOpen = Boolean.TRUE.equals(done);
+            return;
+        }
+        Optional<WindowFit.Size> size = WindowFit.parse(reported);
+        if (size.isPresent() && restoring.panel().equals(size.get().panel()) && appliedSize.isPresent() && !Double.isNaN(decorationWidth)) {
+            applyRestoredSize(size.get());
+            LOG.log(Level.DEBUG, "The window is restored: " + restoring.panel() + ", " + restoring.width() + " x " + restoring.height()
+                    + " at " + restoring.x() + ", " + restoring.y());
+            restoring = null;
+        }
+    }
+
+    /** The size the window had, where the panel can be sized: the height for the history and the log, the width too for the log; never over the screen. */
+    private void applyRestoredSize(WindowFit.Size size) {
+        Rectangle2D screen = Screen.getScreensForRectangle(stage.getX(), stage.getY(), 1, 1).stream().findFirst()
+                .orElse(Screen.getPrimary()).getVisualBounds();
+        applying = true;
+        try {
+            if (restoring.height() != null && size.resize() != WindowFit.Resize.NONE && size.resize() != WindowFit.Resize.FIXED) {
+                double height = Math.min(restoring.height() + decorationHeight, screen.getHeight());
+                stage.setHeight(Math.max(height, stage.getMinHeight()));
+            }
+            if (restoring.width() != null && size.resize() == WindowFit.Resize.BOTH) {
+                double width = Math.min(restoring.width() + decorationWidth, screen.getWidth());
+                stage.setWidth(Math.max(width, stage.getMinWidth()));
+            }
+        } finally {
+            applying = false;
+        }
+    }
+
+    /**
+     * Stores what the window showed at the last tick, when the setting asks for it: the panel and tab, the size of the content and
+     * the place of the window. Called when the program stops, by either way of stopping, so it reads nothing of the window itself.
+     */
+    private void storeWindow() {
+        if (runtime == null || !runtime.settings().current().restoreWindow()) {
+            return;
+        }
+        String[] parts = lastView.split(",", -1);
+        String panel = parts[0].isEmpty() ? null : parts[0];
+        String tab = parts.length > 1 && !parts[1].isEmpty() && panel != null ? parts[1] : null;
+        runtime.settings().storeLastWindow(new SettingsStore.LastWindow(panel, tab,
+                whole(lastContentWidth), whole(lastContentHeight), whole(lastX), whole(lastY)));
+    }
+
+    private static Integer whole(double value) {
+        return Double.isNaN(value) ? null : (int) Math.round(value);
     }
 
     /** Reports whether the WebView could reach the local server. */
@@ -440,6 +563,7 @@ public class UsageApp extends Application {
      */
     private void release() {
         LOG.log(Level.INFO, "Shutting down");
+        storeWindow();
         if (runtime != null) {
             // The runtime closes what the usage came from as well, a fake backend among it.
             runtime.close();

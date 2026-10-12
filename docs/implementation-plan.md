@@ -1790,7 +1790,7 @@ that refuses: that is what this was built for, and is for a person to try.
 
 ### 77. Blue tab, no arrows, a whole strip, the change in the amount, restoring the window, one green
 
-**Status: specified, not yet built (version 0.65).** Requirements: Settings (the tabs), Changes between readings, The usage history, The window is restored at start, The look of the page, The button of the open panel.
+**Status: built (version 0.65).** Requirements: Settings (the tabs), Changes between readings, The usage history, The window is restored at start, The look of the page, The button of the open panel.
 
 - **Tabs.** The selected tab is blue (`--note` blue of the history note, `#0969da` / `#58a6ff`), not `--active`; the two arrows and their code and tests go; the window's least width while the settings are shown is
   the width of the whole strip, in one line, besides the widest tab, so there is no horizontal scrollbar (measure the strip's `scrollWidth` as the tabs are measured; a test with every row element hidden).
@@ -1803,6 +1803,11 @@ that refuses: that is what this was built for, and is for a person to try.
   (size and place, the place checked against the screens, never larger than the screen), and asks the page to open the panel and tab through a call of the page (`window.restore(panel, tab)`). Left-out values give the usual size.
 - **Tests.** `HistoryDeltasTest` (failed lines skipped, a first line with no earlier value, hidden lines changing nothing, a fall), `ApiTest` (history cells empty at zero, the row's change), `SettingsStoreTest` (the keys, bad values),
   `app.test.cjs` and `layout.test.cjs` (no arrows, the blue, the strip's width, the green, the checkbox, `restore`), and a window test (a stored size and place restored, a place off every screen left out).
+- **As built.** `HistoryDeltas.amountChanges` and `withAmountChanges` (the amount's change, used by `HistoryReader`; the old `compute`/`computeVisible` stay for zero usage lines and the time); `ApiHandler` leaves a cell empty for a change of zero or a fall.
+  `SettingsStore.LastWindow` and `loadLast`/`saveLast`; `IntervalSettings.lastWindow`/`storeLastWindow`. `UsageApp` reads `window.currentView()` each tick into fields (so that either way of stopping can store it), places the window before it is shown
+  (only on a screen that is there), and each tick asks `window.restoreView(panel, tab)` until it returns true, then applies the stored size once where the panel can be sized (height for the history and the log, width too for the log).
+  The page's strip width is `stripWidth()` in `settingsWidth()`; the colour variables are `--info` for the tab and `--ok` for the icon.
+- **Not checked by a test:** the restore in a real window (size, place, panel), and the strip's width in a real window; the Node tests mock `scrollWidth`.
 
 The requirements have no section "specified, not yet built" any more.
 

@@ -185,7 +185,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "restoreWindow", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -467,6 +467,35 @@ class SettingsStoreTest {
         assertTrue(back.historyUsed());
         assertFalse(back.historyLimit());
         assertTrue(back.historyCurrent());
+    }
+
+    @Test
+    void theWindowIsRestoredOnlyWhenAskedAndTheLastWindowIsKeptBesideTheSettings() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        assertFalse(Settings.defaults().restoreWindow(), "off by default");
+        assertEquals(SettingsStore.LastWindow.NONE, store.loadLast());
+
+        SettingsStore.LastWindow last = new SettingsStore.LastWindow("settings", "general", 420, 380, 100, -20);
+        store.saveLast(last);
+        store.save(interval(45).withRestoreWindow(true));
+
+        assertEquals(last, store.loadLast(), "saving the settings keeps the last window");
+        assertTrue(store.load().restoreWindow());
+        store.saveHeights(new SettingsStore.Heights(640, 500));
+        assertEquals(last, store.loadLast(), "and so does saving a height");
+        assertTrue(store.load().restoreWindow(), "and saving the last window keeps the settings");
+    }
+
+    @Test
+    void aLastWindowValueThatCannotBeIsLeftOutAndTheOthersAreKept() throws IOException {
+        Files.writeString(file(), "{\"lastPanel\": \"history\", \"lastTab\": \"general\", \"windowWidth\": \"wide\", \"windowHeight\": 500, "
+                + "\"windowX\": 1.5, \"windowY\": -30}");
+
+        assertEquals(new SettingsStore.LastWindow("history", "general", null, 500, null, -30), new SettingsStore(file()).loadLast());
+
+        Files.writeString(file(), "{\"lastPanel\": \"calendar\", \"lastTab\": \"general\", \"windowWidth\": 300}");
+        assertEquals(new SettingsStore.LastWindow(null, null, 300, null, null, null), new SettingsStore(file()).loadLast(),
+                "a panel that is not known leaves its tab out too");
     }
 
     // ---- how the fake backend answers, beside the settings

@@ -106,10 +106,6 @@
         <div id="settings-view" class="settings" hidden>
             <p id="settings-error" class="panel-error" role="alert" hidden></p>
             <div id="settings-tabs" class="tabs">
-                <button id="tab-prev" class="icon tiny tab-arrow" type="button" aria-label="Previous tab" title="Previous tab">
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>
-                </button>
                 <div id="tab-strip" class="tab-strip" role="tablist">
                     <button id="tabbtn-main" class="tab" type="button" role="tab" data-tab="main">Main view</button>
                     <button id="tabbtn-history" class="tab" type="button" role="tab" data-tab="history">History view</button>
@@ -118,10 +114,6 @@
                     <button id="tabbtn-general" class="tab" type="button" role="tab" data-tab="general">General</button>
                     <button id="tabbtn-about" class="tab" type="button" role="tab" data-tab="about">About</button>
                 </div>
-                <button id="tab-next" class="icon tiny tab-arrow" type="button" aria-label="Next tab" title="Next tab">
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg>
-                </button>
             </div>
             <div id="settings-form">
                 <div id="tab-main" class="tab-page" hidden>
@@ -228,6 +220,7 @@
                     <legend>Window</legend>
                     <label title="Shows the title bar of the window. Off, the window is the row alone; the title bar comes back for as long as a panel is open, so open one to move or close the window."><input id="set-showTitleBar" type="checkbox"> Title bar</label>
                     <label title="Keeps the window above every other window for as long as the program runs. Off, it only comes to the front when the program starts."><input id="set-stayOnTop" type="checkbox"> Stay on top</label>
+                    <label title="Stores which panel was open, the size and the place of the window when the program stops, and starts as it was. Off, the program starts with the row alone."><input id="set-restoreWindow" type="checkbox"> Restore the window at start</label>
                 </fieldset>
                 <fieldset>
                     <legend>Log</legend>

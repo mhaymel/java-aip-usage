@@ -313,7 +313,7 @@
     var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
     // The thirteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
-    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
+    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
 
     /**
      * Shows in the row what the main-view part of the form says, at once and before Save, so that it can be seen which element a
@@ -595,7 +595,7 @@
         }
     }
 
-    /** Shows the tab, and no other: its page, its title marked, the arrows at the ends of the strip disabled. */
+    /** Shows the tab, and no other: its page, its title marked. */
     function showTab(id) {
         var visible = visibleTabs();
         if (visible.indexOf(id) < 0) {
@@ -607,9 +607,6 @@
             page.hidden = tab !== id;
             $('tabbtn-' + tab).setAttribute('aria-selected', String(tab === id));
         });
-        var at = visible.indexOf(id);
-        setDisabled('tab-prev', at <= 0);
-        setDisabled('tab-next', at >= visible.length - 1);
         var shown = $('tabbtn-' + id);
         if (shown.scrollIntoView) {
             shown.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -619,25 +616,9 @@
         }
     }
 
-    function setDisabled(id, disabled) {
-        if (disabled) {
-            $(id).setAttribute('disabled', '');
-        } else {
-            $(id).removeAttribute('disabled');
-        }
-    }
-
     /** The tabs there are: all of them, and the Debug tab in debug mode only. */
     function visibleTabs() {
         return TABS.filter(function (tab) { return tab !== 'debug' || Boolean(config && config.debug); });
-    }
-
-    function stepTab(by) {
-        var visible = visibleTabs();
-        var to = visible.indexOf(currentTab) + by;
-        if (to >= 0 && to < visible.length) {
-            showTab(visible[to]);
-        }
     }
 
     /** Reads what the About view says; the logo, the name and the version are there even when the rest cannot be read. */
@@ -1144,6 +1125,46 @@
     // ---- the window host
 
     /**
+     * What the window shows, for the host to store when the program stops: `panel,tab`. The panel is `log`, `history`, `errors` or
+     * `settings`; the tab is the one shown of the settings, `main`, `history`, `cost`, `debug`, `general` or `about`, and empty for any
+     * other panel. It is the empty text when nothing is open, and when the page is not ready yet: it is safe to ask at any time.
+     */
+    window.currentView = function () {
+        if (!config || !openPanel) {
+            return '';
+        }
+        return openPanel + ',' + (openPanel === 'settings' ? currentTab : '');
+    };
+
+    /**
+     * Opens the panel, and for the settings the tab, as if the person had pressed the button, for the host to restore what was
+     * stored. A panel that is not known is ignored, and so is a tab that is not known, or the Debug tab when the program is not in
+     * debug mode: the settings then open on their first tab.
+     *
+     * @return false while the page is not ready (its configuration has not come yet), so that the host asks again; true once it has
+     *     opened the view, or has nothing to open because it was given none it knows
+     */
+    window.restoreView = function (panel, tab) {
+        if (!config) {
+            return false;
+        }
+        if (['log', 'history', 'errors', 'settings'].indexOf(panel) < 0) {
+            return true;
+        }
+        returnTo = null;
+        if (panel === 'settings') {
+            returnTo = openPanel;
+            showPanelNamed('settings');
+            if (visibleTabs().indexOf(tab) >= 0) {
+                showTab(tab);
+            }
+            return true;
+        }
+        showPanelNamed(panel);
+        return true;
+    };
+
+    /**
      * The size, in CSS pixels, the window needs to show all of this page, and what of it the person
      * may drag: `width,height,resizable`. The Java host asks for it and resizes the window to
      * match; see docs/api.md. It is the page's own size, not the window's, so asking does not
@@ -1214,7 +1235,18 @@
         pages.forEach(function (page, i) { page.hidden = visible.indexOf(TABS[i]) < 0; });
         var width = formWidth('settings-form', 'settings-buttons');
         pages.forEach(function (page, i) { page.hidden = was[i]; });
-        return width;
+        return Math.max(width, stripWidth());
+    }
+
+    /**
+     * How wide the window has to be for the whole strip of the titles to be seen, in one line: the strip's scroll width, which is
+     * that of its titles whatever the width of the view, and the room there is at the left of it again at its right.
+     */
+    function stripWidth() {
+        var strip = $('tab-strip');
+        var left = $('app').getBoundingClientRect().left || 0;
+        var edge = Math.max(0, (strip.getBoundingClientRect().left || 0) - left);
+        return Math.ceil((strip.scrollWidth || 0) + 2 * edge);
     }
 
     /**
@@ -1274,8 +1306,6 @@
         TABS.forEach(function (tab) {
             $('tabbtn-' + tab).addEventListener('click', function () { showTab(tab); });
         });
-        $('tab-prev').addEventListener('click', function () { stepTab(-1); });
-        $('tab-next').addEventListener('click', function () { stepTab(1); });
 
         $('log-button').addEventListener('click', function () { togglePanel('log'); });
         $('log-level').addEventListener('change', changeLogChoices);

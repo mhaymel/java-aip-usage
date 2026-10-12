@@ -399,7 +399,7 @@ final class ApiHandler implements HttpHandler {
                 s.cost().monthlyCents() == null ? null : CostControl.text(s.cost().monthlyCents()),
                 s.cost().dailyCents() == null ? null : CostControl.text(s.cost().dailyCents()),
                 s.cost().dailyAutomatic(),
-                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent());
+                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -443,7 +443,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "historyTime", current.historyTime()),
                     flag(body, "historyUsed", current.historyUsed()),
                     flag(body, "historyLimit", current.historyLimit()),
-                    flag(body, "historyCurrent", current.historyCurrent()));
+                    flag(body, "historyCurrent", current.historyCurrent()),
+                    flag(body, "restoreWindow", current.restoreWindow()));
             // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone. Nor are
             // the two choices of the log panel, which POST /api/log changes, and the size of the lists' text, which POST /api/text-size changes.
             Settings kept = settings.current();
@@ -663,7 +664,8 @@ final class ApiHandler implements HttpHandler {
                     cells.add(row.get(2));
                 }
                 if (now.historyDeltaUsed()) {
-                    cells.add(delta.deltaUsedText() == null ? "" : delta.deltaUsedText());
+                    // The history shows a change only when it is greater than 0.00: a zero or a fall is an empty cell.
+                    cells.add(delta.deltaUsedText() == null || delta.deltaUsed() < 0 ? "" : delta.deltaUsedText());
                 }
                 if (now.historyDeltaTime()) {
                     cells.add(delta.deltaSecondsText() == null ? "" : delta.deltaSecondsText());
@@ -929,7 +931,8 @@ final class ApiHandler implements HttpHandler {
             boolean historyTime,
             boolean historyUsed,
             boolean historyLimit,
-            boolean historyCurrent) {
+            boolean historyCurrent,
+            boolean restoreWindow) {
     }
 
     /** @param daily the daily limit worked out, as a finished text, or null when there is no monthly limit to work it out from */
