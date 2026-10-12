@@ -994,21 +994,6 @@ test('what was edited and cancelled is gone when the view is opened again', asyn
     assert.equal(page.el('set-logResponse').checked, false, 'what the backend has, not what was typed');
 });
 
-test('Restore defaults fills in the defaults and sends nothing until Apply', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('settings-button');
-
-    await page.click('settings-restore');
-
-    assert.equal(page.el('set-usageIntervalSeconds').value, '60');
-    assert.equal(page.el('set-showInterval').checked, false);
-    assert.equal(page.el('set-timeFormat').value, 'hh:mm');
-    assert.equal(settingsPosts(page).length, 0);
-
-    await page.click('settings-save');
-    assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), DEFAULT_SETTINGS);
-});
-
 test('if the settings cannot be read the view says so and has no form to edit', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 500, body: { error: 'Internal error; see the log.' } }) }));
 
@@ -1017,7 +1002,6 @@ test('if the settings cannot be read the view says so and has no form to edit', 
     assert.equal(page.el('settings-form').hidden, true);
     assert.match(page.el('settings-error').textContent, /^The settings could not be read: /);
     assert.equal(page.el('settings-save').attrs.disabled, '');
-    assert.equal(page.el('settings-restore').attrs.disabled, '');
 });
 
 test('the settings, the log and the history share the one panel area', async () => {
@@ -1770,18 +1754,6 @@ test('the two new history switches are in the settings, are posted, and are on i
     assert.equal(sent.historyFailedLines, false);
 });
 
-test('Restore defaults switches the two history lines back on', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('settings-button');
-    page.el('set-historyZeroLines').checked = false;
-    page.el('set-historyFailedLines').checked = false;
-
-    await page.click('settings-restore');
-
-    assert.equal(page.el('set-historyZeroLines').checked, true);
-    assert.equal(page.el('set-historyFailedLines').checked, true);
-});
-
 // ---- the buttons of the history, log and error log can be switched off; the gear never goes
 
 const withShow = (status, show) => ({ ...status, display: { ...status.display, show: { percentage: false, interval: false, deltaUsed: false, deltaTime: false, ...show } } });
@@ -1856,7 +1828,7 @@ test('Apply that switches off a different panel\'s button still gives the earlie
     assert.equal(page.el('history-button').title, 'Hide the usage history');
 });
 
-test('the four new switches are in the form, posted, and Restore defaults gives the defaults back', async () => {
+test('the four new switches are in the form, and posted', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
     assert.equal(page.el('set-showCurrency').checked, false, 'the symbol is off by default');
@@ -1872,13 +1844,7 @@ test('the four new switches are in the form, posted, and Restore defaults gives 
     assert.equal(sent.showErrorIcon, false);
     assert.equal(sent.showHistoryIcon, true);
 
-    await page.click('settings-button');
-    page.el('set-showCurrency').checked = true;
-    page.el('set-showLogIcon').checked = false;
-    await page.click('settings-restore');
-    assert.equal(page.el('set-showCurrency').checked, false);
-    assert.equal(page.el('set-showLogIcon').checked, true);
-});
+    await page.click('settings-button');});
 
 test('the amounts are shown as the backend gives them, with or without the symbol', async () => {
     const status = withShow(WITH_CHANGE, ALL_ICONS);
@@ -2010,16 +1976,6 @@ test('a click on a checkbox of the main view shows in the row at once, and nothi
     }
     assert.equal(settingsPosts(page).length, 0, 'a preview sends nothing');
     assert.equal(page.calls.filter(c => c.url === '/api/status').length, polls, 'and needs no poll');
-});
-
-test('Restore defaults shows in the row at once as well', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
-    await page.click('settings-button');
-    assert.deepEqual(visible(page), ['settings-button']);
-
-    await page.click('settings-restore');
-
-    assert.deepEqual(visible(page), BUTTONS, 'the defaults have the three buttons');
 });
 
 test('there are no buttons that set the whole main view at once', () => {
@@ -2371,113 +2327,119 @@ test('the row\'s time since the previous reading is the backend\'s seconds', asy
     assert.equal(page.el('delta-time').textContent, '105s');
 });
 
-// ---- debug mode: a yellow button, a view of its own, and a red border while the fake backend is in use
+// ---- debug mode: a tab of the settings, and a red border while the fake backend is in use
 
 const debugPosts = page => page.calls.filter(c => c.method === 'POST' && c.url === '/api/debug');
 
-test('the debug button is there in debug mode and never otherwise', async () => {
+test('the Debug tab is there in debug mode and never otherwise, and there is no debug button', async () => {
+    assert.ok(!INDEX_IDS.includes('debug-button') && !INDEX_IDS.includes('debug-view'), 'neither the button nor a view of its own');
     const plain = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    assert.equal(plain.el('debug-button').hidden, true);
+    assert.equal(plain.el('tabbtn-debug').hidden, true);
+    await plain.click('settings-button');
     assert.equal(plain.calls.filter(c => c.url === '/api/debug').length, 0, 'and nothing is asked about debug settings');
+    await plain.click('tab-prev');
+    for (let i = 0; i < 5; i++) { await plain.click('tab-next'); }
+    assert.equal(plain.el('about-view').hidden, false, 'the strip goes from the first tab to About with no Debug tab between');
 
     const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
-    assert.equal(page.el('debug-button').hidden, false);
+    assert.equal(page.el('tabbtn-debug').hidden, false);
 });
-
-test('the debug button shows the debug settings, as the backend has them, with the scenarios it names', async () => {
+test('the Debug tab shows the debug settings, as the backend has them, with the scenarios it names', async () => {
     const state = { config: DEBUG_CONFIG, status: SPEND_STATUS, debug: () => ({ status: 200, body: { ...DEBUG, settings: { fakeBackend: true, fakeScenario: 'http-429', fakeToken: false } } }) };
     const page = await load(backendOf(state));
 
-    await page.click('debug-button');
+    await page.click('settings-button');
+    await page.click('tabbtn-debug');
 
-    assert.equal(page.el('debug-view').hidden, false);
-    assert.equal(page.el('settings-view').hidden, true);
+    assert.equal(page.el('tab-debug').hidden, false);
+    assert.equal(page.el('tab-main').hidden, true);
     assert.equal(page.el('panel').hidden, false);
     assert.equal(page.el('debug-fakeBackend').checked, true);
     assert.equal(page.el('debug-fakeScenario').value, 'http-429');
     assert.deepEqual(page.el('debug-fakeScenario').children.map(o => o.value), DEBUG.scenarios);
     assert.equal(page.el('debug-fakeToken').checked, false);
-    assert.equal(page.el('debug-button').title, 'Debug mode: hide the debug settings');
-    assert.match(page.el('debug-button').className, /\bdebug\b/, 'yellow');
-    assert.match(page.el('debug-button').className, /\bactive\b/);
-    assert.ok(page.window.contentSize().endsWith(',3,debug'), page.window.contentSize());
+    assert.ok(page.window.contentSize().endsWith(',3,settings'), page.window.contentSize());
 });
-
-test('Apply in the debug settings sends the three of them and closes the view; Cancel sends nothing', async () => {
+test('Save sends the debug settings of the Debug tab with the others and closes the view; Cancel sends nothing', async () => {
     const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
-    await page.click('debug-button');
+    await page.click('settings-button');
+    await page.click('tabbtn-debug');
     page.el('debug-fakeBackend').checked = true;
     page.el('debug-fakeScenario').value = 'slow';
 
-    await page.click('debug-apply');
+    await page.click('settings-save');
 
     assert.deepEqual(JSON.parse(debugPosts(page)[0].body), { fakeBackend: true, fakeScenario: 'slow', fakeToken: false });
-    assert.equal(page.el('debug-view').hidden, true);
+    assert.equal(settingsPosts(page).length, 1, 'the settings go with them');
+    assert.equal(page.el('settings-view').hidden, true);
     assert.equal(page.el('panel').hidden, true);
 
-    await page.click('debug-button');
+    await page.click('settings-button');
+    await page.click('tabbtn-debug');
     page.el('debug-fakeToken').checked = true;
-    await page.click('debug-cancel');
+    await page.click('settings-cancel');
     assert.equal(debugPosts(page).length, 1, 'Cancel sent nothing');
-    assert.equal(page.el('debug-view').hidden, true);
+    assert.equal(page.el('settings-view').hidden, true);
 });
-
-test('leaving the debug settings by a button of the row saves them, and sends nothing when nothing was changed', async () => {
-    for (const button of ['debug-button', 'settings-button', 'log-button']) {
+test('leaving the settings by a button of the row saves the debug settings too, and sends nothing when nothing was changed', async () => {
+    for (const button of ['settings-button', 'log-button']) {
         const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
-        await page.click('debug-button');
+        await page.click('settings-button');
         await page.click(button);
         assert.equal(debugPosts(page).length, 0, button + ': nothing changed, nothing sent');
-        assert.equal(page.el('debug-view').hidden, true, button);
+        assert.equal(settingsPosts(page).length, 0, button);
 
         const changed = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
-        await changed.click('debug-button');
+        await changed.click('settings-button');
         changed.el('debug-fakeBackend').checked = true;
         await changed.click(button);
         assert.equal(debugPosts(changed).length, 1, button + ': saved on leaving');
         assert.equal(JSON.parse(debugPosts(changed)[0].body).fakeBackend, true);
-        assert.equal(changed.el('debug-view').hidden, true, button);
+        assert.equal(settingsPosts(changed).length, 0, button + ': the settings were not changed, so not sent');
+        assert.equal(changed.el('settings-view').hidden, true, button);
     }
 });
-
-test('the gear pressed in the debug settings shows the settings, and the debug button pressed in the settings saves them', async () => {
+test('a Debug tab left by Cancel takes the changes back and sends nothing', async () => {
     const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
-    await page.click('debug-button');
     await page.click('settings-button');
-    assert.equal(page.el('settings-view').hidden, false);
-    assert.equal(page.el('debug-view').hidden, true);
-
+    await page.click('tabbtn-debug');
+    page.el('debug-fakeBackend').checked = true;
     page.el('set-logResponse').checked = true;
-    await page.click('debug-button');
 
-    assert.equal(settingsPosts(page).length, 1, 'the settings were saved on the way');
-    assert.equal(page.el('debug-view').hidden, false);
-    assert.equal(page.el('settings-view').hidden, true);
+    await page.click('settings-cancel');
+    await page.click('settings-button');
+
+    assert.equal(page.el('debug-fakeBackend').checked, false);
+    assert.equal(page.el('set-logResponse').checked, false);
+    assert.equal(debugPosts(page).length + settingsPosts(page).length, 0);
 });
-
-test('debug settings that cannot be saved keep the view open with the reason, and the other panel shut', async () => {
+test('debug settings that cannot be saved keep the view open on the Debug tab with the reason, and the other panel shut', async () => {
     const refusing = { config: DEBUG_CONFIG, status: SPEND_STATUS, postDebug: () => ({ status: 500, body: { error: 'The debug settings could not be applied: no port.' } }) };
     const page = await load(backendOf(refusing));
-    await page.click('debug-button');
+    await page.click('settings-button');
     page.el('debug-fakeBackend').checked = true;
 
     await page.click('history-button');
 
-    assert.equal(page.el('debug-view').hidden, false);
+    assert.equal(page.el('settings-view').hidden, false);
+    assert.equal(page.el('tab-debug').hidden, false, 'the tab where the reason is said is shown');
     assert.equal(page.el('debug-error').textContent, 'The debug settings could not be applied: no port.');
     assert.equal(page.el('history-button').title, 'Show the usage history');
-});
 
+    page.el('debug-fakeBackend').checked = true;
+    await page.click('tabbtn-main');
+    await page.click('settings-save');
+    assert.equal(page.el('tab-debug').hidden, false, 'Save shows the Debug tab as well');
+    assert.equal(page.el('settings-view').hidden, false);
+});
 test('debug settings that cannot be read say so and have no form', async () => {
     const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS, debug: () => ({ status: 500, body: { error: 'Internal error; see the log.' } }) }));
 
-    await page.click('debug-button');
+    await page.click('settings-button');
 
     assert.equal(page.el('debug-form').hidden, true);
     assert.match(page.el('debug-error').textContent, /^The debug settings could not be read: /);
-    assert.equal(page.el('debug-apply').attrs.disabled, '');
 });
-
 test('while the fake backend is in use the window has its red border, and is larger by it', async () => {
     const state = { config: DEBUG_CONFIG, status: SPEND_STATUS };
     const page = await load(backendOf(state));
@@ -3083,21 +3045,6 @@ test('checking Automatic disables the field at once and does not ask for a numbe
     assert.equal(autoPosts(page)[0].usageIntervalSeconds, 120, 'the configured interval, which the nonsense did not replace');
 });
 
-test('Restore defaults unchecks Automatic and gives the field the default interval, to be typed in', async () => {
-    const state = { config: CONFIG, status: withInterval(SPEND_STATUS, '35s'), settings: () => ({ status: 200, body: AUTO_ON }) };
-    const page = await load(backendOf(state));
-    await page.click('settings-button');
-
-    await page.click('settings-restore');
-
-    assert.equal(page.el('set-autoInterval').checked, false);
-    assert.equal(page.el('set-usageIntervalSeconds').attrs.disabled, undefined);
-    assert.equal(page.el('set-usageIntervalSeconds').value, '60');
-    await page.click('settings-save');
-    assert.equal(autoPosts(page)[0].usageIntervalSeconds, 60);
-    assert.equal(autoPosts(page)[0].autoInterval, false);
-});
-
 // ---- nothing in the window can be selected
 
 test('the key that selects everything is passed over, except in the field to type in', async () => {
@@ -3125,17 +3072,17 @@ test('a selection that the mouse begins is refused, except in the field to type 
 
 // ---- the About view: opened from the settings, shown in the place of their form, and left by Back
 
-test('About shows the view in the place of the settings form, with what the backend says of the program', async () => {
+test('About is the last tab and shows what the backend says of the program', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
-    assert.equal(page.el('about-view').hidden, true, 'the settings are shown as their form');
-    assert.equal(page.calls.filter(c => c.url === '/api/about').length, 0, 'nothing is asked before the view is');
+    assert.equal(page.el('about-view').hidden, true, 'the settings open on the first tab');
+    assert.equal(page.calls.filter(c => c.url === '/api/about').length, 0, 'nothing is asked before the tab is');
 
-    await page.click('settings-about');
+    await page.click('tabbtn-about');
 
     assert.equal(page.el('about-view').hidden, false);
-    assert.equal(page.el('settings-form').hidden, true, 'in the place of the form');
-    assert.equal(page.el('settings-buttons').hidden, true, 'and of its buttons');
+    assert.equal(page.el('tab-main').hidden, true, 'in the place of the other tabs');
+    assert.equal(page.el('settings-buttons').hidden, false, 'with Save and Cancel under it');
     assert.equal(page.el('settings-view').hidden, false, 'it is a part of the settings view');
     assert.equal(page.el('about-name').textContent, 'aip usage');
     assert.equal(page.el('about-version').textContent, 'v0.57');
@@ -3148,63 +3095,39 @@ test('About shows the view in the place of the settings form, with what the back
     assert.equal(page.el('about-debug').textContent, 'off');
     assert.match(page.window.contentSize(), /,3,settings$/, 'for the window it is the settings still: the title bar, and no resizing');
 });
-
 test('the line of debug mode says off, on, or on with the fake backend in use', async () => {
     for (const [about, text] of [[{ debug: false, fake: false }, 'off'], [{ debug: true, fake: false }, 'on'], [{ debug: true, fake: true }, 'on, the fake backend is in use']]) {
         const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, about: () => ({ status: 200, body: { ...ABOUT, ...about } }) }));
         await page.click('settings-button');
-        await page.click('settings-about');
+        await page.click('tabbtn-about');
         assert.equal(page.el('about-debug').textContent, text);
     }
 });
 
-test('Back shows the settings form again with what was changed and not saved still in it, and nothing was sent', async () => {
+test('a button of the row pressed while About is shown saves the settings as they stand, and the next opening shows the first tab', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
     page.type('set-usageIntervalSeconds', '45');
-    await change(page, 'set-showDeltaUsed', true);
-    assert.equal(page.el('delta-used').hidden, false, 'the row previews the change');
-
-    await page.click('settings-about');
-    assert.equal(page.el('delta-used').hidden, false, 'the preview stays while About is shown');
-    await page.click('about-back');
-
-    assert.equal(page.el('about-view').hidden, true);
-    assert.equal(page.el('settings-form').hidden, false);
-    assert.equal(page.el('settings-buttons').hidden, false);
-    assert.equal(page.el('set-usageIntervalSeconds').value, '45', 'what was typed is still there');
-    assert.equal(page.el('set-showDeltaUsed').checked, true);
-    assert.equal(page.calls.filter(c => c.method === 'POST').length, 0, 'About saved nothing');
-
-    await page.click('settings-cancel');
-    assert.equal(page.el('delta-used').hidden, true, 'and Cancel still gives the row back');
-    assert.equal(page.calls.filter(c => c.method === 'POST').length, 0);
-});
-
-test('a button of the row pressed while About is shown saves the settings as from the form, and the next opening shows the form', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('settings-button');
-    page.type('set-usageIntervalSeconds', '45');
-    await page.click('settings-about');
+    await page.click('tabbtn-about');
 
     await page.click('settings-button');
 
     const sent = page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST').map(c => JSON.parse(c.body));
-    assert.equal(sent.length, 1, 'the gear saves, as it does from the form');
+    assert.equal(sent.length, 1, 'the gear saves, as it does from any tab');
     assert.equal(sent[0].usageIntervalSeconds, 45);
     assert.equal(page.el('panel').hidden, true);
 
     await page.click('settings-button');
-    assert.equal(page.el('about-view').hidden, true, 'the settings open as their form, not as About');
+    assert.equal(page.el('about-view').hidden, true, 'the settings open on the first tab, not on About');
+    assert.equal(page.el('tab-main').hidden, false);
     assert.equal(page.el('settings-buttons').hidden, false);
 });
-
 test('when the details cannot be read the logo, the name and the version line are there and a red line says why', async () => {
     const state = { config: CONFIG, status: SPEND_STATUS, about: () => ({ status: 500, body: { error: 'Internal error; see the log.' } }) };
     const page = await load(backendOf(state));
     await page.click('settings-button');
 
-    await page.click('settings-about');
+    await page.click('tabbtn-about');
 
     assert.equal(page.el('about-view').hidden, false);
     assert.equal(page.el('about-details').hidden, true);
@@ -3213,28 +3136,10 @@ test('when the details cannot be read the logo, the name and the version line ar
     assert.equal(page.el('about-name').textContent, '', 'the name is the page\'s own text in the real page; here nothing replaced it');
 
     state.about = null;
-    await page.click('about-back');
-    await page.click('settings-about');
-    assert.equal(page.el('about-error').hidden, true, 'asked again at each opening');
+    await page.click('tabbtn-main');
+    await page.click('tabbtn-about');
+    assert.equal(page.el('about-error').hidden, true, 'asked again at each showing');
     assert.equal(page.el('about-details').hidden, false);
-});
-
-test('the About view is as wide as the settings were, and the settings are measured again once it is left', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('settings-button');
-    page.el('settings-form').rect = { left: 8, width: 500, height: 600 };
-    page.el('settings-buttons').rect = { left: 8, width: 260, height: 20 };
-    assert.match(page.window.contentSize(), /^516,/, 'the form and its sides');
-
-    await page.click('settings-about');
-    page.el('settings-form').rect = { left: 0, width: 0, height: 0 };
-    page.el('settings-buttons').rect = { left: 0, width: 0, height: 0 };
-    assert.match(page.window.contentSize(), /^516,/, 'the hidden form is not measured: the width is the one it had');
-
-    await page.click('about-back');
-    page.el('settings-form').rect = { left: 8, width: 520, height: 600 };
-    page.el('settings-buttons').rect = { left: 8, width: 260, height: 20 };
-    assert.match(page.window.contentSize(), /^536,/);
 });
 
 // ---- the no-spend line is shown over every gray box of the row
@@ -3270,7 +3175,7 @@ const aboutActions = page => page.calls.filter(c => c.url.startsWith('/api/about
 async function openAbout(state) {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, ...state }));
     await page.click('settings-button');
-    await page.click('settings-about');
+    await page.click('tabbtn-about');
     return page;
 }
 
@@ -3324,7 +3229,7 @@ test('when the folder cannot be opened or the path not copied a red line says so
     assert.equal(page.timers.filter(t => t.live && t.ms === 1500).length, 0);
 });
 
-// ---- the debug view shapes the fake backend's ordinary answer
+// ---- the Debug tab shapes the fake backend's ordinary answer
 
 const SHAPED = {
     settings: { fakeBackend: true, fakeScenario: 'normal', fakeToken: false,
@@ -3335,7 +3240,8 @@ const SHAPED = {
 
 async function openDebug(state) {
     const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS, debug: () => ({ status: 200, body: SHAPED }), ...state }));
-    await page.click('debug-button');
+    await page.click('settings-button');
+    await page.click('tabbtn-debug');
     return page;
 }
 
@@ -3354,17 +3260,18 @@ test('the debug view shows how the fake backend answers: the account by its name
 
 test('what is typed there is sent with the three switches, whole numbers as numbers and amounts as they were typed, and nothing unchanged is sent', async () => {
     const page = await openDebug({});
-    await page.click('debug-button');
+    await page.click('settings-button');
     assert.equal(debugPosts(page).length, 0, 'nothing was changed');
 
-    await page.click('debug-button');
+    await page.click('settings-button');
+    await page.click('tabbtn-debug');
     page.el('debug-fakeAccount').value = 'seat';
     page.type('debug-fakeIncreaseCents', '50');
     page.type('debug-fakeBudget', '250');
     page.type('debug-fakeStartAmount', '12.34');
     page.type('debug-fakeRefuseSeconds', '30');
     page.type('debug-fakeDelayMillis', '400');
-    await page.click('debug-apply');
+    await page.click('settings-save');
 
     assert.deepEqual(JSON.parse(debugPosts(page)[0].body), {
         fakeBackend: true, fakeScenario: 'normal', fakeToken: false,
@@ -3378,20 +3285,21 @@ test('what is no number is sent as it was typed, and the reason the backend give
     });
     page.type('debug-fakeIncreaseCents', 'many');
 
-    await page.click('debug-apply');
+    await page.click('settings-save');
 
     assert.equal(JSON.parse(debugPosts(page)[0].body).fakeIncreaseCents, 'many');
     assert.equal(page.el('debug-error').textContent, 'The largest increase must be a whole number of cents from 0 to 100000.');
-    assert.equal(page.el('debug-view').hidden, false);
+    assert.equal(page.el('tab-debug').hidden, false);
 });
 
 test('a backend that says nothing of how the fake backend answers is sent nothing of it, and the group is not shown', async () => {
     const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
-    await page.click('debug-button');
+    await page.click('settings-button');
+    await page.click('tabbtn-debug');
     assert.equal(page.el('debug-fake').hidden, true);
 
     page.el('debug-fakeBackend').checked = true;
-    await page.click('debug-apply');
+    await page.click('settings-save');
 
     assert.deepEqual(JSON.parse(debugPosts(page)[0].body), { fakeBackend: true, fakeScenario: 'normal', fakeToken: false });
 });
@@ -3482,21 +3390,6 @@ test('an emptied monthly limit is sent as no limit, and a limit the backend refu
     assert.equal(costPosts(page)[0].costMonthlyLimit, null);
     assert.equal(page.el('settings-error').textContent, 'The daily limit cannot be more than the monthly limit.');
     assert.equal(page.el('settings-view').hidden, false);
-});
-
-test('Restore defaults empties the limits and has the daily one worked out again', async () => {
-    const custom = { ...WITH_LIMITS, settings: { ...WITH_LIMITS.settings, costDailyLimit: '9.50', costDailyAutomatic: false }, costDailyWorkedOut: '9.50' };
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: custom }) }));
-    await page.click('settings-button');
-    assert.equal(page.el('set-costDailyLimit').value, '9.50');
-    assert.equal(page.el('set-costDailyLimit').attrs.disabled, undefined);
-
-    await page.click('settings-restore');
-
-    assert.equal(page.el('set-costMonthlyLimit').value, '');
-    assert.equal(page.el('set-costDailyAutomatic').checked, true);
-    assert.equal(page.el('set-costDailyLimit').value, '');
-    assert.equal(page.el('set-costDailyLimit').attrs.disabled, '');
 });
 
 test('an answer about the daily limit that arrives after a later question was asked is not shown', async () => {
