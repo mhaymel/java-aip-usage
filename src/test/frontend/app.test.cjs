@@ -3721,8 +3721,6 @@ test('the cost button is there unless the backend says otherwise, and opens and 
 
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     assert.equal(page.el('cost-button').hidden, false);
-    assert.equal(page.el('cost-button').title, 'Show the cost control');
-
     await page.click('cost-button');
     assert.equal(page.el('panel').hidden, false);
     assert.equal(page.el('cost-view').hidden, false);
@@ -3735,6 +3733,7 @@ test('the cost button is there unless the backend says otherwise, and opens and 
     assert.equal(page.el('panel').hidden, true);
     assert.equal(page.el('cost-view').hidden, true);
     assert.doesNotMatch(page.el('cost-button').className, /active/);
+    assert.equal(page.el('cost-button').title, 'Show the cost control');
 });
 
 test('the two bars are drawn from the backend\'s texts: the label, the green share, the figures, and the sign only over the limit', async () => {
