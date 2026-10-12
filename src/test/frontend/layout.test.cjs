@@ -432,6 +432,17 @@ test('the debug view has a group for how the fake backend answers: the account, 
     assert.match(css, /\.settings input\[type="text"\]\.amount\s*{\s*width:\s*10ch/);
 });
 
+test('the settings have a group Cost control after Request, with the monthly limit, the daily limit and its checkbox Automatic', () => {
+    const order = ['<legend>Request</legend>', '<legend>Cost control</legend>', '<legend>Main view'].map(legend => html.indexOf(legend));
+    assert.ok(order[0] >= 0 && order[0] < order[1] && order[1] < order[2], 'after Request and before Main view');
+    const group = html.slice(order[1], order[2]);
+    assert.match(group, /<label title="[^"]{40,}">Monthly limit\s*<input id="set-costMonthlyLimit" class="amount" type="text"[^>]*> USD<\/label>/);
+    assert.match(group, /<span class="line">\s*<label title="[^"]+">Daily limit\s*<input id="set-costDailyLimit" class="amount" type="text"[^>]*> USD<\/label>\s*<label title="[^"]{40,}"><input id="set-costDailyAutomatic" type="checkbox"> Automatic<\/label>\s*<\/span>/,
+        'the checkbox in the line of the field it belongs to');
+    assert.match(group, /Monday to Friday/, 'the tooltip says how it is worked out');
+    assert.doesNotMatch(group, /\$/, 'the unit is the code: the page has no currency sign');
+});
+
 test('an error in the panel is red', () => {
     assert.match(ruleOf('.panel-error'), /color:\s*var\(--bad\)/);
 });

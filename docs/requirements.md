@@ -1564,6 +1564,47 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **What they are for**: the automatic interval can be tried against a backend that refuses requests that come too
   soon, and the row against amounts that move by a known step.
 
+### Cost control: a monthly and a daily limit, as settings
+
+- **The settings have a group `Cost control`** (since version 0.63), after `Request`, for an account that is billed by usage. It holds two
+  limits, in US dollars:
+
+  | Setting | What it is | Default |
+  | --- | --- | --- |
+  | `Monthly limit` | what may be spent in a month | none: the field is empty |
+  | `Daily limit` | what may be spent in a day | worked out from the monthly limit |
+
+- **The daily limit is worked out unless it is given.** Beside its field is a checkbox `Automatic`, on by default. On,
+  the field is disabled and shows the limit the program works out; off, the limit is typed in.
+- **How it is worked out**: the monthly limit divided by the number of **weekdays, Monday to Friday, of the current
+  month**, rounded down to the cent. October 2026 has 22 weekdays, so a monthly limit of 250.00 gives a daily limit of
+  11.36. With no monthly limit there is none to work out, and the field is empty.
+- **The month is the calendar month of the machine's clock**, and the figure in the field is worked out anew when the
+  settings are opened, so it changes with the month.
+- **The amounts** are typed in dollars with up to two decimals, `250` or `250.00`, with no sign, from 0.01 to
+  1,000,000; an empty monthly limit means there is none. Anything else keeps the view open with the reason in red.
+- **A daily limit that is typed in may not be more than the monthly limit**: the view stays open with `The daily limit
+  cannot be more than the monthly limit.` in red. With no monthly limit a daily limit may be any amount in the range.
+- **They are saved with the other settings**, when the view is saved, under the keys `costMonthlyLimit`,
+  `costDailyLimit` (both an amount, or nothing for none) and `costDailyAutomatic`.
+- **The unit after each field is `USD`**: the page has no currency sign.
+- **The daily limit is worked out by the program, not by the page**: when a monthly limit is typed, the page asks what
+  follows from it and shows the answer, and an answer that arrives after the field was changed again is not shown.
+  Until a monthly limit is an amount there is nothing to show.
+- **What was typed as the daily limit is kept while it is worked out**: unchecking `Automatic` brings it back, and it is
+  saved with the settings either way.
+- **A limit that is not given in a request stays as it is**, so settings saved by something that knows nothing of cost
+  control leave the limits alone.
+- **In the file a limit there is none of is written as `null`**, so the three keys are always there.
+- **A limit in the file that is no amount in its range** is logged and counts as none; a daily limit above the monthly
+  one is dropped.
+- **`Restore defaults`** empties the limits and has the daily one worked out.
+- **The program does nothing with the limits yet.** They are settings to be kept: the row shows nothing of them, nothing
+  is compared with them, and nothing warns. What is done with them is a later requirement.
+- **Decided for that later use, and not built now**, so that it is not asked again: what was spent today is counted
+  only while the program runs, from the first reading of the day in this run; what was spent in the month is the amount
+  used that Anthropic reports; and on a Saturday or a Sunday the daily limit is zero.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
@@ -1655,41 +1696,6 @@ backend switched while the program runs, and the mark that says its figures are 
   (see `docs/img_3.png`, taken with every element of the row hidden).
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
-
-## Cost control
-
-**Specified, not yet built.** The sections above and below still describe the program as it is, version 0.62; where
-this section says otherwise, this section is what is to be built. It moves into the description of the program
-when it is built (see the implementation plan, phase 75).
-
-### Cost control: a monthly and a daily limit, as settings
-
-- **The settings have a group `Cost control`**, after `Request`, for an account that is billed by usage. It holds two
-  limits, in US dollars:
-
-  | Setting | What it is | Default |
-  | --- | --- | --- |
-  | `Monthly limit` | what may be spent in a month | none: the field is empty |
-  | `Daily limit` | what may be spent in a day | worked out from the monthly limit |
-
-- **The daily limit is worked out unless it is given.** Beside its field is a checkbox `Automatic`, on by default. On,
-  the field is disabled and shows the limit the program works out; off, the limit is typed in.
-- **How it is worked out**: the monthly limit divided by the number of **weekdays, Monday to Friday, of the current
-  month**, rounded down to the cent. October 2026 has 22 weekdays, so a monthly limit of 250.00 gives a daily limit of
-  11.36. With no monthly limit there is none to work out, and the field is empty.
-- **The month is the calendar month of the machine's clock**, and the figure in the field is worked out anew when the
-  settings are opened, so it changes with the month.
-- **The amounts** are typed in dollars with up to two decimals, `250` or `250.00`, with no sign, from 0.01 to
-  1,000,000; an empty monthly limit means there is none. Anything else keeps the view open with the reason in red.
-- **A daily limit that is typed in may not be more than the monthly limit**: the view stays open with `The daily limit
-  cannot be more than the monthly limit.` in red. With no monthly limit a daily limit may be any amount in the range.
-- **They are saved with the other settings**, when the view is saved, under the keys `costMonthlyLimit`,
-  `costDailyLimit` (both an amount, or nothing for none) and `costDailyAutomatic`.
-- **The program does nothing with the limits yet.** They are settings to be kept: the row shows nothing of them, nothing
-  is compared with them, and nothing warns. What is done with them is a later requirement.
-- **Decided for that later use, and not built now**, so that it is not asked again: what was spent today is counted
-  only while the program runs, from the first reading of the day in this run; what was spent in the month is the amount
-  used that Anthropic reports; and on a Saturday or a Sunday the daily limit is zero.
 
 ## Details of the behaviour
 

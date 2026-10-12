@@ -185,7 +185,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "autoIntervalSeconds", "autoLowerSeconds", "autoUpperSeconds", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "autoLowerSeconds", "autoUpperSeconds", "historyHeight", "logHeight"),
                 content.properties().stream().map(java.util.Map.Entry::getKey).toList());
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -509,5 +509,39 @@ class SettingsStoreTest {
         assertEquals(org.example.fake.Scenario.NORMAL, store.load().fakeScenario());
         assertEquals(org.example.fake.FakeOptions.Account.SEAT, store.loadFake().account());
         assertTrue(store.load().fakeBackend());
+    }
+
+    // ---- cost control
+
+    @Test
+    void thereAreNoLimitsByDefaultAndTheDailyOneIsWorkedOutAndTheyComeBackAsSaved() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        assertEquals(CostControl.NONE, Settings.defaults().cost());
+        assertEquals(CostControl.NONE, store.load().cost(), "no file");
+
+        store.save(Settings.defaults().withCost(new CostControl(25_000L, 1_250L, false)));
+
+        assertEquals(new CostControl(25_000L, 1_250L, false), store.load().cost());
+        String content = Files.readString(file());
+        assertTrue(content.contains("\"costMonthlyLimit\" : 250.00"), "in dollars: " + content);
+        assertTrue(content.contains("\"costDailyLimit\" : 12.50"), content);
+        assertTrue(content.contains("\"costDailyAutomatic\" : false"), content);
+
+        store.save(Settings.defaults());
+        assertTrue(Files.readString(file()).contains("\"costMonthlyLimit\" : null"), "no limit is written as none, and the key is there");
+        assertEquals(CostControl.NONE, store.load().cost());
+    }
+
+    @Test
+    void aLimitInTheFileThatIsNoAmountInItsRangeIsNoLimitAndADailyOneAboveTheMonthlyOneIsDropped() throws IOException {
+        for (String bad : List.of("0", "-5", "12.345", "\"250\"", "true", "1000000.01")) {
+            Files.writeString(file(), "{\"costMonthlyLimit\": " + bad + ", \"usageIntervalSeconds\": 90}");
+            Settings loaded = new SettingsStore(file()).load();
+            assertEquals(null, loaded.cost().monthlyCents(), bad);
+            assertEquals(90, loaded.usageIntervalSeconds(), bad + ": the other keys are kept");
+        }
+
+        Files.writeString(file(), "{\"costMonthlyLimit\": 100, \"costDailyLimit\": 150, \"costDailyAutomatic\": false}");
+        assertEquals(new CostControl(10_000L, null, false), new SettingsStore(file()).load().cost());
     }
 }

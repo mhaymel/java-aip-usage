@@ -8,6 +8,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.example.settings.IntervalRange;
 import org.example.settings.IntervalSettings;
+import org.example.settings.CostControl;
 import org.example.settings.InvalidSettingException;
 import org.example.settings.LogLevel;
 import org.example.settings.Settings;
@@ -163,6 +164,12 @@ final class ApiHandler implements HttpHandler {
                 }
                 requireJson(exchange);
                 aboutAction(exchange, exchange.getRequestURI().getPath().endsWith("/open"));
+            }
+            case "/api/cost/daily" -> {
+                if (!method.equals("GET")) {
+                    throw new ApiException(405, "Use GET.", "GET");
+                }
+                send(exchange, 200, dailyLimit(exchange.getRequestURI().getQuery()));
             }
             case "/api/errors" -> {
                 if (!method.equals("GET")) {
@@ -322,7 +329,65 @@ final class ApiHandler implements HttpHandler {
                 toBody(shown()),
                 toBody(Settings.defaults()),
                 new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())),
-                settings.current().usageIntervalSeconds());
+                settings.current().usageIntervalSeconds(),
+                settings.current().cost().dailyIn(java.time.YearMonth.now()).map(CostControl::text).orElse(null));
+    }
+
+    /**
+     * The limits of cost control, from a request. A key that is not given keeps what there is; a limit given as null or
+     * as an empty text is no limit; one given as an amount, a number or the text of one, is that amount.
+     */
+    private static CostControl costOf(JsonNode body, CostControl kept) {
+        Long monthly = body.has("costMonthlyLimit") ? limitOf(body.get("costMonthlyLimit")) : kept.monthlyCents();
+        Long daily = body.has("costDailyLimit") ? limitOf(body.get("costDailyLimit")) : kept.dailyCents();
+        JsonNode automatic = body.get("costDailyAutomatic");
+        if (automatic != null && !automatic.isNull() && !automatic.isBoolean()) {
+            throw new InvalidSettingException("The setting costDailyAutomatic must be true or false.");
+        }
+        CostControl wanted = new CostControl(monthly, daily, automatic == null || automatic.isNull() ? kept.dailyAutomatic() : automatic.booleanValue());
+        wanted.fault().ifPresent(fault -> {
+            throw new InvalidSettingException(fault);
+        });
+        return wanted;
+    }
+
+    private static Long limitOf(JsonNode value) {
+        if (value == null || value.isNull() || (value.isTextual() && value.textValue().isBlank())) {
+            return null;
+        }
+        try {
+            if (value.isNumber()) {
+                return value.decimalValue().movePointRight(2).longValueExact();
+            }
+            if (value.isTextual()) {
+                return CostControl.cents(value.textValue()).orElseThrow(() -> new InvalidSettingException(CostControl.AMOUNT_FAULT));
+            }
+        } catch (ArithmeticException e) {
+            // More than two decimals.
+        }
+        throw new InvalidSettingException(CostControl.AMOUNT_FAULT);
+    }
+
+    /**
+     * The daily limit that follows from a monthly one in the current month, for the settings view to show while the
+     * daily limit is worked out: `GET /api/cost/daily?monthly=250`. The page works nothing out itself.
+     */
+    private static DailyLimitBody dailyLimit(String query) {
+        String monthly = "";
+        for (String part : query == null ? new String[0] : query.split("&")) {
+            if (part.startsWith("monthly=")) {
+                monthly = java.net.URLDecoder.decode(part.substring("monthly=".length()), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        }
+        java.time.YearMonth month = java.time.YearMonth.now();
+        if (monthly.isBlank()) {
+            return new DailyLimitBody(null, CostControl.weekdays(month));
+        }
+        long cents = CostControl.cents(monthly).orElseThrow(() -> new ApiException(400, CostControl.AMOUNT_FAULT, null));
+        if (cents < CostControl.MIN_CENTS || cents > CostControl.MAX_CENTS) {
+            throw new ApiException(400, CostControl.AMOUNT_FAULT, null);
+        }
+        return new DailyLimitBody(CostControl.text(CostControl.dailyFor(cents, month)), CostControl.weekdays(month));
     }
 
     private static SettingValues toBody(Settings s) {
@@ -330,7 +395,10 @@ final class ApiHandler implements HttpHandler {
                 s.showErrorIcon(), s.showInterval(), s.showDeltaUsed(),
                 s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate(),
                 s.historyZeroLines(), s.historyFailedLines(), s.showTime(), s.showUsed(), s.showLimit(), s.showRefresh(), s.showCountdown(),
-                s.showDuration(), s.stayOnTop(), s.showTitleBar(), s.autoInterval());
+                s.showDuration(), s.stayOnTop(), s.showTitleBar(), s.autoInterval(),
+                s.cost().monthlyCents() == null ? null : CostControl.text(s.cost().monthlyCents()),
+                s.cost().dailyCents() == null ? null : CostControl.text(s.cost().dailyCents()),
+                s.cost().dailyAutomatic());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -368,7 +436,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "stayOnTop"),
                     flag(body, "showTitleBar"),
                     false, org.example.fake.Scenario.NORMAL, false, LogLevel.INFO, false, Settings.DEFAULT_LIST_FONT_SIZE,
-                    flag(body, "autoInterval"));
+                    flag(body, "autoInterval"),
+                    costOf(body, settings.current().cost()));
             // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone. Nor are
             // the two choices of the log panel, which POST /api/log changes, and the size of the lists' text, which POST /api/text-size changes.
             Settings kept = settings.current();
@@ -823,14 +892,23 @@ final class ApiHandler implements HttpHandler {
             boolean showDuration,
             boolean stayOnTop,
             boolean showTitleBar,
-            boolean autoInterval) {
+            boolean autoInterval,
+            String costMonthlyLimit,
+            String costDailyLimit,
+            boolean costDailyAutomatic) {
+    }
+
+    /** @param daily the daily limit worked out, as a finished text, or null when there is no monthly limit to work it out from */
+    record DailyLimitBody(String daily, int weekdays) {
     }
 
     /**
+     * @param costDailyWorkedOut the daily limit in force this month, as a finished text: the one worked out from the monthly
+     *     limit while that is asked for, else the one typed in; null when there is none
      * @param configuredIntervalSeconds the interval that is saved, which {@code settings.usageIntervalSeconds} is not while
      *     a back-off or the automatic interval has another in force
      */
-    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds) {
+    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds, String costDailyWorkedOut) {
     }
 
     record RefreshBody(boolean started) {

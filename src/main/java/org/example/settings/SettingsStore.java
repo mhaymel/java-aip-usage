@@ -91,6 +91,12 @@ public final class SettingsStore {
 
     static final String AUTO_INTERVAL_KEY = "autoInterval";
 
+    static final String COST_MONTHLY_KEY = "costMonthlyLimit";
+
+    static final String COST_DAILY_KEY = "costDailyLimit";
+
+    static final String COST_DAILY_AUTOMATIC_KEY = "costDailyAutomatic";
+
     static final String AUTO_SECONDS_KEY = "autoIntervalSeconds";
 
     static final String AUTO_LOWER_KEY = "autoLowerSeconds";
@@ -185,7 +191,8 @@ public final class SettingsStore {
                 logLevel(root, defaults.logLevel()),
                 flag(root, LOG_DATE_KEY, defaults.logDate()),
                 listFontSize(root, defaults.listFontSize()),
-                flag(root, AUTO_INTERVAL_KEY, defaults.autoInterval()));
+                flag(root, AUTO_INTERVAL_KEY, defaults.autoInterval()),
+                cost(root));
     }
 
     /**
@@ -300,6 +307,41 @@ public final class SettingsStore {
             return fallback;
         }
         return node.intValue();
+    }
+
+    /**
+     * The limits of cost control. A limit that is not an amount in its range is logged and passed over, which leaves
+     * none; limits that do not go together, a daily one above the monthly one, lose the daily one.
+     */
+    private CostControl cost(JsonNode root) {
+        Long monthly = limit(root, COST_MONTHLY_KEY);
+        Long daily = limit(root, COST_DAILY_KEY);
+        boolean automatic = flag(root, COST_DAILY_AUTOMATIC_KEY, CostControl.NONE.dailyAutomatic());
+        CostControl read = new CostControl(monthly, daily, automatic);
+        if (read.fault().isPresent()) {
+            LOG.log(System.Logger.Level.WARNING, "Ignoring " + COST_DAILY_KEY + " in " + file + ": " + read.fault().get());
+            return new CostControl(monthly, null, automatic);
+        }
+        return read;
+    }
+
+    private Long limit(JsonNode root, String key) {
+        JsonNode node = root.get(key);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        try {
+            if (node.isNumber()) {
+                long cents = node.decimalValue().movePointRight(2).longValueExact();
+                if (cents >= CostControl.MIN_CENTS && cents <= CostControl.MAX_CENTS) {
+                    return cents;
+                }
+            }
+        } catch (ArithmeticException e) {
+            // More than two decimals: not an amount of cents.
+        }
+        LOG.log(System.Logger.Level.WARNING, "Ignoring " + key + " in " + file + ": " + CostControl.AMOUNT_FAULT);
+        return null;
     }
 
     private int interval(JsonNode root, int fallback) {
@@ -508,6 +550,11 @@ public final class SettingsStore {
         root.put(LOG_DATE_KEY, settings.logDate());
         root.put(LIST_FONT_SIZE_KEY, settings.listFontSize());
         root.put(AUTO_INTERVAL_KEY, settings.autoInterval());
+        // The limits of cost control, in dollars; a limit there is none of is written as null, so that the key is always there.
+        CostControl cost = settings.cost();
+        root.put(COST_MONTHLY_KEY, cost.monthlyCents() == null ? null : java.math.BigDecimal.valueOf(cost.monthlyCents(), 2));
+        root.put(COST_DAILY_KEY, cost.dailyCents() == null ? null : java.math.BigDecimal.valueOf(cost.dailyCents(), 2));
+        root.put(COST_DAILY_AUTOMATIC_KEY, cost.dailyAutomatic());
         root.put(AUTO_SECONDS_KEY, search.interval());
         root.put(AUTO_LOWER_KEY, search.lower());
         root.put(AUTO_UPPER_KEY, search.upper());

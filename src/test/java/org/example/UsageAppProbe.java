@@ -59,6 +59,16 @@ public final class UsageAppProbe {
             step("settings-auto", null);
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-autoInterval').click()"));
             step("settings-manual", null);
+            // Cost control: a monthly limit is typed, and the daily one is worked out by the program and shown, not to be typed in.
+            onFx(() -> page().getEngine().executeScript(
+                    "var m = document.getElementById('set-costMonthlyLimit'); m.value = '440'; m.dispatchEvent(new Event('change'));"));
+            step("cost", null);
+            onFx(() -> page().getEngine().executeScript("document.getElementById('set-costDailyAutomatic').click()"));
+            step("cost-typed", null);
+            onFx(() -> page().getEngine().executeScript(
+                    "document.getElementById('set-costDailyAutomatic').click();"
+                            + " var m = document.getElementById('set-costMonthlyLimit'); m.value = ''; m.dispatchEvent(new Event('change'));"));
+            step("cost-none", null);
             // The About view, in the place of the form, and the form again.
             step("about", "settings-about");
             copyPath("about-copy");
@@ -251,6 +261,10 @@ public final class UsageAppProbe {
                             "(function () { var v = function (id) { return document.getElementById(id).value; };"
                                     + " return v('debug-fakeAccount') + '|' + v('debug-fakeIncreaseCents') + '|' + v('debug-fakeBudget') + '|' + v('debug-fakeStartAmount')"
                                     + " + '|' + v('debug-fakeRefuseSeconds') + '|' + v('debug-fakeDelayMillis') + '|' + document.getElementById('countdown').className; })()") + "]"
+                    // Cost control in the settings: the monthly limit, the daily one, whether its field is disabled, and Automatic.
+                    + " cost:[" + page().getEngine().executeScript(
+                            "(function () { var m = document.getElementById('set-costMonthlyLimit'), d = document.getElementById('set-costDailyLimit'), a = document.getElementById('set-costDailyAutomatic');"
+                                    + " return m.value + '|' + d.value + '|' + d.disabled + '|' + a.checked + '|' + Math.round(Math.abs(a.getBoundingClientRect().top - d.getBoundingClientRect().top)); })()") + "]"
                     + " end");
             System.out.flush();
         });

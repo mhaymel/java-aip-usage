@@ -283,7 +283,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(25, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(28, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -2321,5 +2321,91 @@ class ApiTest {
             assertEquals(refusal.getValue(), json(answer).get("error").asText(), refusal.getKey());
         }
         assertEquals(137, json(get(app, "/api/debug")).at("/settings/fakeIncreaseCents").asInt(), "as it was");
+    }
+
+    // ---- cost control: the two limits, as settings
+
+    @Test
+    void theSettingsHaveNoLimitsByDefaultAndTheDailyOneIsWorkedOut() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        JsonNode body = json(get(app, "/api/settings"));
+
+        assertTrue(body.at("/settings/costMonthlyLimit").isNull());
+        assertTrue(body.at("/settings/costDailyLimit").isNull());
+        assertTrue(body.at("/settings/costDailyAutomatic").asBoolean());
+        assertTrue(body.at("/defaults/costDailyAutomatic").asBoolean());
+        assertTrue(body.get("costDailyWorkedOut").isNull(), "nothing to work it out from");
+    }
+
+    @Test
+    void theLimitsAreSavedWithTheSettingsAndTheDailyOneIsWorkedOutFromTheMonthlyOne() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        String limits = allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"250\", \"costDailyLimit\": null, \"costDailyAutomatic\": true}");
+
+        HttpResponse<String> saved = post(app, "/api/settings", limits);
+
+        assertEquals(200, saved.statusCode(), saved.body());
+        JsonNode body = json(saved);
+        assertEquals("250.00", body.at("/settings/costMonthlyLimit").asText(), "as a finished text");
+        long worked = org.example.settings.CostControl.dailyFor(25_000, java.time.YearMonth.now());
+        assertEquals(org.example.settings.CostControl.text(worked), body.get("costDailyWorkedOut").asText(), "250.00 over the weekdays of this month");
+        JsonNode file = new ObjectMapper().readTree(Files.readString(dir.resolve("settings.json")));
+        assertEquals(250.0, file.get("costMonthlyLimit").asDouble(), 0.0001);
+        assertTrue(file.get("costDailyAutomatic").asBoolean());
+
+        // A daily limit that is typed in: it is the one in force.
+        JsonNode typed = json(post(app, "/api/settings",
+                allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": 250, \"costDailyLimit\": \"12.5\", \"costDailyAutomatic\": false}")));
+        assertEquals("12.50", typed.at("/settings/costDailyLimit").asText());
+        assertEquals("12.50", typed.get("costDailyWorkedOut").asText());
+
+        // Settings that say nothing of the limits leave them as they are; an empty limit takes it away.
+        JsonNode kept = json(post(app, "/api/settings", allSettings(90, false, "hh:mm")));
+        assertEquals("250.00", kept.at("/settings/costMonthlyLimit").asText());
+        JsonNode none = json(post(app, "/api/settings", allSettings(90, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"\", \"costDailyLimit\": null}")));
+        assertTrue(none.at("/settings/costMonthlyLimit").isNull());
+    }
+
+    @Test
+    void aLimitThatIsNoAmountOrADailyOneAboveTheMonthlyOneIsRefusedAndNothingIsSaved() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        String amount = "A limit must be an amount from 0.01 to 1,000,000, with two decimals at most.";
+        java.util.Map<String, String> refusals = new java.util.LinkedHashMap<>();
+        refusals.put("\"costMonthlyLimit\": \"abc\"", amount);
+        refusals.put("\"costMonthlyLimit\": 0", amount);
+        refusals.put("\"costMonthlyLimit\": \"12.345\"", amount);
+        refusals.put("\"costMonthlyLimit\": 1000000.01", amount);
+        refusals.put("\"costMonthlyLimit\": true", amount);
+        refusals.put("\"costDailyLimit\": \"-1\", \"costDailyAutomatic\": false", amount);
+        refusals.put("\"costMonthlyLimit\": 100, \"costDailyLimit\": 100.01, \"costDailyAutomatic\": false", "The daily limit cannot be more than the monthly limit.");
+        refusals.put("\"costDailyAutomatic\": \"yes\"", "The setting costDailyAutomatic must be true or false.");
+
+        for (java.util.Map.Entry<String, String> refusal : refusals.entrySet()) {
+            HttpResponse<String> answer = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", " + refusal.getKey() + "}"));
+            assertEquals(400, answer.statusCode(), refusal.getKey());
+            assertEquals(refusal.getValue(), json(answer).get("error").asText(), refusal.getKey());
+        }
+        assertTrue(json(get(app, "/api/settings")).at("/settings/costMonthlyLimit").isNull(), "nothing was saved");
+        assertEquals(200, post(app, "/api/settings",
+                allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": 100, \"costDailyLimit\": 100, \"costDailyAutomatic\": false}")).statusCode(),
+                "a daily limit as large as the monthly one is allowed");
+    }
+
+    @Test
+    void theDailyLimitThatFollowsFromAMonthlyOneCanBeAskedFor() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        java.time.YearMonth month = java.time.YearMonth.now();
+
+        JsonNode worked = json(get(app, "/api/cost/daily?monthly=250"));
+        assertEquals(org.example.settings.CostControl.text(org.example.settings.CostControl.dailyFor(25_000, month)), worked.get("daily").asText());
+        assertEquals(org.example.settings.CostControl.weekdays(month), worked.get("weekdays").asInt());
+        assertEquals(worked.get("daily").asText(), json(get(app, "/api/cost/daily?monthly=250.00")).get("daily").asText());
+
+        assertTrue(json(get(app, "/api/cost/daily?monthly=")).get("daily").isNull(), "no monthly limit: none to work out");
+        assertTrue(json(get(app, "/api/cost/daily")).get("daily").isNull());
+        assertEquals(400, get(app, "/api/cost/daily?monthly=abc").statusCode());
+        assertEquals(400, get(app, "/api/cost/daily?monthly=0").statusCode());
+        assertEquals(405, post(app, "/api/cost/daily", "{}").statusCode());
     }
 }

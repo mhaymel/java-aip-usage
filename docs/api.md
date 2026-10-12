@@ -23,6 +23,7 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `GET` | `/api/history` | The usage history, as finished lines (read-only) |
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 | `POST` | `/api/text-size` | Save the size of the text of the three lists |
+| `GET` | `/api/cost/daily` | The daily limit that follows from a monthly one, in the current month |
 | `GET` | `/api/about` | What the About view says: the version, where the files are, what the program runs on |
 | `POST` | `/api/about/open` | Show one of the program's three files in its folder |
 | `POST` | `/api/about/copy` | Put the path of one of the three files on the clipboard |
@@ -98,6 +99,27 @@ in force in its field sends the configured one back when `autoInterval` is on, s
 
 The three figures of the search, `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, are in
 `settings.json` and in no request: the program changes them by itself.
+
+### Cost control in the settings
+
+`settings` and `defaults` have the two limits of cost control: `costMonthlyLimit` and `costDailyLimit`, each an amount in
+US dollars as a finished text with two decimals, `"250.00"`, or `null` for none; and `costDailyAutomatic`, `true` by
+default, which has the daily limit worked out from the monthly one. Beside them the answer has `costDailyWorkedOut`: the
+daily limit in force this month, as a finished text, or `null`: the monthly limit divided by the weekdays, Monday to
+Friday, of the current month, rounded down to the cent, while `costDailyAutomatic` is on, and else the one typed in.
+
+In a `POST` the three may be given or left out, and what is left out stays as it is. A limit is `null` or an empty
+text for none, or an amount, as a number or the text of one, from 0.01 to 1,000,000 with two decimals at most. `400`:
+`A limit must be an amount from 0.01 to 1,000,000, with two decimals at most.`; `The daily limit cannot be more than the
+monthly limit.`, when the daily limit is typed in and above the monthly one; `The setting costDailyAutomatic must be true
+or false.` The program keeps the limits and compares nothing with them yet.
+
+### `GET /api/cost/daily?monthly=<amount>`
+
+What the settings view asks while a monthly limit is typed and the daily one is worked out: `{"daily": "11.36",
+"weekdays": 22}`, the daily limit that follows in the current month and the weekdays it was divided by. With no
+`monthly`, or an empty one, `daily` is `null`. `400` for one that is no amount in the range. The page works no limit
+out itself.
 
 ## `POST /api/settings`
 
@@ -315,7 +337,7 @@ do (for example log in with Claude Code).
   "file": "java-aip-usage.log",
   "exists": true,
   "truncated": false,
-  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.62", "..."],
+  "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.63", "..."],
   "hidden": false,
   "level": "info",
   "date": false

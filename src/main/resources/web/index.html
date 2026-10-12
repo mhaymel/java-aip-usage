@@ -124,6 +124,16 @@
                     </span>
                 </fieldset>
                 <fieldset>
+                    <legend>Cost control</legend>
+                    <label title="What may be spent in a month, in US dollars, for an account that is billed by usage. Empty: no limit. The program keeps it and does nothing with it yet.">Monthly limit
+                        <input id="set-costMonthlyLimit" class="amount" type="text" inputmode="decimal" autocomplete="off" aria-label="Monthly limit in US dollars"> USD</label>
+                    <span class="line">
+                        <label title="What may be spent in a day, in US dollars.">Daily limit
+                            <input id="set-costDailyLimit" class="amount" type="text" inputmode="decimal" autocomplete="off" aria-label="Daily limit in US dollars"> USD</label>
+                        <label title="Works the daily limit out: the monthly limit divided by the weekdays, Monday to Friday, of the current month."><input id="set-costDailyAutomatic" type="checkbox"> Automatic</label>
+                    </span>
+                </fieldset>
+                <fieldset>
                     <legend>Main view<button id="set-all" class="select-all" type="button" aria-label="Select every element, or none" title="Select every element, or none">
                         <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
                              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

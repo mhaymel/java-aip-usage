@@ -295,6 +295,12 @@
     var configuredInterval = null;
     // Whether the field of the interval is disabled, for Automatic: the page's own note of what it did to the field.
     var intervalLocked = false;
+    // Cost control: the daily limit that was typed in, which waits while the limit is worked out; and the limit the backend
+    // worked out, as a finished text. The page works no limit out itself.
+    var costDailyTyped = '';
+    var costDailyWorkedOut = '';
+    // Counts the questions about the daily limit: an answer to an earlier one, arriving late, is not the one to show.
+    var costAsked = 0;
     // Whether the About view is shown in the place of the settings form, which is only hidden meanwhile and keeps what it holds.
     var aboutShown = false;
     // How wide the settings were when they were last measured: the About view is as wide, and has no width of its own.
@@ -307,7 +313,7 @@
     var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
     // The thirteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
-    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse', 'autoInterval']);
+    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyDeltaUsed', 'historyDeltaTime', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
 
     /**
      * Shows in the row what the main-view part of the form says, at once and before Apply, so that it can be seen which element a
@@ -403,6 +409,55 @@
         });
         $('set-timeFormat').value = values.timeFormat;
         $('set-usageIntervalSeconds').value = String(values.usageIntervalSeconds);
+        $('set-costMonthlyLimit').value = values.costMonthlyLimit || '';
+        costDailyTyped = values.costDailyLimit || '';
+    }
+
+    /**
+     * The field of the daily limit follows its checkbox Automatic. Checked, it is disabled and shows the limit the backend
+     * worked out; unchecked, it can be typed in and has what was typed.
+     */
+    function syncDailyLimit() {
+        var field = $('set-costDailyLimit');
+        if ($('set-costDailyAutomatic').checked) {
+            field.setAttribute('disabled', '');
+            field.value = costDailyWorkedOut;
+        } else {
+            field.removeAttribute('disabled');
+            field.value = costDailyTyped;
+        }
+    }
+
+    /** Asks the backend what daily limit follows from the monthly limit in the field, and shows it while the limit is worked out. */
+    async function workOutDailyLimit() {
+        var monthly = String($('set-costMonthlyLimit').value).trim();
+        var asked = ++costAsked;
+        var worked;
+        try {
+            worked = (await request('/api/cost/daily?monthly=' + encodeURIComponent(monthly))).daily || '';
+        } catch (e) {
+            // What is typed is no amount yet: there is nothing to work out, and saving says what is wrong with it.
+            worked = '';
+        }
+        if (asked !== costAsked) {
+            // The field was changed again meanwhile: the answer to that is the one that counts.
+            return;
+        }
+        costDailyWorkedOut = worked;
+        if ($('set-costDailyAutomatic').checked) {
+            syncDailyLimit();
+        }
+    }
+
+    /** The checkbox Automatic of the daily limit was changed: what was typed is kept, and the field shows the one or the other. */
+    function dailyAutomaticChanged() {
+        if ($('set-costDailyAutomatic').checked) {
+            costDailyTyped = String($('set-costDailyLimit').value).trim();
+            syncDailyLimit();
+            return workOutDailyLimit();
+        }
+        syncDailyLimit();
+        return undefined;
     }
 
     function readForm() {
@@ -414,6 +469,12 @@
         SETTING_FLAGS.forEach(function (key) {
             values[key] = $('set-' + key).checked;
         });
+        // The limits of cost control go as they were typed, and an empty field is no limit. While the daily limit is worked
+        // out, the one that was typed before is what is kept.
+        var monthly = String($('set-costMonthlyLimit').value).trim();
+        var daily = values.costDailyAutomatic ? costDailyTyped : String($('set-costDailyLimit').value).trim();
+        values.costMonthlyLimit = monthly === '' ? null : monthly;
+        values.costDailyLimit = daily === '' ? null : daily;
         return values;
     }
 
@@ -429,6 +490,8 @@
             $('set-usageIntervalSeconds').removeAttribute('disabled');
             intervalLocked = Boolean(body.settings.autoInterval);
             syncIntervalField();
+            costDailyWorkedOut = body.costDailyWorkedOut || '';
+            syncDailyLimit();
             show('settings-form', true);
         } catch (e) {
             // The frontend keeps no settings of its own, so with none to show there is no form.
@@ -517,6 +580,9 @@
             intervalLocked = false;
             configuredInterval = settingsDefaults.usageIntervalSeconds;
             syncIntervalField();
+            // The defaults have no limits, and the daily one worked out: there is nothing to work it out from.
+            costDailyWorkedOut = '';
+            syncDailyLimit();
             previewNow();
         }
     }
@@ -1245,6 +1311,8 @@
             });
         }
         $('set-autoInterval').addEventListener('change', syncIntervalField);
+        $('set-costDailyAutomatic').addEventListener('change', dailyAutomaticChanged);
+        $('set-costMonthlyLimit').addEventListener('change', workOutDailyLimit);
         $('settings-cancel').addEventListener('click', cancelSettings);
         MAIN_FLAGS.forEach(function (key) { $('set-' + key).addEventListener('change', previewNow); });
         $('set-timeFormat').addEventListener('change', previewNow);

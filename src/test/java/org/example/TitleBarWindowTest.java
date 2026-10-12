@@ -169,6 +169,15 @@ class TitleBarWindowTest {
         assertEquals("PROBE about-copy=clipboard:true same:true link:[400|rgb(9, 105, 218)|underline|pointer|settings.json|icon tiny copy done|Copied|18]",
                 line(all, "about-copy"), all);
 
+        // Cost control: with no limits the fields are empty and the daily one is not to be typed in; a monthly limit of 440
+        // gives the daily limit the program works out for this month; unchecked, the field can be typed in; emptied, none.
+        String daily = org.example.settings.CostControl.text(org.example.settings.CostControl.dailyFor(44_000, java.time.YearMonth.now()));
+        assertTrue(line(all, "settings").contains(" cost:[||true|true|"), all);
+        assertTrue(line(all, "cost").contains(" cost:[440|" + daily + "|true|true|"), "440 over the weekdays of this month is " + daily + ":\n" + all);
+        assertTrue(line(all, "cost-typed").contains(" cost:[440||false|false|"), all);
+        assertTrue(line(all, "cost-none").contains(" cost:[||true|true|"), all);
+        assertTrue(line(all, "cost").matches(".* cost:\\[[^]]*\\|[0-6]] .*"), "the checkbox is in the line of the field:\n" + all);
+
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.
         assertTrue(line(all, "log").contains(" logControls:true "), all);
         assertTrue(line(all, "log").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), "information is shown, and the lines begin with the time:\n" + all);

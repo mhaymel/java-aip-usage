@@ -152,6 +152,7 @@ function backendOf(state) {
         if (call.url === '/api/about/open' || call.url === '/api/about/copy') {
             return state.aboutAction ? state.aboutAction(call) : { status: 200, body: { done: true } };
         }
+        if (call.url.split('?')[0] === '/api/cost/daily') return state.costDaily ? state.costDaily(call) : { status: 200, body: { daily: null, weekdays: 22 } };
         if (call.url === '/api/errors') return state.errors ? state.errors() : { status: 200, body: ERRORS };
         if (call.url === '/api/history') return state.history ? state.history() : { status: 200, body: HISTORY };
         return { status: 404, body: { error: 'No such endpoint.' } };
@@ -163,6 +164,7 @@ const DEFAULT_SETTINGS = {
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
     showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true, autoInterval: false,
+    costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
 };
 const SETTINGS = {
     settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showInterval: true, timeFormat: 'hh:mm:ss' },
@@ -923,6 +925,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
         showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true, autoInterval: false,
+        costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
     assert.equal(page.el('settings-view').hidden, true, 'Apply closes the view');
@@ -3389,4 +3392,129 @@ test('a backend that says nothing of how the fake backend answers is sent nothin
     await page.click('debug-apply');
 
     assert.deepEqual(JSON.parse(debugPosts(page)[0].body), { fakeBackend: true, fakeScenario: 'normal', fakeToken: false });
+});
+
+// ---- cost control: a monthly and a daily limit, as settings
+
+const WITH_LIMITS = {
+    ...SETTINGS,
+    settings: { ...SETTINGS.settings, costMonthlyLimit: '250.00', costDailyLimit: null, costDailyAutomatic: true },
+    costDailyWorkedOut: '11.36',
+};
+const costPosts = page => page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST').map(c => JSON.parse(c.body));
+const dailyAsked = page => page.calls.filter(c => c.url.startsWith('/api/cost/daily')).map(c => c.url);
+
+test('with no limits the fields are empty, the daily one is worked out, and nothing of it is sent when nothing was changed', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+
+    assert.equal(page.el('set-costMonthlyLimit').value, '');
+    assert.equal(page.el('set-costDailyAutomatic').checked, true);
+    assert.equal(page.el('set-costDailyLimit').attrs.disabled, '', 'not to be typed in while it is worked out');
+    assert.equal(page.el('set-costDailyLimit').value, '', 'and nothing to work it out from');
+
+    await page.click('settings-button');
+    assert.equal(costPosts(page).length, 0);
+});
+
+test('with a monthly limit the daily field shows the limit the backend worked out', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: WITH_LIMITS }) }));
+    await page.click('settings-button');
+
+    assert.equal(page.el('set-costMonthlyLimit').value, '250.00');
+    assert.equal(page.el('set-costDailyLimit').value, '11.36');
+    assert.equal(page.el('set-costDailyLimit').attrs.disabled, '');
+    assert.equal(dailyAsked(page).length, 0, 'the settings said it: nothing is asked');
+});
+
+test('a monthly limit that is typed is sent as typed, and the backend is asked what daily limit follows from it', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS, costDaily: call => ({ status: 200, body: { daily: call.url.endsWith('=440') ? '20.00' : null, weekdays: 22 } }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+
+    await change(page, 'set-costMonthlyLimit', '440');
+
+    assert.deepEqual(dailyAsked(page), ['/api/cost/daily?monthly=440'], 'the page works nothing out itself');
+    assert.equal(page.el('set-costDailyLimit').value, '20.00');
+
+    await page.click('settings-apply');
+    assert.equal(costPosts(page)[0].costMonthlyLimit, '440');
+    assert.equal(costPosts(page)[0].costDailyLimit, null, 'worked out, so none is typed');
+    assert.equal(costPosts(page)[0].costDailyAutomatic, true);
+});
+
+test('with Automatic unchecked the daily limit is typed in and sent, and checking it again shows the worked-out one and keeps what was typed', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: WITH_LIMITS }),
+        costDaily: () => ({ status: 200, body: { daily: '11.36', weekdays: 22 } }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+
+    await change(page, 'set-costDailyAutomatic', false);
+    assert.equal(page.el('set-costDailyLimit').attrs.disabled, undefined, 'it can be typed in');
+    assert.equal(page.el('set-costDailyLimit').value, '', 'nothing was typed before');
+    page.type('set-costDailyLimit', '9.5');
+
+    await change(page, 'set-costDailyAutomatic', true);
+    assert.equal(page.el('set-costDailyLimit').attrs.disabled, '');
+    assert.equal(page.el('set-costDailyLimit').value, '11.36', 'the one worked out again');
+
+    await change(page, 'set-costDailyAutomatic', false);
+    assert.equal(page.el('set-costDailyLimit').value, '9.5', 'and what was typed is back');
+
+    await page.click('settings-apply');
+    assert.equal(costPosts(page)[0].costDailyAutomatic, false);
+    assert.equal(costPosts(page)[0].costDailyLimit, '9.5');
+    assert.equal(costPosts(page)[0].costMonthlyLimit, '250.00');
+});
+
+test('an emptied monthly limit is sent as no limit, and a limit the backend refuses keeps the view open in red', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: WITH_LIMITS }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+
+    await change(page, 'set-costMonthlyLimit', '');
+    assert.equal(page.el('set-costDailyLimit').value, '', 'nothing to work the daily one out from');
+    state.postSettings = () => ({ status: 400, body: { error: 'The daily limit cannot be more than the monthly limit.' } });
+    await page.click('settings-apply');
+
+    assert.equal(costPosts(page)[0].costMonthlyLimit, null);
+    assert.equal(page.el('settings-error').textContent, 'The daily limit cannot be more than the monthly limit.');
+    assert.equal(page.el('settings-view').hidden, false);
+});
+
+test('Restore defaults empties the limits and has the daily one worked out again', async () => {
+    const custom = { ...WITH_LIMITS, settings: { ...WITH_LIMITS.settings, costDailyLimit: '9.50', costDailyAutomatic: false }, costDailyWorkedOut: '9.50' };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: custom }) }));
+    await page.click('settings-button');
+    assert.equal(page.el('set-costDailyLimit').value, '9.50');
+    assert.equal(page.el('set-costDailyLimit').attrs.disabled, undefined);
+
+    await page.click('settings-restore');
+
+    assert.equal(page.el('set-costMonthlyLimit').value, '');
+    assert.equal(page.el('set-costDailyAutomatic').checked, true);
+    assert.equal(page.el('set-costDailyLimit').value, '');
+    assert.equal(page.el('set-costDailyLimit').attrs.disabled, '');
+});
+
+test('an answer about the daily limit that arrives after a later question was asked is not shown', async () => {
+    const waiting = [];
+    const state = { config: CONFIG, status: SPEND_STATUS, costDaily: call => new Promise(resolve => waiting.push({ url: call.url, resolve })) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+
+    page.el('set-costMonthlyLimit').value = '440';
+    page.el('set-costMonthlyLimit').listeners.change();
+    page.el('set-costMonthlyLimit').value = '';
+    page.el('set-costMonthlyLimit').listeners.change();
+    await settle();
+    assert.equal(waiting.length, 2);
+
+    // The later question is answered first, the earlier one after it.
+    waiting[1].resolve({ status: 200, body: { daily: null, weekdays: 22 } });
+    await settle();
+    waiting[0].resolve({ status: 200, body: { daily: '20.00', weekdays: 22 } });
+    await settle();
+
+    assert.equal(page.el('set-costDailyLimit').value, '', 'the monthly limit is empty, so there is no daily limit, whatever arrived last');
 });

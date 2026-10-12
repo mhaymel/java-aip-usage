@@ -1745,10 +1745,29 @@ that refuses: that is what this was built for, and is for a person to try.
 
 ### 75. Cost control
 
-**Status: specified, not built (version 0.63).** Three settings and a group of the settings view, with the check that a typed
-daily limit is not above the monthly one; the weekdays of a month are
-counted by a small function that is given the month, and tested for months that begin and end on each day of the week. Nothing
-reads the limits.
+**Status: built (version 0.63).** Requirement: Cost control: a monthly and a daily limit, as settings.
+
+- **`CostControl`** holds the two limits, in cents, and whether the daily one is worked out; counts the weekdays of a month
+  and divides, rounded down to the cent; and says what is wrong with limits that cannot be.
+- **`Settings`** has it as one member, saved under three keys after `autoInterval`, a limit there is none of as `null`.
+- **The API.** The settings give the limits as finished texts, and the daily limit in force this month beside them;
+  `POST /api/settings` takes them when they are given. `GET /api/cost/daily?monthly=` says what follows from a monthly
+  limit, for the settings view: the page formats and works out nothing, by its own rules.
+- **The page.** A group of the settings view. The field of the daily limit is disabled and shows what the backend worked
+  out while `Automatic` is checked; an answer to an earlier question that arrives late is passed over.
+- **Nothing reads the limits.**
+- **Tests.** `CostControlTest`: the weekdays of months that begin and end on various days, every month from 2020 to 2032
+  between 20 and 23, the division, the limit in force, limits that cannot be, amounts as typed and as written.
+  `SettingsStoreTest`, `ApiTest`: the keys, the save, what is left out, the refusals, the question about the daily limit.
+  `app.test.cjs`, `layout.test.cjs`: the group, each state of the field, what is sent, a late answer, `Restore defaults`.
+- **In a real window** (the on-request test): with no limits the fields are empty and the daily one disabled; a monthly
+  limit of 440 gives the daily limit the program works out for the month the test runs in, 20.00 in October 2026 with its
+  22 weekdays; unchecked, the field can be typed in; emptied again, there is none. That run is where the late answer was
+  seen, and put right.
+
+**Not checked by a test.** How the group looks.
+
+The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built
 
