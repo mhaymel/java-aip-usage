@@ -1,5 +1,6 @@
 package org.example.settings;
 
+import org.example.log.Log;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.OptionalInt;
@@ -20,7 +21,7 @@ import java.util.function.Consumer;
  */
 public final class IntervalSettings {
 
-    private static final System.Logger LOG = System.getLogger(IntervalSettings.class.getName());
+    private static final Log LOG = Log.of(IntervalSettings.class);
 
     private final SettingsStore store;
 
@@ -56,7 +57,7 @@ public final class IntervalSettings {
         int poll = cliPoll.orElse(IntervalRange.POLL.defaultValue());
         IntervalSettings settings = new IntervalSettings(store, saved, usage, poll);
         settings.heights = store.loadHeights();
-        LOG.log(System.Logger.Level.INFO, "Usage interval " + usage + " s, poll interval " + poll + " s");
+        LOG.info("Usage interval " + usage + " s, poll interval " + poll + " s");
         return settings;
     }
 
@@ -77,11 +78,11 @@ public final class IntervalSettings {
         try {
             store.saveHeights(updated);
         } catch (IOException e) {
-            LOG.log(System.Logger.Level.WARNING, "Could not save the height of the " + panel + " to " + store.file() + ": " + e.getMessage());
+            LOG.warning("Could not save the height of the " + panel + " to " + store.file() + ": " + e.getMessage());
             return;
         }
         heights = updated;
-        LOG.log(System.Logger.Level.DEBUG, "The " + panel + " window height is now " + pixels + " px");
+        LOG.debug("The " + panel + " window height is now " + pixels + " px");
     }
 
     /** How the fake backend's ordinary answer is shaped, as saved; the defaults if it never was. */
@@ -98,10 +99,10 @@ public final class IntervalSettings {
         try {
             store.saveFake(options);
         } catch (IOException e) {
-            LOG.log(System.Logger.Level.WARNING, "Could not save the fake backend's options to " + store.file(), e);
+            LOG.warning("Could not save the fake backend's options to " + store.file(), e);
             throw new SettingsException("The settings could not be saved: " + e.getMessage(), e);
         }
-        LOG.log(System.Logger.Level.INFO, "The fake backend's options changed: " + options);
+        LOG.info("The fake backend's options changed: " + options);
     }
 
     /** The tab the settings view was last on, as stored; none if it never was. */
@@ -114,7 +115,7 @@ public final class IntervalSettings {
         try {
             store.saveSettingsTab(tab);
         } catch (IOException e) {
-            LOG.log(System.Logger.Level.WARNING, "Could not save the settings tab to " + store.file() + ": " + e.getMessage());
+            LOG.warning("Could not save the settings tab to " + store.file() + ": " + e.getMessage());
         }
     }
 
@@ -128,7 +129,7 @@ public final class IntervalSettings {
         try {
             store.saveLast(last);
         } catch (IOException e) {
-            LOG.log(System.Logger.Level.WARNING, "Could not save the last window to " + store.file() + ": " + e.getMessage());
+            LOG.warning("Could not save the last window to " + store.file() + ": " + e.getMessage());
         }
     }
 
@@ -145,7 +146,7 @@ public final class IntervalSettings {
         try {
             store.saveSearch(new SettingsStore.Search(interval, refused));
         } catch (IOException e) {
-            LOG.log(System.Logger.Level.WARNING, "Could not save the automatic interval to " + store.file() + ": " + e.getMessage());
+            LOG.warning("Could not save the automatic interval to " + store.file() + ": " + e.getMessage());
         }
     }
 
@@ -210,10 +211,10 @@ public final class IntervalSettings {
             try {
                 store.save(settings);
             } catch (IOException e) {
-                LOG.log(System.Logger.Level.WARNING, "Could not save settings to " + store.file(), e);
+                LOG.warning("Could not save settings to " + store.file(), e);
                 throw new SettingsException("The settings could not be saved: " + e.getMessage(), e);
             }
-            LOG.log(System.Logger.Level.INFO, "Settings changed: " + settings);
+            LOG.info("Settings changed: " + settings);
             saved = settings;
             settingsListener.accept(current());
         }

@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.log.Log;
 import javafx.animation.Animation;
 import javafx.animation.PauseTransition;
 import javafx.animation.KeyFrame;
@@ -28,8 +29,6 @@ import org.example.usage.ResponseLog;
 import org.example.usage.UsageClient;
 import org.example.usage.UsageFetcher;
 
-import java.lang.System.Logger;
-import java.lang.System.Logger.Level;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -45,7 +44,7 @@ import java.util.Optional;
  */
 public class UsageApp extends Application {
 
-    private static final Logger LOG = System.getLogger(UsageApp.class.getName());
+    private static final Log LOG = Log.of(UsageApp.class);
 
     /** The size before the page has said what it needs: a single row, roughly. */
     private static final int INITIAL_WIDTH = 420;
@@ -128,16 +127,15 @@ public class UsageApp extends Application {
 
     @Override
     public void start(Stage stage) throws Exception {
-        LOG.log(Level.INFO, "Starting java-aip-usage v" + AppInfo.VERSION);
+        LOG.info("Starting java-aip-usage v" + AppInfo.VERSION);
         // Main has already checked these, so they are fine. They are read here, from the launch
-        // arguments, so that Main hands this class nothing before logging is set up: merely
-        // loading this class starts the logging system.
+        // arguments, which is how JavaFX hands a window what the command line said.
         LaunchOptions options = LaunchOptions.parse(getParameters().getRaw());
         try {
             ResponseLog responseLog = new ResponseLog();
             runtime = AppRuntime.start(AppFiles.inWorkingDirectory(), options, sources(options, responseLog), responseLog);
         } catch (Exception e) {
-            LOG.log(Level.ERROR, "Could not start", e);
+            LOG.error("Could not start", e);
             throw e;
         }
         running = this;
@@ -280,7 +278,7 @@ public class UsageApp extends Application {
         decorationWidth = Double.NaN;
         decorationHeight = Double.NaN;
         appliedSize = Optional.empty();
-        LOG.log(Level.DEBUG, wanted ? "The window has its title bar" : "The window has no title bar");
+        LOG.debug(wanted ? "The window has its title bar" : "The window has no title bar");
     }
 
     /**
@@ -309,7 +307,7 @@ public class UsageApp extends Application {
         boolean wanted = runtime.settings().current().stayOnTop();
         if (stage.isAlwaysOnTop() != wanted) {
             stage.setAlwaysOnTop(wanted);
-            LOG.log(Level.INFO, wanted ? "The window stays on top" : "The window no longer stays on top");
+            LOG.info(wanted ? "The window stays on top" : "The window no longer stays on top");
         }
     }
 
@@ -377,7 +375,7 @@ public class UsageApp extends Application {
         } finally {
             applying = false;
         }
-        LOG.log(Level.DEBUG, "Window fitted to " + size.width() + "x" + contentHeight + (size.resizable() ? " (resizable: " + size.resize().name().toLowerCase() + ")" : "")
+        LOG.debug("Window fitted to " + size.width() + "x" + contentHeight + (size.resizable() ? " (resizable: " + size.resize().name().toLowerCase() + ")" : "")
                 + " (window " + Math.round(stage.getWidth()) + "x" + Math.round(stage.getHeight()) + ")");
     }
 
@@ -432,7 +430,7 @@ public class UsageApp extends Application {
             // The page is not ready, or is being replaced. Say so once, not every tick.
             if (!fitFailureReported) {
                 fitFailureReported = true;
-                LOG.log(Level.WARNING, "Could not ask the page for its size: " + e.getMessage());
+                LOG.warning("Could not ask the page for its size: " + e.getMessage());
             }
         }
     }
@@ -450,7 +448,7 @@ public class UsageApp extends Application {
         double width = restoring.width() == null ? INITIAL_WIDTH : restoring.width();
         double height = restoring.height() == null ? INITIAL_HEIGHT : restoring.height();
         if (Screen.getScreensForRectangle(restoring.x(), restoring.y(), width, height).isEmpty()) {
-            LOG.log(Level.DEBUG, "The stored place of the window is on no screen: " + restoring.x() + ", " + restoring.y());
+            LOG.debug("The stored place of the window is on no screen: " + restoring.x() + ", " + restoring.y());
             return;
         }
         window.setX(restoring.x());
@@ -491,7 +489,7 @@ public class UsageApp extends Application {
         Optional<WindowFit.Size> size = WindowFit.parse(reported);
         if (size.isPresent() && restoring.panel().equals(size.get().panel()) && appliedSize.isPresent() && !Double.isNaN(decorationWidth)) {
             applyRestoredSize(size.get());
-            LOG.log(Level.DEBUG, "The window is restored: " + restoring.panel() + ", " + restoring.width() + " x " + restoring.height()
+            LOG.debug("The window is restored: " + restoring.panel() + ", " + restoring.width() + " x " + restoring.height()
                     + " at " + restoring.x() + ", " + restoring.y());
             restoring = null;
         }
@@ -540,8 +538,8 @@ public class UsageApp extends Application {
         Worker<Void> loadWorker = webView.getEngine().getLoadWorker();
         loadWorker.stateProperty().addListener((observable, previous, current) -> {
             switch (current) {
-                case SUCCEEDED -> LOG.log(Level.INFO, "Frontend loaded");
-                case FAILED -> LOG.log(Level.ERROR, "Frontend failed to load", loadWorker.getException());
+                case SUCCEEDED -> LOG.info("Frontend loaded");
+                case FAILED -> LOG.error("Frontend failed to load", loadWorker.getException());
                 default -> { // RUNNING and the other transient states are not worth logging.
                 }
             }
@@ -567,7 +565,7 @@ public class UsageApp extends Application {
      * whichever comes first, so a run that ends either way leaves nothing listening.
      */
     private void release() {
-        LOG.log(Level.INFO, "Shutting down");
+        LOG.info("Shutting down");
         storeWindow();
         if (runtime != null) {
             // The runtime closes what the usage came from as well, a fake backend among it.

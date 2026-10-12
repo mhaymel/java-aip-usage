@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.log.Log;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -44,7 +45,7 @@ public final class UsageClient implements UsageSource {
 
     static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
 
-    private static final System.Logger LOG = System.getLogger(UsageClient.class.getName());
+    private static final Log LOG = Log.of(UsageClient.class);
 
     /** Shapes a header value must have to be logged; anything else is left out. */
     private static final Pattern REQUEST_ID = Pattern.compile("[A-Za-z0-9_-]{1,100}");
@@ -165,7 +166,7 @@ public final class UsageClient implements UsageSource {
             cut = " (the first " + UNPROCESSED_CHARACTERS + " of " + text.length() + " characters)";
             text = text.substring(0, UNPROCESSED_CHARACTERS);
         }
-        LOG.log(System.Logger.Level.ERROR,
+        LOG.error(
                 "The usage response could not be processed: " + reason.getMessage() + cut + System.lineSeparator() + text);
     }
 
@@ -181,7 +182,7 @@ public final class UsageClient implements UsageSource {
         } catch (JsonException e) {
             text = "(not JSON, " + body.getBytes(StandardCharsets.UTF_8).length + " bytes, not logged)";
         }
-        LOG.log(System.Logger.Level.INFO,
+        LOG.info(
                 "Response of GET " + uri.getHost() + uri.getPath() + " (HTTP " + status + "):" + System.lineSeparator() + text);
     }
 
@@ -191,7 +192,7 @@ public final class UsageClient implements UsageSource {
 
     private void logOutcome(String outcome, long startedNanos, String details) {
         long millis = Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
-        LOG.log(System.Logger.Level.INFO,
+        LOG.info(
                 "GET " + uri.getHost() + uri.getPath() + " -> " + outcome + " in " + millis + " ms" + details);
     }
 

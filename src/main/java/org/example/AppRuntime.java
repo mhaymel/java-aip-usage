@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.log.Log;
 import org.example.fake.Scenario;
 import org.example.settings.IntervalSettings;
 import org.example.settings.LaunchOptions;
@@ -31,7 +32,7 @@ import java.util.function.Supplier;
  */
 final class AppRuntime implements AutoCloseable, UsageSources {
 
-    private static final System.Logger LOG = System.getLogger(AppRuntime.class.getName());
+    private static final Log LOG = Log.of(AppRuntime.class);
 
     private final IntervalSettings settings;
 
@@ -120,7 +121,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
 
     static AppRuntime start(AppFiles files, LaunchOptions options, UsageSources.Factory factory, ResponseLog responseLog)
             throws IOException {
-        LOG.log(System.Logger.Level.INFO, "Settings are stored in " + files.settings());
+        LOG.info("Settings are stored in " + files.settings());
         IntervalSettings settings = IntervalSettings.load(new SettingsStore(files.settings()), OptionalInt.empty(), OptionalInt.empty());
         AppRuntime runtime = new AppRuntime(files, settings, options.debug(), factory);
         Settings saved = settings.current();
@@ -129,7 +130,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
                 ? runtime.open(saved.fakeBackend(), saved.fakeScenario(), saved.fakeToken(), settings.fakeOptions())
                 : runtime.open(false, Scenario.NORMAL, false, org.example.fake.FakeOptions.DEFAULTS);
         if (options.debug()) {
-            LOG.log(System.Logger.Level.INFO, "Debug mode (--debug)");
+            LOG.info("Debug mode (--debug)");
         }
         runtime.logSource(saved);
 
@@ -137,7 +138,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         runtime.service = service;
         runtime.historyInUse().latest().ifPresent(earlier -> {
             service.restore(earlier);
-            LOG.log(System.Logger.Level.INFO, "Showing the newest reading in the usage history until the first refresh is done");
+            LOG.info("Showing the newest reading in the usage history until the first refresh is done");
         });
         settings.onUsageIntervalChange(service::setInterval);
         responseLog.set(saved.logResponse());
@@ -175,15 +176,15 @@ final class AppRuntime implements AutoCloseable, UsageSources {
      */
     private void logSource(Settings saved) {
         Source now = source;
-        LOG.log(System.Logger.Level.INFO, "Usage history is written to " + historyInUse().file());
+        LOG.info("Usage history is written to " + historyInUse().file());
         if (now.fake()) {
-            LOG.log(System.Logger.Level.INFO,
+            LOG.info(
                     "The fake backend is in use: these readings are invented (debug settings, scenario "
                             + saved.fakeScenario().optionName() + ")");
         }
-        now.base().ifPresent(uri -> LOG.log(System.Logger.Level.INFO, "Usage is fetched from " + uri));
+        now.base().ifPresent(uri -> LOG.info("Usage is fetched from " + uri));
         if (now.fake() || (debug && saved.fakeToken())) {
-            LOG.log(System.Logger.Level.INFO,
+            LOG.info(
                     "No token is obtained: a placeholder is sent instead (debug settings, "
                             + (now.fake() ? "the fake backend" : "the placeholder token") + ")");
         }
@@ -233,7 +234,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         try {
             write.run();
         } catch (IOException | RuntimeException e) {
-            LOG.log(System.Logger.Level.WARNING, "Could not add the reading to " + history.file() + ": " + e.getMessage());
+            LOG.warning("Could not add the reading to " + history.file() + ": " + e.getMessage());
         }
     }
 
@@ -303,7 +304,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         try {
             fresh = open(fakeBackend, scenario, fakeToken, fake);
         } catch (IOException | RuntimeException e) {
-            LOG.log(System.Logger.Level.WARNING, "The debug settings could not be applied: " + e.getMessage());
+            LOG.warning("The debug settings could not be applied: " + e.getMessage());
             throw new SettingsException("The debug settings could not be applied: " + e.getMessage(), e);
         }
         try {
@@ -328,7 +329,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
             try {
                 left.resource().close();
             } catch (Exception e) {
-                LOG.log(System.Logger.Level.WARNING, "Could not close what the usage came from: " + e.getMessage());
+                LOG.warning("Could not close what the usage came from: " + e.getMessage());
             }
         }
     }

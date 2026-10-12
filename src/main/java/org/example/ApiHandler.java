@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.log.Log;
 import org.example.json.Json;
 import org.example.json.JsonException;
 import org.example.json.JsonReader;
@@ -43,7 +44,7 @@ import java.util.OptionalLong;
  */
 final class ApiHandler implements HttpHandler {
 
-    private static final System.Logger LOG = System.getLogger(ApiHandler.class.getName());
+    private static final Log LOG = Log.of(ApiHandler.class);
 
     /** A settings update is a few dozen bytes; anything larger is not one. */
     private static final int MAX_BODY_BYTES = 4096;
@@ -92,7 +93,7 @@ final class ApiHandler implements HttpHandler {
                 }
                 send(exchange, e.status, Json.object().put("error", e.getMessage()));
             } catch (RuntimeException e) {
-                LOG.log(System.Logger.Level.WARNING, "API request failed: " + exchange.getRequestURI().getPath(), e);
+                LOG.warning("API request failed: " + exchange.getRequestURI().getPath(), e);
                 send(exchange, 500, Json.object().put("error", "Internal error; see the log."));
             }
         }
@@ -521,7 +522,7 @@ final class ApiHandler implements HttpHandler {
             return new LogBody(files.log().getFileName().toString(), tail.exists(), tail.truncated(), tail.lines(), tail.hidden(),
                     now.logLevel().json(), now.logDate());
         } catch (IOException e) {
-            LOG.log(System.Logger.Level.WARNING, "Could not read the log: " + e.getMessage());
+            LOG.warning("Could not read the log: " + e.getMessage());
             throw new ApiException(500, "The log could not be read.", null);
         }
     }
@@ -552,7 +553,7 @@ final class ApiHandler implements HttpHandler {
             HistoryReader.Table table = HistoryReader.read(sources.history(), Integer.MAX_VALUE);
             return CostPanel.build(table.rows(), now.cost(), now.showCurrency(), java.time.LocalDate.now());
         } catch (IOException e) {
-            LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
+            LOG.warning("Could not read the usage history: " + e.getMessage());
             throw new ApiException(500, "The usage history could not be read.", null);
         }
     }
@@ -606,7 +607,7 @@ final class ApiHandler implements HttpHandler {
             }
         } catch (IOException | RuntimeException e) {
             String what = open ? "The folder could not be opened: " : "The path could not be copied: ";
-            LOG.log(System.Logger.Level.WARNING, what + e.getMessage());
+            LOG.warning(what + e.getMessage());
             throw new ApiException(500, what + e.getMessage(), null);
         }
         send(exchange, 200, Json.object().put("done", true));
@@ -715,7 +716,7 @@ final class ApiHandler implements HttpHandler {
                     sources.history().getFileName().toString(), table.exists(), columns, now.historyDate(),
                     historyNote(table), historyNoteHighlighted(table), table.total(), lines);
         } catch (IOException e) {
-            LOG.log(System.Logger.Level.WARNING, "Could not read the usage history: " + e.getMessage());
+            LOG.warning("Could not read the usage history: " + e.getMessage());
             throw new ApiException(500, "The usage history could not be read.", null);
         }
     }
@@ -785,7 +786,7 @@ final class ApiHandler implements HttpHandler {
         try {
             return latestChangeCache.get(sources.history());
         } catch (IOException e) {
-            LOG.log(System.Logger.Level.WARNING, "Could not read the usage history for the change: " + e.getMessage());
+            LOG.warning("Could not read the usage history for the change: " + e.getMessage());
             return null;
         }
     }
@@ -841,7 +842,7 @@ final class ApiHandler implements HttpHandler {
     private void refresh(HttpExchange exchange) throws IOException {
         boolean started = service.refreshNow();
         if (started) {
-            LOG.log(System.Logger.Level.INFO, "Manual refresh requested");
+            LOG.info("Manual refresh requested");
         }
         // 202: the fetch has been started, not finished. 200: one was already under way.
         send(exchange, started ? 202 : 200, new RefreshBody(started).toJson());

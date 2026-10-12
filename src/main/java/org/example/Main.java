@@ -39,9 +39,7 @@ public final class Main {
         // Relative to the working directory, which is the project root for
         // `./gradlew run` and for IDE run configurations.
         try (Logging logging = Logging.install(Path.of(Logging.LOG_FILE_NAME).toAbsolutePath())) {
-            // Also tidies up if the process is told to stop; see ShutdownHook. UsageApp must not be
-            // loaded before this point: its logger would start the logging system with the JDK's
-            // own manager, and Logging could no longer choose the one that keeps the log open.
+            // Also tidies up if the process is told to stop; see ShutdownHook.
             ShutdownHook.install(() -> UsageApp.shutDown(), logging);
             Application.launch(UsageApp.class, args);
         }

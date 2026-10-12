@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.log.Log;
 import org.example.token.TokenException;
 
 import java.time.Duration;
@@ -23,7 +24,7 @@ import java.util.function.Supplier;
  */
 public final class UsageService implements AutoCloseable {
 
-    private static final System.Logger LOG = System.getLogger(UsageService.class.getName());
+    private static final Log LOG = Log.of(UsageService.class);
 
     private static final Duration SHUTDOWN_WAIT = Duration.ofSeconds(5);
 
@@ -208,7 +209,7 @@ public final class UsageService implements AutoCloseable {
             lock.unlock();
         }
         if (inForce) {
-            LOG.log(System.Logger.Level.INFO, "Usage fetch interval is now " + interval.toSeconds() + " s");
+            LOG.info("Usage fetch interval is now " + interval.toSeconds() + " s");
         }
     }
 
@@ -247,7 +248,7 @@ public final class UsageService implements AutoCloseable {
         } finally {
             lock.unlock();
         }
-        LOG.log(System.Logger.Level.INFO, from == null
+        LOG.info(from == null
                 ? "Automatic interval off: the usage fetch interval is " + seconds + " s"
                 : "Automatic interval: " + from.describe());
     }
@@ -304,7 +305,7 @@ public final class UsageService implements AutoCloseable {
                 outcome = settleInterval(outcome);
                 if (outcome.error() != null && !closed) {
                     // The message the window shows in its message line, once, when it appears.
-                    LOG.log(System.Logger.Level.WARNING, "Usage refresh failed: " + outcome.error());
+                    LOG.warning("Usage refresh failed: " + outcome.error());
                     errors.add(Instant.now(), outcome.error());
                 }
                 if (!closed) {
@@ -335,11 +336,11 @@ public final class UsageService implements AutoCloseable {
             UsageSnapshot snapshot = fetcher.get();
             String noSpend = snapshot.noSpendMessage();
             if (noSpend == null) {
-                LOG.log(System.Logger.Level.INFO, "Usage refresh succeeded");
+                LOG.info("Usage refresh succeeded");
             } else {
                 // The response came and holds nothing to show: said in place of the success, as a warning when it begins
                 // and as information at the refreshes that follow, so that the log is not filled with warnings.
-                LOG.log(noSpendBefore ? System.Logger.Level.INFO : System.Logger.Level.WARNING, noSpend);
+                LOG.log(noSpendBefore ? Log.Level.INFO : Log.Level.WARNING, noSpend, null);
             }
             noSpendBefore = noSpend != null;
             return Outcome.success(snapshot);
@@ -350,7 +351,7 @@ public final class UsageService implements AutoCloseable {
             // These messages are written for the user and carry no credentials.
             return Outcome.failure(e.getMessage());
         } catch (RuntimeException e) {
-            LOG.log(System.Logger.Level.WARNING, "Usage refresh failed unexpectedly", e);
+            LOG.warning("Usage refresh failed unexpectedly", e);
             return Outcome.failure("Unexpected error (" + e.getClass().getSimpleName() + "); see the log.");
         }
     }
@@ -373,12 +374,12 @@ public final class UsageService implements AutoCloseable {
         toStop.interrupt();
         try {
             if (!toStop.join(SHUTDOWN_WAIT)) {
-                LOG.log(System.Logger.Level.WARNING, "The usage refresh thread did not stop in time");
+                LOG.warning("The usage refresh thread did not stop in time");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        LOG.log(System.Logger.Level.INFO, "Usage refresh stopped");
+        LOG.info("Usage refresh stopped");
     }
 
     private static Duration positive(Duration interval) {
@@ -400,7 +401,7 @@ public final class UsageService implements AutoCloseable {
         if (outcome.rateLimited() && search == null) {
             long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
             if (retryAfter > 0) {
-                LOG.log(System.Logger.Level.INFO, "The server asked for a wait of " + seconds(retryAfter) + " s; the interval of "
+                LOG.info("The server asked for a wait of " + seconds(retryAfter) + " s; the interval of "
                         + seconds(interval) + " s is kept");
             }
             return outcome;
@@ -415,7 +416,7 @@ public final class UsageService implements AutoCloseable {
             search.rateLimited((retryAfter + 999_999_999L) / 1_000_000_000L);
             long next = Duration.ofSeconds(search.interval()).toNanos();
             schedule.setInterval(next);
-            LOG.log(System.Logger.Level.INFO, "Automatic interval: " + search.describe());
+            LOG.info("Automatic interval: " + search.describe());
             searchMoved = true;
             return outcome;
         }
@@ -424,7 +425,7 @@ public final class UsageService implements AutoCloseable {
             schedule.setInterval(Duration.ofSeconds(search.interval()).toNanos());
             if (!search.describe().equals(before)) {
                 // A search that has settled says nothing more: nothing of it has changed.
-                LOG.log(System.Logger.Level.INFO, "Automatic interval: " + search.describe());
+                LOG.info("Automatic interval: " + search.describe());
                 searchMoved = true;
             }
         }

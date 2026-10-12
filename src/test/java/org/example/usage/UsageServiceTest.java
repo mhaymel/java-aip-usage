@@ -833,22 +833,8 @@ class UsageServiceTest {
     @Test
     void aReadingWithNoSpendIsAWarningWhenItBeginsAndInformationAfterThatAndIsNoFailure() {
         List<String> lines = new CopyOnWriteArrayList<>();
-        java.util.logging.Handler capture = new java.util.logging.Handler() {
-            @Override
-            public void publish(java.util.logging.LogRecord record) {
-                lines.add(record.getLevel() + " " + record.getMessage());
-            }
-
-            @Override
-            public void flush() {
-            }
-
-            @Override
-            public void close() {
-            }
-        };
-        java.util.logging.Logger root = java.util.logging.Logger.getLogger("");
-        root.addHandler(capture);
+        org.example.log.Log.Sink capture = entry -> lines.add(entry.level().word() + " " + entry.message());
+        org.example.log.Log.addSink(capture);
         try {
             UsageSnapshot seat = new UsageSnapshot(Instant.parse("2026-10-11T18:26:31Z"), null, true);
             UsageSnapshot spent = new UsageSnapshot(Instant.parse("2026-10-11T18:28:31Z"), new Spend(Amount.parse("186.02"), Amount.parse("1000.0"), "USD", 19, "normal"));
@@ -874,7 +860,7 @@ class UsageServiceTest {
             assertTrue(service.errors().newestFirst().isEmpty(), "and not in the error log");
             assertSame(seat, service.state().snapshot());
         } finally {
-            root.removeHandler(capture);
+            org.example.log.Log.removeSink(capture);
         }
     }
 

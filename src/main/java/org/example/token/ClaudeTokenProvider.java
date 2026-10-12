@@ -1,5 +1,6 @@
 package org.example.token;
 
+import org.example.log.Log;
 import org.example.Redaction;
 import org.example.token.TokenException.Reason;
 
@@ -76,11 +77,11 @@ public final class ClaudeTokenProvider implements TokenProvider {
 
     /** The provider the application uses: the real environment and the real CLI. */
     public static ClaudeTokenProvider create() {
-        System.Logger logger = System.getLogger(ClaudeTokenProvider.class.getName());
+        Log logger = Log.of(ClaudeTokenProvider.class);
         return new ClaudeTokenProvider(
                 System.getenv(), DEFAULT_COMMAND, DEFAULT_TIMEOUT,
-                message -> logger.log(System.Logger.Level.INFO, message),
-                message -> logger.log(System.Logger.Level.WARNING, message));
+                logger::info,
+                logger::warning);
     }
 
     @Override

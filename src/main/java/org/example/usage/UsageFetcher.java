@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.log.Log;
 import org.example.token.TokenProvider;
 
 import java.util.function.Supplier;
@@ -14,7 +15,7 @@ import java.util.function.Supplier;
  */
 public final class UsageFetcher implements Supplier<UsageSnapshot> {
 
-    private static final System.Logger LOG = System.getLogger(UsageFetcher.class.getName());
+    private static final Log LOG = Log.of(UsageFetcher.class);
 
     private final TokenProvider tokens;
 
@@ -46,7 +47,7 @@ public final class UsageFetcher implements Supplier<UsageSnapshot> {
             }
         }
 
-        LOG.log(System.Logger.Level.INFO, "The token was rejected (HTTP 401); acquiring a fresh one");
+        LOG.info("The token was rejected (HTTP 401); acquiring a fresh one");
         // Dropped first, so a failure to get a new token leaves nothing stale behind.
         token = null;
         token = tokens.acquire();

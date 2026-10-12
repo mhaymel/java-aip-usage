@@ -41,8 +41,8 @@ public enum LogLevel {
     }
 
     /**
-     * The level of a line of the log file, by the word the line has for it. The file is written through
-     * {@code java.util.logging}, which calls an error {@code SEVERE} and a debug line {@code FINE}. A word that is none of
+     * The level of a line of the log file, by the word the line has for it. The words are those of the logging of Java the
+     * program began with and has kept, which calls an error {@code SEVERE} and a debug line {@code FINE}. A word that is none of
      * the known ones is the least severe level, so such a line is shown only when everything is.
      */
     public static LogLevel ofLogWord(String word) {

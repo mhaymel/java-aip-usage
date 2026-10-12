@@ -1,11 +1,18 @@
 package org.example;
 
+import org.example.log.Log;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -13,16 +20,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LoggingTest {
 
-    private static final System.Logger LOG = System.getLogger(LoggingTest.class.getName());
+    private static final Log LOG = Log.of(LoggingTest.class);
 
     @TempDir
     Path dir;
+
+    private final PrintStream originalErr = System.err;
+
+    @AfterEach
+    void giveTheConsoleBack() {
+        System.setErr(originalErr);
+    }
 
     @Test
     void writesRecordsToTheFile() throws Exception {
         Path file = dir.resolve("app.log");
         try (Logging logging = Logging.install(file)) {
-            LOG.log(System.Logger.Level.INFO, "hello {0}", "world");
+            LOG.info("hello world");
         }
         String content = Files.readString(file);
         assertTrue(content.contains("INFO"));
@@ -30,13 +44,46 @@ class LoggingTest {
     }
 
     @Test
+    void aLineHasItsTimeItsLevelInSevenPlacesTheNameOfItsClassAndItsMessage() throws Exception {
+        Path file = dir.resolve("app.log");
+        try (Logging logging = Logging.install(file)) {
+            LOG.error("an error");
+            LOG.warning("a warning");
+            LOG.info("information");
+            LOG.debug("a debug line");
+        }
+        List<String> lines = Files.readAllLines(file);
+        String time = "\\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d:\\d\\d ";
+        assertTrue(lines.get(0).matches(time + "INFO    \\[Logging] Logging to .*app\\.log"), lines.get(0));
+        assertTrue(lines.get(1).matches(time + "SEVERE  \\[LoggingTest] an error"), lines.get(1));
+        assertTrue(lines.get(2).matches(time + "WARNING \\[LoggingTest] a warning"), lines.get(2));
+        assertTrue(lines.get(3).matches(time + "INFO    \\[LoggingTest] information"), lines.get(3));
+        assertTrue(lines.get(4).matches(time + "FINE    \\[LoggingTest] a debug line"), lines.get(4));
+        assertEquals(5, lines.size());
+        assertEquals(org.example.settings.LogLevel.DEBUG, org.example.settings.LogLevel.ofLogWord("FINE"), "which the log panel shows with Debug only");
+        assertTrue(Files.readString(file).endsWith("a debug line" + System.lineSeparator()), "each line ends as lines end on this system");
+    }
+
+    @Test
+    void theConsoleGetsTheSameLinesAsTheFile() throws Exception {
+        ByteArrayOutputStream console = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(console, true, StandardCharsets.UTF_8));
+        Path file = dir.resolve("app.log");
+        try (Logging logging = Logging.install(file)) {
+            LOG.info("to both");
+            LOG.warning("and this");
+        }
+        assertEquals(Files.readString(file), console.toString(StandardCharsets.UTF_8));
+    }
+
+    @Test
     void appendsAcrossRunsInsteadOfOverwriting() throws Exception {
         Path file = dir.resolve("app.log");
         try (Logging logging = Logging.install(file)) {
-            LOG.log(System.Logger.Level.INFO, "first run");
+            LOG.info("first run");
         }
         try (Logging logging = Logging.install(file)) {
-            LOG.log(System.Logger.Level.INFO, "second run");
+            LOG.info("second run");
         }
         String content = Files.readString(file);
         assertTrue(content.indexOf("first run") >= 0);
@@ -44,10 +91,20 @@ class LoggingTest {
     }
 
     @Test
+    void aLineIsInTheFileAsSoonAsItIsLogged() throws Exception {
+        Path file = dir.resolve("app.log");
+        try (Logging logging = Logging.install(file)) {
+            LOG.info("written through");
+
+            assertTrue(Files.readString(file).contains("written through"), "while the log is still open");
+        }
+    }
+
+    @Test
     void includesStackTraces() throws Exception {
         Path file = dir.resolve("app.log");
         try (Logging logging = Logging.install(file)) {
-            LOG.log(System.Logger.Level.ERROR, "boom", new IllegalStateException("bad state"));
+            LOG.error("boom", new IllegalStateException("bad state"));
         }
         assertTrue(Files.readString(file).contains("java.lang.IllegalStateException: bad state"));
     }
@@ -56,7 +113,7 @@ class LoggingTest {
     void aCredentialInAMessageNeverReachesTheFile() throws Exception {
         Path file = dir.resolve("app.log");
         try (Logging logging = Logging.install(file)) {
-            LOG.log(System.Logger.Level.INFO, "sent Authorization: Bearer LEAK-BEARER and sk-ant-oat01-LEAK-KEY");
+            LOG.info("sent Authorization: Bearer LEAK-BEARER and sk-ant-oat01-LEAK-KEY");
         }
 
         String content = Files.readString(file);
@@ -71,7 +128,7 @@ class LoggingTest {
         Path file = dir.resolve("app.log");
         try (Logging logging = Logging.install(file)) {
             RuntimeException cause = new RuntimeException("cause carried sk-ant-oat01-LEAK-CAUSE");
-            LOG.log(System.Logger.Level.ERROR, "failed", new IllegalStateException("x-api-key: LEAK-HEADER", cause));
+            LOG.error("failed", new IllegalStateException("x-api-key: LEAK-HEADER", cause));
         }
 
         String content = Files.readString(file);
@@ -80,84 +137,90 @@ class LoggingTest {
         assertTrue(content.contains("IllegalStateException"), "the stack trace itself is kept");
     }
 
-    /** A handler that counts how often it is closed. */
-    private static final class CountingHandler extends java.util.logging.Handler {
-
-        int closes;
-
-        @Override
-        public void publish(java.util.logging.LogRecord record) {
-        }
-
-        @Override
-        public void flush() {
-        }
-
-        @Override
-        public void close() {
-            closes++;
-        }
-    }
-
     @Test
-    void closingTwiceHarmsNothingThatWasThereBefore() throws Exception {
-        java.util.logging.Logger root = java.util.logging.Logger.getLogger("");
-        CountingHandler existing = new CountingHandler();
-        root.addHandler(existing);
+    void closingTwiceHarmsNothingAndWhatElseListensGoesOnListening() throws Exception {
+        List<String> heard = new CopyOnWriteArrayList<>();
+        Log.Sink other = entry -> heard.add(entry.message());
+        Log.addSink(other);
         try {
             Path file = dir.resolve("app.log");
             Logging logging = Logging.install(file);
 
             logging.close();
             logging.close();
+            LOG.info("after the log was closed");
 
-            // Installing set it aside and closing put it back. A second close must not reach it again.
-            assertEquals(0, existing.closes, "a handler that was already there is not ours to close");
-            assertTrue(java.util.List.of(root.getHandlers()).contains(existing), "and it is back in place");
-            assertFalse(Files.exists(Path.of(file + ".lck")));
+            assertEquals("after the log was closed", heard.getLast(), "a place that was listening before is not the log's to take away");
+            assertFalse(Files.readString(file).contains("after the log was closed"), "and the file has no more of it");
         } finally {
-            root.removeHandler(existing);
+            Log.removeSink(other);
+        }
+    }
+
+    @Test
+    void thereIsNoLockFileBesideTheLogWhileItIsOpenOrAfter() throws Exception {
+        Path file = dir.resolve("app.log");
+        List<String> during = new ArrayList<>();
+        try (Logging logging = Logging.install(file)) {
+            LOG.info("a line");
+            try (var files = Files.list(dir)) {
+                files.forEach(path -> during.add(path.getFileName().toString()));
+            }
+        }
+        assertEquals(List.of("app.log"), during);
+        try (var files = Files.list(dir)) {
+            assertEquals(List.of("app.log"), files.map(path -> path.getFileName().toString()).toList());
         }
     }
 
     @Test
     void unwritableFileFallsBackToConsoleOnly() throws Exception {
+        ByteArrayOutputStream console = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(console, true, StandardCharsets.UTF_8));
         Path missingDir = dir.resolve("no-such-dir").resolve("app.log");
         try (Logging logging = Logging.install(missingDir)) {
-            LOG.log(System.Logger.Level.INFO, "still running");
+            LOG.info("still running");
         }
         assertEquals(List.of(), Files.list(dir).toList());
+        String said = console.toString(StandardCharsets.UTF_8);
+        assertTrue(said.contains("WARNING [Logging] Cannot write log file " + missingDir + "; logging to console only"), said);
+        assertTrue(said.contains("[LoggingTest] still running"), said);
     }
 
     @Test
-    void aDebugLineOfTheProgramIsWrittenWithFineAsItsLevelAndOneOfAnythingElseIsNot() throws Exception {
+    void whatALibraryLogsThroughJavasOwnLoggingIsNotInTheFile() throws Exception {
         Path file = dir.resolve("app.log");
-        java.util.logging.Logger other = java.util.logging.Logger.getLogger("com.example.other.LoggingTest");
+        java.util.logging.Logger library = java.util.logging.Logger.getLogger("com.example.other.LoggingTest");
+        library.setUseParentHandlers(false);
         try (Logging logging = Logging.install(file)) {
-            LOG.log(System.Logger.Level.DEBUG, "a debug line of the program");
-            LOG.log(System.Logger.Level.TRACE, "a trace line of the program");
-            other.fine("a debug line of a library");
-            other.info("an information line of a library");
+            library.info("an information line of a library");
+            LOG.info("a line of the program");
         }
 
-        List<String> lines = Files.readAllLines(file);
-        assertTrue(lines.stream().anyMatch(line -> line.matches("\\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d:\\d\\d FINE    \\[LoggingTest] a debug line of the program")),
-                "in the form of every line, with FINE where the level is: " + lines);
-        assertFalse(lines.stream().anyMatch(line -> line.contains("a trace line")), "debug, and nothing finer: " + lines);
-        assertFalse(lines.stream().anyMatch(line -> line.contains("a debug line of a library")), "only the program's own: " + lines);
-        assertTrue(lines.stream().anyMatch(line -> line.contains("an information line of a library")), lines.toString());
-        assertEquals(org.example.settings.LogLevel.DEBUG, org.example.settings.LogLevel.ofLogWord("FINE"), "which the log panel shows with Debug only");
+        String content = Files.readString(file);
+        assertFalse(content.contains("an information line of a library"), "the file holds the program's own lines only: " + content);
+        assertTrue(content.contains("a line of the program"), content);
     }
 
     @Test
-    void theLevelOfTheProgramsLoggersIsWhatItWasWhenLoggingIsClosed() throws Exception {
-        java.util.logging.Logger own = java.util.logging.Logger.getLogger(Logging.OWN_LOGGERS);
-        java.util.logging.Level before = own.getLevel();
-
-        try (Logging logging = Logging.install(dir.resolve("app.log"))) {
-            assertEquals(java.util.logging.Level.FINE, own.getLevel());
+    void theLinesOfTwoThreadsAreNeverMixed() throws Exception {
+        Path file = dir.resolve("app.log");
+        try (Logging logging = Logging.install(file)) {
+            List<Thread> threads = new ArrayList<>();
+            for (int t = 0; t < 4; t++) {
+                String who = "thread-" + t;
+                threads.add(Thread.ofPlatform().start(() -> {
+                    for (int i = 0; i < 200; i++) {
+                        LOG.info(who + " line " + i + " " + "x".repeat(200));
+                    }
+                }));
+            }
+            for (Thread thread : threads) {
+                thread.join();
+            }
         }
-
-        assertEquals(before, own.getLevel());
+        List<String> lines = Files.readAllLines(file);
+        assertEquals(801, lines.size());
+        assertTrue(lines.stream().skip(1).allMatch(line -> line.matches(".* INFO    \\[LoggingTest] thread-\\d line \\d+ x{200}")), "every line whole");
     }
 }

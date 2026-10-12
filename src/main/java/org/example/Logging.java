@@ -1,172 +1,96 @@
 package org.example;
 
+import org.example.log.Log;
+
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.PrintStream;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
+import java.nio.file.StandardOpenOption;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.Locale;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.FileHandler;
-import java.util.logging.Formatter;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.LogManager;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
 
 /**
- * Sends application logs to both the console and an append-mode log file.
+ * Sends what the program logs to both the console and an append-mode log file, for as long as it is open.
  *
- * <p>{@link System.Logger} delegates to {@code java.util.logging}, so
- * installing handlers on the root logger covers every class that logs.
- * The file is never rotated or truncated: each run appends to it.
+ * <p>The file is never rotated or truncated: each run appends to it. Every line is written through at once, so the
+ * file is complete to the last line whenever it is looked at, and the lines of the stopping are in it because this is
+ * closed after them, by {@link ShutdownHook} or by {@link Main}, and by nothing else.
  */
 final class Logging implements AutoCloseable {
-
-    private static final String MANAGER_PROPERTY = "java.util.logging.manager";
 
     /** Name of the log file, created in the working directory (the project root). */
     static final String LOG_FILE_NAME = "java-aip-usage.log";
 
-    private final Logger root = Logger.getLogger("");
+    private static final Log LOG = Log.of(Logging.class);
 
-    private final Handler[] previousHandlers = root.getHandlers();
+    private final Log.Sink console;
 
-    private final Level previousLevel = root.getLevel();
+    /** The file, as a place for lines; {@code null} when it could not be opened. */
+    private Log.Sink file;
 
-    /**
-     * The logger above all of this program's own. It is held here because the logging system keeps a logger only for as
-     * long as somebody else does, and a level that was set on one it let go of would be lost.
-     */
-    private final Logger own = Logger.getLogger(OWN_LOGGERS);
+    private Writer fileWriter;
 
-    private final Level previousOwnLevel = own.getLevel();
-
-    /** The name every logger of this program begins with: that of its package. */
-    static final String OWN_LOGGERS = "org.example";
+    private boolean closed;
 
     private Logging() {
+        // The console as it is now, as the error output of the process: a later change of it is not followed.
+        PrintStream err = System.err;
+        console = entry -> {
+            err.print(entry.written(ZoneId.systemDefault()));
+            err.flush();
+        };
     }
 
     /**
-     * Replaces the root logger's handlers with console and file output.
+     * Begins writing to the console and to the file.
      *
      * <p>If the file cannot be opened the application keeps running with
      * console logging only, and the failure is reported there.
      */
     static Logging install(Path logFile) {
-        useShutdownSafeLogManager();
         Logging logging = new Logging();
-        Logger root = logging.root;
-        for (Handler handler : logging.previousHandlers) {
-            root.removeHandler(handler);
-        }
-        root.setLevel(Level.INFO);
-        // The program's own debug lines are written as well, in every run; the log panel shows them when its level is
-        // Debug. The lines of everything else, the libraries and the runtime, stay at information and above.
-        logging.own.setLevel(Level.FINE);
-
-        Formatter formatter = new LineFormatter();
-        ConsoleHandler console = new ConsoleHandler();
-        console.setFormatter(formatter);
-        console.setLevel(Level.ALL);
-        root.addHandler(console);
-
+        Log.addSink(logging.console);
         try {
-            // FileHandler treats '%' as a pattern escape, so escape it in the path.
-            FileHandler file = new FileHandler(logFile.toString().replace("%", "%%"), true);
-            file.setFormatter(formatter);
-            file.setLevel(Level.ALL);
-            file.setEncoding("UTF-8");
-            root.addHandler(file);
-            System.getLogger(Logging.class.getName())
-                    .log(System.Logger.Level.INFO, "Logging to {0}", logFile);
-            warnIfShutdownCouldLoseLines();
-        } catch (IOException | SecurityException e) {
-            System.getLogger(Logging.class.getName())
-                    .log(System.Logger.Level.WARNING, "Cannot write log file " + logFile + "; logging to console only", e);
+            Writer writer = Files.newBufferedWriter(logFile, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            logging.fileWriter = writer;
+            logging.file = entry -> {
+                try {
+                    writer.write(entry.written(ZoneId.systemDefault()));
+                    writer.flush();
+                } catch (IOException e) {
+                    // The disk is full or the file is gone: the console still has the line.
+                }
+            };
+            Log.addSink(logging.file);
+            LOG.info("Logging to " + logFile);
+        } catch (IOException | RuntimeException e) {
+            LOG.warning("Cannot write log file " + logFile + "; logging to console only", e);
         }
         return logging;
     }
 
-    private boolean closed;
-
     /** Closing twice is harmless: the shutdown hook may close what the normal exit already has. */
-    /**
-     * Something using logging before {@link #install} means the JDK had already chosen its
-     * standard manager, which closes the log in a hook of its own and can lose the lines that say
-     * how the program stopped. That is a bug in whatever came first, so it is said where it will
-     * be seen: in the log file as well as on the console.
-     */
-    private static void warnIfShutdownCouldLoseLines() {
-        if (!(LogManager.getLogManager() instanceof ShutdownSafeLogManager)) {
-            System.getLogger(Logging.class.getName()).log(System.Logger.Level.WARNING,
-                    "Logging was already in use, so lines logged while the process is being stopped may be lost");
-        }
-    }
-
-    /**
-     * Asks for {@link ShutdownSafeLogManager}. The JDK reads the property once, when logging is
-     * first used, so this must come before anything logs; later it changes nothing.
-     */
-    private static void useShutdownSafeLogManager() {
-        if (System.getProperty(MANAGER_PROPERTY) == null) {
-            System.setProperty(MANAGER_PROPERTY, ShutdownSafeLogManager.class.getName());
-        }
-    }
-
     @Override
     public synchronized void close() {
         if (closed) {
             return;
         }
         closed = true;
-        for (Handler handler : root.getHandlers()) {
-            root.removeHandler(handler);
-            handler.close();
-        }
-        for (Handler handler : previousHandlers) {
-            root.addHandler(handler);
-        }
-        root.setLevel(previousLevel);
-        own.setLevel(previousOwnLevel);
-    }
-
-    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
-
-    /**
-     * A time written the way the usage history file writes it, {@code 2026-10-08 16:24:53}: the local
-     * date and time to the second, so the two files and the window all show the same clock.
-     */
-    static String timestamp(long epochMillis, ZoneId zone) {
-        return TIME.format(Instant.ofEpochMilli(epochMillis).atZone(zone));
-    }
-
-    /**
-     * One line per record: timestamp (as in the usage history file), level, short logger name, message, then any
-     * stack trace. Everything written passes through {@link Redaction}.
-     */
-    private static final class LineFormatter extends Formatter {
-
-        @Override
-        public String format(LogRecord record) {
-            String logger = record.getLoggerName() == null ? "" : record.getLoggerName();
-            StringBuilder line = new StringBuilder()
-                    .append(timestamp(record.getMillis(), ZoneId.systemDefault()))
-                    .append(' ')
-                    .append(String.format("%-7s", record.getLevel().getName()))
-                    .append(" [").append(logger.substring(logger.lastIndexOf('.') + 1)).append("] ")
-                    .append(formatMessage(record))
-                    .append(System.lineSeparator());
-            if (record.getThrown() != null) {
-                StringWriter trace = new StringWriter();
-                record.getThrown().printStackTrace(new PrintWriter(trace));
-                line.append(trace);
+        Log.removeSink(console);
+        if (file != null) {
+            Log.removeSink(file);
+            try {
+                fileWriter.close();
+            } catch (IOException e) {
+                // Every line was written through when it was logged; there is nothing left to lose.
             }
-            return Redaction.redact(line.toString());
         }
+    }
+
+    /** See {@link Log#timestamp}. */
+    static String timestamp(long epochMillis, ZoneId zone) {
+        return Log.timestamp(epochMillis, zone);
     }
 }

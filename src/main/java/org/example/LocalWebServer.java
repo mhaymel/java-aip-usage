@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.log.Log;
 import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -8,8 +9,6 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.System.Logger;
-import java.lang.System.Logger.Level;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -31,7 +30,7 @@ import java.util.concurrent.Executors;
  */
 final class LocalWebServer implements AutoCloseable {
 
-    private static final Logger LOG = System.getLogger(LocalWebServer.class.getName());
+    private static final Log LOG = Log.of(LocalWebServer.class);
 
     /** Classpath directory holding the frontend assets. */
     private static final String RESOURCE_ROOT = "/web";
@@ -75,7 +74,7 @@ final class LocalWebServer implements AutoCloseable {
         server.start();
 
         LocalWebServer started = new LocalWebServer(server);
-        LOG.log(Level.INFO, "Frontend served at {0}", started.baseUri());
+        LOG.info("Frontend served at " + started.baseUri());
         return started;
     }
 
@@ -101,7 +100,7 @@ final class LocalWebServer implements AutoCloseable {
             byte[] body;
             try (InputStream in = LocalWebServer.class.getResourceAsStream(resource)) {
                 if (in == null) {
-                    LOG.log(Level.WARNING, "No such frontend resource: {0}", resource);
+                    LOG.warning("No such frontend resource: " + resource);
                     respondNotFound(exchange);
                     return;
                 }
@@ -167,6 +166,6 @@ final class LocalWebServer implements AutoCloseable {
     @Override
     public void close() {
         server.stop(0);
-        LOG.log(Level.INFO, "Frontend server stopped");
+        LOG.info("Frontend server stopped");
     }
 }

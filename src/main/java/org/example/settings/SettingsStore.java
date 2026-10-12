@@ -1,5 +1,6 @@
 package org.example.settings;
 
+import org.example.log.Log;
 import org.example.json.Json;
 import org.example.json.JsonReader;
 import org.example.json.JsonWriter;
@@ -145,7 +146,7 @@ public final class SettingsStore {
     /** The tallest height that is believed, in pixels: more than any screen. */
     static final int MAX_HEIGHT = 10_000;
 
-    private static final System.Logger LOG = System.getLogger(SettingsStore.class.getName());
+    private static final Log LOG = Log.of(SettingsStore.class);
 
     private final Path file;
 
@@ -166,9 +167,9 @@ public final class SettingsStore {
         if (!Files.exists(file)) {
             try {
                 save(defaults);
-                LOG.log(System.Logger.Level.INFO, "There was no settings file; created " + file + " with the defaults");
+                LOG.info("There was no settings file; created " + file + " with the defaults");
             } catch (IOException e) {
-                LOG.log(System.Logger.Level.WARNING, "Could not create the settings file " + file + ": " + e.getMessage());
+                LOG.warning("Could not create the settings file " + file + ": " + e.getMessage());
             }
             return defaults;
         }
@@ -176,11 +177,11 @@ public final class SettingsStore {
         try {
             root = JsonReader.read(Files.readString(file));
         } catch (IOException e) {
-            LOG.log(System.Logger.Level.WARNING, "Ignoring unreadable settings file " + file + ": " + e.getMessage());
+            LOG.warning("Ignoring unreadable settings file " + file + ": " + e.getMessage());
             return defaults;
         }
         if (root == null || !root.isObject()) {
-            LOG.log(System.Logger.Level.WARNING, "Ignoring settings file " + file + ": not a JSON object");
+            LOG.warning("Ignoring settings file " + file + ": not a JSON object");
             return defaults;
         }
         return new Settings(
@@ -268,7 +269,7 @@ public final class SettingsStore {
             return 0;
         }
         if (!node.fitsInt() || node.intValue() < 0 || node.intValue() > MAX_HEIGHT) {
-            LOG.log(System.Logger.Level.WARNING, "Ignoring " + key + " in " + file + ": it must be a whole number of pixels from 0 to " + MAX_HEIGHT);
+            LOG.warning("Ignoring " + key + " in " + file + ": it must be a whole number of pixels from 0 to " + MAX_HEIGHT);
             return 0;
         }
         return node.intValue();
@@ -303,7 +304,7 @@ public final class SettingsStore {
         java.util.Optional<org.example.fake.Scenario> named =
                 node.isText() ? org.example.fake.Scenario.ofOptionName(node.text()) : java.util.Optional.empty();
         if (named.isEmpty()) {
-            LOG.log(System.Logger.Level.WARNING,
+            LOG.warning(
                     "Ignoring " + FAKE_SCENARIO_KEY + " in " + file + ": it must be one of " + org.example.fake.Scenario.names());
             return fallback;
         }
@@ -318,7 +319,7 @@ public final class SettingsStore {
         }
         java.util.Optional<LogLevel> named = node.isText() ? LogLevel.fromJson(node.text()) : java.util.Optional.empty();
         if (named.isEmpty()) {
-            LOG.log(System.Logger.Level.WARNING, "Ignoring " + LOG_LEVEL_KEY + " in " + file + ": it must be one of " + LogLevel.names());
+            LOG.warning("Ignoring " + LOG_LEVEL_KEY + " in " + file + ": it must be one of " + LogLevel.names());
             return fallback;
         }
         return named.get();
@@ -331,7 +332,7 @@ public final class SettingsStore {
             return fallback;
         }
         if (!node.fitsInt() || !Settings.isListFontSize(node.intValue())) {
-            LOG.log(System.Logger.Level.WARNING, "Ignoring " + LIST_FONT_SIZE_KEY + " in " + file + ": it must be a whole number of pixels from "
+            LOG.warning("Ignoring " + LIST_FONT_SIZE_KEY + " in " + file + ": it must be a whole number of pixels from "
                     + Settings.MIN_LIST_FONT_SIZE + " to " + Settings.MAX_LIST_FONT_SIZE);
             return fallback;
         }
@@ -348,7 +349,7 @@ public final class SettingsStore {
         boolean automatic = flag(root, COST_DAILY_AUTOMATIC_KEY, CostControl.NONE.dailyAutomatic());
         CostControl read = new CostControl(monthly, daily, automatic);
         if (read.fault().isPresent()) {
-            LOG.log(System.Logger.Level.WARNING, "Ignoring " + COST_DAILY_KEY + " in " + file + ": " + read.fault().get());
+            LOG.warning("Ignoring " + COST_DAILY_KEY + " in " + file + ": " + read.fault().get());
             return new CostControl(monthly, null, automatic);
         }
         return read;
@@ -369,7 +370,7 @@ public final class SettingsStore {
         } catch (ArithmeticException | NumberFormatException e) {
             // More than two decimals: not an amount of cents.
         }
-        LOG.log(System.Logger.Level.WARNING, "Ignoring " + key + " in " + file + ": " + CostControl.AMOUNT_FAULT);
+        LOG.warning("Ignoring " + key + " in " + file + ": " + CostControl.AMOUNT_FAULT);
         return null;
     }
 
@@ -379,7 +380,7 @@ public final class SettingsStore {
             return fallback;
         }
         if (!node.fitsInt() || !IntervalRange.USAGE.contains(node.intValue())) {
-            LOG.log(System.Logger.Level.WARNING, "Ignoring " + USAGE_KEY + " in " + file + ": " + IntervalRange.USAGE.describeLimit());
+            LOG.warning("Ignoring " + USAGE_KEY + " in " + file + ": " + IntervalRange.USAGE.describeLimit());
             return fallback;
         }
         return node.intValue();
@@ -391,7 +392,7 @@ public final class SettingsStore {
             return fallback;
         }
         if (!node.isBool()) {
-            LOG.log(System.Logger.Level.WARNING, "Ignoring " + key + " in " + file + ": it must be true or false");
+            LOG.warning("Ignoring " + key + " in " + file + ": it must be true or false");
             return fallback;
         }
         return node.bool();
@@ -404,7 +405,7 @@ public final class SettingsStore {
         }
         return (node.isText() ? TimeFormat.fromJson(node.text()) : java.util.Optional.<TimeFormat>empty())
                 .orElseGet(() -> {
-                    LOG.log(System.Logger.Level.WARNING,
+                    LOG.warning(
                             "Ignoring " + TIME_FORMAT_KEY + " in " + file + ": it must be \"hh:mm\" or \"hh:mm:ss\"");
                     return fallback;
                 });
@@ -448,7 +449,7 @@ public final class SettingsStore {
                     whole(root, FAKE_REFUSE_KEY, defaults.refuseSeconds()),
                     whole(root, FAKE_DELAY_KEY, defaults.delayMillis()));
             if (read.fault().isPresent()) {
-                LOG.log(System.Logger.Level.WARNING, "Ignoring the fake backend's options in " + file + ": " + read.fault().get());
+                LOG.warning("Ignoring the fake backend's options in " + file + ": " + read.fault().get());
                 return new org.example.fake.FakeOptions(kind, defaults.increaseCents(), defaults.budgetCents(), defaults.startCents(),
                         defaults.refuseSeconds(), defaults.delayMillis());
             }

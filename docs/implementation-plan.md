@@ -1899,6 +1899,18 @@ that refuses: that is what this was built for, and is for a person to try.
 - **How it was checked.** For the length of the phase a test (since removed) set `Amount` beside `BigDecimal`: for some 3,000 amounts, the edges of rounding among them, the plain, grouped and signed forms, the cents, the exact cents and the number of JSON; for 20,000 pairs the sum, the difference, the comparison, the share to six and to two decimals and the fill of the bar. All were the same. A run with `--debug` against the fake backend: the status, the cost panel, the history and the CSV row had the figures in the forms of before.
 - **Tests.** `AmountTest` (new, 76 cases with the figures fixed), `UsageParserTest` (an exponent of 3 and of -2; an amount too large), `HistoryDeltasTest` (a row with three decimals taken exactly; rows too far apart), `UsageHistoryTest` (the percentage at a half). The tests that made a reading from a `double` make it from the text of the amount.
 
+### 85. Logging of the program's own, and no lock file
+
+**Status: built (version 0.73).** Phase 3 of [java-to-go.md](java-to-go.md). Requirements: Non-functional requirements (the program writes its log itself), Details of the behaviour (there is no lock file beside the log).
+
+- **New, in `org.example.log`.** `Log`: a class has its own (`Log.of(UsageService.class)`, the short name of the class in each line) and says `error`, `warning`, `info` or `debug`, the first two with something thrown if there is. What is logged is an `Entry` (time, level, name, message, thrown) handed to every `Sink` that listens, one entry at a time under one lock, so the lines of two threads are never mixed. `Entry.written(zone)` is the line as it always was: the time, the level's word in seven places (`SEVERE`, `WARNING`, `INFO`, `FINE`), the name in brackets, the message, the stack trace, all through `Redaction`.
+- **`Logging`** only opens and closes the two places now: the console (the error output as it is when the log is opened) and the file (appended to, UTF-8, written through after every entry). A file that cannot be opened is said on the console, and the run goes on there.
+- **Gone.** `java.util.logging` and `System.Logger` in all twelve classes; `ShutdownSafeLogManager`, the `java.util.logging.manager` property and the warning `Logging was already in use…`; the rule that `Logging` is installed before `UsageApp` is loaded; `java-aip-usage.log.lck` and its line in `.gitignore`. The three messages written with `{0}` are written out.
+- **What changed for the person.** No lock file. What JavaFX and the Java runtime log of themselves is on the console only.
+- **Not changed here.** A stack trace is still written where something thrown is logged; that is phase 4.
+- **How it was checked.** A run with `--debug` against the fake backend: the lines of the start, a refresh and the stopping, the same in the file and on the console and in the form of before; no lock file while it ran; the log panel's endpoint reads them.
+- **Tests.** `LoggingTest` rewritten against `Log` (the form of a line at each level, the console the same as the file, a line in the file as soon as it is logged, appending, stack traces, masking, closing twice, no lock file, a file that cannot be opened, a library's line not in the file, the lines of four threads whole). `UsageClientTest` and `UsageServiceTest` listen with a `Sink` where they had a handler; `ShutdownProbe` logs with `Log`. `LoggingEndToEndTest`, `ShutdownHookTest`, `LogTailTest` and `LoggingTimestampTest` pass unchanged.
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built

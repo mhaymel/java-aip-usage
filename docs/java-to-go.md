@@ -4,7 +4,7 @@ A plan for changing the Java program so that it leans only on what Go also has. 
 translation of this code, not a new design. The task is [new-requirements.md](new-requirements.md); the analysis it
 builds on is [go-port.md](go-port.md), whose problem numbers are used here.
 
-It is written against version 0.70. **Built so far: phase 1 (version 0.71) and phase 2 (version 0.72)**; how they went is in phases 83 and 84 of
+It is written against version 0.70. **Built so far: phases 1 to 3 (versions 0.71 to 0.73)**; how they went is in phases 83 to 85 of
 [implementation-plan.md](implementation-plan.md).
 
 ## What was decided
@@ -146,6 +146,10 @@ against `Log`.
 **What changes for the person.** No lock file. And lines that JavaFX itself logs, such as its warning about the
 unnamed module, are no longer in the log file, only on the console, since they do not come through the program's
 `Log`; the file then holds the program's own lines only, as the Go version's will.
+
+**As built (version 0.73).** As planned. `Log` is in a package of its own, `org.example.log`; `Logging` stayed as what
+opens and closes the console and the file. A stack trace is still written where something thrown is logged, until
+phase 4.
 
 ## Phase 4: texts of the program's own for every failure
 

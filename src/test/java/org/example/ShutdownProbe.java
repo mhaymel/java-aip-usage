@@ -13,13 +13,13 @@ import java.nio.file.Path;
 public final class ShutdownProbe {
 
     public static void main(String[] args) throws Exception {
-        // Logging.install must come first: it chooses the log manager, which the JDK fixes on first use.
+        // The log is opened first, so that everything after it is in it.
         Logging logging = Logging.install(Path.of(args[0]));
-        System.Logger log = System.getLogger("ShutdownProbe");
+        org.example.log.Log log = org.example.log.Log.named("ShutdownProbe");
         RunOnce cleanup = new RunOnce(() -> {
-            log.log(System.Logger.Level.INFO, "Shutting down");
-            log.log(System.Logger.Level.INFO, "Usage refresh stopped");
-            log.log(System.Logger.Level.INFO, "Frontend server stopped");
+            log.info("Shutting down");
+            log.info("Usage refresh stopped");
+            log.info("Frontend server stopped");
         });
         ShutdownHook.install(cleanup::run, logging);
 

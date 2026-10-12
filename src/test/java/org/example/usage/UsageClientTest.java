@@ -41,29 +41,16 @@ class UsageClientTest {
 
     private final List<String> logLines = new CopyOnWriteArrayList<>();
 
-    private final java.util.logging.Handler logCapture = new java.util.logging.Handler() {
-        @Override
-        public void publish(java.util.logging.LogRecord record) {
-            logLines.add(record.getLevel() + " " + new java.util.logging.SimpleFormatter().formatMessage(record));
-        }
-
-        @Override
-        public void flush() {
-        }
-
-        @Override
-        public void close() {
-        }
-    };
+    private final org.example.log.Log.Sink logCapture = entry -> logLines.add(entry.level().word() + " " + entry.message());
 
     @BeforeEach
     void captureLog() {
-        java.util.logging.Logger.getLogger("").addHandler(logCapture);
+        org.example.log.Log.addSink(logCapture);
     }
 
     @AfterEach
     void stopServers() {
-        java.util.logging.Logger.getLogger("").removeHandler(logCapture);
+        org.example.log.Log.removeSink(logCapture);
         servers.forEach(server -> server.stop(0));
     }
 

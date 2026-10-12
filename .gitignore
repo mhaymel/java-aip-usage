@@ -6,7 +6,6 @@
 # The history of the fake backend's invented readings, in debug mode.
 /java-aip-usage.fake.csv
 # The log handler's lock file, present while the application runs.
-/java-aip-usage.log.lck
 /settings.json
 /settings.json.tmp
 

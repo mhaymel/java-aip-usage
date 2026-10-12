@@ -1,5 +1,6 @@
 package org.example.fake;
 
+import org.example.log.Log;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -31,7 +32,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class FakeBackend implements AutoCloseable {
 
-    private static final System.Logger LOG = System.getLogger(FakeBackend.class.getName());
+    private static final Log LOG = Log.of(FakeBackend.class);
 
     /** Later than the request timeout of {@link org.example.usage.UsageClient}, so the fetch gives up first. */
     static final Duration SLOW_ANSWER = Duration.ofSeconds(25);
@@ -103,7 +104,7 @@ public final class FakeBackend implements AutoCloseable {
         server.createContext("/scenario", backend::switchScenario);
         server.start();
 
-        LOG.log(System.Logger.Level.INFO,
+        LOG.info(
                 "Fake backend listening on " + backend.baseUrl() + ", answering " + scenario.optionName());
         return backend;
     }
@@ -121,7 +122,7 @@ public final class FakeBackend implements AutoCloseable {
     /** Changes what is answered from the next request on. */
     public void scenario(Scenario wanted) {
         this.scenario = wanted;
-        LOG.log(System.Logger.Level.INFO, "The fake backend scenario is now " + wanted.optionName());
+        LOG.info("The fake backend scenario is now " + wanted.optionName());
     }
 
     public FakeOptions options() {
@@ -135,7 +136,7 @@ public final class FakeBackend implements AutoCloseable {
     public void configure(FakeOptions wanted) {
         this.options = wanted;
         document.configure(wanted);
-        LOG.log(System.Logger.Level.INFO, "The fake backend is now " + describe(wanted));
+        LOG.info("The fake backend is now " + describe(wanted));
     }
 
     /** As the log says the options. */
