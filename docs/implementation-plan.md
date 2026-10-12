@@ -1827,6 +1827,18 @@ that refuses: that is what this was built for, and is for a person to try.
   opened or replaced. The search is `IntervalSearch` with `STEP_SECONDS` and `roundUp`. `StatusDisplay.View.countdownAuto` and `modeLine`. The page: `--info` for `.icon.active` and `.countdown.auto` (before `.countdown.alert`), `--mark` and `--box` variables.
 - **Not checked by a test:** the width in a real window (no probe was written for it), and how the colours look.
 
+### 79. The time since the previous reading across runs, and a shorter countdown tooltip
+
+**Status: specified, not yet built (version 0.67).** Requirements: Changes between readings, Hiding lines, Tooltips.
+
+- **The time.** `HistoryDeltas`: the time since the previous reading is against the row directly before in the file, whatever the run (`compute` no longer gives a run border: only the first row of the file has none); `computeVisible` is against the previous shown
+  row, with no reset at a run start (only the first shown row has none). The amount's change (`amountChanges`) and the zero usage lines are unchanged: `HistoryReader` still decides a zero usage line from a change against the row directly before **within the run**
+  (the startup lines are zero usage lines by their status), so `compute` keeps the run border for the amount and not for the time: split the two (`compute` returns the amount against the row before in the run, as it does, and the seconds against the row before).
+  `LatestChangeCache` and the history cells follow from the deltas; a start line shows a long time, `90000 s`, in the history and `90000s` in the row.
+- **The tooltip.** `Seconds until the next refresh` (no `(negative when overdue)`) in `StatusDisplay`, the page's own fallback and placeholder tooltip in `app.js`, `fake-display.cjs` and the tests.
+- **Tests.** `HistoryDeltasTest` (the first row of a run has a time against the last row of the run before; a failed first row; the first row of the file none; the visible variant without a reset at a hidden start line), `HistoryReaderTest`, `ApiTest` (the cell of a start line),
+  `StatusDisplayTest`, `app.test.cjs`, `view.test.cjs`.
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built

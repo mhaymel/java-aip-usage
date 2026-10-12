@@ -290,7 +290,7 @@ number is and its unit, and nothing about the severity.
 - **With the automatic interval on the countdown is blue** (since version 0.66): its text is in the blue of the open panel's icon and of the notes, `#0969da` on the light theme and `#58a6ff` on the dark one, so that it can be seen at a glance that the program
   is finding the interval. **After an HTTP 429 the red wins**: the countdown is red until a request is answered without one, then blue again. With the automatic interval off it is in the colour of the text, as it was. The interval item of the row, if shown,
   stays green like the other figures.
-- **Its tooltip says which mode it is in** (since version 0.66): a second line under the first, `Seconds until the next refresh (negative when overdue)`. With the automatic interval on it is
+- **Its tooltip says which mode it is in** (since version 0.66): a second line under the first, `Seconds until the next refresh`. With the automatic interval on it is
   `Automatic interval is on: the interval is now <N> s`, with the interval of the search; with it off, `Automatic interval is off: the configured interval is <N> s`. The backend writes both lines, and the tooltip of the interval item says the same second line.
 - It may be negative. A negative value means the next refresh is overdue by that
   many seconds, for example because a request is taking longer than the interval.
@@ -331,7 +331,7 @@ names, shown as its code, here `USD`.
   `Hide the usage history` while the history is shown. The error log button says `Show the error log`, and
   `Hide the error log` while it is shown.
 - The countdown, after an HTTP 429: the error message, in bold red, in a line under the row (see Countdown).
-- The exact texts: the countdown, `Seconds until the next refresh (negative when overdue)`, and a line under it that says whether the automatic interval is on, and the interval (see Countdown); the time since the previous
+- The exact texts: the countdown, `Seconds until the next refresh` (since version 0.67 without the words `(negative when overdue)`, which it had until 0.66; the countdown itself still goes negative), and a line under it that says whether the automatic interval is on, and the interval (see Countdown); the time since the previous
   reading, `Time since the previous reading`; the interval item, `Time between usage requests`. When the response named
   no currency the amounts say `Credits used` and `Credit budget`, and the change `Change in the amount used since the
   previous reading`, with no `, in ...` after them. A percentage that the response did not send has no text, and its
@@ -381,16 +381,14 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
 - **The time since the previous reading** is the time between two rows. The backend works
   both out from the history file and sends them with the status. The row shows the values of the
   newest reading, and the history panel those of each row (see Settings for the switches).
-- **The time since the previous reading** is worked out only between rows of the same run, which is from a row whose status marks
-  a start (see Usage history) to the row before the next such row. The first row of a run has none.
-- It is counted to the row directly before it, a failed one included, so a failed row has a time and the row after it counts from the failed row.
+- **The time since the previous reading** (since version 0.67) is counted to the row directly before it in the file, **whatever run it belongs to**: a failed row included, so a failed row has a time and the row after it counts from the failed row. The first row of a run
+  has one too: the time since the last row of the run before, which is how long the program was not running (it can be hours or days, `90000 s`). Only the first row of the file has none. (Before, a run was a border and the first row of a run showed an empty cell: see `docs/img_9.png`.)
 - A value that cannot be worked out is left empty, not shown as zero.
 - **In the history the time since the previous reading is worked out on the lines that are shown.** When the history leaves lines out (see Hiding lines),
-  the time of a line is that against the previous line that is shown in the same run, not against the row directly before it in the file: with the unchanged readings hidden, the time is the
-  time since the previous reading that is shown. A run is still what the whole file says: a row whose status marks a start begins
-  a run even if it is hidden, and the first line shown of a run has none. The change in the amount used is not affected by what the history hides (above), and neither are the main row's items.
+  the time of a line is that against the previous line that is shown, not against the row directly before it in the file: with the unchanged readings hidden, the time is the
+  time since the previous reading that is shown. The first line shown has none. The change in the amount used is not affected by what the history hides (above), and neither are the main row's items.
 - **The time is a value even at no seconds at all**, `0 s`; only a negative one is empty. A time is given when it can be worked out, whether or not the change can.
-- **A zero usage line is still defined as before**, by a change of exactly zero against the row directly before it in the same run, the startup lines counting as zero usage lines (see Hiding lines): the
+- **A zero usage line is still defined as before**, by a change of exactly zero against the row directly before it in the same run (the amount used is compared inside a run for this definition alone), the startup lines counting as zero usage lines (see Hiding lines): the
   new rule for the change in the amount used changes what a column shows, and not which lines are zero usage lines.
 - **The time is the difference of the two local times as they are written.** Across a change of the clocks it is
   therefore an hour too long when they go forward, and too short, or empty, when they go back.
@@ -710,8 +708,7 @@ The history is shown inside the main window, not in a window of its own.
   row directly before it, in the same run), is exactly zero: the reading is the same as the one before. **The startup lines count as zero usage
   lines**: the first line of each run, the green one with the `The program started here` hover text, has no change and
   is handled like the others that show no change, so it is hidden and shown with them. A startup line of a failed query (it has no amounts) is a failed line
-  and goes with those. A **failed line** is a row of a failed query. When the startup lines are hidden, the first line shown of a run has no change
-  either, since there is no line before it to compare with. What is hidden is
+  and goes with those. A **failed line** is a row of a failed query. What is hidden is
   left out of the table, and so of its sorting, its count of 1,000 lines and the changes worked out on it (see Changes between readings).
   The file itself is not touched.
 - **When not all the data is shown, the panel says so.** One line above the table, written by the backend, says how many lines there are,
@@ -1038,7 +1035,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - The gray is the muted gray, `#8a8f98`, at a third of its strength, on both themes; the corners are rounded by 3 pixels,
   and the box has a thin green border (see Gray boxes in the place of `No usage reported` and `No data`).
 - The placeholder has **the tooltip of its element**, in the form that needs no value: `Last update`,
-  `Share of the budget spent`, `Credits used`, `Credit budget`, `Seconds until the next refresh (negative when overdue)`,
+  `Share of the budget spent`, `Credits used`, `Credit budget`, `Seconds until the next refresh`,
   `Change in the amount used since the previous reading`, `Time since the previous reading` and `How long the latest usage request took`.
 - **Which elements have one.** The time, the percentage, the amount used, the budget, the countdown, the two changes and the
   request duration. The
