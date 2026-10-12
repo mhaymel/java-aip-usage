@@ -3413,3 +3413,145 @@ test('an answer about the daily limit that arrives after a later question was as
 
     assert.equal(page.el('set-costDailyLimit').value, '', 'the monthly limit is empty, so there is no daily limit, whatever arrived last');
 });
+
+// ---- the tabs of the settings
+
+const TAB_PAGES = { main: 'tab-main', history: 'tab-history', cost: 'tab-cost', debug: 'tab-debug', general: 'tab-general', about: 'about-view' };
+const shownTabs = page => Object.keys(TAB_PAGES).filter(tab => !page.el(TAB_PAGES[tab]).hidden);
+
+test('the settings open on the first tab, Main view, with Save and Cancel under it', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('settings-button');
+
+    assert.deepEqual(shownTabs(page), ['main']);
+    assert.equal(page.el('tabbtn-main').attrs['aria-selected'], 'true');
+    assert.equal(page.el('tabbtn-history').attrs['aria-selected'], 'false');
+    assert.equal(page.el('settings-buttons').hidden, false);
+});
+
+test('a title in the strip shows its tab, and only that one', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+
+    for (const tab of ['history', 'cost', 'general', 'about', 'main']) {
+        await page.click('tabbtn-' + tab);
+        assert.deepEqual(shownTabs(page), [tab]);
+        assert.equal(page.el('tabbtn-' + tab).attrs['aria-selected'], 'true');
+        assert.equal(page.el('settings-buttons').hidden, false, 'Save and Cancel are under every tab, ' + tab);
+        assert.equal(page.el('settings-save').hidden, false);
+        assert.equal(page.el('settings-cancel').hidden, false);
+    }
+});
+
+test('the arrows step to the previous and the next tab, and are disabled at the ends', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.el('tab-prev').attrs.disabled, '', 'nothing before the first');
+    assert.equal(page.el('tab-next').attrs.disabled, undefined);
+
+    const seen = [];
+    for (let i = 0; i < 4; i++) {
+        await page.click('tab-next');
+        seen.push(shownTabs(page)[0]);
+    }
+    assert.deepEqual(seen, ['history', 'cost', 'general', 'about'], 'without the Debug tab, outside debug mode');
+    assert.equal(page.el('tab-next').attrs.disabled, '', 'nothing after the last');
+    assert.equal(page.el('tab-prev').attrs.disabled, undefined);
+
+    await page.click('tab-next');
+    assert.deepEqual(shownTabs(page), ['about'], 'a disabled arrow does not wrap round');
+    await page.click('tab-prev');
+    assert.deepEqual(shownTabs(page), ['general']);
+});
+
+test('in debug mode the Debug tab is between Cost control and General', async () => {
+    const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    const order = [];
+    for (let i = 0; i < 5; i++) {
+        await page.click('tab-next');
+        order.push(shownTabs(page)[0]);
+    }
+    assert.deepEqual(order, ['history', 'cost', 'debug', 'general', 'about']);
+});
+
+test('the settings open on the first tab each time, whichever tab they were left on', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    await page.click('tabbtn-general');
+    await page.click('settings-cancel');
+
+    await page.click('settings-button');
+
+    assert.deepEqual(shownTabs(page), ['main']);
+});
+
+test('what was changed on one tab is kept while another is shown, and sent together', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-showDeltaUsed').checked = true;
+    await page.click('tabbtn-history');
+    page.el('set-historyDate').checked = true;
+    await page.click('tabbtn-main');
+    assert.equal(page.el('set-showDeltaUsed').checked, true);
+
+    await page.click('settings-save');
+
+    const sent = JSON.parse(settingsPosts(page)[0].body);
+    assert.equal(sent.showDeltaUsed, true);
+    assert.equal(sent.historyDate, true);
+});
+
+test('the History view tab has a checkbox for every column, in the order of the view, and they are sent', async () => {
+    const order = ['historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent'];
+    const ids = [...INDEX_HTML.matchAll(/id="set-(history[A-Za-z]+)"/g)].map(m => m[1]).filter(id => order.includes(id));
+    assert.deepEqual(ids, order, 'in the page the columns are in the order of the table');
+    const history = INDEX_HTML.slice(INDEX_HTML.indexOf('id="tab-history"'), INDEX_HTML.indexOf('id="tab-cost"'));
+    for (const id of [...order, 'historyDate', 'historyZeroLines', 'historyFailedLines']) {
+        assert.ok(history.includes('id="set-' + id + '"'), id + ' is on the tab');
+    }
+
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    await page.click('tabbtn-history');
+    const defaults = Object.fromEntries(order.map(id => [id, page.el('set-' + id).checked]));
+    assert.deepEqual(defaults, { historyTime: true, historyUsed: true, historyLimit: true, historyDeltaUsed: false, historyDeltaTime: false, historyCurrent: true });
+
+    page.el('set-historyTime').checked = false;
+    page.el('set-historyCurrent').checked = false;
+    page.el('set-historyDeltaTime').checked = true;
+    await page.click('settings-save');
+
+    const sent = JSON.parse(settingsPosts(page)[0].body);
+    assert.deepEqual(order.map(id => sent[id]), [false, true, true, false, true, false]);
+});
+
+test('the window is as wide as the widest tab, whichever tab is shown', async () => {
+    const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    const widths = [];
+    // The fake page lays out nothing: a page is as wide as its id says, and the form is as wide as the pages let into the layout.
+    const WIDE = { 'tab-main': 300, 'tab-history': 180, 'tab-cost': 220, 'tab-debug': 340, 'tab-general': 260 };
+    const form = page.el('settings-form');
+    form.getBoundingClientRect = () => ({ left: 8, width: Math.max(...Object.keys(WIDE).filter(id => !page.el(id).hidden).map(id => WIDE[id])) });
+    page.el('settings-buttons').rect = { left: 8, width: 120, height: 20 };
+
+    for (const tab of ['main', 'history', 'cost', 'debug', 'general']) {
+        await page.click('tabbtn-' + tab);
+        widths.push(Number(page.window.contentSize().split(',')[0]));
+    }
+
+    assert.deepEqual(widths, [356, 356, 356, 356, 356], 'the widest tab, 340 and the room at both sides');
+    assert.equal(page.el('tab-history').hidden, false, 'and the tab that was shown is shown again after the measuring');
+});
+
+test('the window is the width of the widest tab outside debug mode without the Debug tab', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    const WIDE = { 'tab-main': 300, 'tab-history': 180, 'tab-cost': 220, 'tab-debug': 340, 'tab-general': 260 };
+    page.el('settings-form').getBoundingClientRect = () => ({ left: 8, width: Math.max(...Object.keys(WIDE).filter(id => !page.el(id).hidden).map(id => WIDE[id])) });
+    page.el('settings-buttons').rect = { left: 8, width: 120, height: 20 };
+
+    assert.equal(Number(page.window.contentSize().split(',')[0]), 316, 'the Debug tab is not there to widen it');
+});
