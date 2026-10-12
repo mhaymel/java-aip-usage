@@ -4,6 +4,7 @@ import org.example.json.Json;
 import org.example.json.JsonException;
 import org.example.json.JsonReader;
 import org.example.json.JsonWriter;
+import org.example.money.Amount;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.example.settings.IntervalRange;
@@ -221,8 +222,8 @@ final class ApiHandler implements HttpHandler {
         org.example.fake.FakeOptions fake = sources.fakeOptions();
         return new DebugBody(
                 new DebugValues(now.fakeBackend(), now.fakeScenario().optionName(), now.fakeToken(),
-                        fake.account().json(), fake.increaseCents(), java.math.BigDecimal.valueOf(fake.budgetCents(), 2).toPlainString(),
-                        java.math.BigDecimal.valueOf(fake.startCents(), 2).toPlainString(), fake.refuseSeconds(), fake.delayMillis()),
+                        fake.account().json(), fake.increaseCents(), Amount.ofCents(fake.budgetCents()).plain(),
+                        Amount.ofCents(fake.startCents()).plain(), fake.refuseSeconds(), fake.delayMillis()),
                 java.util.Arrays.stream(org.example.fake.Scenario.values()).map(org.example.fake.Scenario::optionName).toList(),
                 java.util.Arrays.stream(org.example.fake.FakeOptions.Account.values()).map(org.example.fake.FakeOptions.Account::json).toList());
     }
@@ -278,15 +279,15 @@ final class ApiHandler implements HttpHandler {
             return kept;
         }
         try {
-            java.math.BigDecimal amount;
+            Amount amount;
             if (value.isNumber()) {
-                amount = new java.math.BigDecimal(value.numberText());
+                amount = Amount.parse(value.numberText());
             } else if (value.isText() && value.text().matches("\\d{1,9}(\\.\\d{1,2})?")) {
-                amount = new java.math.BigDecimal(value.text());
+                amount = Amount.parse(value.text());
             } else {
                 throw new InvalidSettingException(refusal);
             }
-            return amount.movePointRight(2).longValueExact();
+            return amount.exactCents();
         } catch (ArithmeticException | NumberFormatException e) {
             throw new InvalidSettingException(refusal);
         }
@@ -367,7 +368,7 @@ final class ApiHandler implements HttpHandler {
         }
         try {
             if (value.isNumber()) {
-                return new java.math.BigDecimal(value.numberText()).movePointRight(2).longValueExact();
+                return Amount.parse(value.numberText()).exactCents();
             }
             if (value.isText()) {
                 return CostControl.cents(value.text()).orElseThrow(() -> new InvalidSettingException(CostControl.AMOUNT_FAULT));
@@ -699,7 +700,7 @@ final class ApiHandler implements HttpHandler {
                 }
                 if (now.historyDeltaUsed()) {
                     // The history shows a change only when it is greater than 0.00: a zero or a fall is an empty cell.
-                    cells.add(delta.deltaUsedText() == null || delta.deltaUsed() < 0 ? "" : delta.deltaUsedText());
+                    cells.add(delta.deltaUsedText() == null || delta.deltaUsed().signum() < 0 ? "" : delta.deltaUsedText());
                 }
                 if (now.historyDeltaTime()) {
                     cells.add(delta.deltaSecondsText() == null ? "" : delta.deltaSecondsText());
@@ -777,7 +778,7 @@ final class ApiHandler implements HttpHandler {
     }
 
     private static DeltaBody deltaBody(HistoryDeltas.Delta delta) {
-        return DeltaBody.of(delta.used() == null ? null : delta.used().doubleValue(), delta.seconds());
+        return DeltaBody.of(delta.used(), delta.seconds());
     }
 
     private DeltaBody latestChange() {
@@ -902,6 +903,11 @@ final class ApiHandler implements HttpHandler {
     }
 
     // ---- response shapes: the contract in docs/api.md. Each writes its own JSON, key by key, in the order of the contract.
+
+    /** An amount as a number of JSON, exactly: {@code 186.02}, {@code 1000.0}; null for none. */
+    private static Json number(Amount amount) {
+        return amount == null ? Json.NULL : Json.number(amount.number());
+    }
 
     record Range(int min, int max) {
 
@@ -1134,20 +1140,20 @@ final class ApiHandler implements HttpHandler {
     }
 
     /** What changed since the row before: the amount used, and the seconds; either is null if it cannot be worked out. */
-    record DeltaBody(Double deltaUsed, Long deltaTime, String deltaUsedText, String deltaSecondsText) {
+    record DeltaBody(Amount deltaUsed, Long deltaTime, String deltaUsedText, String deltaSecondsText) {
 
-        static DeltaBody of(Double used, Long seconds) {
+        static DeltaBody of(Amount used, Long seconds) {
             return new DeltaBody(
                     used, seconds,
                     // A change of nothing says nothing: no text for it, so no cell and no item show it.
-                    used == null || Math.abs(used) < 0.005 ? null : Formatting.signedAmount(java.math.BigDecimal.valueOf(used)),
+                    used == null || used.cents() == 0 ? null : Formatting.signedAmount(used),
                     // The time is in whole seconds, in the history and in the row, never in minutes.
                     seconds == null ? null : Formatting.seconds(seconds));
         }
 
         Json toJson() {
             return Json.object()
-                    .put("delta_used", deltaUsed)
+                    .put("delta_used", number(deltaUsed))
                     .put("delta_time", deltaTime)
                     .put("delta_used_text", deltaUsedText)
                     .put("delta_seconds_text", deltaSecondsText);
@@ -1208,12 +1214,12 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
-    record SpendBody(Double used, Double limit, String currency, Integer percent, String severity) {
+    record SpendBody(Amount used, Amount limit, String currency, Integer percent, String severity) {
 
         Json toJson() {
             return Json.object()
-                    .put("used", used)
-                    .put("limit", limit)
+                    .put("used", number(used))
+                    .put("limit", number(limit))
                     .put("currency", currency)
                     .put("percent", percent)
                     .put("severity", severity);

@@ -1,6 +1,7 @@
 package org.example.settings;
 
-import java.math.BigDecimal;
+import org.example.money.Amount;
+
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -71,7 +72,7 @@ public record CostControl(Long monthlyCents, Long dailyCents, boolean dailyAutom
 
     /** An amount of cents as it is written in dollars, with two decimals: {@code 250.00}. */
     public static String text(long cents) {
-        return BigDecimal.valueOf(cents, 2).toPlainString();
+        return Amount.ofCents(cents).plain();
     }
 
     /**
@@ -83,6 +84,6 @@ public record CostControl(Long monthlyCents, Long dailyCents, boolean dailyAutom
         if (typed == null || !typed.trim().matches("\\d{1,9}(\\.\\d{1,2})?")) {
             return Optional.empty();
         }
-        return Optional.of(new BigDecimal(typed.trim()).movePointRight(2).longValueExact());
+        return Optional.of(Amount.parse(typed.trim()).exactCents());
     }
 }

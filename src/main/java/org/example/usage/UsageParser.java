@@ -3,8 +3,8 @@ package org.example.usage;
 import org.example.json.Json;
 import org.example.json.JsonException;
 import org.example.json.JsonReader;
+import org.example.money.Amount;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -67,8 +67,8 @@ public final class UsageParser {
         if (enabled == null || !enabled.asBoolean(false)) {
             return null;
         }
-        Double used = amount(node.get("used"));
-        Double limit = amount(node.get("limit"));
+        Amount used = amount(node.get("used"));
+        Amount limit = amount(node.get("limit"));
         if (used == null && limit == null) {
             throw new UsageParseException(
                     "The usage response enables spend but reports neither \"used\" nor \"limit\";"
@@ -85,17 +85,20 @@ public final class UsageParser {
 
     /**
      * Minor units scaled by their exponent: {@code 18602} at exponent 2 is
-     * 186.02. Scaled through {@link BigDecimal} rather than by dividing
+     * 186.02. Held as the decimal number it is rather than by dividing
      * doubles, so the figure is the one the endpoint meant.
      */
-    private static Double amount(Json money) {
+    private static Amount amount(Json money) {
         if (!isObject(money) || money.get("amount_minor") == null || !money.get("amount_minor").isNumber()) {
             return null;
         }
         Json exponent = money.get("exponent");
-        return BigDecimal.valueOf(money.get("amount_minor").longValue())
-                .movePointLeft(exponent == null ? 0 : exponent.asInt(0))
-                .doubleValue();
+        try {
+            return Amount.ofMinor(money.get("amount_minor").longValue(), exponent == null ? 0 : exponent.asInt(0));
+        } catch (ArithmeticException e) {
+            throw new UsageParseException(
+                    "The usage response has an amount larger than the program can hold; its format may have changed.");
+        }
     }
 
     /** The currency is stated on each amount, and identically on both. */

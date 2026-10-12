@@ -4,7 +4,7 @@ A plan for changing the Java program so that it leans only on what Go also has. 
 translation of this code, not a new design. The task is [new-requirements.md](new-requirements.md); the analysis it
 builds on is [go-port.md](go-port.md), whose problem numbers are used here.
 
-It is written against version 0.70. **Built so far: phase 1 (version 0.71)**; how it went is phase 83 of
+It is written against version 0.70. **Built so far: phase 1 (version 0.71) and phase 2 (version 0.72)**; how they went is in phases 83 and 84 of
 [implementation-plan.md](implementation-plan.md).
 
 ## What was decided
@@ -112,6 +112,12 @@ rounds to zero, amounts with a different count of decimals subtracted from each 
 largest amount.
 
 **What changes for the person.** Nothing: a history row with more than two decimals is taken exactly, as today.
+
+**As built (version 0.72).** As planned. Seen only when it was built: an amount holds 18 digits, where `BigDecimal`
+held any number, so an amount beyond that in a response is refused with a message of its own, and two history rows
+whose difference needs more have no change shown; and the percentage of the reading shown at startup, which was
+worked out with binary fractions, is now exact at a half (14.50 of 100.00 is 15%, not 14%). The fill of a cost bar
+stays a `double` from 0 to 1, made from the exact share; Go's `float64` gives the same.
 
 ## Phase 3: logging of the program's own
 

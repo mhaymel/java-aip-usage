@@ -361,7 +361,7 @@ public final class SettingsStore {
         }
         try {
             if (node.isNumber()) {
-                long cents = new java.math.BigDecimal(node.numberText()).movePointRight(2).longValueExact();
+                long cents = org.example.money.Amount.parse(node.numberText()).exactCents();
                 if (cents >= CostControl.MIN_CENTS && cents <= CostControl.MAX_CENTS) {
                     return cents;
                 }
@@ -470,7 +470,7 @@ public final class SettingsStore {
             return fallback;
         }
         try {
-            return new java.math.BigDecimal(node.numberText()).movePointRight(2).longValueExact();
+            return org.example.money.Amount.parse(node.numberText()).exactCents();
         } catch (ArithmeticException | NumberFormatException e) {
             return fallback;
         }
@@ -629,7 +629,7 @@ public final class SettingsStore {
 
     /** An amount of cents as the file has it: a number of dollars, always with two decimals, {@code 1000.00}. */
     private static Json dollars(long cents) {
-        return Json.number(java.math.BigDecimal.valueOf(cents, 2).toPlainString());
+        return Json.number(org.example.money.Amount.ofCents(cents).plain());
     }
 
     private void write(Settings settings, Heights heights, Search search, org.example.fake.FakeOptions fake, LastWindow last, String settingsTab) throws IOException {

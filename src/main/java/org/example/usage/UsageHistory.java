@@ -1,8 +1,8 @@
 package org.example.usage;
 
+import org.example.money.Amount;
+
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -189,22 +189,22 @@ public final class UsageHistory {
             if (row == null) {
                 return Optional.empty();
             }
-            Double used = number(row.get(1));
-            Double limit = number(row.get(2));
+            Amount used = number(row.get(1));
+            Amount limit = number(row.get(2));
             Instant at = LocalDateTime.parse(row.get(0), TIME).atZone(zone).toInstant();
             String currency = row.get(3).isBlank() ? null : row.get(3);
-            Integer percent = used != null && limit != null && limit > 0 ? (int) Math.round(used / limit * 100) : null;
+            Integer percent = used != null && limit != null && limit.signum() > 0 ? (int) used.shareOf(limit, 2) : null;
             return Optional.of(new UsageSnapshot(at, new Spend(used, limit, currency, percent, null)));
         } catch (IOException | RuntimeException e) {
             return Optional.empty();
         }
     }
 
-    private static Double number(String text) {
-        return text.isBlank() ? null : Double.valueOf(text);
+    private static Amount number(String text) {
+        return text.isBlank() ? null : Amount.parse(text.strip());
     }
 
-    private static String amount(Double value) {
-        return value == null ? "" : BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).toPlainString();
+    private static String amount(Amount value) {
+        return value == null ? "" : value.plain();
     }
 }

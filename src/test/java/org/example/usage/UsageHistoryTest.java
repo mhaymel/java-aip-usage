@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.money.Amount;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -29,7 +30,12 @@ class UsageHistoryTest {
     }
 
     private static UsageSnapshot reading(Instant at, Double used, Double limit) {
-        return new UsageSnapshot(at, new Spend(used, limit, "USD", 19, "normal"));
+        return new UsageSnapshot(at, new Spend(amount(used), amount(limit), "USD", 19, "normal"));
+    }
+
+    /** The amount a number with decimals is written as in its shortest form: 186.02 for 186.02. */
+    private static Amount amount(Double value) {
+        return value == null ? null : Amount.parse(Double.toString(value));
     }
 
     private List<String> lines() throws IOException {
@@ -211,7 +217,7 @@ class UsageHistoryTest {
     @Test
     void aReadingWithNoCurrencyLeavesItEmpty() throws IOException {
         new UsageHistory(file(), ZoneOffset.UTC)
-                .append(new UsageSnapshot(AT, new Spend(1.0, 2.0, null, 50, null)), 60, 412);
+                .append(new UsageSnapshot(AT, new Spend(Amount.parse("1.0"), Amount.parse("2.0"), null, 50, null)), 60, 412);
 
         assertEquals("2026-10-08 14:24:53,1.00,2.00,,start,60,412", lines().get(1));
     }
@@ -337,7 +343,16 @@ class UsageHistoryTest {
         UsageSnapshot latest = new UsageHistory(file(), ZoneOffset.UTC).latest().orElseThrow();
 
         assertEquals(AT, latest.fetchedAt());
-        assertEquals(1.0, latest.spend().used());
+        assertEquals(Amount.parse("1.0"), latest.spend().used());
+    }
+
+    @Test
+    void thePercentageOfTheNewestRowIsRoundedToTheNearestAndUpwardsAtHalf() throws IOException {
+        for (String[] c : new String[][] {{"14.50", "100.00", "15"}, {"14.49", "100.00", "14"}, {"186.02", "1000.00", "19"}, {"0.00", "250.00", "0"}}) {
+            Files.write(file(), List.of("datetime,used,limit,currency", "2026-10-08 14:24:53," + c[0] + "," + c[1] + ",USD"));
+
+            assertEquals(Integer.valueOf(c[2]), new UsageHistory(file(), ZoneOffset.UTC).latest().orElseThrow().spend().percent(), c[0] + " of " + c[1]);
+        }
     }
 
     @Test
@@ -348,8 +363,8 @@ class UsageHistoryTest {
         UsageSnapshot latest = new UsageHistory(file(), ZoneId.of("Europe/Vienna")).latest().orElseThrow();
 
         assertEquals(Instant.parse("2026-10-08T14:00:00Z"), latest.fetchedAt(), "16:00 in Vienna");
-        assertEquals(263.89, latest.spend().used());
-        assertEquals(1000.0, latest.spend().limit());
+        assertEquals(Amount.parse("263.89"), latest.spend().used());
+        assertEquals(Amount.parse("1000.0"), latest.spend().limit());
         assertEquals("EUR", latest.spend().currency());
         assertEquals(26, latest.spend().percent());
     }

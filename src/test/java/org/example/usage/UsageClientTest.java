@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.money.Amount;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -80,7 +81,7 @@ class UsageClientTest {
 
         assertEquals(List.of("GET", "Bearer " + TOKEN, "application/json"), seen);
         assertEquals(NOW, snapshot.fetchedAt());
-        assertEquals(186.02, snapshot.spend().used());
+        assertEquals(Amount.parse("186.02"), snapshot.spend().used());
     }
 
     @Test

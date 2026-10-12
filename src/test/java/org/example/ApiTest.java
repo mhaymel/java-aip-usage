@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.money.Amount;
 import org.example.json.Json;
 import org.example.json.JsonReader;
 import org.example.settings.LaunchOptions;
@@ -47,7 +48,7 @@ class ApiTest {
     private static final Instant FETCHED_AT = Instant.parse("2026-10-08T12:00:00Z");
 
     private static final UsageSnapshot SPEND = new UsageSnapshot(
-            FETCHED_AT, new Spend(186.02, 1000.0, "USD", 19, "normal"));
+            FETCHED_AT, new Spend(Amount.parse("186.02"), Amount.parse("1000.0"), "USD", 19, "normal"));
 
     /** A reading with no amounts: an account that reports no usage. Nothing of it is written to the history. */
     private static final UsageSnapshot NO_USAGE = new UsageSnapshot(FETCHED_AT, null);
@@ -771,7 +772,7 @@ class ApiTest {
         writeHistory("datetime,used,limit,currency", "2026-10-08 14:24:53,5.00,10.00,USD");
         FakeFetch fetch = new FakeFetch();
         AppRuntime app = start(fetch);
-        await(() -> app.service().state().snapshot() != null && app.service().state().snapshot().spend().used() > 100);
+        await(() -> app.service().state().snapshot() != null && app.service().state().snapshot().spend().used().compareTo(Amount.parse("100")) > 0);
         assertEquals(186.02, json(get(app, "/api/status")).at("/usage/spend/used").asDouble());
 
         writeHistory("datetime,used,limit,currency", "2026-10-08 14:24:53,5.00,10.00,USD");
@@ -1689,7 +1690,7 @@ class ApiTest {
         UsageState state = app.service().state();
         assertEquals(null, state.error(), "the reading is good and the refresh did succeed");
         assertFalse(state.stale());
-        assertEquals(186.02, state.snapshot().spend().used());
+        assertEquals(Amount.parse("186.02"), state.snapshot().spend().used());
     }
 
     @Test

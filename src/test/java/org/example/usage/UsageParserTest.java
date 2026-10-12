@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.money.Amount;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
@@ -28,7 +29,7 @@ class UsageParserTest {
         UsageSnapshot snapshot = parser.parse(fixture("usage-credits.json"), FETCHED_AT);
 
         assertEquals(FETCHED_AT, snapshot.fetchedAt());
-        assertEquals(new Spend(186.02, 1000.0, "USD", 19, "normal"), snapshot.spend());
+        assertEquals(new Spend(Amount.parse("186.02"), Amount.parse("1000.0"), "USD", 19, "normal"), snapshot.spend());
         assertFalse(snapshot.isEmpty());
     }
 
@@ -54,6 +55,32 @@ class UsageParserTest {
     }
 
     @Test
+    void anAmountIsTheDecimalNumberItsUnitAndExponentSay() {
+        String body = """
+                {"spend": {"enabled": true,
+                  "used": {"amount_minor": 18602, "currency": "KWD", "exponent": 3},
+                  "limit": {"amount_minor": 5, "currency": "KWD", "exponent": -2}}}
+                """;
+
+        Spend spend = parser.parse(body, FETCHED_AT).spend();
+
+        assertEquals("18.602", spend.used().number(), "every decimal, not a binary fraction near it");
+        assertEquals("18.60", spend.used().plain(), "and rounded where it is written");
+        assertEquals(Amount.parse("500"), spend.limit());
+    }
+
+    @Test
+    void anAmountLargerThanTheProgramCanHoldIsAResponseItCannotUse() {
+        String body = """
+                {"spend": {"enabled": true,
+                  "used": {"amount_minor": 9223372036854775807, "currency": "USD", "exponent": 0}}}
+                """;
+
+        assertEquals("The usage response has an amount larger than the program can hold; its format may have changed.",
+                assertThrows(UsageParseException.class, () -> parser.parse(body, FETCHED_AT)).getMessage());
+    }
+
+    @Test
     void scalesMinorUnitsExactly() {
         String body = """
                 {"spend": {"enabled": true,
@@ -63,8 +90,8 @@ class UsageParserTest {
 
         Spend spend = parser.parse(body, FETCHED_AT).spend();
 
-        assertEquals(0.01, spend.used());
-        assertEquals(500.0, spend.limit());
+        assertEquals(Amount.parse("0.01"), spend.used());
+        assertEquals(Amount.parse("500.0"), spend.limit());
         assertEquals("EUR", spend.currency());
         assertNull(spend.percent());
         assertNull(spend.severity());
@@ -79,7 +106,7 @@ class UsageParserTest {
         Spend spend = parser.parse(body, FETCHED_AT).spend();
 
         assertNull(spend.used());
-        assertEquals(1.0, spend.limit());
+        assertEquals(Amount.parse("1.0"), spend.limit());
     }
 
     @Test

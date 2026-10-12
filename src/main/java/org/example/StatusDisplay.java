@@ -1,6 +1,7 @@
 package org.example;
 
 import org.example.json.Json;
+import org.example.money.Amount;
 import org.example.settings.Settings;
 import org.example.settings.TimeFormat;
 import org.example.usage.Spend;
@@ -232,7 +233,7 @@ final class StatusDisplay {
             return null;
         }
         // A change of nothing has no text of its own, so that the history leaves its cell empty; the row writes it, as 0.00.
-        String text = change.deltaUsedText() != null ? change.deltaUsedText() : Formatting.amount(0.0);
+        String text = change.deltaUsedText() != null ? change.deltaUsedText() : Formatting.amount(Amount.ZERO);
         String currency = usage != null && usage.spend() != null && usage.spend().currency() != null
                 ? ", in " + usage.spend().currency() : "";
         return new Tip(
@@ -241,7 +242,7 @@ final class StatusDisplay {
     }
 
     /** An amount as the row shows it: the plain number, or with the currency symbol before it if that is switched on; a missing amount has none. */
-    private static String amountText(Double amount, String currency, boolean withSymbol) {
+    private static String amountText(Amount amount, String currency, boolean withSymbol) {
         String text = Formatting.amount(amount);
         return withSymbol && amount != null ? Formatting.currencySymbol(currency) + text : text;
     }

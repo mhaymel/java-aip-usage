@@ -1,9 +1,9 @@
 package org.example;
 
+import org.example.money.Amount;
 import org.example.settings.TimeFormat;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -76,10 +76,10 @@ class FormattingTest {
         java.util.Locale before = java.util.Locale.getDefault();
         try {
             java.util.Locale.setDefault(java.util.Locale.GERMANY);
-            assertEquals("186.02", Formatting.amount(186.02));
-            assertEquals("1,000.00", Formatting.amount(1000.0));
-            assertEquals("0.00", Formatting.amount(0.0));
-            assertEquals("1,234,567.89", Formatting.amount(1234567.891));
+            assertEquals("186.02", Formatting.amount(Amount.parse("186.02")));
+            assertEquals("1,000.00", Formatting.amount(Amount.parse("1000.0")));
+            assertEquals("0.00", Formatting.amount(Amount.parse("0.0")));
+            assertEquals("1,234,567.89", Formatting.amount(Amount.parse("1234567.891")));
         } finally {
             java.util.Locale.setDefault(before);
         }
@@ -87,11 +87,11 @@ class FormattingTest {
 
     @Test
     void aThirdDecimalOfAnAmountIsRoundedUpwardsAtHalfAsTheHistoryFileRoundsIt() {
-        assertEquals("0.13", Formatting.amount(0.125), "not 0.12, which rounding to the even digit gives");
-        assertEquals("2.68", Formatting.amount(2.675), "not 2.67, which the number as it is held gives");
-        assertEquals("1.01", Formatting.amount(1.005));
-        assertEquals("186.02", Formatting.amount(186.024));
-        assertEquals("1,000.00", Formatting.amount(999.995));
+        assertEquals("0.13", Formatting.amount(Amount.parse("0.125")), "not 0.12, which rounding to the even digit gives");
+        assertEquals("2.68", Formatting.amount(Amount.parse("2.675")), "not 2.67, which the number as it is held gives");
+        assertEquals("1.01", Formatting.amount(Amount.parse("1.005")));
+        assertEquals("186.02", Formatting.amount(Amount.parse("186.024")));
+        assertEquals("1,000.00", Formatting.amount(Amount.parse("999.995")));
     }
 
     @Test
@@ -101,10 +101,10 @@ class FormattingTest {
 
     @Test
     void aChangeInAnAmountCarriesItsSign() {
-        assertEquals("+0.05", Formatting.signedAmount(new BigDecimal("0.05")));
-        assertEquals("-0.05", Formatting.signedAmount(new BigDecimal("-0.05")));
-        assertEquals("0.00", Formatting.signedAmount(BigDecimal.ZERO));
-        assertEquals("+1,234.50", Formatting.signedAmount(new BigDecimal("1234.5")));
+        assertEquals("+0.05", Formatting.signedAmount(Amount.parse("0.05")));
+        assertEquals("-0.05", Formatting.signedAmount(Amount.parse("-0.05")));
+        assertEquals("0.00", Formatting.signedAmount(Amount.ZERO));
+        assertEquals("+1,234.50", Formatting.signedAmount(Amount.parse("1234.5")));
     }
 
     @Test

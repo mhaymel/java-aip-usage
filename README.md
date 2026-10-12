@@ -166,6 +166,7 @@ has not been verified:
 | `src/main/java/org/example/usage/` | Usage model, parser, HTTP client, refresh service |
 | `src/main/java/org/example/settings/` | Interval settings, `settings.json`, command-line options |
 | `src/main/java/org/example/json/` | The program's own JSON: the value, the reader, the writer |
+| `src/main/java/org/example/money/` | The program's own decimal amounts of money |
 | `src/main/resources/web/` | Frontend: the strip with its log and history panel (`index.html`), with its CSS and JavaScript |
 | `src/test/java/`, `src/test/frontend/` | JUnit tests, and Node tests for the frontend |
 | `docs/` | Requirements, implementation plan, and the local API contract |

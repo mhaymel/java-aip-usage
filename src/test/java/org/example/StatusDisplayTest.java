@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.money.Amount;
 import org.example.settings.Settings;
 import org.example.settings.TimeFormat;
 import org.example.usage.Spend;
@@ -23,7 +24,7 @@ class StatusDisplayTest {
 
     private static final Instant FETCHED = Instant.parse("2026-10-08T14:24:53Z");
 
-    private static final Spend SPEND = new Spend(186.02, 1000.0, "USD", 19, "normal");
+    private static final Spend SPEND = new Spend(Amount.parse("186.02"), Amount.parse("1000.0"), "USD", 19, "normal");
 
     private static UsageState state(UsageSnapshot snapshot, String error, Instant errorAt) {
         try {
@@ -97,9 +98,9 @@ class StatusDisplayTest {
     void anotherCurrencyIsItsCodeAndASpaceAndNoCurrencyIsNoSymbol() {
         Settings symbol = Settings.defaults().withShowCurrency(true);
 
-        StatusDisplay.View eur = build(state(spend(new Spend(186.02, 1000.0, "EUR", 19, "normal")), null, null), OptionalLong.empty(), null, symbol);
-        StatusDisplay.View none = build(state(spend(new Spend(186.02, 1000.0, null, 19, "normal")), null, null), OptionalLong.empty(), null, symbol);
-        StatusDisplay.View missing = build(state(spend(new Spend(null, 1000.0, "USD", null, null)), null, null), OptionalLong.empty(), null, symbol);
+        StatusDisplay.View eur = build(state(spend(new Spend(Amount.parse("186.02"), Amount.parse("1000.0"), "EUR", 19, "normal")), null, null), OptionalLong.empty(), null, symbol);
+        StatusDisplay.View none = build(state(spend(new Spend(Amount.parse("186.02"), Amount.parse("1000.0"), null, 19, "normal")), null, null), OptionalLong.empty(), null, symbol);
+        StatusDisplay.View missing = build(state(spend(new Spend(null, Amount.parse("1000.0"), "USD", null, null)), null, null), OptionalLong.empty(), null, symbol);
 
         assertEquals("EUR 186.02", eur.spend().used());
         assertEquals("EUR 1,000.00", eur.spend().limit());
@@ -137,7 +138,7 @@ class StatusDisplayTest {
 
     @Test
     void withoutACurrencyOrAPercentTheTooltipsStillSayWhatTheNumbersAre() {
-        StatusDisplay.View v = build(state(spend(new Spend(1.0, 2.0, null, null, null)), null, null));
+        StatusDisplay.View v = build(state(spend(new Spend(Amount.parse("1.0"), Amount.parse("2.0"), null, null, null)), null, null));
 
         assertEquals("Credits used", v.spend().usedTooltip());
         assertEquals("Credit budget", v.spend().limitTooltip());
@@ -147,7 +148,7 @@ class StatusDisplayTest {
 
     @Test
     void missingAmountsAreADashRatherThanZero() {
-        StatusDisplay.View v = build(state(spend(new Spend(null, 1000.0, "USD", null, null)), null, null));
+        StatusDisplay.View v = build(state(spend(new Spend(null, Amount.parse("1000.0"), "USD", null, null)), null, null));
 
         assertEquals("—", v.spend().used());
         assertEquals("1,000.00", v.spend().limit());
@@ -255,7 +256,7 @@ class StatusDisplayTest {
     void theChangesAreFinishedTextsAndLeftOutWhenTheyCannotBeWorkedOut() {
         UsageState s = state(spend(SPEND), null, null);
 
-        StatusDisplay.View v = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.05, 61L), Settings.defaults());
+        StatusDisplay.View v = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(Amount.parse("0.05"), 61L), Settings.defaults());
         assertEquals("+0.05", v.deltaUsed().text());
         assertEquals("Change in the amount used since the previous reading, in USD", v.deltaUsed().tooltip());
         assertEquals("61s", v.deltaTime().text(), "in seconds, never minutes, and no space");
@@ -299,20 +300,20 @@ class StatusDisplayTest {
     void aChangeOfZeroIsWrittenInTheRowWithoutASignAndAChangeThatIsNotKnownHasNoItem() {
         UsageState s = state(spend(SPEND), null, null);
 
-        StatusDisplay.View none = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.0, 60L), Settings.defaults());
+        StatusDisplay.View none = build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(Amount.parse("0.0"), 60L), Settings.defaults());
         assertEquals("0.00", none.deltaUsed().text(), "written, with no sign and no currency symbol");
         assertEquals("Change in the amount used since the previous reading, in USD", none.deltaUsed().tooltip());
         assertEquals("60s", none.deltaTime().text(), "in seconds, never minutes");
-        assertNull(ApiHandler.DeltaBody.of(0.0, 60L).deltaUsedText(), "the history's cell stays empty for it");
+        assertNull(ApiHandler.DeltaBody.of(Amount.parse("0.0"), 60L).deltaUsedText(), "the history's cell stays empty for it");
 
-        assertEquals("0.00", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.004, 60L), Settings.defaults()).deltaUsed().text(),
+        assertEquals("0.00", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(Amount.parse("0.004"), 60L), Settings.defaults()).deltaUsed().text(),
                 "rounds to zero");
-        assertEquals("0.00", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(-0.004, 60L), Settings.defaults()).deltaUsed().text(),
+        assertEquals("0.00", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(Amount.parse("-0.004"), 60L), Settings.defaults()).deltaUsed().text(),
                 "and never -0.00");
         assertNull(build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(null, 60L), Settings.defaults()).deltaUsed(),
                 "no reading before, or no amount: not known, which the row shows as a gray box");
-        assertEquals("+0.01", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(0.01, 60L), Settings.defaults()).deltaUsed().text());
-        assertEquals("-0.01", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(-0.01, 60L), Settings.defaults()).deltaUsed().text());
+        assertEquals("+0.01", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(Amount.parse("0.01"), 60L), Settings.defaults()).deltaUsed().text());
+        assertEquals("-0.01", build(s, OptionalLong.empty(), ApiHandler.DeltaBody.of(Amount.parse("-0.01"), 60L), Settings.defaults()).deltaUsed().text());
     }
 
     @Test

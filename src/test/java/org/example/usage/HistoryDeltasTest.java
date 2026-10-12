@@ -1,8 +1,8 @@
 package org.example.usage;
 
+import org.example.money.Amount;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,9 +26,9 @@ class HistoryDeltasTest {
                 row("14:00:00", "10.00", "start"), row("14:01:00", "10.25", ""), row("14:03:30", "10.20", ""));
 
         assertEquals(HistoryDeltas.Delta.NONE, d.get(0));
-        assertEquals(new BigDecimal("0.25"), d.get(1).used());
+        assertEquals(Amount.parse("0.25"), d.get(1).used());
         assertEquals(60L, d.get(1).seconds());
-        assertEquals(new BigDecimal("-0.05"), d.get(2).used(), "a drop is negative");
+        assertEquals(Amount.parse("-0.05"), d.get(2).used(), "a drop is negative");
         assertEquals(150L, d.get(2).seconds());
     }
 
@@ -41,7 +41,7 @@ class HistoryDeltasTest {
 
         assertNull(d.get(2).used(), "the amount is compared inside a run, which decides the zero usage lines");
         assertEquals(7140L, d.get(2).seconds(), "but the time is since the last row of the run before: 14:01:00 to 16:00:00");
-        assertEquals(new BigDecimal("0.10"), d.get(3).used());
+        assertEquals(Amount.parse("0.10"), d.get(3).used());
     }
 
     @SuppressWarnings("unchecked")
@@ -73,7 +73,7 @@ class HistoryDeltasTest {
         List<HistoryDeltas.Delta> d = compute(row("14:00:00", "10.00", ""), row("14:01:00", "10.10", ""));
 
         assertEquals(HistoryDeltas.Delta.NONE, d.get(0));
-        assertEquals(new BigDecimal("0.10"), d.get(1).used());
+        assertEquals(Amount.parse("0.10"), d.get(1).used());
     }
 
     @SuppressWarnings("unchecked")
@@ -84,7 +84,7 @@ class HistoryDeltasTest {
                 List.of("yesterday", "abc", "1", "USD", "", "60", "4"));
 
         assertNull(d.get(1).seconds(), "the clock was set back");
-        assertEquals(new BigDecimal("0.25"), d.get(1).used(), "the amount is still worked out");
+        assertEquals(Amount.parse("0.25"), d.get(1).used(), "the amount is still worked out");
         assertNull(d.get(2).seconds(), "the time cannot be read");
         assertNull(d.get(2).used(), "the amount cannot be read");
     }
@@ -115,7 +115,7 @@ class HistoryDeltasTest {
                 row("14:00:00", "10.00", "start"), row("14:01:00", "10.10", ""), row("14:05:00", "10.30", ""));
 
         assertEquals(HistoryDeltas.Delta.NONE, d.get(1), "a hidden row has none");
-        assertEquals(new BigDecimal("0.30"), d.get(2).used(), "against the first row, not the hidden one");
+        assertEquals(Amount.parse("0.30"), d.get(2).used(), "against the first row, not the hidden one");
         assertEquals(300L, d.get(2).seconds());
     }
 
@@ -150,45 +150,65 @@ class HistoryDeltasTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<BigDecimal> changes(List<String>... rows) {
+    private static List<Amount> changes(List<String>... rows) {
         return HistoryDeltas.amountChanges(new ArrayList<>(List.of(rows)));
     }
 
     @SuppressWarnings("unchecked")
     @Test
-    void theChangeInTheAmountIsAgainstTheLastEarlierRowWithAnAmountAndTheFirstIsTheAmountItself() {
-        List<BigDecimal> c = changes(row("14:00:00", "10.00", "start"), row("14:01:00", "10.25", ""), row("14:03:30", "10.20", ""));
+    void aRowChangedByHandToMoreDecimalsIsTakenExactlyAndOnlyTheResultIsRounded() {
+        List<Amount> c = changes(row("14:00:00", "1.004", ""), row("14:01:00", "1.009", ""), row("14:02:00", "1.01", ""));
 
-        assertEquals(new BigDecimal("10.00"), c.get(0), "no earlier amount: the amount itself, also for a start line");
-        assertEquals(new BigDecimal("0.25"), c.get(1));
-        assertEquals(new BigDecimal("-0.05"), c.get(2), "a fall is a negative change");
+        assertEquals(Amount.parse("0.005"), c.get(1), "not 0.01 less 0.00, which rounding each amount first would give");
+        assertEquals("+0.01", c.get(1).signed());
+        assertEquals(Amount.parse("0.001"), c.get(2));
+        assertEquals("0.00", c.get(2).signed());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void anAmountThatIsNoNumberOrTooFarFromTheOneBeforeItHasNoChange() {
+        List<Amount> c = changes(row("14:00:00", "99999999999999.99", ""), row("14:01:00", "0.000001", ""), row("14:02:00", "abc", ""));
+
+        assertEquals(null, c.get(1), "their difference has more digits than an amount holds");
+        assertEquals(null, c.get(2));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void theChangeInTheAmountIsAgainstTheLastEarlierRowWithAnAmountAndTheFirstIsTheAmountItself() {
+        List<Amount> c = changes(row("14:00:00", "10.00", "start"), row("14:01:00", "10.25", ""), row("14:03:30", "10.20", ""));
+
+        assertEquals(Amount.parse("10.00"), c.get(0), "no earlier amount: the amount itself, also for a start line");
+        assertEquals(Amount.parse("0.25"), c.get(1));
+        assertEquals(Amount.parse("-0.05"), c.get(2), "a fall is a negative change");
     }
 
     @SuppressWarnings("unchecked")
     @Test
     void failedRowsAreIgnoredAndHaveNoChangeOfTheirOwn() {
-        List<BigDecimal> c = changes(
+        List<Amount> c = changes(
                 row("14:00:00", "10.00", "start"), row("14:01:00", "", "failed"), row("14:02:00", "10.50", ""));
 
         assertNull(c.get(1));
-        assertEquals(new BigDecimal("0.50"), c.get(2), "against 14:00, the failed row between them being ignored");
+        assertEquals(Amount.parse("0.50"), c.get(2), "against 14:00, the failed row between them being ignored");
     }
 
     @SuppressWarnings("unchecked")
     @Test
     void aNewRunIsComparedWithTheLastRowOfTheRunBefore() {
-        List<BigDecimal> c = changes(
+        List<Amount> c = changes(
                 row("14:00:00", "10.00", "start"), row("14:01:00", "10.40", ""), row("15:00:00", "10.60", "start"));
 
-        assertEquals(new BigDecimal("0.20"), c.get(2), "the border of a run is no border for the amount");
+        assertEquals(Amount.parse("0.20"), c.get(2), "the border of a run is no border for the amount");
     }
 
     @SuppressWarnings("unchecked")
     @Test
     void aFailedStartupRowHasNoChangeAndTheFirstRowWithAnAmountAfterItIsTheAmount() {
-        List<BigDecimal> c = changes(row("14:00:00", "", "start-failed"), row("14:01:00", "10.40", ""));
+        List<Amount> c = changes(row("14:00:00", "", "start-failed"), row("14:01:00", "10.40", ""));
 
         assertNull(c.get(0));
-        assertEquals(new BigDecimal("10.40"), c.get(1));
+        assertEquals(Amount.parse("10.40"), c.get(1));
     }
 }

@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.money.Amount;
 import org.example.token.TokenException;
 import org.example.token.TokenException.Reason;
 import org.junit.jupiter.api.AfterEach;
@@ -850,7 +851,7 @@ class UsageServiceTest {
         root.addHandler(capture);
         try {
             UsageSnapshot seat = new UsageSnapshot(Instant.parse("2026-10-11T18:26:31Z"), null, true);
-            UsageSnapshot spent = new UsageSnapshot(Instant.parse("2026-10-11T18:28:31Z"), new Spend(186.02, 1000.0, "USD", 19, "normal"));
+            UsageSnapshot spent = new UsageSnapshot(Instant.parse("2026-10-11T18:28:31Z"), new Spend(Amount.parse("186.02"), Amount.parse("1000.0"), "USD", 19, "normal"));
             List<UsageSnapshot> answers = List.of(seat, seat, spent, seat);
             AtomicInteger calls = new AtomicInteger();
             UsageService service = start(() -> answers.get(calls.getAndIncrement()), HOUR);

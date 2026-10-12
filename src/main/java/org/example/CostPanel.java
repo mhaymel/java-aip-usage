@@ -1,10 +1,9 @@
 package org.example;
 
 import org.example.json.Json;
+import org.example.money.Amount;
 import org.example.settings.CostControl;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -73,14 +72,24 @@ final class CostPanel {
             return new View(List.of(empty("Today"), empty("This month")), NO_READING);
         }
         List<String> newest = readings.get(0);
-        BigDecimal used = amount(newest);
+        Amount used = amount(newest);
         String currency = newest.get(3);
         YearMonth month = YearMonth.from(today);
-        BigDecimal spentToday = used.subtract(baseline(readings, today, month, used)).max(BigDecimal.ZERO);
+        Amount spentToday = spentSince(used, baseline(readings, today, month, used));
         Optional<Long> daily = limits.dailyIn(month);
         return new View(List.of(
                 row("Today", spentToday, daily.orElse(null), currency, withSymbol),
                 row("This month", used, limits.monthlyCents(), currency, withSymbol)), null);
+    }
+
+    /** What was spent since an earlier amount: the difference, and nothing where the amount has fallen. */
+    private static Amount spentSince(Amount used, Amount earlier) {
+        try {
+            return used.minus(earlier).max(Amount.ZERO);
+        } catch (ArithmeticException e) {
+            // Two amounts too far apart for their difference to be held, as rows changed by hand may be.
+            return Amount.ZERO;
+        }
     }
 
     /**
@@ -88,9 +97,9 @@ final class CostPanel {
      * so that a program started today shows what was spent since it started and the first day of a month begins at its first reading.
      * With neither, today has nothing to count from and nothing was spent.
      */
-    private static BigDecimal baseline(List<List<String>> readings, LocalDate today, YearMonth month, BigDecimal newestAmount) {
-        BigDecimal beforeToday = null;
-        BigDecimal firstToday = null;
+    private static Amount baseline(List<List<String>> readings, LocalDate today, YearMonth month, Amount newestAmount) {
+        Amount beforeToday = null;
+        Amount firstToday = null;
         LocalDateTime latestBefore = null;
         LocalDateTime earliestToday = null;
         for (List<String> row : readings) {
@@ -115,31 +124,32 @@ final class CostPanel {
         return new Row(label, "", label, 0, false, true);
     }
 
-    private static Row row(String label, BigDecimal used, Long limitCents, String currency, boolean withSymbol) {
+    private static Row row(String label, Amount used, Long limitCents, String currency, boolean withSymbol) {
         String usedText = money(used, currency, withSymbol);
         if (limitCents == null || limitCents <= 0) {
             return new Row(label, usedText + " · no limit set", label + ": " + usedText + ", no limit set", 0, false, true);
         }
-        BigDecimal limit = BigDecimal.valueOf(limitCents, 2);
-        BigDecimal ratio = used.divide(limit, 6, RoundingMode.HALF_UP);
-        long percent = ratio.movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValueExact();
+        Amount limit = Amount.ofCents(limitCents);
+        long millionths = used.shareOf(limit, 6);
+        // The percentage is the share to six decimals, rounded once more to a whole number, upwards at half.
+        long percent = (millionths + (millionths >= 0 ? 5_000 : -5_000)) / 10_000;
         String limitText = money(limit, currency, withSymbol);
         return new Row(label,
                 usedText + " of " + limitText + " · " + percent + "%",
                 label + ": " + usedText + " of " + limitText + " (" + percent + "%)",
-                Math.min(1.0, ratio.doubleValue()),
+                Math.min(1.0, millionths / 1_000_000.0),
                 used.compareTo(limit) > 0,
                 false);
     }
 
-    private static String money(BigDecimal amount, String currency, boolean withSymbol) {
-        String text = Formatting.amount(amount.doubleValue());
+    private static String money(Amount amount, String currency, boolean withSymbol) {
+        String text = Formatting.amount(amount);
         return withSymbol ? Formatting.currencySymbol(currency) + text : text;
     }
 
-    private static BigDecimal amount(List<String> row) {
+    private static Amount amount(List<String> row) {
         try {
-            return row.get(1).isBlank() ? null : new BigDecimal(row.get(1));
+            return row.get(1).isBlank() ? null : Amount.parse(row.get(1));
         } catch (NumberFormatException e) {
             return null;
         }

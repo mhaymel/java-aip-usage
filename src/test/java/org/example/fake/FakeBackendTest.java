@@ -1,5 +1,6 @@
 package org.example.fake;
 
+import org.example.money.Amount;
 import org.example.token.PlaceholderTokenProvider;
 import org.example.usage.UsageClient;
 import org.example.usage.UsageFetchException;
@@ -93,7 +94,7 @@ class FakeBackendTest {
         UsageSnapshot first = fetch(backend);
         UsageSnapshot second = fetch(backend);
 
-        assertTrue(second.spend().used() > first.spend().used(),
+        assertTrue(second.spend().used().compareTo(first.spend().used()) > 0,
                 first.spend().used() + " then " + second.spend().used());
     }
 
@@ -282,9 +283,9 @@ class FakeBackendTest {
     void asItWasTheFakeBackendBeginsAt18602OfAThousandAndGrowsBy137() throws Exception {
         FakeBackend backend = start(Scenario.NORMAL);
 
-        assertEquals(187.39, fetch(backend).spend().used(), 0.0001, "186.02 and the full step, with no chance in a test");
-        assertEquals(188.76, fetch(backend).spend().used(), 0.0001);
-        assertEquals(1000.0, fetch(backend).spend().limit(), 0.0001);
+        assertEquals(Amount.parse("187.39"), fetch(backend).spend().used(), "186.02 and the full step, with no chance in a test");
+        assertEquals(Amount.parse("188.76"), fetch(backend).spend().used());
+        assertEquals(Amount.parse("1000.0"), fetch(backend).spend().limit());
         assertEquals(FakeOptions.DEFAULTS, backend.options());
     }
 
@@ -295,23 +296,23 @@ class FakeBackendTest {
         FakeBackend backend = shaped(options(FakeOptions.Account.USAGE, 50, 20_000, 1_000, 0, 0), java.time.Clock.systemUTC(),
                 most -> { asked.add(most); return draws[asked.size() - 1]; });
 
-        assertEquals(10.00, fetch(backend).spend().used(), 0.0001, "a draw of nothing: it may not grow at all");
-        assertEquals(10.25, fetch(backend).spend().used(), 0.0001);
+        assertEquals(Amount.parse("10.00"), fetch(backend).spend().used(), "a draw of nothing: it may not grow at all");
+        assertEquals(Amount.parse("10.25"), fetch(backend).spend().used());
         UsageSnapshot third = fetch(backend);
-        assertEquals(10.75, third.spend().used(), 0.0001);
-        assertEquals(200.0, third.spend().limit(), 0.0001, "the budget");
+        assertEquals(Amount.parse("10.75"), third.spend().used());
+        assertEquals(Amount.parse("200.0"), third.spend().limit(), "the budget");
         assertEquals(List.of(50, 50, 50), asked, "each time a number from 0 to the largest increase");
     }
 
     @Test
     void anIncreaseOfNothingNeverGrowsAndAnAmountPastTheBudgetGoesOn() throws Exception {
         FakeBackend still = shaped(options(FakeOptions.Account.USAGE, 0, 10_000, 500, 0, 0), java.time.Clock.systemUTC(), most -> most);
-        assertEquals(5.0, fetch(still).spend().used(), 0.0001);
-        assertEquals(5.0, fetch(still).spend().used(), 0.0001);
+        assertEquals(Amount.parse("5.0"), fetch(still).spend().used());
+        assertEquals(Amount.parse("5.0"), fetch(still).spend().used());
 
         FakeBackend over = shaped(options(FakeOptions.Account.USAGE, 600, 1_000, 900, 0, 0), java.time.Clock.systemUTC(), most -> most);
         UsageSnapshot reading = fetch(over);
-        assertEquals(15.0, reading.spend().used(), 0.0001, "past the budget of 10.00, as an account that spent more than its limit");
+        assertEquals(Amount.parse("15.0"), reading.spend().used(), "past the budget of 10.00, as an account that spent more than its limit");
         assertEquals(150, reading.spend().percent());
     }
 
@@ -339,7 +340,7 @@ class FakeBackendTest {
         assertEquals(Duration.ZERO, refused.retryAfter(), "it names no wait");
 
         clock.forward(Duration.ofSeconds(1));
-        assertEquals(188.76, fetch(backend).spend().used(), 0.0001, "30 seconds after the answered one: answered, and the refusal grew nothing");
+        assertEquals(Amount.parse("188.76"), fetch(backend).spend().used(), "30 seconds after the answered one: answered, and the refusal grew nothing");
         clock.forward(Duration.ofSeconds(29));
         assertThrows(UsageFetchException.class, () -> fetch(backend), "counted from the answer, not from the refusal before it");
         clock.forward(Duration.ofSeconds(29));
@@ -374,15 +375,15 @@ class FakeBackendTest {
     @Test
     void otherOptionsTakeEffectWhileItRunsAndTheAmountGoesOnUnlessTheStartingAmountIsAnother() throws Exception {
         FakeBackend backend = shaped(options(FakeOptions.Account.USAGE, 100, 100_000, 1_000, 0, 0), java.time.Clock.systemUTC(), most -> most);
-        assertEquals(11.0, fetch(backend).spend().used(), 0.0001);
+        assertEquals(Amount.parse("11.0"), fetch(backend).spend().used());
 
         backend.configure(options(FakeOptions.Account.USAGE, 10, 50_000, 1_000, 0, 0));
         UsageSnapshot next = fetch(backend);
-        assertEquals(11.10, next.spend().used(), 0.0001, "on from where it was, by the new increase");
-        assertEquals(500.0, next.spend().limit(), 0.0001, "against the new budget");
+        assertEquals(Amount.parse("11.10"), next.spend().used(), "on from where it was, by the new increase");
+        assertEquals(Amount.parse("500.0"), next.spend().limit(), "against the new budget");
 
         backend.configure(options(FakeOptions.Account.USAGE, 10, 50_000, 2_000, 0, 0));
-        assertEquals(20.10, fetch(backend).spend().used(), 0.0001, "another starting amount: it begins there again");
+        assertEquals(Amount.parse("20.10"), fetch(backend).spend().used(), "another starting amount: it begins there again");
 
         backend.configure(options(FakeOptions.Account.SEAT, 10, 50_000, 2_000, 0, 0));
         assertTrue(fetch(backend).isEmpty(), "and another kind of account at once");

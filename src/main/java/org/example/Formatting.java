@@ -1,10 +1,8 @@
 package org.example;
 
+import org.example.money.Amount;
 import org.example.settings.TimeFormat;
 
-import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -62,10 +60,8 @@ final class Formatting {
      * An amount as a plain number with two decimals and no currency sign: 1000 reads {@code 1,000.00}. A third decimal is
      * rounded as the history file rounds it, on the decimal form and upwards at half, so the row and the file agree.
      */
-    static String amount(Double amount) {
-        return amount == null
-                ? DASH
-                : decimal("#,##0.00").format(BigDecimal.valueOf(amount).setScale(2, java.math.RoundingMode.HALF_UP));
+    static String amount(Amount amount) {
+        return amount == null ? DASH : amount.grouped();
     }
 
     /**
@@ -85,13 +81,7 @@ final class Formatting {
     }
 
     /** A change in an amount, with its sign: {@code +0.05}, {@code -0.05}, {@code 0.00}. */
-    static String signedAmount(BigDecimal change) {
-        BigDecimal rounded = change.setScale(2, java.math.RoundingMode.HALF_UP);
-        String text = decimal("#,##0.00").format(rounded.abs());
-        return rounded.signum() > 0 ? "+" + text : rounded.signum() < 0 ? "-" + text : text;
-    }
-
-    private static DecimalFormat decimal(String pattern) {
-        return new DecimalFormat(pattern, DecimalFormatSymbols.getInstance(Locale.US));
+    static String signedAmount(Amount change) {
+        return change.signed();
     }
 }

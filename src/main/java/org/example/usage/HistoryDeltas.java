@@ -1,6 +1,7 @@
 package org.example.usage;
 
-import java.math.BigDecimal;
+import org.example.money.Amount;
+
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,7 +34,7 @@ public final class HistoryDeltas {
      * @param used the change in the amount used, or {@code null} if it cannot be worked out
      * @param seconds the whole seconds since the previous row, or {@code null}
      */
-    public record Delta(BigDecimal used, Long seconds) {
+    public record Delta(Amount used, Long seconds) {
 
         public static final Delta NONE = new Delta(null, null);
     }
@@ -85,16 +86,16 @@ public final class HistoryDeltas {
      * @param rows the rows in the order of the file
      * @return one change for each row, in the same order; {@code null} for a row that has no amount used
      */
-    public static List<BigDecimal> amountChanges(List<List<String>> rows) {
-        List<BigDecimal> changes = new ArrayList<>(rows.size());
-        BigDecimal last = null;
+    public static List<Amount> amountChanges(List<List<String>> rows) {
+        List<Amount> changes = new ArrayList<>(rows.size());
+        Amount last = null;
         for (List<String> row : rows) {
-            BigDecimal amount = amount(row);
+            Amount amount = amount(row);
             if (amount == null) {
                 changes.add(null);
                 continue;
             }
-            changes.add(last == null ? amount : amount.subtract(last));
+            changes.add(last == null ? amount : difference(amount, last));
             last = amount;
         }
         return changes;
@@ -102,7 +103,7 @@ public final class HistoryDeltas {
 
     /** The deltas of the shown rows: the time of {@code times}, and the change in the amount used of {@link #amountChanges}. */
     public static List<Delta> withAmountChanges(List<List<String>> rows, List<Delta> times) {
-        List<BigDecimal> changes = amountChanges(rows);
+        List<Amount> changes = amountChanges(rows);
         List<Delta> deltas = new ArrayList<>(rows.size());
         for (int i = 0; i < rows.size(); i++) {
             deltas.add(new Delta(changes.get(i), times.get(i).seconds()));
@@ -110,10 +111,19 @@ public final class HistoryDeltas {
         return deltas;
     }
 
-    private static BigDecimal amount(List<String> row) {
+    /** One amount less another; none where the two are too far apart for an amount to hold their difference, as a row changed by hand may be. */
+    private static Amount difference(Amount amount, Amount last) {
         try {
-            return row.get(1).isBlank() ? null : new BigDecimal(row.get(1));
-        } catch (NumberFormatException e) {
+            return amount.minus(last);
+        } catch (ArithmeticException e) {
+            return null;
+        }
+    }
+
+    private static Amount amount(List<String> row) {
+        try {
+            return row.get(1).isBlank() ? null : Amount.parse(row.get(1));
+        } catch (NumberFormatException | ArithmeticException e) {
             return null;
         }
     }
@@ -126,13 +136,13 @@ public final class HistoryDeltas {
         return new Delta(used(before, row), seconds(before, row));
     }
 
-    private static BigDecimal used(List<String> before, List<String> row) {
+    private static Amount used(List<String> before, List<String> row) {
         try {
             if (before.get(1).isBlank() || row.get(1).isBlank()) {
                 return null;
             }
-            return new BigDecimal(row.get(1)).subtract(new BigDecimal(before.get(1)));
-        } catch (NumberFormatException e) {
+            return Amount.parse(row.get(1)).minus(Amount.parse(before.get(1)));
+        } catch (NumberFormatException | ArithmeticException e) {
             return null;
         }
     }
