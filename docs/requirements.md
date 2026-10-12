@@ -2,9 +2,19 @@
 
 ## Goal
 
-This project provides a small Java-based client for monitoring Anthropic OAuth usage data. It should fetch the current usage snapshot and present it in a readable, continuously refreshed form.
+This project provides a small client for monitoring Anthropic OAuth usage data. It should fetch the current usage snapshot and present it in a readable, continuously refreshed form.
 
-The implementation is intended to exercise the neighboring `java-aip` tooling and to reuse patterns from the sibling repos for authentication and OAuth token handling.
+It draws on the neighbouring repositories for how to authenticate and how to handle the OAuth token (see Implementation context).
+
+**This document holds for every version of the program, whatever language it is written in.** It says what the program
+does, not what it is made with. The first version is written in Java; a second is to be written in Go, and both are to
+meet what is said here, so that one can take the place of the other: the same window, the same files with the same
+names and the same bytes in them, the same local API, the same lines in the log. What holds for one version only, how
+it is built and started, which toolkit hosts its window and which systems it is made for, is in a section of its own
+for that version, at the end: The Java implementation, and The Go implementation.
+
+Where a rule says "since version 0.50", the number is the Java program's, in which these requirements grew; it says
+when the rule came, and a version in another language has all of them from its first.
 
 ## Source data
 
@@ -129,42 +139,42 @@ remaining fields are those of `spend` (see Source data). Present:
 
 Section Compact window says where each goes and what the tooltips say.
 
-The initial application must target Java 25 and run on macOS. Use JavaFX
-WebView to show the browser-based interface in a minimal desktop window without
-the usual browser controls. A future Go rewrite should be designed to support
-Windows and allow a native Windows binary to be cross-compiled on macOS. Keep
-the frontend as independent from the backend as practical so it can be reused
-if the implementation language changes.
+The application is a desktop program: it shows the browser-based interface in a minimal
+window of its own, without the usual browser controls. Which systems a version of the
+program is made for is said for that version (see The Java implementation and The Go
+implementation). Keep the frontend as independent from the backend as practical, so that
+it is the same in every version, whatever language the backend is written in.
 
-The application should serve its HTML, CSS, and JavaScript or TypeScript
-interface locally and open it automatically in the JavaFX WebView window.
-Prefer keeping the frontend dependency-light and independent of Java-specific
-implementation details.
+The application should serve its HTML, CSS, and JavaScript
+interface locally and open it automatically in its window.
+Keep the frontend dependency-light and independent of the details of any one
+implementation.
 
 As built, the frontend is plain HTML, CSS and JavaScript, four files served as they
 are written: no framework, no library of anyone else's, no TypeScript and no build
 step, and nothing fetched from the network. A build toolchain is to be added only if
 the interface grows enough to justify one.
 
-JavaFX WebView is the window host because it is a direct fit for a Java desktop
-application and brings no browser runtime of its own to ship. That choice is to be
-revisited only if a concrete limitation of the frontend appears, not for preference.
+**The window is a host for the page**: a web view, with nothing of a browser round it,
+in a window the program owns and can size, place and style. Which web view and which
+window toolkit that is, is each version's own choice, said in its section; what the host
+must do is the same for all of them, and is said here and in the contract with the page.
 
 **The local API is a contract, and it is written down.** The window and the application
 talk over the small local JSON API, and its endpoints, the shape of every response and
 the rules the server applies are kept in a document of their own,
 [docs/api.md](api.md), and kept level with the program. The API is to stay small, and
-its shapes are defined in terms of JSON rather than of the Java types behind them, so
-that a backend written in another language can serve the same contract and keep the
-window it is read by. A change to what an endpoint returns is a change to that document.
+its shapes are defined in terms of JSON rather than of the types of a language behind them, so
+that a backend written in any language serves the same contract and keeps the
+page it is read by. A change to what an endpoint returns is a change to that document.
 
 **Resizing the window is the host's business, and outside that contract.** A window that
 is as small as its content has to change size when a message appears or a panel opens, and
 only the program that owns the window can resize it, so the page tells its host the size it
 needs and which panel is open, and the host sizes the window and remembers the heights (see
-Remembered heights). This is window management, not part of what a future backend in another
-language would have to provide: such a rewrite needs a window host of its own in any case,
-and JavaFX is not reusable as one. The page-to-host exchange is documented with the API.
+Remembered heights). This is window management, and every version of the program has a
+window host of its own for it: the page, and what it asks of its host, are the same for
+all of them. The page-to-host exchange is documented with the API.
 
 ## Compact window
 
@@ -177,8 +187,8 @@ so it must take as little screen space as it can while staying easy to read.
   `aip usage v0.01`. The version is written in the source code as one constant, is
   increased by hand whenever the program changes, and starts at 0.01. The page inside
   the window is titled `aip usage` without the version, so the version is in one place.
-  It is the program's own version and has nothing to do with the version of the build:
-  changing the Gradle project version changes nothing the window shows, and raising this
+  It is the program's own version and has nothing to do with any version the build tool keeps:
+  changing that one changes nothing the window shows, and raising this
   constant is the whole of releasing a new version.
 - The window is as small as its content allows, with no empty space around it.
   In its normal state it is a single row, roughly 330 by 35 pixels of content, which is
@@ -581,7 +591,7 @@ The log is shown the way the usage history is: inside the main window, not in a 
   there can be several such lines; each is marked. Only the background differs: the text is the same.
 - If there is no log yet, or it is empty, the panel says so in one line. If it cannot be read, the
   panel says so in red, and shows what it had.
-- The file itself is handled like the usage history file: in the project root, beside `gradlew`,
+- The file itself is handled like the usage history file: in the working directory,
   added to and never rotated or overwritten, kept out of version control, and its text comes from
   the application through a read-only request that reveals nothing about where the file is.
 
@@ -608,8 +618,9 @@ The log is shown the way the usage history is: inside the main window, not in a 
   scrolled to before.
 - **`Debug` shows the debug lines of the program as well** (see Debug lines in the log), which `Info`, the default,
   leaves out. Before version 0.44 the program wrote none, and `Debug` showed what `Info` shows.
-- **The level of a line is the word after its date and time.** The file is written through the logging of Java, which
-  calls an error `SEVERE` and a debug line `FINE`: `SEVERE` and `ERROR` are errors, `WARNING` and `WARN` warnings,
+- **The level of a line is the word after its date and time.** The words are fixed, whatever the program is written in:
+  an error is `SEVERE` and a debug line `FINE`. (They are the words of the logging the first version wrote the file with,
+  and are kept so that every version writes and reads the same file.) `SEVERE` and `ERROR` are errors, `WARNING` and `WARN` warnings,
   `INFO` and `CONFIG` information, and every other word, should the file ever hold one, is shown with `Debug` only.
 - **The dropdown chooses what is shown, not what is written.** It does not make the program log more or less.
 
@@ -843,7 +854,7 @@ behind these controls is unchanged.
 Every reading the application gets is kept, so the usage can be looked at afterwards.
 
 - Each refresh that has amounts, and each failed one, adds one row to a CSV file named
-  `java-aip-usage.csv` in the project root, beside `gradlew` and the log. The file is not
+  `java-aip-usage.csv` in the working directory, beside the log. The file is not
   committed to version control. It is added to, never overwritten, so successive runs build
   one history, and nothing in it is ever rotated or deleted by the application.
 - The columns are `datetime`, `used`, `limit`, `currency`, `status`, `interval` and `duration_ms`, with a
@@ -1160,7 +1171,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **Every other line keeps its level**, the two lines of each refresh, `GET ... -> HTTP 200 in ... ms` and `Usage
   refresh succeeded`, among them: they are information.
 - **Which lines are debug lines** is said here, line by line; a line that is not in the table is not one.
-- A debug line has `FINE` as the word for its level in the file, which is how the logging of Java writes it.
+- A debug line has `FINE` as the word for its level in the file (why that word is said with the log panel, under The level of a line).
 - **Only the program's own debug lines are written.** What the runtime and the libraries would write at that level is
   not: their lines are written from the information level up, as before.
 - Nothing finer than a debug line is written.
@@ -1262,7 +1273,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### An icon of the program's own
 
-- **The window has an icon of the program's own** (since version 0.51) in the place of the one Java gives every program: in the title bar
+- **The window has an icon of the program's own** (since version 0.51) in the place of the one the system or the toolkit gives a program that has none: in the title bar
   and in the taskbar, and wherever else the system shows the icon of a window.
 - **It is a gauge**: a half circle with a needle, in the green of the figures, `#1a7f37` with the lighter `#3fb950` for
   the needle, on a dark rounded square, `#0d1117`. The needle points to the upper right, at about two thirds.
@@ -1425,8 +1436,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   - the **name**, `aip usage`, and under it the **version**, as the title bar has it: `v0.57` in the version that brought it;
   - **where the files are**, each with its full path: `Settings`, `Log` and `Usage history`. The history is the file
     in use, so in debug mode with the fake backend it is the file of the invented readings;
-  - **Java and system**: `Java` with the version of the runtime, `JavaFX` with its version, and `System` with the
-    name and the version of the operating system;
+  - **What it runs on**: the runtime the version of the program is built on and the toolkit of its window, each by its
+    name and with its version, and `System` with the name and the version of the operating system. The names of the
+    first two are the version's own (for the Java version, `Java` and `JavaFX`; see The Java implementation);
   - **`Debug mode`**: `off`; or `on` when the program was started with `--debug`; or `on, the fake backend is in
     use` while it is.
 - **The lines are a table of two columns**, the name of a thing at the left in the muted gray and what it is at the
@@ -1440,7 +1452,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **A button of the row pressed while About is shown** does what it does from any tab: the settings are saved, as
   they stand, and the gear closes the view, or the other panel is shown.
 - **Opening the settings shows the tab it was last on**, `About` too, as for every tab (see Settings).
-- **`JavaFX` is `unknown`** in a run that has no window, as some tests are; a window is what gives it its version.
+- **The version of the window's toolkit is `unknown`** in a run that has no window, as some tests are, where it is a window that gives it.
 - **While it is shown the window has its title bar**, as with the settings, of which it is a part.
 - **The figures are read when the view is opened**, so the path of the history and the line of debug mode say what
   holds at that moment. If they cannot be read, the logo, the name and the version are shown and a red line says
@@ -1625,11 +1637,11 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### The words for what went wrong
 
-- **Whatever went wrong is said in words of the program's own** (since version 0.74), wherever a message or a line of the log names a reason: `<reason>` and `<detail>` in this document are these words. Until then they were the text the Java runtime or the operating system gave, which differs from one system to the next and is in the system's language, and for a fault nobody expected the name of its kind.
+- **Whatever went wrong is said in words of the program's own** (since version 0.74), wherever a message or a line of the log names a reason: `<reason>` and `<detail>` in this document are these words. Until then they were the text the runtime of the language or the operating system gave, which differs from one system to the next and is in the system's language, and for a fault nobody expected the name of its kind.
 - **The words are a fixed set.** For a file: `the file or its folder is not there`, `access is denied`, `the file could not be read or written`. For a connection: `the host is not known`, `the connection was refused`, `the connection was closed`, `the secure connection could not be made`, `there was no answer in time`, `the address is in use or cannot be used`, and `the connection failed` for a request that failed in a way that is none of these. For a program that could not be started: `the file or its folder is not there`, `access is denied`, `it is not a program this system can run`, `the system did not start it`. For anything else that was read or written: `input or output failed`. And `interrupted`, and `an unexpected fault` for what nobody expected.
 - **A failure the program sees for itself keeps the words it has**: `the settings file is not a JSON object`, `the clipboard did not answer`, `the file manager could not be started: <reason>`, and every message of a refresh.
 - **A failure is one line of the log**: the message, a colon, and the words, as `Could not save settings to <path>: access is denied`. No stack trace is written to the log file.
-- **In debug mode the console also shows where a failure came from**: the stack trace follows its line there, masked like every line, as a help for whoever works on the program. The log file is the same with and without debug mode.
+- **In debug mode the console may also show where in the program a failure came from**, in whatever form the language of the version has for that, after the line of the failure and masked like every line, as a help for whoever works on the program. In the Java version it is the stack trace. The log file is the same with and without debug mode.
 - **Nothing of what a fault says reaches the window or the file**, so nothing a library puts into the text of a fault, a path or a part of a response, can leak that way.
 
 ## Debug mode
@@ -1840,7 +1852,7 @@ These are things the program does that the sections above do not say, written do
 - **`claude` ending before a credential has come is "not logged in"**, whatever its exit code, zero included, and whether or not it made a request.
 - **Clearing up, in every outcome**, success, time-out, exit and interruption alike: every process `claude` started is killed, then `claude` itself, and the program waits up to 2 seconds for it to be gone; then the capture
   server is stopped at once, so nothing listens on that port afterwards. An acquisition can therefore take a little over the 30 seconds: the 30 for the credential, up to 2 for `claude` to be gone and, after an exit, up to 2
-- **How the processes are killed** (since version 0.75): with the commands the system has for it, and no longer through the Java runtime. On Windows `taskkill /PID <pid> /T /F` ends `claude` and everything it started in one step, which matters there because `claude.cmd` is run through `cmd.exe` and the program proper is a process that started. On macOS and other systems the processes `claude` started are found with `pgrep -P <pid>`, level by level, and each is ended with `kill -9`, the deepest first and `claude` last. A command that is missing or fails stops nothing: it is noted in the log at debug level, and `claude` itself is ended directly in any case. A `claude` that has already ended is not searched for what it started.
+- **How the processes are killed** (since version 0.75): with the commands the system has for it, and through nothing that only one language's runtime offers. On Windows `taskkill /PID <pid> /T /F` ends `claude` and everything it started in one step, which matters there because `claude.cmd` is run through `cmd.exe` and the program proper is a process that started. On macOS and other systems the processes `claude` started are found with `pgrep -P <pid>`, level by level, and each is ended with `kill -9`, the deepest first and `claude` last. A command that is missing or fails stops nothing: it is noted in the log at debug level, and `claude` itself is ended directly in any case. A `claude` that has already ended is not searched for what it started.
   for its output to end.
 - Two more messages, besides those above: `Cannot start the local server used to read the Claude Code token: <detail>` when the loopback server cannot be started, and `Interrupted while reading the Claude Code token.`
 - **The message for a credential in the environment**, word for word: `ANTHROPIC_API_KEY is set, so Claude Code would send that credential instead of its OAuth login token. Unset it and restart this application.`, and with
@@ -1871,8 +1883,8 @@ These are things the program does that the sections above do not say, written do
 - A change of settings is logged with all the values, a change of the interval also as `Usage fetch interval is now N s`, and a new remembered height as `The history window height is now N px`, which is a debug line. Applying settings that change nothing writes and logs nothing.
 - Two programs started at the same time in one directory write to the same history and settings files; running several at once is not something the program is built for (what happens to the log file then is up to the logging system, and has not been checked).
 - **What is written, and where.** Lines of the information level and above are written, and nothing finer. The console is the standard error output, not the standard output. The file is UTF-8. The levels are written as
-  `INFO`, `WARNING` and `SEVERE`; what this document calls logged "as an error" is a `SEVERE` line. `[Name]` is the last part of the name of the part of the program that wrote the line, for example `[UsageApp]` or
-  `[ApiHandler]`. The time is cut to the second, not rounded. A stack trace, which only the console of a run in debug mode has, begins on the line after its message and is masked like it.
+  `INFO`, `WARNING` and `SEVERE`; what this document calls logged "as an error" is a `SEVERE` line. `[Name]` is the name of the part of the program that wrote the line, for example `[UsageApp]` or
+  `[ApiHandler]`. The names are fixed, so that every version of the program writes the same lines, whatever its own parts are called: `ApiHandler`, `AppRuntime`, `ClaudeTokenProvider`, `FakeBackend`, `IntervalSettings`, `LocalWebServer`, `Logging`, `ProcessTree`, `SettingsStore`, `UsageApp`, `UsageClient`, `UsageFetcher` and `UsageService`. The time is cut to the second, not rounded. What the console of a run in debug mode shows of where a failure came from begins on the line after its message and is masked like it.
 - **`Logging to <file>`** gives the full path. When the file cannot be opened that line is not written, and `Cannot write log file <file>; logging to console only` is a warning that ends with the words for what went wrong. If
   something had started the logging before the program set it up, a warning says so: `Logging was already in use, so lines logged while the process is being stopped may be lost`.
 - **The masking, exactly.** What is masked is replaced by `[redacted]`. A key beginning `sk-ant-` is masked to the end of its run of letters, digits, `_` and `-`. `Bearer <value>` becomes `Bearer [redacted]`, in any case, up
@@ -1950,7 +1962,7 @@ These are things the program does that the sections above do not say, written do
 - **`--help`, and a mistake on the command line, leave no trace**: no log file, no settings file, no window.
 - **A start that fails.** `Could not start: <reason>` and `Frontend failed to load: <reason>` say what went wrong in the program's words; neither has a stack trace in the file. `Shutting down` is not written for a start that failed.
 - **The order of stopping**: the refreshing, then the local server, then a fake backend, and the log last, so that the lines of the stopping are in it. The local server stops at once, without waiting for a request that is being answered. If the refreshing has not ended after the 5 seconds, the warning `The usage refresh thread did not stop in time` is written and `Usage refresh stopped` after it all the same. A cleanup that fails is not tried a second time.
-- **There is no lock file beside the log** (since version 0.73). Until then the logging system of Java kept one, `java-aip-usage.log.lck`, for as long as the program ran.
+- **There is no lock file beside the log** (since version 0.73): the log is the one file. Until then the logging library then in use kept one, `java-aip-usage.log.lck`, for as long as the program ran.
 - **How the process ends.** With exit code 0 when the window is closed, 143 after `SIGTERM` and 130 after `SIGINT`. Where the operating system ends a process without letting it clean up, as Windows does when a process is terminated from outside, there are no lines of the stopping, as after a forced kill.
 
 **The window**
@@ -2157,8 +2169,8 @@ looked at by a person. This section says which is which, so that "it works" mean
 - **That the frontend does no calculation is itself tested**, by a check of the page scripts for date
   parsing, rounding and number formatting, since the rule is about what is absent and cannot be seen in
   any one output.
-- **The frontend is tested outside the JVM**, with Node, through a Gradle task of its own
-  (`./gradlew frontendTest`, which needs `node` on the `PATH`): the view logic against the shapes the
+- **The frontend is tested apart from the backend**, with Node, through a task of the build
+  (it runs `node --test` over the frontend's test files, and needs `node` on the `PATH`): the view logic against the shapes the
   backend sends, the page against a fake document and a fake backend, and the style sheet for the rules
   this document fixes, such as no text under 14 pixels outside the panels. The frontend keeps its own
   tests so that it stays testable if the backend is rewritten.
@@ -2173,11 +2185,11 @@ looked at by a person. This section says which is which, so that "it works" mean
   host in the message of a failure and in the log line of a request is the configured one. The fake backend
   does not take the place of the smaller doubles, which stay because they are faster.
 - **A test that opens a real window is asked for, not run by default.** It puts a window on the screen for
-  a few seconds, so it runs only when a property says so (`-Daipusage.windows=true`); everything else runs
+  a few seconds, so it runs only when it is asked for by name, in the way the version's build has for that; everything else runs
   with no display, on a machine with no window server.
 - **A rule that cannot fail a test is not counted.** Each new rule is to be seen failing a test when it is
   deliberately broken, which is the only evidence that the test watches it.
-- **What is left is for a person, on macOS, by eye**: startup and the first reading; each panel, its size
+- **What is left is for a person, by eye, on each system the version is made for**: startup and the first reading; each panel, its size
   and its scrollbars; the history as wide as its table with every column whole, with the date and both
   change columns on and off again; the window growing and shrinking around a message; the settings whole,
   without a scrollbar, giving back the panel that was open before them; the interval applied; a manual
@@ -2191,9 +2203,9 @@ looked at by a person. This section says which is which, so that "it works" mean
 
 What the first version deliberately is not, so that none of it is taken for an oversight.
 
-- **macOS, started from Gradle.** The first version is for macOS and is started with `./gradlew run` or from
-  an IDE. There is no packaged application and no installer; a macOS app bundle is left out on purpose.
-  Windows and Linux are not a target of this version: Windows is what the Go rewrite is for.
+- **No installer.** No version of the program installs itself, updates itself or registers itself with the system:
+  it is a program that is started, and its files are where it was started. Which systems a version is made for, and
+  how it is started and handed out, is said in that version's section; Linux is a target of none so far.
 - **Claude Code is the only way to sign in.** The program has no login of its own. When Claude Code is
   missing or logged out the window says what to do, and the refresh button tries again once it has been
   done; the program cannot do it for the person.
@@ -2228,19 +2240,15 @@ These repos are intended as a source of knowledge and reusable implementation id
 
 ## Non-functional requirements
 
-- Use Java 25 with Gradle toolchain support.
-- **JavaFX is the only library the program is built with** (since version 0.71). It reads and writes JSON itself: strictly as the standard says when it reads, and in the two forms it has always written, on one line for the local API and over several lines, with a space on both sides of each colon, for the settings file and a logged response. The Go version is to be a translation of this program, and what a library did here would have to be imitated there.
-- **Money is reckoned in decimal numbers, exactly** (since version 0.72, with a type of the program's own; until then with the decimal type of Java's library). An amount is a whole number and the count of its decimals, so `186.02` is that and not a binary fraction near it. It keeps every decimal it was read with, from the response as from a history row somebody changed by hand, and only what is shown or written is rounded: to the cent, away from zero at half. It holds 18 digits; a response with an amount beyond that cannot be used, and two amounts of the history whose difference needs more have no change shown. No amount the program shows or writes is worked out with binary fractions; the one figure that is a binary fraction is how much of a cost bar is filled, from 0 to 1, which is made from the exact share.
-- Use the bundled Gradle wrapper rather than a manual local install.
-- **Nothing has to be installed by hand to build it.** The toolchain is declared, so Gradle fetches the JDK 25 it needs when the machine has none, and the wrapper fetches the one Gradle version the project declares, so every machine builds it with the same one. A clone and `./gradlew` are the whole of the setup; the only thing the build expects of the machine is a network and, for the frontend tests, `node` on the `PATH`.
-- `./gradlew build` compiles the sources and runs the tests, and `./gradlew run` opens the window. The options of Command line are given to the `run` task after `--args`, for example `./gradlew run --args="--debug"`, so every option of the program can be used without a packaged launcher.
-- Provide a `./gradlew run` task and keep the solution easy to run from the IDE. A distributable macOS app bundle is out of scope for the first version.
-- The fake backend (see Fake backend) is part of the application and needs no task, no second entry point and no second command of its own: `./gradlew run --args="--debug"`, or the same option in an IDE run configuration, and the switch in the debug settings are the whole of it. It is in the shipped artefact, reachable only in debug mode.
+- **The program is built with no library but the one for its window** (since version 0.71). It reads and writes JSON itself: strictly as the standard says when it reads, and in the two forms it has always written, on one line for the local API and over several lines, with a space on both sides of each colon, for the settings file and a logged response. A version in another language is to be a translation of the first, and what a library did in the one would have to be imitated in the other.
+- **Money is reckoned in decimal numbers, exactly** (since version 0.72, with a type of the program's own; until then with a decimal type of the language's library). An amount is a whole number and the count of its decimals, so `186.02` is that and not a binary fraction near it. It keeps every decimal it was read with, from the response as from a history row somebody changed by hand, and only what is shown or written is rounded: to the cent, away from zero at half. It holds 18 digits; a response with an amount beyond that cannot be used, and two amounts of the history whose difference needs more have no change shown. No amount the program shows or writes is worked out with binary fractions; the one figure that is a binary fraction is how much of a cost bar is filled, from 0 to 1, which is made from the exact share.
+- **Building it asks little of the machine.** Each version says the one tool that must be there to build it, and the build fetches the rest; what a version needs besides that is said in its section. For the frontend tests, in every version, `node` must be on the `PATH`.
+- The fake backend (see Fake backend) is part of the application and needs no task of the build, no second entry point and no second command of its own: the option `--debug`, however the version is started, and the switch in the debug settings are the whole of it. It is in the shipped artefact, reachable only in debug mode.
 - Prefer simple, testable interaction boundaries between token acquisition, usage fetching, and rendering.
 - **A poll is cheap.** The window asks for the status every second for as long as the application runs, so that answer costs no more work than it has to: the figures it carries are the ones the refresh already worked out, and the history file is read again only when it has changed (its size or its time), not once a second. A panel that is open is read again on the same terms: the history when its file has changed, the log and the error log on the poll, and the lines on the page are replaced only when they differ from what is already there, so that what a person is reading does not move for an answer that says nothing new.
-- Write application logs to both the console and a log file named `java-aip-usage.log` in the project root, beside `gradlew`, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
-- **The program writes its log itself** (since version 0.73), through no logging library: each line goes to the console, which is the error output of the process, and to the file, and is written through to the file at once, so the file is whole to its last line whenever it is looked at. The form of a line and the words for its level are unchanged (`SEVERE`, `WARNING`, `INFO`, `FINE`). The file holds the program's own lines only: what JavaFX or the Java runtime say of themselves, such as the warning about the unnamed module, is on the console alone and no longer in the file.
-- **One loop does the refreshing** (since version 0.76). Everything the refreshing knows, when the next request is due, the search for the interval, which request is under way, belongs to one loop, and whatever is asked of it, a manual refresh, a new interval, another source, the stopping, is handed to it and done there one after the other; a request runs beside it and hands its answer back the same way. What the window asks every second, the state, the countdown and the interval, is read from what the loop last published and never waits for it. A request that is no longer wanted, because the program stops or usage now comes from elsewhere, is told to give up, and stops waiting for the network or for `claude` at once; no thread is interrupted and nothing waits on a lock. What the person sees is unchanged: the rules of Refresh behavior hold as before.
+- Write application logs to both the console and a log file named `java-aip-usage.log` in the working directory, appending to the file on each run rather than overwriting it. Never log access tokens or other credentials.
+- **The program writes its log itself** (since version 0.73), through no logging library: each line goes to the console, which is the error output of the process, and to the file, and is written through to the file at once, so the file is whole to its last line whenever it is looked at. The form of a line and the words for its level are unchanged (`SEVERE`, `WARNING`, `INFO`, `FINE`). The file holds the program's own lines only: what the runtime or the toolkit of the window say of themselves is on the console alone and not in the file.
+- **One loop does the refreshing** (since version 0.76). Everything the refreshing knows, when the next request is due, the search for the interval, which request is under way, belongs to one loop, and whatever is asked of it, a manual refresh, a new interval, another source, the stopping, is handed to it and done there one after the other; a request runs beside it and hands its answer back the same way. What the window asks every second, the state, the countdown and the interval, is read from what the loop last published and never waits for it. A request that is no longer wanted, because the program stops or usage now comes from elsewhere, is told to give up, and stops waiting for the network or for `claude` at once; nothing is stopped from outside in the middle of what it does. What the person sees is unchanged: the rules of Refresh behavior hold as before.
 - Each run of the log begins with the line `Logging to <the log file>`, and then a line saying the program was started, with its version
   (`Starting java-aip-usage v0.37`), and, after the lines of the settings, a line that says which file the usage history CSV is written to, as a full path, for example
   `Usage history is written to /path/to/java-aip-usage.csv`. The path is logged only here, never
@@ -2260,8 +2268,8 @@ These repos are intended as a source of knowledge and reusable implementation id
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
   `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
-  `historyHeight` and `logHeight`. Where this document says "in the project root, beside `gradlew`", the files are in the working directory the program was
-  started from, which is the project root for `./gradlew run` and for an IDE run configuration set as the notes say.
+  `historyHeight` and `logHeight`. The three files, the settings, the log and the usage history, are in the working directory the program was
+  started from; where that is for a version started in its usual way is said in its section.
 - **The settings file as written.** One JSON object, printed over several lines, with the keys always in the order above, the two heights last and always there, as `0` when none is remembered. The keys of the restored window (`lastPanel`, `lastTab`, `windowWidth`, `windowHeight`, `windowX`, `windowY`) come after the heights, and are written only when the program has stored them. Every save writes the whole file
   anew from what the program holds, so a key that is not a setting, the old `pollIntervalSeconds` or one added by hand, is gone after the first save, and a value that was not valid is replaced by its default there;
   storing a remembered height is such a save. The new file is written beside the old one as `settings.json.tmp`, which is not left behind whether or not the save succeeded; a save that fails leaves the file as it was.
@@ -2273,4 +2281,50 @@ These repos are intended as a source of knowledge and reusable implementation id
 - The log records startup and shutdown, each refresh and how it ended, token acquisition and rejection, settings changes, and for each request to Anthropic its status, duration, size and `request-id`. It never records a token or a header. It records no part of a response body, except that, while the setting to log the response is on, it writes the JSON of each response, pretty printed over several lines, after one entry line that says whose it is. That text is masked like everything else, so anything shaped like a credential in it is hidden before it is written, as a last line of defence. The setting is off by default.
 - Every failed refresh is also written to the log, once when it happens, at the warning level, as `Usage refresh failed: <the message>` (the message without its `Refresh failed at HH:mm` wrapper), an HTTP 429 included although it has no message line. The window's own `Lost contact with the application` message is the window's only and is not logged.
 - The local web server listens on the loopback interface only, on a port chosen by the operating system. It refuses a request whose `Host` header is not its own address, which stops another web page from reaching it by DNS rebinding, and it accepts a `POST` only as `application/json`, which another origin cannot send without a preflight the server never grants. No endpoint accepts, returns or logs a credential.
-- The program starts from an IDE as a plain `main` method, with no module path or VM options, as well as with `./gradlew run`.
+
+## The Java implementation
+
+What holds for the version written in Java, and only for it. Everything above holds for it as well.
+
+- **Java 25, built with Gradle.** The toolchain is declared, so Gradle fetches the JDK 25 it needs when the machine has
+  none, and the bundled wrapper fetches the one Gradle version the project declares, so every machine builds it with
+  the same one. Use the wrapper rather than a Gradle installed by hand.
+- **Nothing has to be installed by hand to build it.** A clone and `./gradlew` are the whole of the setup; the only
+  thing the build expects of the machine is a network and, for the frontend tests, `node` on the `PATH`.
+- **Building and starting.** `./gradlew build` compiles the sources and runs the tests, and `./gradlew run` opens the
+  window. The options of Command line are given to the `run` task after `--args`, for example
+  `./gradlew run --args="--debug"`, so every option of the program can be used without a packaged launcher.
+- **It also starts from an IDE as a plain `main` method**, with no module path and no VM options, as well as with
+  `./gradlew run`.
+- **Where the files are.** The working directory is the project root, beside `gradlew`, for `./gradlew run` and for
+  an IDE run configuration whose working directory is set to it; that is where the settings, the log and the usage
+  history are then.
+- **The window is a JavaFX WebView.** It is a direct fit for a Java desktop application and brings no browser runtime
+  of its own to ship. That choice is to be revisited only if a concrete limitation of the frontend appears, not for
+  preference. JavaFX is the only library this version is built with.
+- **The About view** names the runtime `Java` and the toolkit of the window `JavaFX`, each with its version; `JavaFX`
+  is `unknown` in a run that has no window.
+- **The frontend tests** are run by `./gradlew frontendTest`, a task of its own that is not part of `build`, so that
+  building needs nothing but a JDK.
+- **The test that opens a real window** runs only with `-Daipusage.windows=true`.
+- **Systems.** It was written for macOS and is also run and tested on Windows; what is left for a person to check by
+  eye is checked on each of the two. Linux is not a target. There is no packaged application: a macOS app bundle and
+  a Windows installer are left out on purpose, and it is started from Gradle or from an IDE.
+- **The version numbers** in this document, in "since version 0.50", are this version's.
+
+## The Go implementation
+
+What is asked of the version written in Go, and only of it. It is not yet built; everything above is asked of it as
+well, and the analysis of what that takes is in [go-port.md](go-port.md).
+
+- **A native program for Windows**, which is what this version is for, in one file that is handed out and started;
+  and it is to be possible to build that Windows program on macOS (cross-compiled).
+- **The same frontend.** The page, its style sheet and its scripts are taken over as they are, with their tests.
+- **The same files.** It reads and writes `settings.json`, `java-aip-usage.log`, `java-aip-usage.csv` and
+  `java-aip-usage.fake.csv` under these names and in these forms, so that it can be started where the Java version
+  ran and go on from there, and the other way round.
+- **A window host of its own**, which does what the Java version's does for the page; which toolkit that is, and what
+  of the window's behaviour cannot be had as it is here, is to be decided for it (go-port.md, The window).
+- **What it names in the About view**, in the place of `Java` and `JavaFX`, is its own runtime and its own toolkit.
+- **Its own version number**, and its own way of being built, started and tested, which this section is to say once
+  they are decided.
