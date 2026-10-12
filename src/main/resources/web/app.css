@@ -6,8 +6,6 @@
     --bad: #cf222e;
     /* The button of the open panel: a vivid green, easier to see than the severity green. */
     --active: #00b341;
-    /* The debug button, which is there in debug mode only. */
-    --debug: #d4a017;
     /* A note that tells the person something about what they are looking at. */
     --info: #0969da;
     /* The background of the log's start line of a run. */
@@ -19,7 +17,6 @@
         --ok: #3fb950;
         --bad: #f85149;
         --active: #3ddc6b;
-        --debug: #f2cc60;
         --info: #58a6ff;
         --mark: #30363d;
     }
@@ -402,9 +399,53 @@ body {
     margin: 4px 0 6px;
 }
 
-/* The button that shows the About view: at the right end of the row of buttons, set apart from the three that act on the settings. */
-.settings .about-button {
-    margin-left: 18px;
+/*
+ * The tabs of the settings: an arrow at each end that steps to the previous and the next tab, and between them the titles of all the
+ * tabs in a strip that scrolls sideways when it is wider than the view. The strip has no width of its own that the window is measured
+ * to: it is as wide as the view, whatever its titles come to.
+ */
+.tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 0;
+    min-width: 100%;
+    margin: 0 0 6px;
+}
+
+.tab-strip {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.tab-strip::-webkit-scrollbar {
+    display: none;
+}
+
+.settings .tab {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border-color: transparent;
+    border-bottom: 2px solid transparent;
+    border-radius: 4px 4px 0 0;
+    color: var(--muted);
+}
+
+.settings .tab[aria-selected="true"] {
+    color: CanvasText;
+    border-bottom-color: var(--active, #00b341);
+}
+
+.tab-arrow {
+    flex: 0 0 auto;
+}
+
+.tab-page[hidden] {
+    display: none;
 }
 
 /*
@@ -825,12 +866,6 @@ body {
  * heavier lines. 24 px is the refresh button's size, so the row keeps its height. The margin takes back the 4 px it
  * grew by, so that the row is no wider either and nothing beside it moves: opening a panel does not change the window.
  */
-/* The debug button is yellow, whether its view is shown or not: it is the sign of debug mode. */
-.icon.debug,
-.icon.debug.active {
-    color: var(--debug);
-}
-
 .icon.active {
     width: 24px;
     height: 24px;
