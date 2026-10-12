@@ -60,7 +60,7 @@ The client must obtain an OAuth access token before it can fetch usage data.
 - The token is kept in the memory of the running program and nowhere else. It is never written to the settings file, the usage history, the log or any other file, and no request to the local server returns it; a new run obtains it again.
 - If the usage endpoint responds with HTTP 401, fetch a fresh token and retry the request once. Do not refresh the token for other HTTP or network failures.
 - **The token is obtained at the first refresh, not before it**, so the window is on the screen while `claude` runs.
-- **What is kept after each outcome.** A failure that is not a 401, whatever it is (another status, the network, a response that cannot be read), keeps the token for the next refresh and is not tried again within the refresh. On a 401 the rejected token is dropped before a fresh one is asked for, so that it is never sent again: if getting the fresh one fails, the refresh fails with the message of the token flow and the next refresh starts the flow anew. If the retry is rejected with a 401 as well, no token is kept, and every later refresh runs the token flow until one is accepted. If the retry fails in any other way, that failure is reported as it is and the fresh token is kept; a 429 answered to the retry starts the back-off as usual.
+- **What is kept after each outcome.** A failure that is not a 401, whatever it is (another status, the network, a response that cannot be read), keeps the token for the next refresh and is not tried again within the refresh. On a 401 the rejected token is dropped before a fresh one is asked for, so that it is never sent again: if getting the fresh one fails, the refresh fails with the message of the token flow and the next refresh starts the flow anew. If the retry is rejected with a 401 as well, no token is kept, and every later refresh runs the token flow until one is accepted. If the retry fails in any other way, that failure is reported as it is and the fresh token is kept; a 429 answered to the retry is treated as any 429 (see Refresh behavior).
 - If the user is not logged in or the token is unavailable, the application should show a clear user-facing message instead of failing silently. The same goes when `claude` cannot be found on the `PATH` (the message says what to do, including that a changed `PATH` needs a restart) and when it is found but cannot be run.
 - If `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is set, `claude` would send that credential instead of its OAuth login token, so the application does not capture one: it shows a message naming the variable, never its value, and asks for it to be unset and the application restarted.
 - In debug mode the whole token flow can be left out with the debug setting `Placeholder token` (see Debug mode). The application then obtains no token and sends a fixed placeholder bearer instead, `placeholder-no-real-token-was-obtained`, so it runs with no Claude Code installed, nobody logged in, and no paid account. Obtaining it cannot fail. The placeholder is deliberately not shaped like a credential, so the masking of the log (see The log) has nothing to hide in such a run and its lines stay readable, and so that nobody can mistake it for a key that leaked. It exists for running against a server that does not look at the token, and for not spending real requests on the usage endpoint while developing. A run that uses it is said so in the log, so that a reading taken this way cannot be mistaken for a real one.
@@ -83,42 +83,19 @@ Example token output:
 - Save a usage-fetch interval changed in the frontend to the settings file (see Settings). A committed valid frontend value is sent to the backend and is in force at once.
 - Changing the backend usage-fetch interval does not cancel a request already in progress. Apply the new interval to the next scheduled request, measuring the interval from when the current/most recent request was triggered. If the new interval has already elapsed, start the next request as soon as no request is running; otherwise wait until the interval elapses. Changing the interval does not otherwise trigger an extra immediate request.
   - If a refresh fails, keep the last successful data visible, mark it as stale, and show the error. Resume normal display after the next successful refresh.
-- If Anthropic answers HTTP 429 (rate limited), the application slows down instead of
-  carrying on at the same pace. The next scheduled request waits twice the usage
-  interval, and each further 429 in a row doubles the wait, up to 5 minutes, or the
-  `Retry-After` the server gave if that is longer (only a whole number of seconds is believed, and no more than an hour; with an interval of
-  150 seconds or more twice the interval is over the 5 minutes already, so the wait is the 5 minutes at most, and at 3600 seconds a 429 alone
-  changes nothing). A success eases the wait and does
-  not drop it: it takes an eighth off, and the eased value is the new wait, until it
-  is no longer than the usual interval. Dropping it at once would return to the very
-  pace the server has just refused. A failure that is not a 429 leaves the wait as it
-  is. The refresh button is never held back, since a person asked. The error shown
-  says when the next try is.
-- **The back-off, exactly.** On an HTTP 429 the new wait is twice the larger of the wait in force and the
-  usage interval, at most 5 minutes; then, if the server gave a `Retry-After` longer than that, the
-  `Retry-After`, itself at most an hour. A `Retry-After` shorter than the doubled wait changes nothing. On a
-  success the wait becomes seven eighths of itself, and it is over when that is no longer than the interval,
-  equal counting as over: at 30 seconds after one 429 the waits are 60, 52.5, 45.9, 40.2, 35.2 and 30.8
-  seconds, and the sixth success ends it. After it is over the next 429 starts from twice the interval again.
-- **A manual refresh counts in the back-off like a scheduled one**, although it is never held back by it: a
-  429 answered to a press of the button doubles the wait again, and a success of one eases it.
-- **Only an HTTP 429 starts or lengthens a wait.** A `Retry-After` on any other status, a 503 for example, is
-  written in the log line of the request and changes nothing.
-- **Changing the interval does not end a back-off.** The wait in force is at every moment the longer of the
-  interval and the back-off's wait. An interval applied while the application is backing off that is shorter
-  than the wait leaves the wait as it is, to ease as before; one that is longer simply is the wait, and the
-  back-off it has overtaken is dropped at the next success, not at the change.
-- **The wait, and the `Next try in` figure, are counted from when the refused request was triggered**, not
-  from when the 429 came back, so what is really left is shorter by the time the request took.
-- **A request that takes longer than the wait in force is followed by the next one as soon as it ends**, with
-  no pause, whether or not the interval was changed meanwhile.
-- **The longer wait is the interval in force.** While the application waits longer than the configured usage interval
-  because of 429s, that longer wait, in whole seconds (rounded up), is the interval the application is using, and it is the
-  one that is shown: in the row's interval item, if its setting is on, and in the interval box when the settings view is opened, and
-  where the backend reports the interval to a client (`GET /api/config` reports what is configured, not the longer wait). It falls back, as the wait eases after successes, to the configured
-  interval, which is what the settings file keeps until a value is applied. Applying settings saves what the interval box
-  shows, so applying while the application is backing off saves the longer wait as the configured interval, unless the person typed or picked another; it then is the
-  interval, and no longer eases back.
+- **An HTTP 429 does not make the application ask less often** (since version 0.64). Before, it started a back-off: the wait doubled with each 429, up to 5 minutes
+  or the `Retry-After` of the server, and each success took an eighth off it. That is gone. What follows a 429 depends on the checkbox `Automatic` of the settings:
+  - **With `Automatic` off the delay between two requests is exactly the configured interval**, always: after a success, after a 429 and after any other failure. A `Retry-After` of the server is written in
+    the log line of the request and changes nothing, for a 429 as for any other status. The 429 itself is shown as it was, the red countdown or the message line and the error log, and the next request
+    comes after the interval.
+  - **With `Automatic` on the program searches for the interval** (see The automatic interval); the delay is the interval of the search, and a longer wait that the server names with a 429 is honoured.
+- **The interval in force** is at every moment the delay to the next request: the configured interval with `Automatic` off, the interval of the search with it on. It is the one the row's interval item shows, and
+  the countdown counts down to it. The refresh button is never held back, since a person asked.
+- **The `Next try in` of the message of a 429** (`Next try in N s`, or `N min`) is that interval, counted from when the refused request was triggered, so what is really left is shorter by the time the request took.
+- **A manual refresh** starts a request at once and the next scheduled one comes an interval after it. With `Automatic` on it moves the search like a scheduled request.
+- **Changing the interval** does not end the request that is running, and the next one is due an interval after the one before, as the line above says.
+- **A request that takes longer than the interval in force is followed by the next one as soon as it ends**, with no pause, whether or not the interval was changed meanwhile.
+- **Only an HTTP 429 moves the search** (with `Automatic` on): a `Retry-After` on any other status, a 503 for example, is written in the log line of the request and changes nothing.
 - The backend reports the time until the next scheduled refresh together with the
   status, in whole seconds and possibly negative, as described under Compact window.
   The frontend does not work it out.
@@ -298,7 +275,7 @@ the previous reading and the request duration are all in one green, `#1a7f37` on
 fixed: it does not follow the severity, so nothing in the row turns amber or red as the budget is spent, and it is the
 same whether a severity was sent or not, whether a change is up or down, and whatever the settings are. A missing
 amount, the dash, is green like one that is there. The time of the reading, the countdown and the time between usage
-requests are in the colour of the text, and the countdown is red during a back-off after an HTTP 429 (see Countdown).
+requests are in the colour of the text, and the countdown is red after an HTTP 429, until a request is answered without one (see Countdown).
 The severity is named in the tooltip of the percentage and nowhere else: the tooltips of the amounts say what the
 number is and its unit, and nothing about the severity.
 
@@ -309,10 +286,8 @@ number is and its unit, and nothing about the severity.
 - It is calculated by the backend, which reports it with the status. The window
   shows it as received and does not work it out itself.
 - It is counted from when the most recent request was triggered, whether by the
-  schedule or by the refresh button, plus the wait that applies: the usage interval,
-  or the longer wait while the application is backing off after an HTTP 429. It
-  therefore starts again after a manual refresh, and shows the longer wait during
-  a back-off.
+  schedule or by the refresh button, plus the interval in force (see Refresh behavior). It
+  therefore starts again after a manual refresh.
 - It may be negative. A negative value means the next refresh is overdue by that
   many seconds, for example because a request is taking longer than the interval.
   The window shows it as it is, with the minus sign.
@@ -322,13 +297,13 @@ number is and its unit, and nothing about the severity.
   separate item, with its own setting (see Settings).
 - **With the countdown switched off an HTTP 429 has a message line** like any other failed refresh, `Refresh failed at <time>:
   <message>`, since there is no countdown to be red.
-- **While the application is backing off after an HTTP 429 the countdown is red**, and hovering over it
+- **After an HTTP 429 the countdown is red**, until a request is answered without one,, and hovering over it
   shows the error message, in bold red, in a line under the row that is there while the pointer is over the
   countdown (a plain `title` tooltip cannot be coloured, and a tooltip of the page's own would not fit in a window
   as small as the row, which grows for the line as for any message and goes back when the pointer leaves). This is
   the only sign of a 429 in the row: it has no message line, and the figures are not dimmed, since the
-  data is not out of date because the server asked us to wait. The red goes with the back-off, at the
-  next success. The 429 is written to the log and to the error log like every failure.
+  data is not out of date because the server asked us to wait. The red goes at the
+  next request that is answered without a 429. The 429 is written to the log and to the error log like every failure.
 
 **Tooltips**
 
@@ -351,7 +326,7 @@ names, shown as its code, here `USD`.
 - The log button says `Show the log`, and `Hide the log` while the log is shown. The history button says `Show the usage history`, and
   `Hide the usage history` while the history is shown. The error log button says `Show the error log`, and
   `Hide the error log` while it is shown.
-- The countdown, during a back-off after an HTTP 429: the error message, in bold red, in a line under the row (see Countdown).
+- The countdown, after an HTTP 429: the error message, in bold red, in a line under the row (see Countdown).
 - The exact texts: the countdown, `Seconds until the next refresh (negative when overdue)`; the time since the previous
   reading, `Time since the previous reading`; the interval item, `Time between usage requests`. When the response named
   no currency the amounts say `Credits used` and `Credit budget`, and the change `Change in the amount used since the
@@ -428,20 +403,20 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   other. Its tooltip and behaviour are those of the other two buttons. It replaces the config button
   and the interval field in the row, which are gone.
 - **Leaving the settings brings back the view that was shown before.** If the log, the history or the error log was shown when
-  the settings button was pressed, it is shown again when the settings are left, whichever way they are left (Apply, Cancel, or the
+  the settings button was pressed, it is shown again when the settings are left, whichever way they are left (Save, Cancel, or the
   settings button once more), at the size it had before, so the person finds the window as they left it: the history and the log at
   their remembered height, the error log at its opening size. It shows the changes the settings made: the history with its new
   columns, times and date, the row with its new items. If nothing was shown before, nothing is shown afterwards, as before.
   Pressing the button of another panel while the settings are shown shows that panel, and the settings are left without coming back
   to anything: what was shown before the settings is then forgotten.
-- **Leaving the settings by a button of the row saves them**, not only `Apply`: the gear pressed again, and the button of any
-  other panel, the log, the history or the error log, each save what the view holds, exactly as `Apply` does, and then do what
+- **Leaving the settings by a button of the row saves them**, not only `Save`: the gear pressed again, and the button of any
+  other panel, the log, the history or the error log, each save what the view holds, exactly as `Save` does, and then do what
   they do, close the view or show their panel. **`Cancel` is the one way to leave without saving**: it closes the view, nothing
   is changed, and what the row previewed is taken back.
 - **When the save fails on leaving, the view stays.** If a value is refused, an interval that is no number or out of range, or
-  the settings cannot be saved, the view stays open with its message in red, as after `Apply`, and the other panel is not shown:
+  the settings cannot be saved, the view stays open with its message in red, as after `Save`, and the other panel is not shown:
   nothing is lost without a word, and `Cancel` is still there to leave.
-- **Nothing changed, nothing sent.** Leaving a view in which nothing was changed sends nothing to the backend. `Apply` always sends.
+- **Nothing changed, nothing sent.** Leaving a view in which nothing was changed sends nothing to the backend. `Save` always sends.
 - **Closing the window** while the settings are open does not save them.
 - **The window is exactly as tall as the row, its message lines and the settings need**, so the
   settings are shown whole, with no vertical scrollbar, and with no empty space below them. The height of the
@@ -451,7 +426,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   settings are shown.
 - **The settings have a least width.** Hiding elements makes the row, and with it the window, narrower. While the settings are
   shown the window is never narrower than the settings need for two things: **every checkbox has its text on one line**, a
-  property beside it included, and **the buttons of the view, `Apply`, `Restore defaults` and `Cancel`, are in one row**. When
+  property beside it included, and **the buttons of the view, `Save` and `Cancel`, are in one row**. When
   the row is wider than that, the window is as wide as the row. When the settings are left the window goes back to the width of
   the row. The least width is worked out from the view itself, from its texts and controls as they are drawn, and is not a fixed
   number of pixels, so it stays right when a text or the font changes. Nothing in the view wraps; only its message in red may
@@ -459,13 +434,12 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
 - The view shows every setting with its current value, which the frontend has just asked the backend for,
   each time the view is opened. The frontend keeps no setting of its own: what is shown is what the
   backend has.
-- Changes made in the view are sent and saved when the **Apply** button is pressed, or when the view is left by a button of the
+- Changes made in the view are sent and saved when the **Save** button is pressed, or when the view is left by a button of the
   row (above). Those of `Main view` are shown in the row at once, as a preview, and are taken back when the view is left by
-  `Cancel` (see The elements of the row); those of the other sections take effect when they are saved. Apply sends all the
+  `Cancel` (see The elements of the row); those of the other tabs take effect when they are saved. Save sends all the
   values to the backend, which keeps them and saves them in the settings file, and then **closes the
   view**; the main view shows the changes at once. A **Cancel** button closes the view, and no value
-  is changed; it asks nothing. A **Restore defaults** button sets the fields to the defaults below; it
-  does not save them: they are saved like any other change, by Apply or by leaving the view. If the backend refuses a
+  is changed; it asks nothing and takes back the preview. **There is no `Restore defaults`** (since version 0.64). If the backend refuses a
   value, or the settings cannot be saved, the view stays open and shows a brief message in red; nothing
   is changed.
 - The settings, with their defaults:
@@ -494,18 +468,22 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Show the date in the history, as well as the time | on, off | off |
   | Show the zero usage lines in the history | on, off | on |
   | Show the failed lines in the history | on, off | on |
+  | Show the time in the history | on, off | on |
+  | Show the amount used in the history | on, off | on |
+  | Show the limit in the history | on, off | on |
   | Show the change in the amount used in the history | on, off | off |
   | Show the time since the previous reading in the history | on, off | off |
+  | Show the current marker (`Cur.`) in the history | on, off | on |
 
 - A value typed in the interval box that is not a whole number from 5 to 3600 keeps the view open
-  and shows a brief message in red when Apply is pressed; the backend refuses it, as before. The current value,
+  and shows a brief message in red when Save is pressed; the backend refuses it, as before. The current value,
   whatever it is (also one from an old settings file), is what the field shows. The field has
   its unit, `s`, beside it, and there is no list of values to pick from.
 - **The texts of the view.** The section that holds the interval is headed `Request` (not `Usage requests`), and the interval's
   label reads `Interval`, and so does the checkbox for the row's item;
   the row item's tooltip keeps `Time between usage requests`. The checkbox for the log reads `Log the response`.
-  Under the heading `History view` the checkboxes read `Date`, `Zero usage lines`, `Failed lines`, `Δ used` and `Δ time`
-  (the last two like the titles of the columns they switch on): no `Show` in front, no `Column`, and no colon in them. Under `Main view` the two checkboxes for the row keep their longer
+  In the tab `History view` the checkboxes read `Date`, `Zero usage lines`, `Failed lines`, and one for each column of the history, in the order of the view:
+  `time`, `used`, `limit`, `Δ used`, `Δ time` and `Cur.` (like the titles of the columns they switch on; saved under `historyTime`, `historyUsed`, `historyLimit`, `historyDeltaUsed`, `historyDeltaTime` and `historyCurrent`): no `Show` in front, no `Column`, and no colon in them. Under `Main view` the two checkboxes for the row keep their longer
   texts, `Change in the amount used` and `Time since the previous reading`. The other ones in `Main view` read as The elements of the row names them, the three buttons `Log button`, `History button` and
   `Error log button`, and the property of the amounts reads `Currency symbol`.
 - **A checkbox and its text are centred on each other vertically**, and so is every other control and its label
@@ -515,7 +493,15 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   covered by the arrow, nor cut off.
 - **The text of the view cannot be selected**, like everything in the window (see Nothing in the window can be selected);
   until version 0.55 it could, and be copied. What is typed in the field of the interval can.
-- The view is arranged in sections: `Request`, `Main view`, `Window`, `History view` and `Log`.
+- **The view is arranged in tabs** (since version 0.64), in this order, each with its title:
+  `Main view`, `History view`, `Cost control`, `Debug` (only in debug mode, see Debug mode), `General` and `About`.
+  - `Main view` holds the elements of the row and the properties of the amounts and of the time; `History view` the checkboxes of the history (below);
+    `Cost control` the limits (see Cost control); `Debug` the debug settings; `General` the groups `Request`, `Window` and `Log`; `About` the About view (see The About view).
+  - **The titles are a strip**, all of them in one line over the tab, each clickable; the one shown is marked. If the strip is wider than the view, it scrolls sideways.
+  - **Two arrows**, one at each end of the strip, step to the previous and to the next tab, and are disabled at the first and at the last.
+  - **The settings always open on the first tab, `Main view`**, whichever tab was shown last. The window is as tall as the shown tab needs, and the height follows when the tab is changed; the
+    least width is that of the widest tab, so the window does not change its width from tab to tab.
+  - **The buttons `Save` and `Cancel` are under every tab**, `About` included, and are the same on each.
 - **The title bar.** The setting `Title bar`, in the group `Window` before `Stay on top`, on by default and saved under the key
   `showTitleBar`, shows or hides the title bar of the window. It is not previewed: it takes effect when the settings are saved.
   - **With the title bar hidden the window is the row alone**, with no title, no buttons of the system and no frame to drag.
@@ -638,9 +624,8 @@ The log is shown the way the usage history is: inside the main window, not in a 
 - **Both are remembered.** A change is saved at once, in `settings.json` with the other settings, under the keys
   `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate` (true or false), and the next time the
   panel is shown, in this run or the next, it comes up with what was saved. A value in the file that is none of the
-  four has the default, as any other value that is out of range. There is no `Apply` and no `Cancel` for them.
-- **The settings view leaves them alone**: they are not in it, saving it does not change them, and its
-  `Restore defaults` does not put them back.
+  four has the default, as any other value that is out of range. There is no `Save` and no `Cancel` for them.
+- **The settings view leaves them alone**: they are not in it, saving it does not change them.
 - **When a change cannot be saved**, it still holds for the panel as it is shown, and a red line below the two controls
   says `The log settings could not be saved: <reason>`. The line goes with the next change that is saved. When the panel
   is shown the next time it comes up with what is saved, which is then not what was chosen.
@@ -677,8 +662,10 @@ The history is shown inside the main window, not in a window of its own.
 - **While the panel is shown, the window's height does not follow the main view.** When a message line
   appears or goes, or the row changes in any other way, the window keeps the height it has, as opened
   or as the person dragged it, and the panel takes up the difference.
-- The history is a table with a header row (`time`, `used`, `limit`, and, when
-  their settings are on, `Δ used` and `Δ time`, and last `Cur.`; it does not scroll away) and one line for each reading, with space between the
+- **Every column can be switched** (since version 0.64) by a checkbox in the tab `History view`, in the order of the view: `time`, `used`, `limit`, `Δ used`, `Δ time` and `Cur.`.
+  By default `Δ used` and `Δ time` are off and the other four on. The history has no `interval` column; the file does (see Usage history). With a column off the others close up, and the
+  right-most one still is at the right edge.
+- The history is a table with a header row (the columns whose settings are on, from `time`, `used`, `limit`, `Δ used`, `Δ time` to `Cur.`; it does not scroll away) and one line for each reading, with space between the
   columns so that nothing is cut off (in particular the last title). **The time is at the left, and every other column is at
   the right side**: `used`, `limit`, when switched on `Δ used` and `Δ time`, and **the currency last, as the right-most column**, are packed against the right edge of the
   panel, each right-aligned in its own column, so that the numbers are lined up by their last digit, and the free space of the
@@ -765,7 +752,7 @@ The history is shown inside the main window, not in a window of its own.
 - The height of the window while the history is shown, and while the log is shown, is remembered for each
   of the two, as `historyHeight` and `logHeight` in the settings file, in pixels of the window's content. The
   width is not. They are not settings of the settings view: they are neither shown nor applied there, and
-  Restore defaults leaves them alone.
+  nothing there changes them.
 - When the person changes the window's height while the history or the log is shown, the new height is stored,
   once the change has settled, not at every pixel of a drag. The program, not the page, notices: the page never
   reports a height the window was dragged to.
@@ -867,7 +854,7 @@ Every reading the application gets is kept, so the usage can be looked at afterw
 - `interval` is the time between usage requests that was set when the request was made, in whole seconds.
   `duration_ms` is how long the query took, from the start of the refresh to the answer or the failure, which **includes getting the token** (a
   run of `claude`, up to 30 seconds) and the one retry after an HTTP 401, in whole milliseconds, so the first row of a run is usually the longest.
-  The `interval` is the interval the application was using, the configured one, not the longer wait of a back-off. Both are on every row, failed ones included, and plain numbers.
+  The `interval` is the interval the application was using: the configured one with `Automatic` off, the one of the search with it on. Both are on every row, failed ones included, and plain numbers.
 - A failed query's row has `datetime` of the time of the failure, since there is no `fetched_at`, and
   empty `used`, `limit` and `currency`. What went wrong is in the log, not in the file.
 
@@ -1015,7 +1002,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   otherwise all are switched on. So with none on, and with some on, a click switches all on.
 - **The two properties are not touched**: `Currency symbol` and the time format stay as they are.
 - **It is a click like any other in `Main view`**: the row shows it at once, as a preview, and it is saved when the
-  view is saved, by `Apply` or by leaving through a button of the row; `Cancel` puts the row back.
+  view is saved, by `Save` or by leaving through a button of the row; `Cancel` puts the row back.
 - **The three panel buttons follow as for a click on their own checkbox**: the button of a panel that is open stays
   until the panel is closed.
 
@@ -1023,12 +1010,12 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **A click on a checkbox of `Main view` changes the row at once**, while the settings are still
   shown, so that it can be seen which element the checkbox belongs to. The same holds for the two
-  properties, and for `Restore defaults`, which fills in several at once.
-- **It is a preview.** Nothing is sent to the backend and nothing is saved until the view is saved, by **Apply** or by
+  properties.
+- **It is a preview.** Nothing is sent to the backend and nothing is saved until the view is saved, by **Save** or by
   leaving it through a button of the row (see Settings). **Cancel** puts the row back to what the backend has. The settings
   of the other sections, `Request`, `History view` and `Log`, have no preview: they take effect when they are saved.
 - The preview is of the row's figures only: the time in the other format and the amounts with or without the symbol are the
-  backend's own texts, which it sends in both forms. The time in a message line, `Refresh failed at ...`, changes on Apply.
+  backend's own texts, which it sends in both forms. The time in a message line, `Refresh failed at ...`, changes on Save.
 - After a save the row keeps what was previewed until the next status says the same, so it does not go back to the old state for a moment.
 - **The three panel buttons follow their checkboxes while the settings are shown too.** The button of a panel that is open
   still stays until the panel is closed.
@@ -1126,7 +1113,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **While the window has no title bar it is moved by dragging it**: the mouse button pressed anywhere inside the
   window, and the mouse moved with the button held, moves the window with it; releasing the button leaves it there.
 - **The buttons are as they were** (the window can be dragged since version 0.43). A press on a button of the row, the refresh button, the log, history and error log
-  buttons, the gear and the debug button, does what the button does and never begins a drag.
+  buttons, and the gear, does what the button does and never begins a drag.
 - **A press with no movement does nothing**: the window does not move, and no tooltip, hover or countdown line is lost
   by it.
 - **Anywhere else inside the border begins a drag**: the figures, the gray boxes, the room between the elements, a
@@ -1290,7 +1277,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **A change takes effect at once and is saved at once**, in `settings.json` under the key `listFontSize`, a whole
   number from 10 to 20; a value in the file that is not one has the default. So it holds when another list is shown,
   and at the next start.
-- **The settings view does not have it**, and its `Restore defaults` leaves it as it is, like the two choices of the log.
+- **The settings view does not have it**, like the two choices of the log.
 - **When it cannot be saved** it holds for the run, and a red line in the list says `The text size could not be saved:
   <reason>`, until a size is saved.
 - **The page has the size from the application when it starts**, with its configuration; a size it is not told, or one
@@ -1304,79 +1291,63 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   its `s`. Its tooltip: `Lets the program find the shortest time between usage requests that Anthropic accepts, between
   10 and 300 seconds.` It is **off by default**, saved under the key `autoInterval`, and takes effect when the settings
   are saved, like the interval.
-- **Off, everything is as it was**: the program uses the configured interval and does not change it, and an HTTP 429
-  is answered by the back-off that doubles the wait.
+- **Off, the program uses the configured interval exactly** and does not change it: there is no back-off, and an HTTP 429, with its `Retry-After`, changes nothing of the delay.
 - **On, the field of the interval is disabled** and shows, grayed, the interval the search is using now; it follows the
   search while the settings are shown. Switching `Automatic` off puts the configured interval back into the field,
   which can be typed in again. The configured interval is kept while `Automatic` is on, and is in force again when it
   is switched off.
-- **On, the program searches for the interval**, between a lower and an upper bound, in the manner of a binary search.
-  The least is **10 seconds** and the most **300 seconds**, both fixed in the program and not settings. The search
-  begins with a lower bound of 10, an upper bound of 300 and an interval of **60 seconds**.
-- **After a refresh that Anthropic answered without an HTTP 429** the interval was long enough: the upper bound becomes
-  the current interval, and the new interval is the middle of the lower bound and the current interval,
-  `(lower + current) / 2`.
-- **After an HTTP 429** the interval was too short: the lower bound becomes the current interval, and the new interval
-  is the middle of the upper bound and the current interval, `(upper + current) / 2`.
-- **When a 429 comes with the interval at the upper bound, or within a second of it**, the search has closed in on an
-  interval that no longer holds: the bounds are set back to 10 and 300, and the new interval is `(300 + current) / 2`.
-- **The middle is in whole seconds, rounded up**, and the interval is never less than 10 nor more than 300. So the
-  search settles a little above the shortest interval that Anthropic accepts: 60, 35, 23, 17, 14, 12, 11 while nothing
-  is refused, where it stays, a second above the least; and back up towards the upper bound when something is. An
-  example: refused at 23 with the upper bound at 35, it goes to 29, then with each answer to 26, 25 and 24, and stays at
-  24, a second above the interval that was refused.
-- **A search that has settled is refused again sooner or later**, since it sits just above an interval that was: at
-  the upper bound that is the case of the bounds being set back, and the interval then goes half way to 300. So with
-  `Automatic` on an HTTP 429 now and then is part of how it works, and not a fault.
+- **On, the program searches for the interval** (the search changed in version 0.64; before it was a binary search that jumped from 10 to 300 when its
+  bounds came close). The rule is **slow down quickly, speed up slowly, with a memory of the refused interval**. The least interval is
+  **10 seconds** and the most **300 seconds**, both fixed in the program and not settings. The search begins at **60 seconds**, with no refused interval known.
+- **The program remembers one figure, the refused interval `R`**: the interval at which the last 429 came, in whole seconds, or none.
+- **After an HTTP 429** `R` becomes the interval that was refused, and the new interval is the greater of `ceil(1.1 × R)` and `R + 1`, at most 300.
+  So 20 seconds refused is 22, 100 refused is 111.
+- **Speeding up is slow.** After **8 answers in a row without a 429** the interval is one second shorter, never less than `R + 1` and never less than 10. The count starts
+  again at 0 after each step and after each 429. So the interval stays just above what was refused, and sinks one second at a time while nothing is refused, which is why
+  the search keeps near the limit and mostly does not run into it.
+- **`R` is forgotten slowly**: after 20 answers in a row without a 429 `R` is one second lower (the count of the 20 starts again after each step and after each 429); at 0 it is none. So when
+  the limit of the server has gone down the search follows it down.
+- **Before a refusal is known** (no `R`) the interval goes down by a tenth with each answer without a 429, `ceil(interval × 0.9)`, not below 10, so the search does not
+  take minutes to come down from 60.
+- **A search that has found the limit is refused again now and then**, one second below what the server accepts: with `Automatic` on an HTTP 429 now and then is part of how it works, and not a fault, but each one
+  is followed by a large enough step up, so that there are few.
 - **Only an answer of Anthropic moves the search.** A refresh that fails in another way, an HTTP error that is not a
-  429, a timeout, a token that cannot be obtained, leaves the interval and the bounds as they are. A manual refresh
+  429, a timeout, a token that cannot be obtained, leaves the interval, `R` and the counts as they are. A manual refresh
   moves the search as a scheduled one does.
-- **The search takes the place of the back-off.** With `Automatic` on a 429 does not double the wait: the next request
-  comes after the new interval. A `retry-after` of the server is still honoured: when it is longer than the new
-  interval, the interval becomes that wait (see With the automatic interval, the search follows a longer wait the
-  server names).
+- **With `Automatic` on a 429 does not double a wait**: the next request comes after the new interval. A `Retry-After` of the server is still honoured: when it is longer than the new
+  interval, the interval becomes that wait (see With the automatic interval, the search follows a longer wait the server names).
 - **The row shows it as it shows the interval in force**: the element `Interval` has the interval of the search, the
   countdown counts down to it, and a 429 is the red countdown or the message line as before.
 - **What is typed while `Automatic` is off is the configured interval**, also when `Automatic` is then checked before the
   view is saved; with `Automatic` checked the field is not checked for being a number, since it is not the person's to
   fill.
 - **The settings say both intervals** to the page: the one in force, and the configured one (`docs/api.md`).
-- **The search is remembered.** The interval and the two bounds are saved in `settings.json` whenever they change, under
-  the keys `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the next start goes on from them.
-  Values in the file that are not whole seconds from 10 to 300, or a lower bound above the upper one, or an interval
-  outside the two, begin the search anew at 60, 10 and 300. Switching `Automatic` off and on again goes on from what was
-  saved.
-- **The log says each step**, at the information level: `Automatic interval: <N> s (between <lower> s and <upper> s)`,
-  and `Automatic interval: the bounds are 10 s and 300 s again` before it when they were set back. A search that has
-  settled, and whose interval and bounds an answer leaves as they are, writes nothing. Switching it on writes the same
+- **The search is remembered.** The interval and `R` are saved in `settings.json` whenever they change, under
+  the keys `autoIntervalSeconds` and `autoRefusedSeconds` (`R`, a whole number from 10 to 300, or the key left out for none), and the next start goes on from them.
+  Values in the file that are not whole seconds from 10 to 300 are as if there were none, so the search begins at 60 with no `R`; an interval at or below `R` is raised to `R + 1`.
+  The keys `autoLowerSeconds` and `autoUpperSeconds` of earlier versions are read no more and are not written again. Switching `Automatic` off and on again goes on from what was saved.
+- **The log says each step**, at the information level: `Automatic interval: <N> s (refused at <R> s)`, or `Automatic interval: <N> s (no refusal yet)`. A search that has
+  settled, and whose interval an answer leaves as it is, writes nothing. Switching it on writes the same
   line with where the search is, and switching it off `Automatic interval off: the usage fetch interval is <N> s`.
 - **A change of the configured interval while `Automatic` is on** is saved and waits: it is in force when `Automatic` is
   switched off.
-- **`Restore defaults`** unchecks `Automatic` with the rest; the search that is saved is left as it is.
 - **The usage history** records for each row the interval in force, which with `Automatic` on is that of the search.
 
 ### With the automatic interval, the search follows a longer wait the server names
 
 - **The fault that was** (before version 0.54). With `Automatic` on, Anthropic answered a 429 with `retry-after 300`. The search worked out 156
   seconds and said so in the log, the row showed that as its interval, and the next try came after 5 minutes, as the
-  message said: the one wait the server named was honoured and the search kept its own figure. Two figures for one
-  wait, and `Next try in 5 min` beside `Automatic interval: 156 s`, read as a fault.
-- **The search takes the wait the server names.** After a 429 the search makes its step as before, and when the server
+  message said. Two figures for one wait, and `Next try in 5 min` beside `Automatic interval: 156 s`, read as a fault.
+- **The search takes the wait the server names.** After a 429 the search makes its step as above, and when the server
   names a wait that is longer than the interval it then has, **the interval becomes that wait**. So the log, the
   element `Interval` of the row, the countdown and `Next try in ...` all say the same.
-- **Never more than 300 seconds.** A wait of the server above 300 seconds makes the interval 300; that one wait is
-  still as long as the server says, within the limit there is for it, since the server asked for it.
-- **The bounds stay sound**: the lower bound is the interval that was refused, as before, and when the server's wait
-  is above the upper bound the upper bound is 300 again.
-- **It comes down again by itself**: the next answers that are no 429 halve the way to the lower bound, as always.
-- **The log** says the interval the search has after that, `Automatic interval: 300 s (between <lower> s and 300 s)`,
-  and `Rate limited; next try in 5 min` then agrees with it.
-- With `Automatic` off nothing changes: the back-off honours `retry-after` as it did.
-- **A wait of the server is counted in whole seconds, rounded up**, and one that is no longer than the step the search
+- **Never more than 300 seconds.** A wait of the server above 300 seconds makes the interval 300.
+- **`R` stays the interval that was refused**, not the wait the server named.
+- **It comes down again by itself**, by the slow steps above.
+- **The log** says the interval the search has after that, and `Rate limited; next try in 5 min` then agrees with it.
+- **A wait of the server is counted in whole seconds, rounded up**, only a whole number of seconds is believed, and one that is no longer than the step the search
   made leaves the step as it is: the server's wait never shortens the interval.
-- **An example**, the run that showed the fault: the search had settled at 11 seconds and was refused with
-  `retry-after 300`. The bounds are set back, the interval is 300, and with the answers that follow it is 155, 83, 47,
-  29.
+- With `Automatic` off the `Retry-After` is only logged (see Refresh behavior).
 
 ### Nothing in the window can be selected
 
@@ -1413,12 +1384,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 ### The About view
 
 - **The program has an About view** (since version 0.57), which says what the program is and shows its logo larger than an icon can.
-- **It is opened from the settings.** The row of buttons of the settings view, `Apply`, `Restore defaults` and
-  `Cancel`, has a fourth button with the text `About`, at the right end of the row and set apart from the three. Its
-  tooltip is `About this program`. There is no button for it in the row of the window, and no window of its own.
-- **It is shown in the place of the settings form**, in the panel area below the row: the groups of the settings and
-  their three buttons are not shown while it is, and the window is as tall as the row and the About view need and as
-  wide as it was with the settings.
+- **It is the last tab of the settings**, titled `About` (since version 0.64; before, a button `About` of the settings view opened it in place of the form). There is no button
+  for it in the row of the window, and no window of its own.
+- **It is shown in the place of the other tabs**, in the panel area below the row, with the strip of the titles above it and `Save` and `Cancel` below; the window is as tall as the row and the About view need,
+  and as wide as the least width of the tabs.
 - **What it shows**, from the top:
   - the **logo**, the gauge of the program's icon, **96 pixels** wide and tall, drawn from the largest file of the icon;
   - the **name**, `aip usage`, and under it the **version**, as the title bar has it: `v0.57` in the version that brought it;
@@ -1433,15 +1402,12 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The text cannot be selected**, like everything in the window (see Nothing in the window can be selected); a path
   is copied with the button beside it (see The paths of the About view are links, with a button to copy each). A path that is longer than the view is wide is broken over lines; it never makes the
   window wider.
-- **It has one button, `Back`**, which shows the settings form again.
-- **The settings are kept as they were.** Pressing `About` saves nothing and loses nothing: what was changed in the form
-  and not saved is still in it after `Back`, the preview in the row stays as it was, and `Apply`, `Restore defaults`
-  and `Cancel` do then what they always do.
-- **A button of the row pressed while About is shown** does what it does from the settings: the settings are saved, as
-  they stand in the form, and the gear closes the view, or the other panel is shown. So the About view is left by
-  `Back` or by a button of the row, and there is no way out of it that loses the changes but `Back` and then `Cancel`.
-- **Opening the settings shows the form, not About**, each time.
-- **`Back` has the tooltip `Back to the settings`.**
+- **It has no button of its own**: `Back` is gone, the other tabs are reached by the strip and the arrows.
+- **The settings are kept as they were.** Showing the tab saves nothing and loses nothing: what was changed in the other tabs
+  and not saved is still there when they are shown again, the preview in the row stays as it was, and `Save` and `Cancel` do what they always do.
+- **A button of the row pressed while About is shown** does what it does from any tab: the settings are saved, as
+  they stand, and the gear closes the view, or the other panel is shown.
+- **Opening the settings shows the first tab, not About**, each time.
 - **`JavaFX` is `unknown`** in a run that has no window, as some tests are; a window is what gives it its version.
 - **While it is shown the window has its title bar**, as with the settings, of which it is a part.
 - **The figures are read when the view is opened**, so the path of the history and the line of debug mode say what
@@ -1518,7 +1484,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### A fake backend that can be configured
 
-- **The ordinary answer of the fake backend can be shaped** (since version 0.62), in the debug settings view, beside the switch of the fake
+- **The ordinary answer of the fake backend can be shaped** (since version 0.62), in the tab `Debug`, beside the switch of the fake
   backend and its scenario. The settings below are for the scenario `normal`; the other scenarios stay the fixed
   test cases they are.
 - **The kind of account**, a dropdown `Account` with two values:
@@ -1547,7 +1513,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **How long an answer takes.** A field `Longest request`, in milliseconds: each answer, a 429 included, is held back
   for a time drawn at random, evenly, from 0 to that value. 0 means it answers at once. Default 0, from 0 to 60,000.
 - **They are debug settings like the others**: saved in `settings.json`, under the keys `fakeAccount` (`usage` or
-  `seat`), `fakeIncreaseCents`, `fakeBudget`, `fakeStartAmount`, `fakeRefuseSeconds` and `fakeDelayMillis`; they take effect when the debug view is
+  `seat`), `fakeIncreaseCents`, `fakeBudget`, `fakeStartAmount`, `fakeRefuseSeconds` and `fakeDelayMillis`; they take effect when the tab `Debug` is
   saved, without a restart; and without `--debug` they count for nothing.
 - **A value that is not a whole number in its range** keeps the view open with the reason in red, as a wrong interval
   does in the settings; such a value in the file has the default.
@@ -1598,7 +1564,6 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **In the file a limit there is none of is written as `null`**, so the three keys are always there.
 - **A limit in the file that is no amount in its range** is logged and counts as none; a daily limit above the monthly
   one is dropped.
-- **`Restore defaults`** empties the limits and has the daily one worked out.
 - **The program does nothing with the limits yet.** They are settings to be kept: the row shows nothing of them, nothing
   is compared with them, and nothing warns. What is done with them is a later requirement.
 - **Decided for that later use, and not built now**, so that it is not asked again: what was spent today is counted
@@ -1607,13 +1572,13 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ## Debug mode
 
-What the program does when it is started with `--debug`, and only then: a debug button, the debug settings, the fake
+What the program does when it is started with `--debug`, and only then: the tab `Debug` of the settings, the debug settings, the fake
 backend switched while the program runs, and the mark that says its figures are invented.
 
 - **One command-line option, `--debug`, starts the program in debug mode.** It takes no value. Without it the program
   is not in debug mode, and nothing of what follows is shown or can be reached.
 - **There are no options `--fake-backend`, `--fake-scenario` and `--fake-token`** (there were, before version 0.37). What
-  they did is set in the debug settings view instead.
+  they did is set in the tab `Debug` of the settings instead.
 - **There are no options `--usage-interval` and `--poll-interval` either.** The time between usage requests is set in the
   settings view and nowhere else, and the window asks the application for its state once a second, which is not to be
   changed. The interval that `settings.json` holds is the one in force from the start.
@@ -1623,23 +1588,13 @@ backend switched while the program runs, and the mark that says its figures are 
   the placeholder token, so that invented figures are never shown without the marks of debug mode.
 - **`--anthropic-url <url>` stays** on the command line, as it is: it names the base URL for the run and is not a setting.
   It no longer has an option to contradict it; while the fake backend is in use the URL is simply not used.
-- **A debug button** is in the row at the right of the settings button, the last thing in the row, only in debug mode.
-  It is an icon and it is **yellow**. Its tooltip says that the program is in debug mode. It is not one of the elements
-  that can be hidden: in debug mode it is always there, like the gear, and without debug mode it is never there.
-- **The debug button's icon is a bug**, its yellow is `#d4a017` on the light theme and `#f2cc60` on the dark one, whether its view
-  is shown or not, and its tooltip is `Debug mode: show the debug settings`, and `Debug mode: hide
-  the debug settings` while the view is shown.
-- **Leaving the debug settings view saves it**, as leaving the settings view does (see Settings): by its own button or by
-  the button of another panel; `Cancel` is the one way to leave it without saving, a save that fails keeps it open, and a view
-  in which nothing was changed sends nothing. The debug button, pressed while the settings view is shown, saves the settings
-  like the button of any other panel.
-- **The debug settings view is a panel like the others for the title bar**: while it is shown the window has its title bar,
-  whatever the setting `Title bar` says (see Settings).
-- **A click on it shows the debug settings view**, which is like the settings view: below the row, in the same place,
-  with `Apply` and `Cancel` and no `Restore defaults`, one view at a time, and the button again closes it.
-- **The debug view, exactly.** One group, headed `Debug mode`: a checkbox `Fake backend` with a dropdown beside it, in the same
+- **There is no debug button** (since version 0.64; before, a yellow bug button at the right of the gear opened a view of its own). **The debug settings are the tab `Debug` of the
+  settings**, between `Cost control` and `General`, reached through the gear like every other tab, and only in debug mode: without `--debug` there is no such tab, and nothing in
+  the strip or the arrows tells of it. It is saved by `Save` and left by `Cancel` like the others (see Settings), and a save that fails keeps the view open.
+- **The tab `Debug` is part of the settings for the title bar**: while it is shown the window has its title bar, whatever the setting `Title bar` says (see Settings).
+- **The tab, exactly.** One group, headed `Debug mode`: a checkbox `Fake backend` with a dropdown beside it, in the same
   line, that names the scenarios the backend knows; and a checkbox `Placeholder token`. Each has a tooltip that says what it
-  does. The view is as wide as its texts need, like the settings, and the window as tall as the row and the view.
+  does. The tab is as wide as its texts need, like the others, and the window as tall as the row and the tab.
 - **The debug settings**, all kept in `settings.json` with the others, under the keys `fakeBackend`, `fakeScenario` (the name
   of the scenario) and `fakeToken`:
 
@@ -1649,11 +1604,11 @@ backend switched while the program runs, and the mark that says its figures are 
   | What the fake backend answers (the scenario) | the scenario names of Fake backend | `normal` |
   | Send a placeholder token instead of obtaining a real one | on, off | off |
 
-- **The fake backend can be turned on and off while the program runs**, by `Apply` in the debug settings view: on, the
+- **The fake backend can be turned on and off while the program runs**, by `Save` in the tab `Debug`: on, the
   program starts it and fetches from it; off, the program stops it and fetches from the base URL again, Anthropic or the one `--anthropic-url` names. The switch is
   saved, so it also says **whether the fake backend is started at startup** the next time the program is started in
   debug mode.
-- **The debug view applies at once.** A change of the fake backend, the scenario or the placeholder token takes effect
+- **The debug tab applies at once.** A change of the fake backend, the scenario or the placeholder token takes effect
   when the view is saved, followed by a refresh, without a restart. A usage request that is under way at that moment is given
   up: its answer is of the source that was left, so it is neither shown nor written to any history, and it is no failed refresh.
 - **The reading of the other source is not kept on show.** When the source changes, the row shows the newest reading of the
@@ -1682,17 +1637,17 @@ backend switched while the program runs, and the mark that says its figures are 
   it is fully red. It takes the place of every other mark: there is no band and no text.
 - **The border is there for exactly as long as the fake backend is in use.** It says that the figures are invented. It
   comes when the fake backend is switched on and goes when it is switched off; in debug mode with the fake backend off
-  there is no border, and the yellow button is the one sign of debug mode.
+  there is no border, and the tab `Debug` is the one sign of debug mode.
 - **The border, exactly.** It is 3 pixels wide and in the red of errors, `#cf222e` on the light theme and `#f85149` on
   the dark one. One change from red to the background and back takes 4 seconds, at an even pace. It is drawn by the
   page, so it is inside the frame of the system; it is there with the title bar hidden as well, and round an open
   panel too. The window is larger by the border, so nothing in the row is covered. It is there while the figures are old
   as well, and is not dimmed with them.
 - **The border goes round everything the window shows**, whatever is shown: the row alone, a panel, the settings view and
-  the debug settings view. Its four sides are at the four edges of the window's content.
+  the settings, the debug tab included. Its four sides are at the four edges of the window's content.
 - **It is never round the row alone while a view is shown below it.** Before version 0.38, with the settings view or the
   debug settings view wider than the row, the border was drawn as wide as the row and as tall as the window, so that it ran
-  down through the view, across its checkboxes and its `Apply` button, and the right part of the view was outside it
+  down through the view, across its checkboxes and its `Save` button, and the right part of the view was outside it
   (see `docs/img_3.png`, taken with every element of the row hidden).
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
@@ -1744,7 +1699,7 @@ These are things the program does that the sections above do not say, written do
   ```
   Usage: java-aip-usage [--debug] [--anthropic-url <url>]
 
-    --debug                     debug mode: a debug button in the window, whose settings say whether
+    --debug                     debug mode: a tab Debug in the settings, whose settings say whether
                                 usage comes from a fake backend inside this program, what it answers,
                                 and whether a placeholder token is sent
     --anthropic-url <url>       where to fetch usage from, without the path (default https://api.anthropic.com)
@@ -1866,8 +1821,7 @@ These are things the program does that the sections above do not say, written do
 - **The request line, exactly.** It is at the information level. The size is that of the body in bytes as UTF-8. The request id is the `request-id` header, written only if it is 1 to 100 characters of letters, digits, `_`
   and `-`. Inside the brackets the order is the size, the request id, the `retry-after`. A request cut short by the program stopping writes no request line at all.
 - **The lines of a refresh.** Every refresh that succeeded writes `Usage refresh succeeded`, or, when the answer has no spend, the line that says so (see An answer that came and has no spend is said explicitly). A rejected token writes `The token was rejected (HTTP 401); acquiring a fresh one`. An HTTP 429 writes two warnings,
-  `Rate limited; next try in <N s or N min>` and then the `Usage refresh failed: ...` line. A success while a back-off is still on writes `Easing the back-off; next try in <N s or N min>`, and the success that ends it
-  `The back-off is over; back to the usual interval`. An unexpected fault writes the warning `Usage refresh failed unexpectedly` with its stack trace, and then the `Usage refresh failed: Unexpected error ...` line.
+  `Rate limited; next try in <N s or N min>` and then the `Usage refresh failed: ...` line. An unexpected fault writes the warning `Usage refresh failed unexpectedly` with its stack trace, and then the `Usage refresh failed: Unexpected error ...` line.
 - **The lines of the settings.** At startup, when the settings have been read: `Usage interval N s, poll interval M s`, with the values in force for the run. `There was no settings file; created <path> with the defaults`
   when one was made, and the warning `Could not create the settings file <path>: <reason>` when it could not be, which stops nothing: the defaults are used and the run goes on. The warnings for a file or a value that is
   not right: `Ignoring unreadable settings file <path>: <reason>`; `Ignoring settings file <path>: not a JSON object`, which is also what an empty file and a list draw; `Ignoring usageIntervalSeconds in <path>: The usage
@@ -1961,8 +1915,8 @@ These are things the program does that the sections above do not say, written do
 - Under the row, in this order, there can be the message line, the line with the message of an HTTP 429 that shows while the pointer is over the countdown, and the red line `Lost contact with the application. Still trying.`. The last one is the window's own: it shows when a request to the
   program fails, including the one for the refresh button, keeps showing the last figures, and goes with the next answer. Before the program has answered at all the window asks again every 2 seconds, the row has neither figures nor a word, and the buttons do nothing until the first answer; every request to the program
   is given up after 10 seconds.
-- **The settings view:** the buttons are Apply, Restore defaults (tooltip `Fill in the defaults; Apply makes them take effect`) and Cancel (`Close without changing anything`), in that order; Apply and Restore defaults are disabled when the settings could not be read.
-  The time format's two choices read `hh:mm` and `hh:mm:ss`. The interval field is 5 characters wide, right-aligned, with `s` after it. When Apply is pressed the window checks that the field is a whole number
+- **The settings view:** the buttons are Save (`Save the settings and close the view`) and Cancel (`Close without changing anything`), in that order, under every tab; Save is disabled when the settings could not be read.
+  The time format's two choices read `hh:mm` and `hh:mm:ss`. The interval field is 5 characters wide, right-aligned, with `s` after it. When Save is pressed the window checks that the field is a whole number
   (`The interval must be a whole number of seconds.`) and sends nothing otherwise; whether it is within 5 to 3600 is for the backend. Nothing else is bound to the keyboard: there is no Enter to apply and no Escape to cancel; the panels' lines can be reached with Tab, and the buttons say
   whether their panel is open to a screen reader.
 - **The panels:** while a panel is on show it is read again when its content changes. The log and the error log are read at every poll of the status that was answered, so every second, and not at all while contact is lost; the history whenever a row has been added to its file, a row of a failed refresh as well as a reading (the status carries a stamp of the file, `historyStamp`, which changes when a row is added; it is empty when there is no file). If nothing has changed the lines are left alone; when new lines come in above, what the person
@@ -1977,25 +1931,25 @@ These are things the program does that the sections above do not say, written do
 - **The buttons.** The refresh button is 24 by 24 pixels with an icon of 14, a line of 1.7, in the colour of the text, and it is never green. The log, history and error log icons are 12 pixels with a line of 1.6; the gear is 13, drawn on a finer grid with a line of 2, which becomes 3.3 when its panel is open
   (the 2.2 of the others at its scale). The button of the open panel takes back the 4 pixels it grew by on every side, so that the row is neither wider nor taller and nothing beside it moves. An icon button has corners rounded by 4 pixels and no focus ring of the browser's; the border that shows is its sign of
   focus. The refresh icon turns once a second, at an even speed.
-- **The room of the items that change.** The countdown has room for `-3s` to `99s`; the interval for `120s`; the change in the amount for `+9.99`; the time since the previous reading for `99s`; the request duration for `999ms` (see Less room is reserved in the row). A longer value, such as a countdown of `120s` during a back-off, makes the row wider for
+- **The room of the items that change.** The countdown has room for `-3s` to `99s`; the interval for `120s`; the change in the amount for `+9.99`; the time since the previous reading for `99s`; the request duration for `999ms` (see Less room is reserved in the row). A longer value, such as a countdown of `120s` with an interval of 120 seconds, makes the row wider for
   as long as it shows. The time, the amounts and the percentage have no room kept for them: their digits are of equal width, so a change of a digit moves nothing, and a figure that gains a digit, `99.99` becoming `100.00`, makes the row that much wider. An item whose switch is on and which has no
   value keeps that least width, not the width of the value it lacks. The percentage is the exception among the optional items: with its switch on and no percentage sent, it is not there and takes no room. A countdown the backend did not send is likewise not there.
 - **Colours not said elsewhere.** The line of a 429 that shows over the countdown is weight 800, heavier than the 700 of the other message lines. A message line is 3
   pixels below the row and breaks anywhere, inside a long word if it must.
 - **Before the first answer** the row shows the refresh button and all four panel buttons, and no word, no time, no figures, no countdown and no optional item. A status that says nothing of a button leaves it shown, so the three panel buttons are there until the first status that switches one off says so.
 - **What the page asks the application.** At startup `GET /api/config`, once, then the status at once, and never a refresh of its own. The polls never overlap: the next one is asked for the poll interval after the one before was answered, failed or given up, so the time between two is the interval and the time
-  the answer took. Pressing the refresh button sends `POST /api/refresh` with `Content-Type: application/json` and the body `{}`, does not look at what comes back, and asks for the status at once, whether or not the press got through; so does a successful Apply. A status asked for at once while a poll is under
+  the answer took. Pressing the refresh button sends `POST /api/refresh` with `Content-Type: application/json` and the body `{}`, does not look at what comes back, and asks for the status at once, whether or not the press got through; so does a successful Save. A status asked for at once while a poll is under
   way is not sent, and the change shows with the next poll. Every request says not to use a stored answer. Of the status the page uses what is finished for it, whether the figures are old, whether a refresh is running, and the stamp of the history; it reads none of the raw figures.
-- **Lost contact, exactly.** The line shows for three failures only: the first request at startup, a poll of the status, and the press of the refresh button. A panel, the settings or an Apply that fails says so in its own red line and not here. A failure is no answer within the 10 seconds, no connection, or an
+- **Lost contact, exactly.** The line shows for three failures only: the first request at startup, a poll of the status, and the press of the refresh button. A panel, the settings or an Save that fails says so in its own red line and not here. A failure is no answer within the 10 seconds, no connection, or an
   answer whose status is not a success, so an application that answers a poll with an error is "lost contact" too. The line goes with the next status that is answered. While it shows, an open panel is not read again.
 - **What the application's refusal reads as.** The reason a red line gives is the `error` text of the answer when it has one, else `The application answered HTTP <status>.` With the answers the panels' files give, the line reads `The usage history could not be read: The usage history could not be read.`, and the
   same for the log.
 - **The settings view, exactly.** The groups and their order: `Request`, with `Interval`, the field and `s`; `Main view`, with the thirteen checkboxes of The elements of the row in the order of the row, the time format dropdown beside `Time` and `Currency symbol` beside `Amount used`, 12 pixels from it;
   `Window`, with `Title bar` and `Stay on top`; `History view`, with `Date`, `Zero usage lines`, `Failed lines`, `Δ used`, `Δ time`; and `Log`, with `Log the response`. The text is bold, 12 pixels on a line of 1.45, in the system's own interface font, not condensed. Each group is a box with a thin gray border
-  and its heading set in the border; each setting has a line of its own, the control 4 pixels from its text. The buttons are 6 pixels apart, with a gray border that takes the colour of the text under the pointer or with the focus; a disabled one is at half strength. `Apply` has no tooltip. The dropdown is at
+  and its heading set in the border; each setting has a line of its own, the control 4 pixels from its text. The buttons are 6 pixels apart, with a gray border that takes the colour of the text under the pointer or with the focus; a disabled one is at half strength. `Save` has no tooltip. The dropdown is at
   least 12 characters wide. The red line of the view is at its top, above the groups; it stays until the view is opened again, whatever is typed or pressed meanwhile. When the settings cannot be read it says `The settings could not be read: <reason>` and the groups are not shown at all, not shown empty; Cancel
-  still works. A refusal of the backend is shown in its own words. The check of the interval field is: blanks at its ends aside, digits and nothing else, so ` 60 ` and `0060` are taken, the latter as 60, and `-5`, `5.0`, `1e3`, `60s` and an empty field are not. Apply sends all sixteen settings in one request.
-  Restore defaults fills in the defaults the backend sent with the settings; the page has none of its own. A setting the backend's answer lacks is shown switched off.
+  still works. A refusal of the backend is shown in its own words. The check of the interval field is: blanks at its ends aside, digits and nothing else, so ` 60 ` and `0060` are taken, the latter as 60, and `-5`, `5.0`, `1e3`, `60s` and an empty field are not. Save sends all sixteen settings in one request.
+  The page has no defaults of its own. A setting the backend's answer lacks is shown switched off.
 - **The panels, exactly.** The text is 12 pixels on a line of 15, in a fixed-width font (`ui-monospace, SFMono-Regular, Menlo, monospace`), regular weight, the letters drawn very slightly closer. From the top: the note, the red line of a read that failed, the lines. Opening a panel, or changing to another,
   clears the lines, the note and the red line of the one before at once, so nothing of another panel is ever under the new button, and an answer that comes for a panel that is no longer the one shown is dropped. A panel with no lines shows no box of lines, only its note. The red line goes with the next read that
   succeeds, even one that brings nothing new. The log and the error log are read again at every poll, and the history when its stamp is not the one it was last read and shown at; a read that failed is tried again at the next poll, for the history as for the others, whether or not a row was added meanwhile. Only one panel is read at a time: a panel opened while another is still being read is read as soon as that read has ended, without waiting for a poll or a new row. The header of a table stays at the
@@ -2125,7 +2079,7 @@ looked at by a person. This section says which is which, so that "it works" mean
 
 - **The behaviour that can be tested is tested.** The parsing of the usage response and of every
   malformed body, from fixtures of real responses; the settings file over the default; the refresh schedule, including an interval changed while a request is in flight
-  and a due time that has already passed; the back-off after an HTTP 429 and its easing; and the move
+  and a due time that has already passed; that an HTTP 429 changes no delay with Automatic off, and the automatic search; and the move
   between fresh, stale and failed state.
 - **No automated test needs an account.** Everything that talks HTTP talks to a server on loopback: the
   token flow to a stand-in for `claude`, the usage requests to doubles, and the application as a whole to
@@ -2150,8 +2104,8 @@ looked at by a person. This section says which is which, so that "it works" mean
   this document fixes, such as no text under 14 pixels outside the panels. The frontend keeps its own
   tests so that it stays testable if the backend is rewritten.
 - **The rules of the window are tested as rules as well**: that the page gets its polling interval from the
-  backend at startup; that the settings are read from the backend each time the view opens, and that Apply,
-  Cancel and Restore defaults do what Settings says; that an HTTP 429 gives no message line and no dimming
+  backend at startup; that the settings are read from the backend each time the view opens, and that Save,
+  Cancel do what Settings says, and that the tabs are shown and stepped through as Settings says; that an HTTP 429 gives no message line and no dimming
   but a red countdown; that every failed refresh reaches the error log; that a remembered height is stored
   and is never smaller than the one worked out; and that a change in the amount used of zero is shown
   nowhere, in no history cell and no item of the row, while a time of zero is.
@@ -2189,7 +2143,7 @@ What the first version deliberately is not, so that none of it is taken for an o
 - **A direct connection.** No proxy, as The usage request says.
 - **The local server is for this machine's one user**, as The local server says.
 - **The endpoint is not a published one.** `/api/oauth/usage` is the one Claude Code itself asks, and the
-  default interval and the back-off rest on how it was seen to behave, not on a documented limit.
+  default interval and the automatic search rest on how it was seen to behave, not on a documented limit.
 - **No charts.** The history is kept, and shown as lines; drawing it is a future extension.
 
 ## Future extension

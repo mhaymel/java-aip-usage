@@ -1767,6 +1767,27 @@ that refuses: that is what this was built for, and is for a person to try.
 
 **Not checked by a test.** How the group looks.
 
+### 76. No back-off, a smoother search, tabs in the settings
+
+**Status: specified, not yet built (version 0.64).** Requirements: Refresh behavior, The automatic interval, Settings (tabs, the history's columns), The About view, Debug mode.
+
+- **No back-off.** `Backoff` and its use in `UsageService` go: the delay is `effectiveIntervalSeconds()`, which is the configured interval with `Automatic` off and the search's with it on. With `Automatic`
+  off a `Retry-After` is only logged. The log lines `Easing the back-off` and `The back-off is over` go. `Next try in` of a 429 is the interval in force. The red countdown stays after a 429 until a request is answered
+  without one.
+- **The search.** A new class (`AutoInterval`) replaces the binary search: the interval, the refused interval `R` (or none), a count of answers without a 429 for the step and one for the decay.
+  After a 429: `R := interval`, `interval := min(300, max(ceil(1.1 R), R + 1))`; with a longer `Retry-After` of the server (whole seconds, at most 300) the interval is that. After 8 answers without a 429: `-1`, not below `R + 1`
+  and 10; after 20: `R - 1`; with no `R`: `ceil(0.9 × interval)`, floor 10. Only an answer of Anthropic moves it. The log lines are `Automatic interval: <N> s (refused at <R> s)` / `(no refusal yet)`.
+- **`Settings`** loses `autoLowerSeconds` and `autoUpperSeconds` and gets `autoRefusedSeconds` (a number 10 to 300 or none); `SettingsStore` reads an old file without the new key as no refusal, and writes the new one only. Four new history
+  keys, `historyTime`, `historyUsed`, `historyLimit` and `historyCurrent`, besides `historyDeltaUsed` and `historyDeltaTime`; the backend leaves an off column out of the finished lines and the header, so the
+  page still draws only text. The CSV keeps its `interval` column, recorded from `effectiveIntervalSeconds()` in `AppRuntime.fetchAndRecord`.
+- **The page.** The settings view becomes tabs: `Main view`, `History view`, `Cost control`, `Debug` (only in debug mode), `General` (`Request`, `Window`, `Log`), `About`; a clickable strip that scrolls sideways, two arrows disabled at the ends;
+  always the first tab on opening; the height follows the tab, the width is the least width of the widest tab (`contentSize()` as now). `Save` and `Cancel` under every tab; `Restore defaults` and the buttons `About` and `Back` go, with
+  their tooltips. The yellow debug button and its view go, and with them its own `Save`/`Cancel`; the debug settings are saved with the rest.
+- **Also.** The host's `panel` flag for the debug view goes; `AppInfo.VERSION` becomes `0.64`; `docs/api.md` follows (settings keys, `autoRefusedSeconds`, no debug panel).
+- **Tests.** `AutoIntervalTest` (a 429 at 20 gives 22, at 100 gives 111; 8 answers give -1, never below `R + 1`; the decay; no `R`; the ceiling of 300; a `Retry-After`; a simulated server that refuses below a limit, with the search staying within a few seconds of it
+  and few 429s); `UsageServiceTest` (a 429 with `Automatic` off leaves the delay at the interval, whatever `Retry-After` says); `SettingsStoreTest` (the new keys, an old file); `ApiTest`, `HistoryReaderTest` (each column off and on);
+  `app.test.cjs`, `layout.test.cjs` (strip, arrows, first tab, no `Restore defaults`, no debug button, the debug tab only in debug mode, About as a tab with `Save` and `Cancel`). The on-request real-window test: the heights and widths of the tabs.
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built
@@ -1791,7 +1812,7 @@ program do is in the requirements; what is here is only the means.
   `Logging` must be installed before `UsageApp` is loaded. One JVM shutdown hook and `RunOnce` make the window close and the process stop share one cleanup; `ShutdownSafeLogManager` keeps the stop lines
   from being lost.
 - The history is appended with `CREATE`/`APPEND`. `/api/history` reads the whole file on every call, `/api/status` only when `LatestChangeCache` sees a changed size or time.
-- The back-off is kept in nanoseconds: `hold = max(min(max(hold, interval) * 2, 5 min), retryAfter)`, eased by `hold / 8 * 7`; `retryAfter` is capped at an hour in `UsageService`.
+- The back-off of versions up to 0.63 is replaced by the exact interval and the search of phase 76 (version 0.64); `retryAfter` is read in `UsageService` and used by the search only.
 - The server answers on virtual threads and is stopped with `stop(0)`; the refresh thread is a daemon. Static files come from the class path under `/web`.
 - The masking is `Redaction`; the settings are one record (`Settings`), read leniently key by key by `SettingsStore`.
 
