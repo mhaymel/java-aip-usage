@@ -260,7 +260,7 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
       "timeShort": "14:00", "timeLong": "14:00:00",
       "usedPlain": "186.02", "usedSymbol": "$186.02", "limitPlain": "1,000.00", "limitSymbol": "$1,000.00"
     },
-    "countdown": { "text": "42s", "tooltip": "Seconds until the next refresh (negative when overdue)" },
+    "countdown": { "text": "42s", "tooltip": "Seconds until the next refresh" },
     "countdownAlert": null,
     "interval": { "text": "60s", "tooltip": "Time between usage requests" },
     "deltaUsed": { "text": "+0.05", "tooltip": "Change in the amount used since the previous reading, in USD" },

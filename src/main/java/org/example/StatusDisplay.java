@@ -119,7 +119,7 @@ final class StatusDisplay {
                 variants,
                 countdown.isPresent()
                         ? new Tip(Formatting.rowSeconds(countdown.getAsLong()),
-                                "Seconds until the next refresh (negative when overdue)\n" + modeLine(settings))
+                                "Seconds until the next refresh\n" + modeLine(settings))
                         : null,
                 alert ? state.error() : null,
                 // The page makes the countdown blue while this is on, unless it is red after an HTTP 429.

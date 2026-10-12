@@ -81,7 +81,7 @@ process.env.TZ = 'UTC';
         }
         return {
             text: Math.round(seconds) + 's',
-            tooltip: 'Seconds until the next refresh (negative when overdue)'
+            tooltip: 'Seconds until the next refresh'
         };
     }
 

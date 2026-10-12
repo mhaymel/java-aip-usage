@@ -175,7 +175,7 @@
 
         // While the server asks us to slow down (HTTP 429) the countdown is red and, hovered, says why in bold red.
         figure('countdown', 'countdown' + (v.countdownAlert ? ' alert' : v.countdownAuto ? ' auto' : ''), on(s.countdown) && (loading || Boolean(v.countdown)),
-            v.countdown && v.countdown.text, v.countdown ? v.countdown.tooltip : 'Seconds until the next refresh (negative when overdue)',
+            v.countdown && v.countdown.text, v.countdown ? v.countdown.tooltip : 'Seconds until the next refresh',
             loading && !v.countdown);
         setNote('alert-note', hoveringCountdown && v.countdownAlert ? v.countdownAlert : '');
         // A reading that came and has no spend says so while the mouse is on one of its gray boxes, and not otherwise.

@@ -1829,7 +1829,7 @@ that refuses: that is what this was built for, and is for a person to try.
 
 ### 79. The time since the previous reading across runs, and a shorter countdown tooltip
 
-**Status: specified, not yet built (version 0.67).** Requirements: Changes between readings, Hiding lines, Tooltips.
+**Status: built (version 0.67).** Requirements: Changes between readings, Hiding lines, Tooltips.
 
 - **The time.** `HistoryDeltas`: the time since the previous reading is against the row directly before in the file, whatever the run (`compute` no longer gives a run border: only the first row of the file has none); `computeVisible` is against the previous shown
   row, with no reset at a run start (only the first shown row has none). The amount's change (`amountChanges`) and the zero usage lines are unchanged: `HistoryReader` still decides a zero usage line from a change against the row directly before **within the run**

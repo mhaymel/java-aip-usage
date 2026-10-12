@@ -12,11 +12,11 @@ import java.util.Locale;
 /**
  * The differences between the readings of the usage history, worked out here so that no frontend has to.
  *
- * <p>Both are taken against the row directly before in the file, and only within a run: a row whose
- * status begins a run ({@code start} or {@code start-failed}), and the first row of the file, have
- * neither. The change in the amount used is the amount minus the previous row's, and is empty if either
- * row has no amounts, so after a failed row there is none. The time is the seconds between the two rows,
- * a failed one included, so a failed row has a time. It is empty if a time cannot be read or the row
+ * <p>Both are taken against the row directly before in the file. The change in the amount used is the amount minus the
+ * previous row's, within a run: a row whose status begins a run ({@code start} or {@code start-failed}) has none, and it is
+ * empty if either row has no amounts, so after a failed row there is none. It only decides what a zero usage line is. The time
+ * is the seconds between the two rows, whatever their runs, a failed one included, so a failed row has a time and so has the
+ * first row of a run; only the first row of the file has none. It is empty if a time cannot be read or the row
  * is earlier than the one before it (the clock was set back). The times are the local times of the
  * file, which does not say its zone, so across a change of the clocks the difference is that of the
  * wall clock.
@@ -48,15 +48,16 @@ public final class HistoryDeltas {
     public static List<Delta> compute(List<List<String>> rows) {
         List<Delta> deltas = new ArrayList<>(rows.size());
         for (int i = 0; i < rows.size(); i++) {
-            deltas.add(i == 0 || beginsRun(rows.get(i)) ? Delta.NONE : between(rows.get(i - 1), rows.get(i)));
+            // The change in the amount, which only decides what a zero usage line is, stops at the border of a run; the time does not.
+            deltas.add(i == 0 ? Delta.NONE : new Delta(
+                    beginsRun(rows.get(i)) ? null : used(rows.get(i - 1), rows.get(i)), seconds(rows.get(i - 1), rows.get(i))));
         }
         return deltas;
     }
 
     /**
-     * The same, on the rows that are shown: each shown row is compared with the previous shown row of its run, not with the row
-     * directly before it. What is hidden has no delta ({@link Delta#NONE}) but still counts for the runs: a row whose status
-     * begins a run begins it even if it is hidden, so the first row shown after it has no previous row to compare with.
+     * The same, on the rows that are shown: each shown row is compared with the previous shown row, whatever its run, not with the row
+     * directly before it. What is hidden has no delta ({@link Delta#NONE}).
      *
      * @param rows the rows in the order of the file
      * @param visible for each row, whether it is shown
@@ -66,9 +67,6 @@ public final class HistoryDeltas {
         List<Delta> deltas = new ArrayList<>(rows.size());
         int previous = -1;
         for (int i = 0; i < rows.size(); i++) {
-            if (beginsRun(rows.get(i))) {
-                previous = -1;
-            }
             if (!visible[i]) {
                 deltas.add(Delta.NONE);
                 continue;

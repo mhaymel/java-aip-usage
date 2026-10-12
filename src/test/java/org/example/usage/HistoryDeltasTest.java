@@ -34,12 +34,13 @@ class HistoryDeltasTest {
 
     @SuppressWarnings("unchecked")
     @Test
-    void aNewRunStartsAgainAndIsNotComparedWithTheLastOneOfTheRunBefore() {
+    void aNewRunHasNoChangeInTheAmountButHasTheTimeSinceTheLastRowOfTheRunBefore() {
         List<HistoryDeltas.Delta> d = compute(
                 row("14:00:00", "10.00", "start"), row("14:01:00", "10.25", ""),
                 row("16:00:00", "11.00", "start"), row("16:01:00", "11.10", ""));
 
-        assertEquals(HistoryDeltas.Delta.NONE, d.get(2));
+        assertNull(d.get(2).used(), "the amount is compared inside a run, which decides the zero usage lines");
+        assertEquals(7140L, d.get(2).seconds(), "but the time is since the last row of the run before: 14:01:00 to 16:00:00");
         assertEquals(new BigDecimal("0.10"), d.get(3).used());
     }
 
@@ -120,20 +121,20 @@ class HistoryDeltasTest {
 
     @SuppressWarnings("unchecked")
     @Test
-    void aHiddenRowThatBeginsARunStillBeginsItAndTheFirstShownRowAfterItHasNone() {
+    void aHiddenRowThatBeginsARunIsNoBorderForTheTime() {
         List<HistoryDeltas.Delta> d = visible(new boolean[] {true, false, true},
                 row("14:00:00", "10.00", "start"), row("15:00:00", "", "start-failed"), row("15:01:00", "10.30", ""));
 
-        assertEquals(HistoryDeltas.Delta.NONE, d.get(2), "nothing to compare with in its own run");
+        assertEquals(3660L, d.get(2).seconds(), "14:00:00 to 15:01:00, the hidden row between them being passed over");
     }
 
     @SuppressWarnings("unchecked")
     @Test
-    void theFirstShownRowOfARunHasNoneEvenIfRowsBeforeItInTheFileAreShown() {
+    void theFirstShownRowOfARunHasTheTimeSinceTheShownRowBefore() {
         List<HistoryDeltas.Delta> d = visible(new boolean[] {true, true, true},
                 row("14:00:00", "10.00", "start"), row("14:01:00", "10.10", ""), row("16:00:00", "10.20", "start"));
 
-        assertEquals(HistoryDeltas.Delta.NONE, d.get(2));
+        assertEquals(7140L, d.get(2).seconds(), "14:01:00 to 16:00:00");
     }
 
     @SuppressWarnings("unchecked")

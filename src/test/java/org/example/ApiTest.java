@@ -1069,6 +1069,24 @@ class ApiTest {
     }
 
     @Test
+    void theStartupLineHasTheTimeSinceTheLastLineOfTheRunBefore() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:00,10.10,1000.00,USD,,60,400",
+                "2026-10-09 14:01:00,10.30,1000.00,USD,start,60,400");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", withSwitches(true, true));
+
+        JsonNode history = json(get(app, "/api/history"));
+
+        assertEquals("86400 s", history.at("/lines/0/cells/4").asText(), "the program was off for a day");
+        assertEquals("+0.20", history.at("/lines/0/cells/3").asText());
+        assertEquals("", history.at("/lines/2/cells/4").asText(), "the first line of the file has none");
+    }
+
+    @Test
     void theStatusCarriesTheFinishedDisplayAndItFollowsTheSettings() throws Exception {
         AppRuntime app = start(new FakeFetch());
         await(() -> app.service().state().snapshot() != null);

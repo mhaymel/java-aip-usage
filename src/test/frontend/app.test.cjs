@@ -286,7 +286,7 @@ test('the countdown shows the seconds the backend sent, with the unit, after the
 
     assert.equal(page.el('countdown').hidden, false);
     assert.equal(page.el('countdown').textContent, '42s');
-    assert.equal(page.el('countdown').title, 'Seconds until the next refresh (negative when overdue)');
+    assert.equal(page.el('countdown').title, 'Seconds until the next refresh');
 });
 
 test('the countdown follows the backend at each update, and does no counting of its own', async () => {
@@ -1411,10 +1411,10 @@ test('with the automatic interval on the countdown is blue; the red of a 429 win
 
 test('the tooltip of the countdown may have two lines, and the page shows them as they are', async () => {
     const status = { ...LIMITED, display: { ...LIMITED.display, countdownAlert: null,
-        countdown: { text: '30s', tooltip: 'Seconds until the next refresh (negative when overdue)\nAutomatic interval is on: the interval is now 35 s' } } };
+        countdown: { text: '30s', tooltip: 'Seconds until the next refresh\nAutomatic interval is on: the interval is now 35 s' } } };
     const page = await load(backendOf({ config: CONFIG, status }));
 
-    assert.equal(page.el('countdown').title, 'Seconds until the next refresh (negative when overdue)\nAutomatic interval is on: the interval is now 35 s');
+    assert.equal(page.el('countdown').title, 'Seconds until the next refresh\nAutomatic interval is on: the interval is now 35 s');
 });
 
 test('hovering the red countdown shows the message in a line under the row, and leaving takes it away', async () => {
@@ -2263,7 +2263,7 @@ test('before the first reading each element that is switched on is a gray box wi
 
     const tooltips = {
         'time': 'Last update', 'percent': 'Share of the budget spent', 'used': 'Credits used', 'limit': 'Credit budget',
-        'countdown': 'Seconds until the next refresh (negative when overdue)',
+        'countdown': 'Seconds until the next refresh',
         'delta-used': 'Change in the amount used since the previous reading', 'delta-time': 'Time since the previous reading',
         'duration': 'How long the latest usage request took',
     };

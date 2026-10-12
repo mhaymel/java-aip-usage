@@ -246,7 +246,7 @@ class StatusDisplayTest {
 
         assertEquals("42s", build(s, OptionalLong.of(42), null, Settings.defaults()).countdown().text());
         assertEquals("-3s", build(s, OptionalLong.of(-3), null, Settings.defaults()).countdown().text());
-        assertEquals("Seconds until the next refresh (negative when overdue)\nAutomatic interval is off: the configured interval is 60 s",
+        assertEquals("Seconds until the next refresh\nAutomatic interval is off: the configured interval is 60 s",
                 build(s, OptionalLong.of(1), null, Settings.defaults()).countdown().tooltip());
         assertNull(build(s, OptionalLong.empty(), null, Settings.defaults()).countdown(), "nothing to count to");
     }
@@ -278,7 +278,7 @@ class StatusDisplayTest {
         StatusDisplay.View v = build(s, OptionalLong.of(7), null, on);
 
         assertTrue(v.countdownAuto(), "the page makes the countdown blue");
-        assertEquals("Seconds until the next refresh (negative when overdue)\nAutomatic interval is on: the interval is now 35 s", v.countdown().tooltip());
+        assertEquals("Seconds until the next refresh\nAutomatic interval is on: the interval is now 35 s", v.countdown().tooltip());
         assertEquals("Time between usage requests\nAutomatic interval is on: the interval is now 35 s", v.interval().tooltip());
         assertFalse(build(s, OptionalLong.of(7), null, Settings.defaults()).countdownAuto());
     }
