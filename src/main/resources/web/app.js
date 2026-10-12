@@ -240,7 +240,7 @@
      * that is open.
      */
     function renderButtons(show) {
-        var flags = { history: show.historyIcon, log: show.logIcon, errors: show.errorIcon };
+        var flags = { history: show.historyIcon, log: show.logIcon, errors: show.errorIcon, cost: show.costIcon };
         Object.keys(flags).forEach(function (name) {
             $(PANELS[name].button).hidden = !(flags[name] !== false || openPanel === name);
         });
@@ -270,7 +270,8 @@
         // The log and the history fill the window; the settings do not, so that the page's own height is the content's.
         $('app').className = (lastStale ? 'stale' : '')
             + (openPanel === 'log' || openPanel === 'history' || openPanel === 'errors' ? ' open' : '')
-            + (FORMS[openPanel] ? ' fit' : '')
+            // The settings and the cost control are as tall as their content, which is the page's own height.
+            + (FORMS[openPanel] || openPanel === 'cost' ? ' fit' : '')
             // The readings are invented while the fake backend is in use: the red border says so.
             + (fakeInUse() ? ' fake' : '')
             // A window with no title bar has no frame of the system to show where it ends: the page draws one.
@@ -309,11 +310,11 @@
     var tabChosen = false;
 
     // The setting that switches the button of each panel on and off; the settings have none, as their button is always there.
-    var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon' };
+    var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon', cost: 'showCostIcon' };
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
-    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
-    // The thirteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
+    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon', 'showCostIcon'];
+    // The fourteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
     var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
 
@@ -333,7 +334,8 @@
                 limit: checked('showLimit'), refresh: checked('showRefresh'), countdown: checked('showCountdown'),
                 interval: checked('showInterval'), deltaUsed: checked('showDeltaUsed'), deltaTime: checked('showDeltaTime'),
                 duration: checked('showDuration'),
-                logIcon: checked('showLogIcon'), historyIcon: checked('showHistoryIcon'), errorIcon: checked('showErrorIcon')
+                logIcon: checked('showLogIcon'), historyIcon: checked('showHistoryIcon'), errorIcon: checked('showErrorIcon'),
+                costIcon: checked('showCostIcon')
             }
         };
         render();
@@ -826,6 +828,14 @@
             hide: 'Hide the error log',
             failure: 'The error log could not be read: '
         },
+        cost: {
+            button: 'cost-button',
+            path: '/api/cost',
+            describe: view.describeCost,
+            show: 'Show the cost control',
+            hide: 'Hide the cost control',
+            failure: 'The cost control could not be read: '
+        },
         log: {
             button: 'log-button',
             path: '/api/log',
@@ -866,6 +876,12 @@
                 body = Object.assign({}, body, { date: logDate });
             }
             var shown = spec.describe(body);
+            if (name === 'cost') {
+                if (name === openPanel) {
+                    showCost(shown);
+                }
+                return;
+            }
             // A read that was begun for another level than the one chosen meanwhile is not shown: the one that follows is.
             if (name === openPanel && !(name === 'log' && level !== null && level !== logLevel)) {
                 showPanel(shown);
@@ -1014,6 +1030,66 @@
         setNote('panel-note', shown.note, 'panel-note' + (shown.noteHighlight ? ' highlight' : ''));
     }
 
+    // What the cost control shows now, as JSON, so that it is drawn again only when it changed.
+    var costKey = null;
+
+    // The least width of a bar, and the gap between the parts of a row, as the style sheet has them (`.cost-bar`, `.cost-row`).
+    var COST_BAR_MIN = 120;
+    var COST_GAP = 8;
+
+    /** Draws the two bars: a label, a bar with its green share, the figures and, over the limit, the warning sign; and the note under them. */
+    function showCost(shown) {
+        setNote('cost-error', '');
+        var key = JSON.stringify(shown);
+        if (key === costKey) {
+            return;
+        }
+        costKey = key;
+        var box = $('cost-rows');
+        box.replaceChildren();
+        shown.rows.forEach(function (row) {
+            var line = document.createElement('div');
+            line.className = 'cost-row';
+            line.title = row.tooltip;
+            var label = document.createElement('span');
+            label.className = 'cost-label';
+            label.textContent = row.label;
+            var bar = document.createElement('span');
+            bar.className = 'cost-bar' + (row.noLimit ? ' none' : '');
+            var fill = document.createElement('span');
+            fill.className = 'cost-fill';
+            fill.style.width = (row.noLimit ? 0 : Math.round(row.fraction * 1000) / 10) + '%';
+            bar.append(fill);
+            var text = document.createElement('span');
+            text.className = 'cost-text';
+            text.textContent = row.text;
+            var sign = document.createElement('span');
+            sign.className = 'cost-over';
+            sign.title = 'Over the limit';
+            sign.textContent = row.over ? '\u26a0' : '';
+            sign.hidden = !row.over;
+            line.append(label, bar, text, sign);
+            box.append(line);
+        });
+        setNote('cost-note', shown.note, 'panel-note');
+    }
+
+    /** How wide the bars need the window to be: the widest row's label, figures and sign, a bar's least width and the gaps between them. */
+    function costWidth() {
+        var widest = 0;
+        Array.prototype.slice.call($('cost-rows').children).forEach(function (line) {
+            var parts = line.children;
+            var sum = COST_BAR_MIN + (parts.length - 1) * COST_GAP;
+            [0, 2, 3].forEach(function (i) {
+                var box = parts[i] && !parts[i].hidden ? parts[i].getBoundingClientRect() : null;
+                sum += box ? Math.ceil(box.width) : 0;
+            });
+            widest = Math.max(widest, sum);
+        });
+        // 16 px is the panel's own padding, as for the history.
+        return widest > 0 ? widest + 16 : 0;
+    }
+
     /**
      * Measures how wide the history table needs to be, in a copy of it that nothing constrains: a row in the panel
      * stretches to the window, so it could only report the window's own width. The copy has the header and the
@@ -1048,7 +1124,7 @@
 
     /** Reads the open panel again when there may be more to show: a new reading, or any time for the log. */
     function refreshPanel() {
-        if (openPanel === 'log' || openPanel === 'errors' || (openPanel === 'history' && historyStamp() !== panelMark)) {
+        if (openPanel === 'log' || openPanel === 'errors' || openPanel === 'cost' || (openPanel === 'history' && historyStamp() !== panelMark)) {
             loadPanel();
         }
     }
@@ -1113,14 +1189,22 @@
         logLevel = null;
         // The line at the top of a list has the two buttons of the zoom, for each of the three lists; the two choices of
         // the log are in it for the log alone.
-        show('log-controls', Boolean(openPanel) && !FORMS[openPanel]);
+        show('log-controls', Boolean(openPanel) && !FORMS[openPanel] && openPanel !== 'cost');
         show('log-choices', false);
         setNote('log-error', '');
         labelButtons();
         show('panel', panelIsOpen());
         // The settings are a form in the same place, not lines; the others are lines.
         show('settings-view', openPanel === 'settings');
+        show('cost-view', openPanel === 'cost');
+        costKey = null;
+        $('cost-rows').replaceChildren();
+        setNote('cost-note', '');
+        setNote('cost-error', '');
         // The settings open on the tab they were left on (see currentTab).
+        if (openPanel === 'cost') {
+            show('panel-lines', false);
+        }
         if (openPanel === 'settings') {
             show('panel-lines', false);
             showTab(currentTab);
@@ -1142,7 +1226,7 @@
     // ---- the window host
 
     /**
-     * What the window shows, for the host to store when the program stops: `panel,tab`. The panel is `log`, `history`, `errors` or
+     * What the window shows, for the host to store when the program stops: `panel,tab`. The panel is `log`, `history`, `errors`, `cost` or
      * `settings`; the tab is the one shown of the settings, `main`, `history`, `cost`, `debug`, `general` or `about`, and empty for any
      * other panel. It is the empty text when nothing is open, and when the page is not ready yet: it is safe to ask at any time.
      */
@@ -1165,7 +1249,7 @@
         if (!config) {
             return false;
         }
-        if (['log', 'history', 'errors', 'settings'].indexOf(panel) < 0) {
+        if (['log', 'history', 'errors', 'cost', 'settings'].indexOf(panel) < 0) {
             return true;
         }
         returnTo = null;
@@ -1226,6 +1310,10 @@
             // for every text to be on one line and the buttons in one row; the flag says it is not resizable, and the name that a panel is open.
             // The window does not change its width from tab to tab: the width is that of the widest of them.
             return Math.max(width, settingsWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,settings';
+        }
+        if (openPanel === 'cost') {
+            // As tall as the two bars and the note need, and as wide as the history's table, or as the bars need: not resizable.
+            return Math.max(width, currentTableWidth() + 16, costWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,cost';
         }
         // The last field names the panel, so that the host remembers the height of the history and of the log.
         if (openPanel === 'log') {
@@ -1332,6 +1420,7 @@
         $('settings-button').addEventListener('click', function () { togglePanel('settings'); });
         $('settings-save').addEventListener('click', applySettings);
         $('errors-button').addEventListener('click', function () { togglePanel('errors'); });
+        $('cost-button').addEventListener('click', function () { togglePanel('cost'); });
         $('countdown').addEventListener('mouseenter', function () { hoveringCountdown = true; render(); });
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
         // Every element of the row that can be a gray box: the amounts, the two changes and the request duration.

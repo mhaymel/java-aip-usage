@@ -886,3 +886,65 @@ body {
     stroke-width: 3.3;
 }
 
+
+/*
+ * The cost control: two rows, each a label, a bar, the figures and, over the limit, the warning sign. The bar is gray with the
+ * green of the figures for what is consumed; it is the room the row leaves, 120 px at least (COST_BAR_MIN in app.js). It is as
+ * tall as its content, so the window is: the page's own height is the content's.
+ */
+.cost {
+    font: 400 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: normal;
+    white-space: nowrap;
+    padding: 4px 8px;
+}
+
+.cost-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cost-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cost-label {
+    min-width: 5.5em;
+}
+
+.cost-bar {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 120px;
+    height: 14px;
+    border-radius: 7px;
+    overflow: hidden;
+    /* The gray of the track: the muted gray at a third of its strength. */
+    background: color-mix(in srgb, var(--muted) 33%, transparent);
+}
+
+.cost-fill {
+    display: block;
+    height: 100%;
+    background: var(--ok);
+    border-radius: 7px;
+}
+
+/* A limit that is not set: the bar stays gray and empty. */
+.cost-bar.none .cost-fill {
+    width: 0;
+}
+
+.cost-text {
+    text-align: right;
+}
+
+/* The only colour besides the green and the gray: the red of errors, for a limit that is exceeded. */
+.cost-over {
+    color: var(--bad);
+    min-width: 1.2em;
+    text-align: center;
+}

@@ -153,14 +153,23 @@ function backendOf(state) {
             return state.aboutAction ? state.aboutAction(call) : { status: 200, body: { done: true } };
         }
         if (call.url.split('?')[0] === '/api/cost/daily') return state.costDaily ? state.costDaily(call) : { status: 200, body: { daily: null, weekdays: 22 } };
+        if (call.url === '/api/cost') return state.cost ? state.cost() : { status: 200, body: COST };
         if (call.url === '/api/errors') return state.errors ? state.errors() : { status: 200, body: ERRORS };
         if (call.url === '/api/history') return state.history ? state.history() : { status: 200, body: HISTORY };
         return { status: 404, body: { error: 'No such endpoint.' } };
     };
 }
 
+const COST = {
+    rows: [
+        { label: 'Today', text: '12.40 of 25.00 \u00b7 50%', tooltip: 'Today: 12.40 of 25.00 (50%)', fraction: 0.5, over: false, noLimit: false },
+        { label: 'This month', text: '300.00 of 250.00 \u00b7 120%', tooltip: 'This month: 300.00 of 250.00 (120%)', fraction: 1, over: true, noLimit: false },
+    ],
+    note: null,
+};
+
 const DEFAULT_SETTINGS = {
-    usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true,
+    usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
     showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, showTitleBar: true, autoInterval: false,
@@ -923,7 +932,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
 
     assert.equal(settingsPosts(page).length, 1);
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
-        usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
+        usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
         showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
@@ -1980,11 +1989,11 @@ async function change(page, id, value) {
 const ROW_ELEMENTS = {
     showTime: 'time', showPercentage: 'percent', showUsed: 'used', showLimit: 'limit', showRefresh: 'refresh', showCountdown: 'countdown',
     showInterval: 'interval', showDeltaUsed: 'delta-used', showDeltaTime: 'delta-time', showDuration: 'duration',
-    showLogIcon: 'log-button', showHistoryIcon: 'history-button', showErrorIcon: 'errors-button',
+    showLogIcon: 'log-button', showHistoryIcon: 'history-button', showErrorIcon: 'errors-button', showCostIcon: 'cost-button',
 };
 
 test('a click on a checkbox of the main view shows in the row at once, and nothing is sent', async () => {
-    const everything = { percentage: true, interval: true, deltaUsed: true, deltaTime: true, historyIcon: true, logIcon: true, errorIcon: true };
+    const everything = { percentage: true, interval: true, deltaUsed: true, deltaTime: true, historyIcon: true, logIcon: true, errorIcon: true, costIcon: true };
     const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, everything) }));
     await page.click('settings-button');
     for (const key of Object.keys(ROW_ELEMENTS)) {
@@ -2245,7 +2254,7 @@ test('Cancel gives the row back as the backend has it; Apply keeps what was prev
 test('every element of the row can be switched off by the backend, down to the gear', async () => {
     const nothing = {
         time: false, percentage: false, used: false, limit: false, refresh: false, countdown: false, interval: false,
-        deltaUsed: false, deltaTime: false, duration: false, logIcon: false, historyIcon: false, errorIcon: false,
+        deltaUsed: false, deltaTime: false, duration: false, logIcon: false, historyIcon: false, errorIcon: false, costIcon: false,
     };
     const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, nothing) }));
 
@@ -2709,18 +2718,18 @@ test('a drag may begin anywhere but on a button or a control', async () => {
 // ---- the button of Main view that selects every element of the row, or none
 
 const ELEMENTS = ['showTime', 'showPercentage', 'showUsed', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed',
-    'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon'];
+    'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon', 'showCostIcon'];
 const checkedOf = page => ELEMENTS.filter(key => page.el('set-' + key).checked);
 
 test('the button switches every element on when not all are on, and all off when all are, and leaves the two properties alone', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
-    assert.ok(checkedOf(page).length > 0 && checkedOf(page).length < 13, 'some are on at the start');
+    assert.ok(checkedOf(page).length > 0 && checkedOf(page).length < 14, 'some are on at the start');
     const currency = page.el('set-showCurrency').checked;
     const format = page.el('set-timeFormat').value;
 
     await page.click('set-all');
-    assert.deepEqual(checkedOf(page), ELEMENTS, 'all thirteen on');
+    assert.deepEqual(checkedOf(page), ELEMENTS, 'all fourteen on');
 
     await page.click('set-all');
     assert.deepEqual(checkedOf(page), [], 'all on, so all off');
@@ -3697,4 +3706,175 @@ test('the checkbox that restores the window at start is in the General tab, in t
     await page.click('settings-save');
 
     assert.equal(JSON.parse(settingsPosts(page)[0].body).restoreWindow, true);
+});
+
+// ---- the cost control: two bars
+
+const rowsOf = page => page.el('cost-rows').children.map(line => ({
+    label: line.children[0].textContent, bar: line.children[1], fill: line.children[1].children[0], text: line.children[2].textContent,
+    sign: line.children[3], tooltip: line.title,
+}));
+
+test('the cost button is there unless the backend says otherwise, and opens and closes the panel with the blue, bigger button', async () => {
+    const hidden = await load(backendOf({ config: CONFIG, status: withShow(SPEND_STATUS, { costIcon: false }) }));
+    assert.equal(hidden.el('cost-button').hidden, true);
+
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    assert.equal(page.el('cost-button').hidden, false);
+    assert.equal(page.el('cost-button').title, 'Show the cost control');
+
+    await page.click('cost-button');
+    assert.equal(page.el('panel').hidden, false);
+    assert.equal(page.el('cost-view').hidden, false);
+    assert.equal(page.el('panel-lines').hidden, true);
+    assert.equal(page.el('log-controls').hidden, true, 'no buttons of the zoom: it has no text to size');
+    assert.equal(page.el('cost-button').title, 'Hide the cost control');
+    assert.match(page.el('cost-button').className, /\bactive\b/);
+
+    await page.click('cost-button');
+    assert.equal(page.el('panel').hidden, true);
+    assert.equal(page.el('cost-view').hidden, true);
+    assert.doesNotMatch(page.el('cost-button').className, /active/);
+});
+
+test('the two bars are drawn from the backend\'s texts: the label, the green share, the figures, and the sign only over the limit', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('cost-button');
+
+    const [day, month] = rowsOf(page);
+    assert.equal(day.label, 'Today');
+    assert.equal(day.text, '12.40 of 25.00 \u00b7 50%');
+    assert.equal(day.fill.style.width, '50%');
+    assert.equal(day.sign.hidden, true, 'under the limit: no sign');
+    assert.equal(day.tooltip, 'Today: 12.40 of 25.00 (50%)');
+    assert.equal(month.label, 'This month');
+    assert.equal(month.text, '300.00 of 250.00 \u00b7 120%', 'the true percentage, over the limit');
+    assert.equal(month.fill.style.width, '100%', 'a full bar');
+    assert.equal(month.sign.hidden, false);
+    assert.equal(month.sign.title, 'Over the limit');
+    assert.equal(page.el('cost-note').hidden, true);
+    assert.equal(page.el('cost-rows').children.length, 2);
+});
+
+test('a bar with no limit is empty and gray, and a note under the bars is shown when there is one', async () => {
+    const cost = { rows: [
+        { label: 'Today', text: '1.10 \u00b7 no limit set', tooltip: 'Today: 1.10, no limit set', fraction: 0, over: false, noLimit: true },
+        { label: 'This month', text: '0.00 \u00b7 no limit set', tooltip: 'This month: 0.00, no limit set', fraction: 0.7, over: false, noLimit: true },
+    ], note: 'No usage has been read yet.' };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, cost: () => ({ status: 200, body: cost }) }));
+
+    await page.click('cost-button');
+
+    for (const row of rowsOf(page)) {
+        assert.match(row.bar.className, /\bnone\b/);
+        assert.equal(row.fill.style.width, '0%', 'whatever the share the backend sent');
+        assert.equal(row.sign.hidden, true);
+    }
+    assert.equal(page.el('cost-note').hidden, false);
+    assert.equal(page.el('cost-note').textContent, 'No usage has been read yet.');
+});
+
+test('the cost control is read with each poll and drawn again only when what it says changed', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS, cost: () => ({ status: 200, body: COST }) };
+    const page = await load(backendOf(state));
+    await page.click('cost-button');
+    const reads = () => page.calls.filter(c => c.url === '/api/cost').length;
+    const first = page.el('cost-rows').children[0];
+    assert.equal(reads(), 1);
+
+    await page.firePoll();
+    assert.equal(reads(), 2, 'read again at the poll');
+    assert.equal(page.el('cost-rows').children[0], first, 'the same bars: nothing was drawn again');
+
+    state.cost = () => ({ status: 200, body: { ...COST, rows: [{ ...COST.rows[0], text: '13.40 of 25.00 \u00b7 54%', fraction: 0.54 }, COST.rows[1]] } });
+    await page.firePoll();
+    assert.notEqual(page.el('cost-rows').children[0], first, 'drawn again: the figures changed');
+    assert.equal(rowsOf(page)[0].text, '13.40 of 25.00 \u00b7 54%');
+    assert.equal(rowsOf(page)[0].fill.style.width, '54%');
+});
+
+test('a cost control that cannot be read keeps what was shown and says so in red', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
+    await page.click('cost-button');
+    state.cost = () => ({ status: 500, body: { error: 'Internal error; see the log.' } });
+
+    await page.firePoll();
+
+    assert.equal(rowsOf(page).length, 2, 'what was shown stays');
+    assert.equal(page.el('panel-error').hidden, false);
+    assert.match(page.el('panel-error').textContent, /^The cost control could not be read: /);
+});
+
+test('the cost control asks for a window as wide as the history or as its bars need, as tall as its content, and not resizable', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('cost-button');
+
+    const parts = page.window.contentSize().split(',');
+
+    assert.equal(parts[2], '3', 'fixed: no dragging');
+    assert.equal(parts[3], 'cost');
+    assert.ok(Number(parts[0]) >= 399, 'at least the row');
+    assert.equal(Number(parts[1]), 42, 'the page\'s own height, 41.5 rounded up');
+});
+
+test('the width of the cost control follows the widest row and the history\'s table', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('cost-button');
+    for (const line of page.el('cost-rows').children) {
+        line.children[0].rect = { width: 60 };
+        line.children[2].rect = { width: 300 };
+        line.children[3].rect = { width: 20 };
+    }
+
+    const wide = Number(page.window.contentSize().split(',')[0]);
+
+    // The bar's least width, three gaps, the label, the figures and the sign, and the padding.
+    assert.equal(wide, 120 + 3 * 8 + 60 + 300 + 20 + 16);
+});
+
+test('the checkbox Cost button is in Main view, is posted with the rest and shows or hides the button in the row at once', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.el('set-showCostIcon').checked, true, 'on by default');
+
+    await change(page, 'set-showCostIcon', false);
+    assert.equal(page.el('cost-button').hidden, true, 'the row follows at once');
+    await page.click('settings-save');
+
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).showCostIcon, false);
+});
+
+test('the cost control is a panel like the others: another button replaces it, and the settings give it back', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('cost-button');
+
+    await page.click('history-button');
+    assert.equal(page.el('cost-view').hidden, true, 'replaced by the history');
+    assert.equal(page.window.currentView(), 'history,');
+
+    await page.click('cost-button');
+    await page.click('settings-button');
+    assert.equal(page.el('cost-view').hidden, true);
+    assert.equal(page.window.currentView(), 'settings,' + 'main');
+    await page.click('settings-cancel');
+    assert.equal(page.el('cost-view').hidden, false, 'given back');
+    assert.equal(page.window.currentView(), 'cost,');
+});
+
+test('currentView and restoreView know the cost control', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    assert.equal(page.window.restoreView('cost', ''), true);
+
+    assert.equal(page.window.currentView(), 'cost,');
+    assert.equal(page.el('cost-view').hidden, false);
+});
+
+test('the status keeps the button of the open cost control even when its switch is off', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(SPEND_STATUS, { costIcon: false }) }));
+    assert.equal(page.window.restoreView('cost', ''), true);
+
+    assert.equal(page.el('cost-button').hidden, false, 'a button that is switched off is never taken from a panel that is open');
 });

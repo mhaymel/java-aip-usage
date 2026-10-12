@@ -258,7 +258,7 @@ test('the panels, the line of the log\'s two choices and the settings view are t
     const small = [...css.matchAll(/([^{}]+){([^}]*)}/g)]
         .filter(rule => [...rule[2].matchAll(/font(?:-size)?:\s*(?:[a-z0-9 ]*\s)?([0-9.]+)px/g)].some(m => Number(m[1]) < 14))
         .map(rule => rule[1].trim().split('\n').pop().trim());
-    assert.deepEqual([...small].sort(), ['.log-controls', '.panel', '.settings', '.table-probe']); // the probe is the panel's text, never seen
+    assert.deepEqual([...small].sort(), ['.cost', '.log-controls', '.panel', '.settings', '.table-probe']); // the probe is the panel's text, never seen
 });
 
 test('the log panel has a line at its top with the level and the date, at the left, in that order', () => {
@@ -740,9 +740,10 @@ const MAIN_CHECKBOXES = [
     ['set-showRefresh', 'Refresh button'], ['set-showCountdown', 'Countdown'], ['set-showInterval', 'Interval'],
     ['set-showDeltaUsed', 'Change in the amount used'], ['set-showDeltaTime', 'Time since the previous reading'], ['set-showDuration', 'Request duration'],
     ['set-showLogIcon', 'Log button'], ['set-showHistoryIcon', 'History button'], ['set-showErrorIcon', 'Error log button'],
+    ['set-showCostIcon', 'Cost button'],
 ];
 
-test('the Main view group has a checkbox for each of the thirteen elements, named as the requirements name them', () => {
+test('the Main view group has a checkbox for each of the fourteen elements, named as the requirements name them', () => {
     for (const [id, text] of MAIN_CHECKBOXES) {
         assert.ok(MAIN.includes('<input id="' + id + '" type="checkbox"> ' + text + '</label>'), id);
     }
@@ -751,7 +752,7 @@ test('the Main view group has a checkbox for each of the thirteen elements, name
 test('the checkboxes are in the order of the row, from left to right', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     const inRow = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"', 'id="refresh"', 'id="countdown"', 'id="interval"', 'id="delta-used"',
-        'id="delta-time"', 'id="duration"', 'id="log-button"', 'id="history-button"', 'id="errors-button"'].map(id => strip.indexOf(id));
+        'id="delta-time"', 'id="duration"', 'id="log-button"', 'id="history-button"', 'id="errors-button"', 'id="cost-button"'].map(id => strip.indexOf(id));
     const inSettings = MAIN_CHECKBOXES.map(([id]) => MAIN.indexOf('id="' + id + '"'));
     for (const positions of [inRow, inSettings]) {
         assert.ok(positions.every(p => p >= 0));
@@ -935,4 +936,23 @@ test('the mark of the fake backend is a solid red border, three pixels, that fad
     const frames = css.slice(css.indexOf('@keyframes fake-border'), css.indexOf('#app.open'));
     assert.match(frames, /0%, 100% \{ border-color: var\(--bad\); \}/);
     assert.match(frames, /50% \{ border-color: Canvas; \}/, 'the background of the window, where the border is not seen');
+});
+
+test('the cost control: a gray bar with the green of the figures, 14 px tall and round, the sign in the red of errors, and the text at 12 px', () => {
+    const bar = ruleOf('.cost-bar');
+    assert.match(bar, /height:\s*14px/);
+    assert.match(bar, /border-radius:\s*7px/);
+    assert.match(bar, /min-width:\s*120px/, 'COST_BAR_MIN of app.js');
+    assert.match(bar, /var\(--muted\) 33%/, 'the muted gray at a third of its strength');
+    assert.match(ruleOf('.cost-fill'), /background:\s*var\(--ok\)/, 'the green of the figures');
+    assert.match(ruleOf('.cost-over'), /color:\s*var\(--bad\)/, 'the red of errors, the one colour besides the green and the gray');
+    assert.match(ruleOf('.cost'), /font:\s*400 12px/);
+    assert.match(ruleOf('.cost-bar.none .cost-fill'), /width:\s*0/);
+});
+
+test('the open panel button is blue and bigger, whichever panel it is, the cost control included', () => {
+    assert.match(ruleOf('.icon.active'), /color:\s*var\(--info\)/);
+    assert.ok(html.includes('id="cost-button"') && html.includes('id="cost-view"'));
+    assert.ok(html.indexOf('id="errors-button"') < html.indexOf('id="cost-button"') && html.indexOf('id="cost-button"') < html.indexOf('id="settings-button"'),
+        'after the error log button, before the gear');
 });

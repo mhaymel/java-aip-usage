@@ -163,7 +163,7 @@ process.env.TZ = 'UTC';
             display: {
                 time: d.time, timeTooltip: d.timeTooltip, spend: d.spend, placeholder: d.placeholder, loading: d.loading, variants: d.variants,
                 countdown: d.countdown, countdownAuto: Boolean(status.countdownAuto), interval: { text: '60s', tooltip: 'Time between usage requests' }, deltaUsed: null, deltaTime: null,
-                show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false }, message: d.message, noSpend: d.noSpend || null
+                show: { percentage: true, interval: false, deltaUsed: false, deltaTime: false, costIcon: true }, message: d.message, noSpend: d.noSpend || null
             }
         });
     }

@@ -24,7 +24,7 @@
      *   deltaUsed    {text, tooltip} for the change in the amount used, or null
      *   deltaTime    {text, tooltip} for the time since the previous reading, or null
      *   duration     {text, tooltip} for how long the latest usage request took, or null
-     *   show         {percentage, currency, interval, deltaUsed, deltaTime, historyIcon, logIcon, errorIcon, time, used, limit,
+     *   show         {percentage, currency, interval, deltaUsed, deltaTime, historyIcon, logIcon, errorIcon, costIcon, time, used, limit,
      *                 refresh, countdown, duration}: which elements of the row there are; one the backend does not name is shown
      *   message      {kind: 'error'|'stale', text} for the line under the row, or null
      *   stale        the figures predate a failed refresh
@@ -46,7 +46,7 @@
             deltaUsed: d.deltaUsed || null,
             deltaTime: d.deltaTime || null,
             duration: d.duration || null,
-            show: d.show || { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true },
+            show: d.show || { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true, costIcon: true },
             message: d.message || null,
             // What is said of a reading with no spend, while the mouse is on one of its gray boxes; null for any other reading.
             noSpend: d.noSpend || null,
@@ -147,7 +147,27 @@
         };
     }
 
+    /**
+     * The two bars of the cost control, as the backend finished them: each row has the label, the figures as text, its hover text, the
+     * share of the bar that is green (0 to 1), whether the limit is exceeded and whether there is no limit; and a note, or null.
+     */
+    function describeCost(data) {
+        var rows = (data.rows || []).map(function (row) {
+            var fraction = Number(row.fraction);
+            return {
+                label: row.label || '',
+                text: row.text || '',
+                tooltip: row.tooltip || '',
+                fraction: Math.min(1, Math.max(0, isFinite(fraction) ? fraction : 0)),
+                over: Boolean(row.over),
+                noLimit: Boolean(row.noLimit)
+            };
+        });
+        return { rows: rows, note: data.note || null };
+    }
+
     root.UsageView = {
+        describeCost: describeCost,
         describeStatus: describeStatus,
         describeLog: describeLog,
         describeErrors: describeErrors,

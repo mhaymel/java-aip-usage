@@ -53,6 +53,13 @@
                 <path d="M8 6.5v3.2M8 11.6v.1"/>
             </svg>
         </button>
+        <button id="cost-button" class="icon tiny" type="button" aria-label="Show the cost control" title="Show the cost control"
+                aria-expanded="false">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 5h12M2 11h7"/>
+            </svg>
+        </button>
         <button id="settings-button" class="icon tiny" type="button" aria-label="Show the settings"
                 title="Show the settings" aria-expanded="false">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"
@@ -103,6 +110,11 @@
         <p id="panel-note" class="panel-note" hidden></p>
         <p id="panel-error" class="panel-error" role="alert" hidden></p>
         <div id="panel-lines" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
+        <div id="cost-view" class="cost" hidden>
+            <div id="cost-rows" class="cost-rows"></div>
+            <p id="cost-note" class="panel-note" hidden></p>
+            <p id="cost-error" class="panel-error" role="alert" hidden></p>
+        </div>
         <div id="settings-view" class="settings" hidden>
             <p id="settings-error" class="panel-error" role="alert" hidden></p>
             <div id="settings-tabs" class="tabs">
@@ -146,6 +158,7 @@
                     <label title="A button that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log button</label>
                     <label title="A button that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History button</label>
                     <label title="A button that shows the failed refreshes of this run below the row, and hides it again."><input id="set-showErrorIcon" type="checkbox"> Error log button</label>
+                    <label title="A button that shows how much of the daily and the monthly limit is spent, as two bars, below the row, and hides it again."><input id="set-showCostIcon" type="checkbox"> Cost button</label>
                 </fieldset>
                 </div>
                 <div id="tab-history" class="tab-page" hidden>
