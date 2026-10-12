@@ -59,6 +59,21 @@ public final class FakeClaude {
                 Files.writeString(Path.of(argument), Long.toString(ProcessHandle.current().pid()));
                 Thread.sleep(120_000);
             }
+            // Never answers, and neither does the process it starts, as the real one is a wrapper round others. The
+            // argument is where its own pid is recorded; the child's is beside it, with ".child" after the name.
+            case "hang-with-child" -> {
+                Path childPid = Path.of(argument + ".child");
+                Process child = new ProcessBuilder(
+                        ProcessHandle.current().info().command().orElse("java"), "-cp", System.getProperty("java.class.path"),
+                        FakeClaude.class.getName(), "hang", childPid.toString())
+                        .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+                // The parent says it is there only once the child has, so that a test that reads the one finds the other.
+                while (!Files.exists(childPid) && child.isAlive()) {
+                    Thread.sleep(20);
+                }
+                Files.writeString(Path.of(argument), Long.toString(ProcessHandle.current().pid()));
+                Thread.sleep(120_000);
+            }
             default -> throw new IllegalArgumentException(mode);
         }
     }

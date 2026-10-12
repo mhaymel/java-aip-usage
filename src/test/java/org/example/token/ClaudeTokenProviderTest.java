@@ -153,6 +153,27 @@ class ClaudeTokenProviderTest {
     }
 
     @Test
+    void whatTheCliStartedIsKilledWithIt() throws Exception {
+        Path pidFile = dir.resolve("pid");
+        Path childPidFile = dir.resolve("pid.child");
+
+        TokenException e = assertThrows(
+                TokenException.class,
+                () -> provider(Map.of(), Duration.ofSeconds(8), "hang-with-child", pidFile.toString()).acquire());
+
+        assertEquals(Reason.TIMEOUT, e.reason());
+        long pid = Long.parseLong(Files.readString(pidFile));
+        long child = Long.parseLong(Files.readString(childPidFile));
+        assertFalse(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false), "CLI still running");
+        // The system may take a moment to take a killed process away.
+        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        while (ProcessHandle.of(child).map(ProcessHandle::isAlive).orElse(false) && System.nanoTime() < deadline) {
+            Thread.sleep(50);
+        }
+        assertFalse(ProcessHandle.of(child).map(ProcessHandle::isAlive).orElse(false), "what the CLI started is still running");
+    }
+
+    @Test
     void stopsTheCaptureServerOnceDone() throws Exception {
         provider(Map.of(), TIMEOUT, "bearer").acquire();
 

@@ -302,7 +302,10 @@ public final class ClaudeTokenProvider implements TokenProvider {
      * around further processes), then waits briefly so it is gone on return.
      */
     private static void terminate(Process process) {
-        process.descendants().forEach(ProcessHandle::destroyForcibly);
+        if (process.isAlive()) {
+            ProcessTree.kill(process.pid());
+        }
+        // The process itself once more, directly: it is gone already unless the commands above could not be run.
         process.destroyForcibly();
         try {
             process.waitFor(KILL_GRACE.toMillis(), TimeUnit.MILLISECONDS);

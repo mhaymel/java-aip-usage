@@ -4,7 +4,7 @@ A plan for changing the Java program so that it leans only on what Go also has. 
 translation of this code, not a new design. The task is [new-requirements.md](new-requirements.md); the analysis it
 builds on is [go-port.md](go-port.md), whose problem numbers are used here.
 
-It is written against version 0.70. **Built so far: phases 1 to 4 (versions 0.71 to 0.74)**; how they went is in phases 83 to 86 of
+It is written against version 0.70. **Built so far: phases 1 to 5 (versions 0.71 to 0.75), phase 5 with its run on the Mac outstanding**; how they went is in phases 83 to 87 of
 [implementation-plan.md](implementation-plan.md).
 
 ## What was decided
@@ -220,6 +220,9 @@ hand on the Mac (`./gradlew test --tests '*ClaudeTokenProviderTest'`), and the p
 has passed.
 
 **What changes for the person.** Nothing.
+
+**As built (version 0.75).** As planned. It passes on Windows, where the test fails when the call is taken out. **The
+run on the Mac is outstanding**: `./gradlew test --tests '*ClaudeTokenProviderTest' --tests '*ProcessTreeTest'`.
 
 ## Phase 6: the refresh service as one loop with a queue
 

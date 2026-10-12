@@ -1923,6 +1923,17 @@ that refuses: that is what this was built for, and is for a person to try.
 - **How it was checked.** A run with `--debug` pointed at a port nobody listens on: the row's message, the error log and the log line all said `Cannot reach 127.0.0.1: the connection was refused`.
 - **Tests.** `FailureTest` (new: a real failure for each kind that can be made, a file that is not there, a refused connection, a host that is not known, a connection that ends, an address that is taken, a program that is not there and one that is none; the fixed set; and a check of the sources that nothing but `Failure` reads the text of an exception and nothing but `Log` a stack trace or the name of a class). `LoggingTest` (a failure is one line; the stack trace on the console in debug mode only; masking in both). `ClaudeTokenProviderTest` (the reason in the program's words and none of the system's), `FakeBackendTest`, `UsageServiceTest`, `ApiTest` (the stand-ins throw a `Fault`).
 
+### 87. Stopping the process tree with the system's commands
+
+**Status: built (version 0.75); the test on macOS is still to be run by hand.** Phase 5 of [java-to-go.md](java-to-go.md). Requirements: Authentication, Clearing up (how the processes are killed).
+
+- **New, in `org.example.token`.** `ProcessTree.kill(pid)`: on Windows it runs `taskkill /PID <pid> /T /F`; elsewhere it finds what the process started with `pgrep -P`, level by level (`descendants`, a pure function over "the children of"), and runs `kill -9` for each, the deepest first, and for the process last. A command has 5 seconds; one that is missing, fails or hangs is noted at debug level and stops nothing.
+- **Changed.** `ClaudeTokenProvider.terminate` calls it while `claude` is still alive, then ends `claude` directly once more and waits the two seconds as before. `Process.descendants()` is used nowhere.
+- **What changed for the person.** Nothing.
+- **How it was checked.** On Windows: the new test passes, and with the call to `ProcessTree.kill` taken out it fails with `what the CLI started is still running`, so it watches the rule.
+- **Not checked.** macOS: the commands are built and their order is tested, but no tree was ended there. To be run on the Mac: `./gradlew test --tests '*ClaudeTokenProviderTest' --tests '*ProcessTreeTest'`.
+- **Tests.** `ProcessTreeTest` (new: the commands, the order with the deepest first, a number that comes again, the reading of the list of children). `ClaudeTokenProviderTest.whatTheCliStartedIsKilledWithIt` (new: the stand-in `FakeClaude` has a mode `hang-with-child`, which starts a second process that hangs too; after the time-out neither is left). `FakeClaude` records both pids.
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built
