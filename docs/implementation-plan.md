@@ -1852,6 +1852,21 @@ that refuses: that is what this was built for, and is for a person to try.
 - **As built.** `SettingsStore` keeps `settingsTab` through `write`'s extra parameter, so that every save keeps it; `isTab`, `loadSettingsTab`, `saveSettingsTab`; `IntervalSettings.settingsTab`/`storeSettingsTab`; `ApiHandler` `POST /api/settings-tab` and `settingsTab` in `SettingsBody`.
   The page: `currentTab` is no longer reset at opening, `tabChosen` says whether the stored tab has been taken (at the first `loadSettings`) or a tab has been picked, `chooseTab` shows and posts, and `restoreView` with an unknown tab leaves the tab the settings were on.
 
+### 81. The cost control panel with two bars
+
+**Status: specified, not yet built (version 0.69).** Requirements: The cost control panel: two bars, The thirteen elements and their names (the fourteenth), Cost control.
+
+- **Backend.** `CostPanel` (new, in `org.example`): works out the two bars from the history in use and the cost control limits: the monthly used (amount of the newest reading) and limit; the amount spent today (newest reading less the last reading before today in the same
+  month, else the first reading of today; a fall is 0.00); the daily limit in force (`CostControl.dailyIn(YearMonth.now())`); the finished texts (`used`, `limit`, `percent`, the fraction filled 0 to 1, `over`, `noLimit`, the tooltip); the currency symbol follows the setting.
+  `GET /api/cost` returns `{ "rows": [ {label, text, tooltip, fraction, over, noLimit} x2 ], "note": null|"No usage has been read yet." }`; `docs/api.md`. The history rows come from `HistoryReader` with no filter, in file order (add a small reader of the amounts if
+  that is simpler than the table).
+- **Settings.** `Settings.showCostIcon` (key `showCostIcon`, default on, optional in a POST like the four history columns), after `showErrorIcon` in the display `show` block (`StatusDisplay.Show.costIcon`).
+- **Host.** `WindowFit`: the panel name `cost`, and its size is FIXED (`,3,cost`); `SettingsStore` knows the panel name `cost` for the last window; `restoreView` and `currentView` know it.
+- **The page.** The button `cost-button` with its icon (two bars) and tooltips; the panel `cost-view` with two rows (label, bar `div` with a green fill whose width is `fraction`, text, warning sign); the settings checkbox `Cost button` in `Main view` (id `set-showCostIcon`);
+  it is read again on each poll while open; the width is that of the history's table; the colours are CSS variables (`--ok`, the gray track, `--err`); `contentSize()` reports `w,h,3,cost`.
+- **Tests.** `CostPanelTest` (the day's baseline in all cases: a reading before today in the month, none, a new month, a fall; no limit; over; percent rounding; the currency symbol), `ApiTest` (`/api/cost`, the setting), `StatusDisplayTest` (the `show` flag), `SettingsStoreTest`, `app.test.cjs`
+  and `layout.test.cjs` (the button, the panel, the fill widths, the warning sign, no limit, the size report), the window tests are not changed.
+
 The requirements have no section "specified, not yet built" any more.
 
 ## Implementation notes, as built

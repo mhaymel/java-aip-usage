@@ -457,6 +457,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Show the history button in the row | on, off | on |
   | Show the log button in the row | on, off | on |
   | Show the error log button in the row | on, off | on |
+  | Show the cost button in the row | on, off | on |
   | Show the time between usage requests in the row | on, off | off |
   | Show the change in the amount used in the row | on, off | off |
   | Show the time since the previous reading in the row | on, off | off |
@@ -922,7 +923,7 @@ the first reading.
 
 ### The thirteen elements and their names
 
-The row has thirteen elements that can be shown or hidden, and the settings button, the gear, which is
+The row has fourteen elements that can be shown or hidden (the fourteenth, the cost button, since version 0.69; wherever this document says thirteen it counts those of before), and the settings button, the gear, which is
 always there. Each has a name, which is the text of its checkbox in the settings and the word this
 document uses for it. From left to right (see `docs/img_2.png`, where each but the request duration, which came later, is marked):
 
@@ -941,6 +942,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 | 11 | `Log button` | shows and hides the log | the sheet with lines | yes | `showLogIcon` |
 | 12 | `History button` | shows and hides the usage history | the table | yes | `showHistoryIcon` |
 | 13 | `Error log button` | shows and hides the error log | the triangle | yes | `showErrorIcon` |
+| 14 | `Cost button` | shows and hides the cost control panel (since version 0.69) | the two bars | yes | `showCostIcon` |
 
 - The time, the amount used, the budget, the refresh button and the countdown were always shown before version 0.32. They are on
   by default, so a settings file that says nothing of them changes nothing.
@@ -1596,6 +1598,27 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **Decided for that later use, and not built now**, so that it is not asked again: what was spent today is counted
   only while the program runs, from the first reading of the day in this run; what was spent in the month is the amount
   used that Anthropic reports; and on a Saturday or a Sunday the daily limit is zero.
+
+### The cost control panel: two bars
+
+- **A panel, `Cost control`, shows how much of the limits is spent** (since version 0.69): two bar charts, one for the day and one for the month, as in `docs/img.png` (a bar, the amount at its right). It is a panel like
+  the history, log and error log: below the row, in the one panel area, replacing the one that is shown, with a button of its own in the row, the `Cost button` (its checkbox `Cost button` in `Main view`, on by default, saved under
+  `showCostIcon`; its icon is two short horizontal bars, one longer than the other; its tooltips are `Show the cost control` and `Hide the cost control`). The limits stay settings, in the tab `Cost control` of the settings (see Cost control).
+- **The panel is as tall as its two bars need and as wide as the history's table**, and it cannot be dragged to another size. It has the title bar like every panel. The settings give it back as they give back the others
+  (see Settings). It is one of the panels the window restores at the start (`cost`, see The window is restored at start).
+- **Two rows**, each: a label, a bar and, at its right, the figures. The labels are `Today` and `This month`. The bar is **green for what is consumed and gray for what is left**, and nothing else is coloured but the warning sign (below), in the
+  green of the figures `#1a7f37` / `#3fb950` and a gray, muted, `#8a8f98` at a third of its strength. The bar is a rounded bar of the full width the row leaves, 14 pixels tall; the green part is the share used, never more than the whole.
+- **The figures** are written `<used> of <limit> · <percent>%`, for example `12.40 of 25.00 · 50%`: the amount used, the limit, both in the form of the amounts of the row (two decimals, the currency symbol when `Currency symbol` is on), and the percentage, a
+  whole number, rounded to the nearer and upwards at half. The amount is the one of the figures, so it is `$` for US dollars with the symbol on and the plain number with it off, as the row writes it.
+- **The monthly bar**: the amount used of the newest reading, against the monthly limit of the cost control. **The daily bar**: the amount spent today against the daily limit in force this month (the typed one, or the one worked out from the monthly limit, see Cost control).
+  What is spent today is the amount used of the newest reading less the amount of **the last reading before today** (today being the local date) in the history in use, **of the same month**; when there is none, the first reading of today, so that a
+  program started today shows what was spent since it started (and a first day of a month starts at its first reading, as the amount used begins again then). A fall of the amount (a new month, or a correction) is no spending: it is 0.00.
+- **No limit.** A bar whose limit is not set is **gray and empty** with the text `<used> · no limit set` (for the day, the amount spent today; for the month, the amount used), and no percentage.
+- **Over the limit.** The bar is full green, the text says the true percentage (`112%`), and a **warning sign**, a triangle with an exclamation mark in the red of errors (`#cf222e` / `#f85149`), stands at the right of the figures, as in the image.
+  The tooltip of the sign says `Over the limit`.
+- **No reading yet.** With no reading to say what is used, both bars are empty and gray, and a note under them says `No usage has been read yet.` Failed refreshes change nothing: the last reading counts, and the text is not dimmed.
+- **It keeps up with the readings**, like the history: the bars are drawn again when a new reading comes, without pressing anything. The backend works the figures out and writes the texts (`GET /api/cost`, see `docs/api.md`); the page only draws them.
+- **The tooltips**: each bar says `<Label>: <used> of <limit> (<percent>%)`, or `<Label>: <used>, no limit set`.
 
 ## Debug mode
 
