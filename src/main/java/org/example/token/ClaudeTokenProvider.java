@@ -1,5 +1,6 @@
 package org.example.token;
 
+import org.example.Failure;
 import org.example.log.Log;
 import org.example.Redaction;
 import org.example.token.TokenException.Reason;
@@ -102,7 +103,7 @@ public final class ClaudeTokenProvider implements TokenProvider {
         } catch (IOException e) {
             throw new TokenException(
                     Reason.CAPTURE_FAILED,
-                    "Cannot start the local server used to read the Claude Code token: " + e.getMessage(),
+                    "Cannot start the local server used to read the Claude Code token: " + Failure.of(e),
                     e);
         }
     }
@@ -174,7 +175,7 @@ public final class ClaudeTokenProvider implements TokenProvider {
         }
         return new TokenException(
                 Reason.NOT_INSTALLED,
-                "Claude Code was found but could not be started: " + cause.getMessage().strip()
+                "Claude Code was found but could not be started: " + Failure.ofStart(cause)
                         + ". Check that it is installed correctly and can be run, then retry.",
                 cause);
     }

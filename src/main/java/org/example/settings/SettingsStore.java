@@ -1,5 +1,7 @@
 package org.example.settings;
 
+import org.example.Fault;
+import org.example.Failure;
 import org.example.log.Log;
 import org.example.json.Json;
 import org.example.json.JsonReader;
@@ -169,7 +171,7 @@ public final class SettingsStore {
                 save(defaults);
                 LOG.info("There was no settings file; created " + file + " with the defaults");
             } catch (IOException e) {
-                LOG.warning("Could not create the settings file " + file + ": " + e.getMessage());
+                LOG.warning("Could not create the settings file " + file, e);
             }
             return defaults;
         }
@@ -177,7 +179,7 @@ public final class SettingsStore {
         try {
             root = JsonReader.read(Files.readString(file));
         } catch (IOException e) {
-            LOG.warning("Ignoring unreadable settings file " + file + ": " + e.getMessage());
+            LOG.warning("Ignoring unreadable settings file " + file, e);
             return defaults;
         }
         if (root == null || !root.isObject()) {
@@ -285,7 +287,7 @@ public final class SettingsStore {
             Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
                 // A damaged file is left as it is until a setting is applied; a height is not worth replacing it for.
-                throw new IOException("the settings file is not a JSON object");
+                throw new Fault("the settings file is not a JSON object");
             }
         }
         write(load(), heights, loadSearch(), loadFake(), loadLast(), loadSettingsTab());
@@ -486,7 +488,7 @@ public final class SettingsStore {
         if (Files.exists(file)) {
             Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
-                throw new IOException("the settings file is not a JSON object");
+                throw new Fault("the settings file is not a JSON object");
             }
         }
         write(load(), loadHeights(), loadSearch(), options, loadLast(), loadSettingsTab());
@@ -580,7 +582,7 @@ public final class SettingsStore {
         if (Files.exists(file)) {
             Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
-                throw new IOException("the settings file is not a JSON object");
+                throw new Fault("the settings file is not a JSON object");
             }
         }
         write(load(), loadHeights(), loadSearch(), loadFake(), loadLast(), tab);
@@ -607,7 +609,7 @@ public final class SettingsStore {
         if (Files.exists(file)) {
             Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
-                throw new IOException("the settings file is not a JSON object");
+                throw new Fault("the settings file is not a JSON object");
             }
         }
         write(load(), loadHeights(), loadSearch(), loadFake(), last, loadSettingsTab());
@@ -622,7 +624,7 @@ public final class SettingsStore {
         if (Files.exists(file)) {
             Json root = JsonReader.read(Files.readString(file));
             if (root == null || !root.isObject()) {
-                throw new IOException("the settings file is not a JSON object");
+                throw new Fault("the settings file is not a JSON object");
             }
         }
         write(load(), loadHeights(), search, loadFake(), loadLast(), loadSettingsTab());

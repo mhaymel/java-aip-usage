@@ -26,7 +26,7 @@ public final class Main {
         try {
             options = LaunchOptions.parse(List.of(args));
         } catch (LaunchOptions.InvalidOptionsException e) {
-            System.err.println(e.getMessage());
+            System.err.println(Failure.of(e));
             System.err.println(LaunchOptions.USAGE);
             System.exit(2);
             return;
@@ -38,7 +38,8 @@ public final class Main {
 
         // Relative to the working directory, which is the project root for
         // `./gradlew run` and for IDE run configurations.
-        try (Logging logging = Logging.install(Path.of(Logging.LOG_FILE_NAME).toAbsolutePath())) {
+        // In debug mode the console also shows where a failure came from; the log file never does.
+        try (Logging logging = Logging.install(Path.of(Logging.LOG_FILE_NAME).toAbsolutePath(), options.debug())) {
             // Also tidies up if the process is told to stop; see ShutdownHook.
             ShutdownHook.install(() -> UsageApp.shutDown(), logging);
             Application.launch(UsageApp.class, args);

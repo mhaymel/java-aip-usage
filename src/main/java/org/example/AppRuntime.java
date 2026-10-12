@@ -165,7 +165,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         } catch (IOException | RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            throw new IOException(e.getMessage(), e);
+            throw new Fault(Failure.of(e), e);
         }
     }
 
@@ -234,7 +234,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         try {
             write.run();
         } catch (IOException | RuntimeException e) {
-            LOG.warning("Could not add the reading to " + history.file() + ": " + e.getMessage());
+            LOG.warning("Could not add the reading to " + history.file(), e);
         }
     }
 
@@ -304,8 +304,8 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         try {
             fresh = open(fakeBackend, scenario, fakeToken, fake);
         } catch (IOException | RuntimeException e) {
-            LOG.warning("The debug settings could not be applied: " + e.getMessage());
-            throw new SettingsException("The debug settings could not be applied: " + e.getMessage(), e);
+            LOG.warning("The debug settings could not be applied", e);
+            throw new SettingsException("The debug settings could not be applied: " + Failure.of(e), e);
         }
         try {
             settings.apply(wanted);
@@ -329,7 +329,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
             try {
                 left.resource().close();
             } catch (Exception e) {
-                LOG.warning("Could not close what the usage came from: " + e.getMessage());
+                LOG.warning("Could not close what the usage came from", e);
             }
         }
     }

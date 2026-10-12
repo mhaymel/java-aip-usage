@@ -1,5 +1,6 @@
 package org.example.settings;
 
+import org.example.Failure;
 import org.example.log.Log;
 import java.io.IOException;
 import java.time.Duration;
@@ -78,7 +79,7 @@ public final class IntervalSettings {
         try {
             store.saveHeights(updated);
         } catch (IOException e) {
-            LOG.warning("Could not save the height of the " + panel + " to " + store.file() + ": " + e.getMessage());
+            LOG.warning("Could not save the height of the " + panel + " to " + store.file(), e);
             return;
         }
         heights = updated;
@@ -100,7 +101,7 @@ public final class IntervalSettings {
             store.saveFake(options);
         } catch (IOException e) {
             LOG.warning("Could not save the fake backend's options to " + store.file(), e);
-            throw new SettingsException("The settings could not be saved: " + e.getMessage(), e);
+            throw new SettingsException("The settings could not be saved: " + Failure.of(e), e);
         }
         LOG.info("The fake backend's options changed: " + options);
     }
@@ -115,7 +116,7 @@ public final class IntervalSettings {
         try {
             store.saveSettingsTab(tab);
         } catch (IOException e) {
-            LOG.warning("Could not save the settings tab to " + store.file() + ": " + e.getMessage());
+            LOG.warning("Could not save the settings tab to " + store.file(), e);
         }
     }
 
@@ -129,7 +130,7 @@ public final class IntervalSettings {
         try {
             store.saveLast(last);
         } catch (IOException e) {
-            LOG.warning("Could not save the last window to " + store.file() + ": " + e.getMessage());
+            LOG.warning("Could not save the last window to " + store.file(), e);
         }
     }
 
@@ -146,7 +147,7 @@ public final class IntervalSettings {
         try {
             store.saveSearch(new SettingsStore.Search(interval, refused));
         } catch (IOException e) {
-            LOG.warning("Could not save the automatic interval to " + store.file() + ": " + e.getMessage());
+            LOG.warning("Could not save the automatic interval to " + store.file(), e);
         }
     }
 
@@ -212,7 +213,7 @@ public final class IntervalSettings {
                 store.save(settings);
             } catch (IOException e) {
                 LOG.warning("Could not save settings to " + store.file(), e);
-                throw new SettingsException("The settings could not be saved: " + e.getMessage(), e);
+                throw new SettingsException("The settings could not be saved: " + Failure.of(e), e);
             }
             LOG.info("Settings changed: " + settings);
             saved = settings;

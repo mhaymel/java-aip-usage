@@ -213,7 +213,7 @@ class FakeBackendTest {
                 () -> UsageClient.create(uri).fetch(PlaceholderTokenProvider.TOKEN));
 
         assertTrue(e.getCause() instanceof ConnectException, "expected a refused connection, got " + e.getCause());
-        assertTrue(e.getMessage().startsWith("Cannot reach 127.0.0.1"), e.getMessage());
+        assertEquals("Cannot reach 127.0.0.1: the connection was refused", e.getMessage(), "in the program's words, not the system's");
     }
 
     @Test

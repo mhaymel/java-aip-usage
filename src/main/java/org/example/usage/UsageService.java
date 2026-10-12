@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.Failure;
 import org.example.log.Log;
 import org.example.token.TokenException;
 
@@ -346,13 +347,13 @@ public final class UsageService implements AutoCloseable {
             return Outcome.success(snapshot);
         } catch (UsageFetchException e) {
             // Logged by run, with the rest of the message the window shows.
-            return e.status() == 429 ? Outcome.rateLimited(e.getMessage(), e.retryAfter()) : Outcome.failure(e.getMessage());
+            return e.status() == 429 ? Outcome.rateLimited(Failure.of(e), e.retryAfter()) : Outcome.failure(Failure.of(e));
         } catch (TokenException | UsageParseException e) {
             // These messages are written for the user and carry no credentials.
-            return Outcome.failure(e.getMessage());
+            return Outcome.failure(Failure.of(e));
         } catch (RuntimeException e) {
             LOG.warning("Usage refresh failed unexpectedly", e);
-            return Outcome.failure("Unexpected error (" + e.getClass().getSimpleName() + "); see the log.");
+            return Outcome.failure("Unexpected error; start the program with --debug to see on the console where it came from.");
         }
     }
 

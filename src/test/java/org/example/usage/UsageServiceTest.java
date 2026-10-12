@@ -263,7 +263,7 @@ class UsageServiceTest {
         // Whichever the UI sees first, the detail is never in it.
         UsageState first = service.state();
         if (first.error() != null) {
-            assertTrue(first.error().startsWith("Unexpected error"), first.error());
+            assertEquals("Unexpected error; start the program with --debug to see on the console where it came from.", first.error());
             assertFalse(first.error().contains("internal detail"), first.error());
         }
 

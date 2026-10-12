@@ -1,5 +1,6 @@
 package org.example.log;
 
+import org.example.Failure;
 import org.example.Redaction;
 
 import java.io.PrintWriter;
@@ -42,23 +43,27 @@ public final class Log {
 
         /**
          * The entry as it is written: the time as in the usage history file, the level, the name of the class in
-         * brackets, the message, and after it the stack trace if something was thrown. Each line ends as lines end on
-         * this system, and anything shaped like a credential is masked.
+         * brackets, and the message; when something was thrown, what went wrong follows the message after a colon, in
+         * the words {@link Failure} has for it. It ends as lines end on this system, and anything shaped like a
+         * credential is masked.
          */
         public String written(ZoneId zone) {
-            StringBuilder line = new StringBuilder()
-                    .append(timestamp(atMillis, zone))
-                    .append(' ')
-                    .append(String.format("%-7s", level.word()))
-                    .append(" [").append(name).append("] ")
-                    .append(message)
-                    .append(System.lineSeparator());
-            if (thrown != null) {
-                StringWriter trace = new StringWriter();
-                thrown.printStackTrace(new PrintWriter(trace));
-                line.append(trace);
+            String line = timestamp(atMillis, zone) + ' ' + String.format("%-7s", level.word()) + " [" + name + "] " + message
+                    + (thrown == null ? "" : ": " + Failure.of(thrown)) + System.lineSeparator();
+            return Redaction.redact(line);
+        }
+
+        /**
+         * Where in the program what was thrown came from, over several lines; nothing when nothing was thrown. It is
+         * a help for whoever works on the program and is in no file: the console shows it in debug mode.
+         */
+        public String trace() {
+            if (thrown == null) {
+                return "";
             }
-            return Redaction.redact(line.toString());
+            StringWriter trace = new StringWriter();
+            thrown.printStackTrace(new PrintWriter(trace));
+            return Redaction.redact(trace.toString());
         }
     }
 

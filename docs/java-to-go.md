@@ -4,7 +4,7 @@ A plan for changing the Java program so that it leans only on what Go also has. 
 translation of this code, not a new design. The task is [new-requirements.md](new-requirements.md); the analysis it
 builds on is [go-port.md](go-port.md), whose problem numbers are used here.
 
-It is written against version 0.70. **Built so far: phases 1 to 3 (versions 0.71 to 0.73)**; how they went is in phases 83 to 85 of
+It is written against version 0.70. **Built so far: phases 1 to 4 (versions 0.71 to 0.74)**; how they went is in phases 83 to 86 of
 [implementation-plan.md](implementation-plan.md).
 
 ## What was decided
@@ -189,6 +189,13 @@ foreign exception is left in a message.
 
 **What changes for the person.** The detail after the colon in the messages of a failed request and of a file that
 cannot be written. The messages become the same on Windows and macOS, which they are not today.
+
+**As built (version 0.74).** As planned, with these differences. `the file is in use` and `the disk is full` have no
+text of their own: Java reports them only in the system's words, with no kind to tell them by, so they are
+`the file could not be read or written`; Go has their error numbers and may name them. A program that did not start
+is told by the number in the system's text (`error=2`, `error=13`), the one thing read from such a text; in Go that
+is `errors.Is`. Beside `Failure` there is `Fault`, an exception for what the program sees for itself. The message of
+an unexpected fault no longer names its kind and says to start with `--debug`.
 
 ## Phase 5: stopping the process tree
 

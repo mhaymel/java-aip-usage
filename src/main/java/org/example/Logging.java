@@ -34,11 +34,15 @@ final class Logging implements AutoCloseable {
 
     private boolean closed;
 
-    private Logging() {
+    /** @param traces whether the console also shows where in the program a failure came from, which it does in debug mode */
+    private Logging(boolean traces) {
         // The console as it is now, as the error output of the process: a later change of it is not followed.
         PrintStream err = System.err;
         console = entry -> {
             err.print(entry.written(ZoneId.systemDefault()));
+            if (traces) {
+                err.print(entry.trace());
+            }
             err.flush();
         };
     }
@@ -50,7 +54,12 @@ final class Logging implements AutoCloseable {
      * console logging only, and the failure is reported there.
      */
     static Logging install(Path logFile) {
-        Logging logging = new Logging();
+        return install(logFile, false);
+    }
+
+    /** @param traces whether the console also shows the stack trace of a failure; the file never has one */
+    static Logging install(Path logFile, boolean traces) {
+        Logging logging = new Logging(traces);
         Log.addSink(logging.console);
         try {
             Writer writer = Files.newBufferedWriter(logFile, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);

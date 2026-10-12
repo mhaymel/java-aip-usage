@@ -42,7 +42,11 @@ interface Desk {
         public void reveal(Path file) throws IOException {
             List<String> command = revealCommand(System.getProperty("os.name", ""), file, Files.exists(file));
             // The file manager is left to itself: on Windows it ends with a code that says nothing, at once or never.
-            new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+            try {
+                new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+            } catch (IOException e) {
+                throw new Fault("the file manager could not be started: " + Failure.ofStart(e), e);
+            }
         }
 
         @Override
@@ -55,7 +59,8 @@ interface Desk {
                         ClipboardContent content = new ClipboardContent();
                         content.putString(text);
                         if (!Clipboard.getSystemClipboard().setContent(content)) {
-                            throw new IllegalStateException("the clipboard did not take it");
+                            done.completeExceptionally(new Fault("the clipboard did not take it"));
+                            return;
                         }
                         done.complete(null);
                     } catch (RuntimeException e) {
@@ -64,14 +69,14 @@ interface Desk {
                 });
                 done.get(3, TimeUnit.SECONDS);
             } catch (IllegalStateException e) {
-                throw new IOException("there is no window, and so no clipboard", e);
+                throw new Fault("there is no window, and so no clipboard", e);
             } catch (ExecutionException e) {
-                throw new IOException(String.valueOf(e.getCause().getMessage()), e.getCause());
+                throw new Fault(Failure.of(e.getCause()), e.getCause());
             } catch (TimeoutException e) {
-                throw new IOException("the clipboard did not answer", e);
+                throw new Fault("the clipboard did not answer", e);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new IOException("interrupted", e);
+                throw new Fault(Failure.INTERRUPTED, e);
             }
         }
     };

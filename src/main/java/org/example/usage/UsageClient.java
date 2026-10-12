@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.Failure;
 import org.example.log.Log;
 import java.io.IOException;
 import java.net.URI;
@@ -127,7 +128,7 @@ public final class UsageClient implements UsageSource {
                     "Anthropic did not answer within " + requestTimeout.toSeconds() + " seconds.", e);
         } catch (IOException e) {
             logOutcome("failed", started);
-            String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            String detail = Failure.ofConnection(e);
             throw new UsageFetchException("Cannot reach " + uri.getHost() + ": " + detail, e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -167,7 +168,7 @@ public final class UsageClient implements UsageSource {
             text = text.substring(0, UNPROCESSED_CHARACTERS);
         }
         LOG.error(
-                "The usage response could not be processed: " + reason.getMessage() + cut + System.lineSeparator() + text);
+                "The usage response could not be processed: " + Failure.of(reason) + cut + System.lineSeparator() + text);
     }
 
     /**

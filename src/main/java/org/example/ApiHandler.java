@@ -91,7 +91,7 @@ final class ApiHandler implements HttpHandler {
                 if (e.allow != null) {
                     exchange.getResponseHeaders().set("Allow", e.allow);
                 }
-                send(exchange, e.status, Json.object().put("error", e.getMessage()));
+                send(exchange, e.status, Json.object().put("error", Failure.of(e)));
             } catch (RuntimeException e) {
                 LOG.warning("API request failed: " + exchange.getRequestURI().getPath(), e);
                 send(exchange, 500, Json.object().put("error", "Internal error; see the log."));
@@ -314,9 +314,9 @@ final class ApiHandler implements HttpHandler {
                                     "The setting fakeScenario must be one of " + org.example.fake.Scenario.names() + "."));
             sources.applyDebug(fakeBackend, scenario, flag(body, "fakeToken"), fakeOptions(body));
         } catch (InvalidSettingException e) {
-            throw new ApiException(400, e.getMessage(), null);
+            throw new ApiException(400, Failure.of(e), null);
         } catch (SettingsException e) {
-            throw new ApiException(500, e.getMessage(), null);
+            throw new ApiException(500, Failure.of(e), null);
         }
         send(exchange, 200, debugBody().toJson());
     }
@@ -464,9 +464,9 @@ final class ApiHandler implements HttpHandler {
             settings.apply(given.withDebug(kept.fakeBackend(), kept.fakeScenario(), kept.fakeToken()).withLog(kept.logLevel(), kept.logDate())
                     .withListFontSize(kept.listFontSize()));
         } catch (InvalidSettingException e) {
-            throw new ApiException(400, e.getMessage(), null);
+            throw new ApiException(400, Failure.of(e), null);
         } catch (SettingsException e) {
-            throw new ApiException(500, e.getMessage(), null);
+            throw new ApiException(500, Failure.of(e), null);
         }
         send(exchange, 200, settingsBody().toJson());
     }
@@ -522,7 +522,7 @@ final class ApiHandler implements HttpHandler {
             return new LogBody(files.log().getFileName().toString(), tail.exists(), tail.truncated(), tail.lines(), tail.hidden(),
                     now.logLevel().json(), now.logDate());
         } catch (IOException e) {
-            LOG.warning("Could not read the log: " + e.getMessage());
+            LOG.warning("Could not read the log", e);
             throw new ApiException(500, "The log could not be read.", null);
         }
     }
@@ -541,7 +541,7 @@ final class ApiHandler implements HttpHandler {
         try {
             settings.apply(settings.current().withListFontSize(size.intValue()));
         } catch (SettingsException e) {
-            throw new ApiException(500, "The text size could not be saved: " + e.getCause().getMessage(), null);
+            throw new ApiException(500, "The text size could not be saved: " + Failure.of(e.getCause()), null);
         }
         send(exchange, 200, new TextSizeBody(settings.current().listFontSize()).toJson());
     }
@@ -553,7 +553,7 @@ final class ApiHandler implements HttpHandler {
             HistoryReader.Table table = HistoryReader.read(sources.history(), Integer.MAX_VALUE);
             return CostPanel.build(table.rows(), now.cost(), now.showCurrency(), java.time.LocalDate.now());
         } catch (IOException e) {
-            LOG.warning("Could not read the usage history: " + e.getMessage());
+            LOG.warning("Could not read the usage history", e);
             throw new ApiException(500, "The usage history could not be read.", null);
         }
     }
@@ -607,8 +607,8 @@ final class ApiHandler implements HttpHandler {
             }
         } catch (IOException | RuntimeException e) {
             String what = open ? "The folder could not be opened: " : "The path could not be copied: ";
-            LOG.warning(what + e.getMessage());
-            throw new ApiException(500, what + e.getMessage(), null);
+            LOG.warning(what + Failure.of(e));
+            throw new ApiException(500, what + Failure.of(e), null);
         }
         send(exchange, 200, Json.object().put("done", true));
     }
@@ -645,9 +645,9 @@ final class ApiHandler implements HttpHandler {
                     .orElseThrow(() -> new InvalidSettingException("The setting level must be one of " + LogLevel.names() + "."));
             settings.apply(settings.current().withLog(level, flag(body, "date")));
         } catch (InvalidSettingException e) {
-            throw new ApiException(400, e.getMessage(), null);
+            throw new ApiException(400, Failure.of(e), null);
         } catch (SettingsException e) {
-            throw new ApiException(500, "The log settings could not be saved: " + e.getCause().getMessage(), null);
+            throw new ApiException(500, "The log settings could not be saved: " + Failure.of(e.getCause()), null);
         }
         Settings now = settings.current();
         send(exchange, 200, new LogSettingsBody(now.logLevel().json(), now.logDate()).toJson());
@@ -716,7 +716,7 @@ final class ApiHandler implements HttpHandler {
                     sources.history().getFileName().toString(), table.exists(), columns, now.historyDate(),
                     historyNote(table), historyNoteHighlighted(table), table.total(), lines);
         } catch (IOException e) {
-            LOG.warning("Could not read the usage history: " + e.getMessage());
+            LOG.warning("Could not read the usage history", e);
             throw new ApiException(500, "The usage history could not be read.", null);
         }
     }
@@ -786,7 +786,7 @@ final class ApiHandler implements HttpHandler {
         try {
             return latestChangeCache.get(sources.history());
         } catch (IOException e) {
-            LOG.warning("Could not read the usage history for the change: " + e.getMessage());
+            LOG.warning("Could not read the usage history for the change", e);
             return null;
         }
     }

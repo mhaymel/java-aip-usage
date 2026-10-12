@@ -506,7 +506,7 @@ class ApiTest {
         FakeFetch fetch = new FakeFetch();
         UsageSources.Factory failing = (fakeBackend, scenario, fakeToken) -> {
             if (fakeBackend) {
-                throw new IOException("no port to listen on");
+                throw new Fault("no port to listen on");
             }
             return new UsageSources.Source(fetch, false, Optional.empty(), null);
         };
@@ -2322,7 +2322,7 @@ class ApiTest {
         public void reveal(java.nio.file.Path file) throws IOException {
             asked.add("reveal " + file.toAbsolutePath().normalize());
             if (failure != null) {
-                throw new IOException(failure);
+                throw new Fault(failure);
             }
         }
 
@@ -2330,7 +2330,7 @@ class ApiTest {
         public void copy(String text) throws IOException {
             asked.add("copy " + text);
             if (failure != null) {
-                throw new IOException(failure);
+                throw new Fault(failure);
             }
         }
     }

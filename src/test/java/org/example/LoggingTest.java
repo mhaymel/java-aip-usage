@@ -101,12 +101,43 @@ class LoggingTest {
     }
 
     @Test
-    void includesStackTraces() throws Exception {
+    void aFailureIsOneLineThatSaysWhatWentWrongInTheProgramsWordsAndTheFileHasNoStackTrace() throws Exception {
         Path file = dir.resolve("app.log");
         try (Logging logging = Logging.install(file)) {
+            LOG.error("Could not start", new java.nio.file.NoSuchFileException("C:\\somewhere\\settings.json"));
+            LOG.warning("Could not save settings to settings.json", new Fault("the settings file is not a JSON object"));
+            LOG.warning("API request failed: /api/status", new IllegalStateException("bad state"));
+        }
+        List<String> lines = Files.readAllLines(file);
+        assertTrue(lines.get(1).endsWith("SEVERE  [LoggingTest] Could not start: the file or its folder is not there"), lines.get(1));
+        assertTrue(lines.get(2).endsWith("WARNING [LoggingTest] Could not save settings to settings.json: the settings file is not a JSON object"),
+                "a failure the program names itself, in its words: " + lines.get(2));
+        assertTrue(lines.get(3).endsWith("WARNING [LoggingTest] API request failed: /api/status: an unexpected fault"), lines.get(3));
+        assertEquals(4, lines.size(), "one line each, and nothing after it");
+        String content = Files.readString(file);
+        assertFalse(content.contains("IllegalStateException") || content.contains("bad state") || content.contains("\tat "), content);
+    }
+
+    @Test
+    void inDebugModeTheConsoleAlsoShowsWhereAFailureCameFromAndTheFileStillDoesNot() throws Exception {
+        ByteArrayOutputStream console = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(console, true, StandardCharsets.UTF_8));
+        Path file = dir.resolve("app.log");
+        try (Logging logging = Logging.install(file, true)) {
+            LOG.error("boom", new IllegalStateException("bad state"));
+            LOG.info("no failure, no trace");
+        }
+        String said = console.toString(StandardCharsets.UTF_8);
+        assertTrue(said.contains("[LoggingTest] boom: an unexpected fault" + System.lineSeparator() + "java.lang.IllegalStateException: bad state"), said);
+        assertTrue(said.contains("\tat org.example.LoggingTest."), said);
+        assertFalse(Files.readString(file).contains("IllegalStateException"), "the file is the same in debug mode");
+
+        ByteArrayOutputStream plain = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(plain, true, StandardCharsets.UTF_8));
+        try (Logging logging = Logging.install(dir.resolve("other.log"))) {
             LOG.error("boom", new IllegalStateException("bad state"));
         }
-        assertTrue(Files.readString(file).contains("java.lang.IllegalStateException: bad state"));
+        assertFalse(plain.toString(StandardCharsets.UTF_8).contains("IllegalStateException"), "and without debug mode the console has none either");
     }
 
     @Test
@@ -124,17 +155,22 @@ class LoggingTest {
     }
 
     @Test
-    void aCredentialInAnExceptionNeverReachesTheFile() throws Exception {
+    void aCredentialInAnExceptionNeverReachesTheFileNorTheConsoleOfDebugMode() throws Exception {
+        ByteArrayOutputStream console = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(console, true, StandardCharsets.UTF_8));
         Path file = dir.resolve("app.log");
-        try (Logging logging = Logging.install(file)) {
+        try (Logging logging = Logging.install(file, true)) {
             RuntimeException cause = new RuntimeException("cause carried sk-ant-oat01-LEAK-CAUSE");
             LOG.error("failed", new IllegalStateException("x-api-key: LEAK-HEADER", cause));
+            LOG.error("failed too", new Fault("the program's own words, with sk-ant-oat01-LEAK-OWN in them"));
         }
 
-        String content = Files.readString(file);
-        assertFalse(content.contains("LEAK-CAUSE"), content);
-        assertFalse(content.contains("LEAK-HEADER"), content);
-        assertTrue(content.contains("IllegalStateException"), "the stack trace itself is kept");
+        for (String content : List.of(Files.readString(file), console.toString(StandardCharsets.UTF_8))) {
+            assertFalse(content.contains("LEAK-CAUSE"), content);
+            assertFalse(content.contains("LEAK-HEADER"), content);
+            assertFalse(content.contains("LEAK-OWN"), content);
+        }
+        assertTrue(console.toString(StandardCharsets.UTF_8).contains("IllegalStateException"), "the stack trace itself is kept, on the console");
     }
 
     @Test

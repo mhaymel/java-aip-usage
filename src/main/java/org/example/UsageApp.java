@@ -430,7 +430,7 @@ public class UsageApp extends Application {
             // The page is not ready, or is being replaced. Say so once, not every tick.
             if (!fitFailureReported) {
                 fitFailureReported = true;
-                LOG.warning("Could not ask the page for its size: " + e.getMessage());
+                LOG.warning("Could not ask the page for its size", e);
             }
         }
     }

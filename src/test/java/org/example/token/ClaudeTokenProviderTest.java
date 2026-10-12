@@ -112,18 +112,18 @@ class ClaudeTokenProviderTest {
     }
 
     @Test
-    void aCommandThatIsFoundButCannotBeRunReportsTheRealReason() throws IOException {
+    void aCommandThatIsFoundButCannotBeRunReportsTheReasonInTheProgramsOwnWords() throws IOException {
         // A file the system will not run: present, but not startable. Each system refuses for its
         // own reason and in its own language -- no execute permission on a Mac, "not a valid Win32
-        // application" on Windows -- so what the reason says is asked of the system itself rather
-        // than written down here. The provider sets no working directory, which would otherwise
-        // show up in the wording.
+        // application" on Windows -- and the program says it in words of its own, the same on every
+        // system of one kind, and passes none of the system's text on. The provider sets no working
+        // directory, which would otherwise show up in the system's wording.
         Path notExecutable = Files.createFile(dir.resolve("claude"));
         String fromTheSystem = assertThrows(
                 IOException.class,
                 () -> new ProcessBuilder(notExecutable.toString()).start()).getMessage().strip();
         // Without this the check below would hold for an empty string, and so say nothing.
-        assertFalse(fromTheSystem.isBlank(), "the system gave no reason to pass on");
+        assertFalse(fromTheSystem.isBlank(), "the system gave a reason");
         ClaudeTokenProvider provider = new ClaudeTokenProvider(
                 Map.of(), List.of(notExecutable.toString()), TIMEOUT, logged::add, warned::add);
 
@@ -131,7 +131,11 @@ class ClaudeTokenProviderTest {
 
         assertEquals(Reason.NOT_INSTALLED, e.reason());
         assertTrue(e.getMessage().startsWith("Claude Code was found but could not be started:"), e.getMessage());
-        assertTrue(e.getMessage().contains(fromTheSystem), "expected \"" + fromTheSystem + "\" in:\n" + e.getMessage());
+        String reason = System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")
+                ? org.example.Failure.NOT_A_PROGRAM : org.example.Failure.ACCESS_DENIED;
+        assertEquals("Claude Code was found but could not be started: " + reason
+                + ". Check that it is installed correctly and can be run, then retry.", e.getMessage());
+        assertFalse(e.getMessage().contains(fromTheSystem), "none of the system's own text: " + e.getMessage());
         assertFalse(e.getMessage().contains("not be found on the PATH"), e.getMessage());
     }
 

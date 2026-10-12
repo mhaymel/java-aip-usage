@@ -1,5 +1,6 @@
 package org.example.usage;
 
+import org.example.Failure;
 import org.example.json.Json;
 import org.example.json.JsonException;
 import org.example.json.JsonReader;
@@ -31,7 +32,7 @@ public final class UsageParser {
             root = JsonReader.read(body);
         } catch (JsonException e) {
             throw new UsageParseException(
-                    "The usage response is not valid JSON: " + e.getMessage(), e);
+                    "The usage response is not valid JSON: " + Failure.of(e), e);
         }
         if (root == null || !root.isObject()) {
             throw new UsageParseException("The usage response is not a JSON object.");
