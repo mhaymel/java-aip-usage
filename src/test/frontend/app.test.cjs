@@ -165,6 +165,7 @@ const DEFAULT_SETTINGS = {
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
     showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true, autoInterval: false,
     costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
+    historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
 };
 const SETTINGS = {
     settings: { ...DEFAULT_SETTINGS, usageIntervalSeconds: 120, showInterval: true, timeFormat: 'hh:mm:ss' },
@@ -860,7 +861,7 @@ test('any whole number can be typed in the interval box, and is sent as a number
     await page.click('settings-button');
     page.el('set-usageIntervalSeconds').value = ' 47 ';
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(JSON.parse(settingsPosts(page)[0].body).usageIntervalSeconds, 47);
 });
@@ -871,7 +872,7 @@ test('a box that is not a whole number of seconds is refused in the view, in red
 
     for (const bad of ['', 'abc', '4.5', '-60', '1e3', '60 s']) {
         page.el('set-usageIntervalSeconds').value = bad;
-        await page.click('settings-apply');
+        await page.click('settings-save');
         assert.equal(page.el('settings-error').hidden, false, JSON.stringify(bad));
         assert.match(page.el('settings-error').textContent, /whole number of seconds/);
     }
@@ -887,7 +888,7 @@ test('a number the backend refuses, such as 4, stays in the box with the backend
     await page.click('settings-button');
     page.el('set-usageIntervalSeconds').value = '4';
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.match(page.el('settings-error').textContent, /from 5 to 3600/);
     assert.equal(page.el('set-usageIntervalSeconds').value, '4');
@@ -918,7 +919,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     page.el('set-timeFormat').value = 'hh:mm';
     const statusCalls = page.calls.filter(c => c.url === '/api/status').length;
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(settingsPosts(page).length, 1);
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
@@ -926,9 +927,10 @@ test('Apply sends every setting together, closes the view, and the row follows a
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
         showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
+        historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
     });
     assert.equal(settingsPosts(page)[0].headers['Content-Type'], 'application/json');
-    assert.equal(page.el('settings-view').hidden, true, 'Apply closes the view');
+    assert.equal(page.el('settings-view').hidden, true, 'Save closes the view');
     assert.equal(page.el('panel').hidden, true);
     assert.equal(page.el('settings-button').title, 'Show the settings');
     assert.ok(page.calls.filter(c => c.url === '/api/status').length > statusCalls, 'the status is asked for at once, so the row shows the change');
@@ -954,7 +956,7 @@ test('a setting the backend refuses stays in the form, with the reason in red', 
     await page.click('settings-button');
     page.el('set-usageIntervalSeconds').value = '180';
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(page.el('settings-error').hidden, false);
     assert.match(page.el('settings-error').textContent, /from 5 to 3600/);
@@ -1003,7 +1005,7 @@ test('Restore defaults fills in the defaults and sends nothing until Apply', asy
     assert.equal(page.el('set-timeFormat').value, 'hh:mm');
     assert.equal(settingsPosts(page).length, 0);
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), DEFAULT_SETTINGS);
 });
 
@@ -1014,7 +1016,7 @@ test('if the settings cannot be read the view says so and has no form to edit', 
 
     assert.equal(page.el('settings-form').hidden, true);
     assert.match(page.el('settings-error').textContent, /^The settings could not be read: /);
-    assert.equal(page.el('settings-apply').attrs.disabled, '');
+    assert.equal(page.el('settings-save').attrs.disabled, '');
     assert.equal(page.el('settings-restore').attrs.disabled, '');
 });
 
@@ -1486,7 +1488,7 @@ test('the date setting is in the settings view and is sent with the rest', async
     await page.click('settings-button');
 
     page.el('set-historyDate').checked = true;
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(JSON.parse(settingsPosts(page)[0].body).historyDate, true);
 });
@@ -1628,7 +1630,7 @@ test('Apply and Cancel close the settings, so its button is no longer green', as
     assert.ok(!classOf(page, 'settings-button').includes('active'));
 
     await page.click('settings-button');
-    await page.click('settings-apply');
+    await page.click('settings-save');
     assert.ok(!classOf(page, 'settings-button').includes('active'));
 });
 
@@ -1662,7 +1664,7 @@ test('Apply brings back the view that was open, and reads it with the new settin
     state.history = () => ({ status: 200, body: { ...HISTORY, columns: ['time', 'used', 'limit', 'Cur.', '\u0394 time'],
         lines: [line(['20:46:11', '260.66', '1000.00', 'USD', '63 s']), line(['20:44:12', '260.36', '1000.00', 'USD', ''])] } });
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(page.el('settings-view').hidden, true);
     assert.equal(page.el('history-button').title, 'Hide the usage history');
@@ -1747,7 +1749,7 @@ test('a failed Apply keeps the settings open and does not bring anything back', 
     await page.click('settings-button');
     page.el('set-usageIntervalSeconds').value = '4';
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(page.el('settings-view').hidden, false);
     assert.equal(page.el('history-button').title, 'Show the usage history');
@@ -1761,7 +1763,7 @@ test('the two new history switches are in the settings, are posted, and are on i
 
     page.el('set-historyZeroLines').checked = false;
     page.el('set-historyFailedLines').checked = false;
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     const sent = JSON.parse(settingsPosts(page)[0].body);
     assert.equal(sent.historyZeroLines, false);
@@ -1831,7 +1833,7 @@ test('Apply that switches off the button of the panel the settings would give ba
     await page.click('settings-button');
     page.el('set-showHistoryIcon').checked = false;
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(page.el('panel').hidden, true, 'the history is not shown again');
     assert.equal(page.el('settings-view').hidden, true);
@@ -1849,7 +1851,7 @@ test('Apply that switches off a different panel\'s button still gives the earlie
     await page.click('settings-button');
     page.el('set-showLogIcon').checked = false;
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(page.el('history-button').title, 'Hide the usage history');
 });
@@ -1864,7 +1866,7 @@ test('the four new switches are in the form, posted, and Restore defaults gives 
 
     page.el('set-showCurrency').checked = true;
     page.el('set-showErrorIcon').checked = false;
-    await page.click('settings-apply');
+    await page.click('settings-save');
     const sent = JSON.parse(settingsPosts(page)[0].body);
     assert.equal(sent.showCurrency, true);
     assert.equal(sent.showErrorIcon, false);
@@ -2182,7 +2184,7 @@ test('Stay on top is a setting of the window: sent with the others, and not prev
     assert.equal(page.el('set-stayOnTop').listeners.change, undefined, 'the row has nothing to show of it');
 
     page.el('set-stayOnTop').checked = true;
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(JSON.parse(settingsPosts(page)[0].body).stayOnTop, true);
 });
@@ -2194,7 +2196,7 @@ test('Title bar is a setting of the window: on by default, sent with the others,
     assert.equal(page.el('set-showTitleBar').listeners.change, undefined);
 
     page.el('set-showTitleBar').checked = false;
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(JSON.parse(settingsPosts(page)[0].body).showTitleBar, false);
 });
@@ -2254,7 +2256,7 @@ test('Cancel gives the row back as the backend has it; Apply keeps what was prev
     await page.click('settings-button');
     await change(page, 'set-showTime', false);
     state.status = withShow(withDisplay(SPEND_STATUS), { time: false });
-    await page.click('settings-apply');
+    await page.click('settings-save');
     assert.equal(page.el('time').hidden, true, 'applied, and the backend says so as well');
     assert.equal(JSON.parse(settingsPosts(page)[0].body).showTime, false);
 });
@@ -2770,7 +2772,7 @@ test('what the button does is shown in the row at once, saved with the view, and
 
     await page.click('settings-button');
     await page.click('set-all');
-    await page.click('settings-apply');
+    await page.click('settings-save');
     const sent = JSON.parse(page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST')[0].body);
     assert.deepEqual(ELEMENTS.filter(key => sent[key] === true), ELEMENTS, 'saved as any other click is');
 });
@@ -3025,7 +3027,7 @@ test('with Automatic off the field of the interval is as it was, and the checkbo
     assert.equal(page.el('set-usageIntervalSeconds').value, '120');
 
     page.type('set-usageIntervalSeconds', '45');
-    await page.click('settings-apply');
+    await page.click('settings-save');
     assert.equal(autoPosts(page)[0].autoInterval, false);
     assert.equal(autoPosts(page)[0].usageIntervalSeconds, 45);
 });
@@ -3061,7 +3063,7 @@ test('unchecking Automatic gives the field the configured interval back, and wha
     assert.equal(page.el('set-usageIntervalSeconds').attrs.disabled, '');
     assert.equal(page.el('set-usageIntervalSeconds').value, '35', 'the interval in force again');
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
     assert.equal(autoPosts(page)[0].autoInterval, true);
     assert.equal(autoPosts(page)[0].usageIntervalSeconds, 90, 'what was typed while it was off is the configured interval now');
 });
@@ -3075,7 +3077,7 @@ test('checking Automatic disables the field at once and does not ask for a numbe
     assert.equal(page.el('set-usageIntervalSeconds').attrs.disabled, '');
     assert.equal(page.el('set-usageIntervalSeconds').value, '60');
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
     assert.equal(page.el('settings-error').hidden, true, 'the field is not the user\'s to fill, so it is not checked');
     assert.equal(autoPosts(page)[0].autoInterval, true);
     assert.equal(autoPosts(page)[0].usageIntervalSeconds, 120, 'the configured interval, which the nonsense did not replace');
@@ -3091,7 +3093,7 @@ test('Restore defaults unchecks Automatic and gives the field the default interv
     assert.equal(page.el('set-autoInterval').checked, false);
     assert.equal(page.el('set-usageIntervalSeconds').attrs.disabled, undefined);
     assert.equal(page.el('set-usageIntervalSeconds').value, '60');
-    await page.click('settings-apply');
+    await page.click('settings-save');
     assert.equal(autoPosts(page)[0].usageIntervalSeconds, 60);
     assert.equal(autoPosts(page)[0].autoInterval, false);
 });
@@ -3437,7 +3439,7 @@ test('a monthly limit that is typed is sent as typed, and the backend is asked w
     assert.deepEqual(dailyAsked(page), ['/api/cost/daily?monthly=440'], 'the page works nothing out itself');
     assert.equal(page.el('set-costDailyLimit').value, '20.00');
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
     assert.equal(costPosts(page)[0].costMonthlyLimit, '440');
     assert.equal(costPosts(page)[0].costDailyLimit, null, 'worked out, so none is typed');
     assert.equal(costPosts(page)[0].costDailyAutomatic, true);
@@ -3461,7 +3463,7 @@ test('with Automatic unchecked the daily limit is typed in and sent, and checkin
     await change(page, 'set-costDailyAutomatic', false);
     assert.equal(page.el('set-costDailyLimit').value, '9.5', 'and what was typed is back');
 
-    await page.click('settings-apply');
+    await page.click('settings-save');
     assert.equal(costPosts(page)[0].costDailyAutomatic, false);
     assert.equal(costPosts(page)[0].costDailyLimit, '9.5');
     assert.equal(costPosts(page)[0].costMonthlyLimit, '250.00');
@@ -3475,7 +3477,7 @@ test('an emptied monthly limit is sent as no limit, and a limit the backend refu
     await change(page, 'set-costMonthlyLimit', '');
     assert.equal(page.el('set-costDailyLimit').value, '', 'nothing to work the daily one out from');
     state.postSettings = () => ({ status: 400, body: { error: 'The daily limit cannot be more than the monthly limit.' } });
-    await page.click('settings-apply');
+    await page.click('settings-save');
 
     assert.equal(costPosts(page)[0].costMonthlyLimit, null);
     assert.equal(page.el('settings-error').textContent, 'The daily limit cannot be more than the monthly limit.');

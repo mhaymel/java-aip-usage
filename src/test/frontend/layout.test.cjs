@@ -151,7 +151,7 @@ test('the settings view is in the panel area, below the strip, and starts hidden
 
 test('the settings view has the three buttons and a box for the interval, and no buttons for the whole main view', () => {
     assert.doesNotMatch(html, /settings-maximum|settings-minimum|Maximum view|Minimum view/);
-    for (const id of ['settings-apply', 'settings-restore', 'settings-cancel']) {
+    for (const id of ['settings-save', 'settings-restore', 'settings-cancel']) {
         assert.match(html, new RegExp('<button[^>]*id="' + id + '"'), id);
     }
     assert.match(html, /<input id="set-usageIntervalSeconds" type="text"/, 'a box to type any number in');
@@ -701,7 +701,7 @@ test('nothing in the settings wraps: every text on one line and the three button
     assert.match(ruleOf('#settings-form,\n#debug-form'), /width:\s*max-content/);
     assert.match(ruleOf('#settings-form,\n#debug-form'), /min-width:\s*100%/, 'and as wide as the window when that is wider');
     const buttons = html.slice(html.indexOf('<p id="settings-buttons" class="buttons">'), html.indexOf('</p>', html.indexOf('id="settings-buttons"')));
-    assert.deepEqual([...buttons.matchAll(/id="(settings-[a-z]+)"/g)].map(m => m[1]), ['settings-buttons', 'settings-apply', 'settings-restore', 'settings-cancel', 'settings-about']);
+    assert.deepEqual([...buttons.matchAll(/id="(settings-[a-z]+)"/g)].map(m => m[1]), ['settings-buttons', 'settings-save', 'settings-restore', 'settings-cancel', 'settings-about']);
     assert.match(ruleOf('.settings .panel-error'), /white-space:\s*normal/, 'a message may break');
 });
 
