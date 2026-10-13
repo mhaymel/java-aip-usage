@@ -189,10 +189,13 @@ final class ApiHandler implements HttpHandler {
                 send(exchange, 200, errors().toJson());
             }
             case "/api/history" -> {
-                if (!method.equals("GET")) {
-                    throw new ApiException(405, "Use GET.", "GET");
+                if (method.equals("GET")) {
+                    send(exchange, 200, history(zeroLinesAsked(exchange.getRequestURI().getQuery())).toJson());
+                } else if (method.equals("POST")) {
+                    updateHistory(exchange);
+                } else {
+                    throw new ApiException(405, "Use GET or POST.", "GET, POST");
                 }
-                send(exchange, 200, history().toJson());
             }
             case "/api/refresh" -> {
                 if (!method.equals("POST")) {
@@ -653,16 +656,53 @@ final class ApiHandler implements HttpHandler {
         send(exchange, 200, new LogSettingsBody(now.logLevel().json(), now.logDate()).toJson());
     }
 
+    /** Whether the request names how it wants the zero usage lines, shown or hidden: {@code null} when it does not, and the setting decides. */
+    private static Boolean zeroLinesAsked(String query) {
+        if (query == null) {
+            return null;
+        }
+        for (String part : query.split("&")) {
+            if (part.startsWith("zeroLines=")) {
+                String value = part.substring("zeroLines=".length());
+                if (!value.equals("true") && !value.equals("false")) {
+                    throw new ApiException(400, "zeroLines must be true or false.", null);
+                }
+                return value.equals("true");
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The one choice of the history panel, whether its zero usage lines are shown: the setting of that name, which the button
+     * of the panel switches. It is saved at once, and the other settings are left as they are.
+     */
+    private void updateHistory(HttpExchange exchange) throws IOException {
+        requireJson(exchange);
+        Json body = readJson(exchange);
+        try {
+            settings.apply(settings.current().withHistoryZeroLines(flag(body, "zeroLines")));
+        } catch (InvalidSettingException e) {
+            throw new ApiException(400, Failure.of(e), null);
+        } catch (SettingsException e) {
+            throw new ApiException(500, "The history settings could not be saved: " + Failure.of(e.getCause()), null);
+        }
+        send(exchange, 200, new HistorySettingsBody(settings.current().historyZeroLines()).toJson());
+    }
+
     /**
      * The history, with its lines finished: the page only draws them. The settings decide which lines are left out (the zero usage and
      * the failed ones), whether the time has the date and which change columns there are; the changes are worked out on the lines
      * that are shown; and the note says whenever not everything is shown.
+     *
+     * @param zeroLines whether the zero usage lines are shown, when the request says so; {@code null} for what the setting says
      */
-    private HistoryBody history() {
+    private HistoryBody history(Boolean zeroLines) {
         try {
             Settings now = settings.current();
             HistoryReader.Table table = HistoryReader.read(
-                    sources.history(), HISTORY_ROWS, new HistoryReader.Filter(now.historyZeroLines(), now.historyFailedLines()));
+                    sources.history(), HISTORY_ROWS,
+                    new HistoryReader.Filter(zeroLines != null ? zeroLines : now.historyZeroLines(), now.historyFailedLines()));
             // Each column is there when its setting is on, in the order of the view: the time, the amounts, the changes and the currency.
             List<String> columns = new java.util.ArrayList<>();
             if (now.historyTime()) {
@@ -714,7 +754,7 @@ final class ApiHandler implements HttpHandler {
             }
             return new HistoryBody(
                     sources.history().getFileName().toString(), table.exists(), columns, now.historyDate(),
-                    historyNote(table), historyNoteHighlighted(table), table.total(), lines);
+                    historyNote(table), historyNoteHighlighted(table), table.total(), now.historyZeroLines(), lines);
         } catch (IOException e) {
             LOG.warning("Could not read the usage history", e);
             throw new ApiException(500, "The usage history could not be read.", null);
@@ -1145,6 +1185,14 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
+    /** The one choice of the history panel as it is saved now. */
+    record HistorySettingsBody(boolean zeroLines) {
+
+        Json toJson() {
+            return Json.object().put("zeroLines", zeroLines);
+        }
+    }
+
     record LogSettingsBody(String level, boolean date) {
 
         Json toJson() {
@@ -1181,9 +1229,10 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
+    /** @param zeroLines whether the zero usage lines are shown as the setting has it, which is what is saved, not what a request asked for */
     record HistoryBody(
             String file, boolean exists, List<String> columns, boolean wide, String note, boolean noteHighlight, int total,
-            List<HistoryLine> lines) {
+            boolean zeroLines, List<HistoryLine> lines) {
 
         Json toJson() {
             Json all = Json.array();
@@ -1198,6 +1247,7 @@ final class ApiHandler implements HttpHandler {
                     .put("note", note)
                     .put("noteHighlight", noteHighlight)
                     .put("total", total)
+                    .put("zeroLines", zeroLines)
                     .put("lines", all);
         }
     }

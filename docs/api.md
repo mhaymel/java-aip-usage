@@ -20,7 +20,8 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `POST` | `/api/refresh` | Start a usage fetch now |
 | `GET` | `/api/log` | The end of the log file, at the level the log panel shows |
 | `POST` | `/api/log` | Save the two choices of the log panel, the level and the date |
-| `GET` | `/api/history` | The usage history, as finished lines (read-only) |
+| `GET` | `/api/history` | The usage history, as finished lines |
+| `POST` | `/api/history` | Save the one choice of the history panel, whether its zero usage lines are shown |
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 | `POST` | `/api/text-size` | Save the size of the text of the three lists |
 | `GET` | `/api/cost` | The cost control panel: the two bars, finished |
@@ -35,7 +36,7 @@ other path under `/api/` is `404` with `{"error":"No such endpoint."}`. Any othe
 method on these paths is `405`, with the right one in the body and in an `Allow`
 header: `{"error":"Use GET."}` and `Allow: GET`; `{"error":"Use POST."}` and
 `Allow: POST` for the refresh; `{"error":"Use GET or POST."}` and `Allow: GET, POST`
-for the settings. A fault of the backend inside a request is `500` with
+for the settings, the log and the history. A fault of the backend inside a request is `500` with
 `{"error":"Internal error; see the log."}`.
 
 A request is checked in this order: the path (`404`), the method (`405`), and for a
@@ -463,9 +464,10 @@ name.
 - `500` with `The folder could not be opened: <reason>` or `The path could not be copied: <reason>` when the desktop
   refuses. Any other method is `405`.
 
-## `GET /api/history`
+## `GET /api/history` and `POST /api/history`
 
-Read-only. The usage history, for the panel the history button opens in the main window. The backend sends the lines **finished**: the
+`GET` gives the usage history, for the panel the history button opens in the main window, with its zero usage lines shown or left out as the setting says, or as a query names it:
+`GET /api/history?zeroLines=false`, with `true` or `false`; anything else is `400`. The query saves nothing. The backend sends the lines **finished**: the
 page only draws them, and works out, sorts and decides nothing. The status, the interval and the duration of a row never reach it.
 
 ```json
@@ -477,6 +479,7 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
   "note": "Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.",
   "noteHighlight": true,
   "total": 1500,
+  "zeroLines": false,
   "lines": [
     { "cells": ["16:46:11", "260.66", "1000.00", "+0.05", "63 s", "$"], "start": false, "failed": false, "title": "" },
     { "cells": ["16:44:08", "failed", "", "", "121 s", ""], "start": false, "failed": true, "title": "" },
@@ -500,9 +503,15 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
 - `noteHighlight`: `true` when the note says that lines are left out (the one that starts `Showing`), which the window shows in blue; `false` for the notes about there being no history, and `false` when there is no note.
 - `wide`: whether the times have the date, so the first column is wider.
 - `total`: how many rows the file has; `exists`: `false`, with no lines, when there is no history yet.
+- `zeroLines`: whether the zero usage lines are shown as the setting `historyZeroLines` has it, which is what is saved; it is the saved one also when the query asked for the other. The button of the
+  history panel takes its state from it.
 - `500` with `{"error": "The usage history could not be read."}` if the file cannot be read.
 
-Both are `GET` only: any other method is `405` with an `Allow` header.
+`POST` saves the one choice of the panel, as the setting `historyZeroLines` of `settings.json`, which is the one the settings view has as `Zero usage lines`, and answers with it:
+`{"zeroLines": false}`. A `zeroLines` that is not `true` or `false`, or is missing, is `400` (`The setting zeroLines must be true or false.`, `The setting zeroLines is missing.`), and nothing is saved;
+a file that cannot be written is `500` with `The history settings could not be saved: <reason>`. The other settings are left as they are.
+
+Any other method on `/api/history` is `405` with `Allow: GET, POST`; `/api/errors` is `GET` only.
 
 ## `GET /api/errors`
 

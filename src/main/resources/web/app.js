@@ -21,6 +21,14 @@
     // backend's, saved in the settings file; the page has them from the first answer after the panel was opened.
     var logLevel = null;
     var logDate = false;
+    // The one choice of the history panel: whether its zero usage lines are shown, as the backend has it saved, or as its
+    // button was last pressed; null until the first answer of the history has said. A press that could not be saved holds
+    // all the same, and the history is then asked for by it. Each press is counted, so that an answer asked for before
+    // it is not taken for one that follows it.
+    var historyZero = null;
+    var historyUnsaved = false;
+    var historyPresses = 0;
+    var historyToTop = false;
     var logKnown = false;
     // A choice the backend could not save still holds for the panel: the level is then asked for by name.
     var logUnsaved = false;
@@ -892,9 +900,17 @@
         var spec = PANELS[name];
         var stamp = historyStamp();
         var level = logLevel;
+        var presses = historyPresses;
         panelLoading = true;
         try {
-            var body = await request(spec.path + (name === 'log' && logUnsaved ? '?level=' + level : ''));
+            var body = await request(spec.path + (name === 'log' && logUnsaved ? '?level=' + level : '')
+                + (name === 'history' && historyUnsaved ? '?zeroLines=' + historyZero : ''));
+            // The button of the history was pressed while this read was under way: its answer is of the lines as they were, so it
+            // is not shown, and the read that follows is.
+            var overtaken = name === 'history' && presses !== historyPresses;
+            if (name === 'history' && !overtaken) {
+                takeHistoryChoice(body);
+            }
             if (name === 'log') {
                 takeLogChoices(body);
                 // The date is the page's to cut: the lines come as the file has them.
@@ -908,11 +924,15 @@
                 return;
             }
             // A read that was begun for another level than the one chosen meanwhile is not shown: the one that follows is.
-            if (name === openPanel && !(name === 'log' && level !== null && level !== logLevel)) {
+            if (name === openPanel && !overtaken && !(name === 'log' && level !== null && level !== logLevel)) {
                 showPanel(shown);
                 if (name === 'log' && logToTop) {
                     $('panel-lines').scrollTop = 0;
                     logToTop = false;
+                }
+                if (name === 'history' && historyToTop) {
+                    $('panel-lines').scrollTop = 0;
+                    historyToTop = false;
                 }
                 // Noted only now that the read has been shown: a read that failed, or was for a panel that
                 // has gone, leaves the mark as it was, so the history is read again at the next poll.
@@ -928,8 +948,62 @@
         }
         // Another panel was opened while this read was under way and could not start its own: it starts now. So does the
         // read for a level that was chosen while this one was under way.
-        if (name !== openPanel || (name === 'log' && level !== null && level !== logLevel)) {
+        if (name !== openPanel || (name === 'log' && level !== null && level !== logLevel) || (name === 'history' && presses !== historyPresses)) {
             loadPanel();
+        }
+    }
+
+    /**
+     * Takes from an answer of the history whether the zero usage lines are shown, which is what is saved, and shows the button
+     * that switches it. A press that could not be saved is not overruled by what is saved.
+     */
+    function takeHistoryChoice(body) {
+        if (openPanel !== 'history') {
+            return;
+        }
+        if (!historyUnsaved) {
+            historyZero = body.zeroLines !== false;
+        }
+        labelZeroLines();
+        show('history-choices', true);
+    }
+
+    /** The button says which state it is in: blue while the zero usage lines are hidden, and what a press would do. */
+    function labelZeroLines() {
+        var button = $('zero-lines');
+        var hidden = historyZero === false;
+        var label = hidden ? 'Show the zero usage lines' : 'Hide the zero usage lines';
+        button.title = label;
+        button.setAttribute('aria-label', label);
+        button.setAttribute('aria-pressed', String(hidden));
+        button.className = 'icon tiny' + (hidden ? ' on' : '');
+    }
+
+    /**
+     * The button of the history was pressed: the zero usage lines are hidden, or shown again, at once, the history stands at its
+     * newest line, and the choice is saved as the setting of that name. If it cannot be saved it holds all the same, for the run.
+     */
+    async function toggleZeroLines() {
+        if (openPanel !== 'history' || historyZero === null) {
+            return;
+        }
+        historyZero = !historyZero;
+        historyPresses += 1;
+        historyToTop = true;
+        labelZeroLines();
+        try {
+            await postJson('/api/history', { zeroLines: historyZero });
+            historyUnsaved = false;
+            setNote('log-error', '');
+        } catch (e) {
+            historyUnsaved = true;
+            setNote('log-error', /^The history settings could not be saved: /.test(e.message) ? e.message : 'The history settings could not be saved: ' + e.message);
+        }
+        if (openPanel === 'history') {
+            // Read again whatever was read last: the lines are other ones.
+            panelKey = null;
+            panelMark = null;
+            await loadPanel();
         }
     }
 
@@ -1232,6 +1306,13 @@
         // the log are in it for the log alone.
         show('log-controls', Boolean(openPanel) && !FORMS[openPanel] && openPanel !== 'cost');
         show('log-choices', false);
+        // The history panel comes up with what is saved as well: its button is shown when the first answer has said what that is.
+        // A choice that could not be saved holds for the run, so it is kept from one opening of the history to the next.
+        if (!historyUnsaved) {
+            historyZero = null;
+        }
+        historyToTop = false;
+        show('history-choices', false);
         setNote('log-error', '');
         labelButtons();
         show('panel', panelIsOpen());
@@ -1448,6 +1529,7 @@
         applyListSize();
         $('zoom-in').addEventListener('click', function () { zoomLists(1); });
         $('zoom-out').addEventListener('click', function () { zoomLists(-1); });
+        $('zero-lines').addEventListener('click', toggleZeroLines);
         // The Debug tab is there in debug mode, and never otherwise.
         show('tabbtn-debug', Boolean(config.debug));
         TABS.forEach(function (tab) {

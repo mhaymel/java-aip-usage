@@ -155,7 +155,10 @@ function backendOf(state) {
         if (call.url.split('?')[0] === '/api/cost/daily') return state.costDaily ? state.costDaily(call) : { status: 200, body: { daily: null, weekdays: 22 } };
         if (call.url === '/api/cost') return state.cost ? state.cost() : { status: 200, body: COST };
         if (call.url === '/api/errors') return state.errors ? state.errors() : { status: 200, body: ERRORS };
-        if (call.url === '/api/history') return state.history ? state.history() : { status: 200, body: HISTORY };
+        if (call.url.split('?')[0] === '/api/history' && call.method === 'POST') {
+            return state.postHistory ? state.postHistory(JSON.parse(call.body)) : { status: 200, body: JSON.parse(call.body) };
+        }
+        if (call.url.split('?')[0] === '/api/history') return state.history ? state.history(call) : { status: 200, body: HISTORY };
         return { status: 404, body: { error: 'No such endpoint.' } };
     };
 }
@@ -4057,4 +4060,161 @@ test('the status keeps the button of the open cost control even when its switch 
     assert.equal(page.window.restoreView('cost', ''), true);
 
     assert.equal(page.el('cost-button').hidden, false, 'a button that is switched off is never taken from a panel that is open');
+});
+
+// ---- version 0.79: the button of the history that hides and shows the zero usage lines
+
+const historyGets = page => page.calls.filter(c => c.url.split('?')[0] === '/api/history' && c.method === 'GET').map(c => c.url);
+const historyPosts = page => page.calls.filter(c => c.url === '/api/history' && c.method === 'POST').map(c => JSON.parse(c.body));
+// A backend that keeps the choice, as the program does: the history has its three lines, or the one that changed.
+function historyBackend(extra = {}) {
+    const state = { config: CONFIG, status: SPEND_STATUS, zeroLines: true, ...extra };
+    const all = [line(['20:46:11', '260.66', '1000.00', 'USD']), line(['20:45:11', '260.36', '1000.00', 'USD']), line(['20:44:12', '260.36', '1000.00', 'USD'])];
+    state.history = call => {
+        const asked = /zeroLines=(true|false)/.exec(call.url);
+        const zero = asked ? asked[1] === 'true' : state.zeroLines;
+        return { status: 200, body: { ...HISTORY, zeroLines: state.zeroLines, total: 3, lines: zero ? all : [all[0]] } };
+    };
+    state.postHistory = state.postHistory || (body => { state.zeroLines = body.zeroLines; return { status: 200, body }; });
+    return state;
+}
+
+test('the history has a button for its zero usage lines, shown with the history alone and when its first answer has come', async () => {
+    const page = await load(backendOf(historyBackend()));
+    assert.equal(page.el('history-choices').hidden, true, 'nothing before a panel is shown');
+
+    await page.click('history-button');
+    assert.equal(page.el('history-choices').hidden, false);
+    assert.equal(page.el('zero-lines').title, 'Hide the zero usage lines', 'they are shown, so a press hides them');
+    assert.equal(page.el('zero-lines').attrs['aria-label'], 'Hide the zero usage lines');
+    assert.equal(page.el('zero-lines').attrs['aria-pressed'], 'false');
+    assert.doesNotMatch(page.el('zero-lines').className, /\bon\b/, 'gray, like the zoom buttons');
+
+    for (const other of ['log-button', 'errors-button', 'cost-button', 'settings-button']) {
+        await page.click(other);
+        assert.equal(page.el('history-choices').hidden, true, 'not with ' + other);
+        if (other === 'settings-button') {
+            await page.click('settings-cancel');
+        }
+    }
+});
+
+test('the button comes up as the setting is saved: blue, and offering to show them, when the zero usage lines are hidden', async () => {
+    const page = await load(backendOf(historyBackend({ zeroLines: false })));
+
+    await page.click('history-button');
+
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines');
+    assert.equal(page.el('zero-lines').attrs['aria-pressed'], 'true');
+    assert.match(page.el('zero-lines').className, /^icon tiny on$/, 'blue, at the size it has: not the bigger button of an open panel');
+    assert.equal(page.el('panel-lines').children.length, 2, 'the header and the one line that changed');
+});
+
+test('a press hides the zero usage lines at once, saves the setting, reads the history again and puts it at its top; another press shows them', async () => {
+    const state = historyBackend();
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+    assert.equal(page.el('panel-lines').children.length, 4, 'the header and three lines');
+    page.el('panel-lines').scrollTop = 40;
+    const reads = historyGets(page).length;
+
+    await page.click('zero-lines');
+
+    assert.deepEqual(historyPosts(page), [{ zeroLines: false }], 'the setting is saved, with no Save to press');
+    assert.equal(state.zeroLines, false);
+    assert.equal(historyGets(page).length, reads + 1, 'the history is read again, though no row was added');
+    assert.equal(historyGets(page).pop(), '/api/history', 'as the setting now says: nothing is named in the request');
+    assert.equal(page.el('panel-lines').children.length, 2, 'the lines with no change are gone');
+    assert.equal(page.el('panel-lines').scrollTop, 0, 'at its newest line');
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines');
+    assert.match(page.el('zero-lines').className, /\bon\b/);
+    assert.equal(page.el('log-error').hidden, true);
+
+    await page.click('zero-lines');
+
+    assert.deepEqual(historyPosts(page), [{ zeroLines: false }, { zeroLines: true }]);
+    assert.equal(page.el('panel-lines').children.length, 4, 'and back');
+    assert.equal(page.el('zero-lines').title, 'Hide the zero usage lines');
+    assert.doesNotMatch(page.el('zero-lines').className, /\bon\b/);
+});
+
+test('the checkbox of History view and the button are the one setting: a change saved in the settings is seen in the button', async () => {
+    const state = historyBackend();
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+    assert.equal(page.el('zero-lines').title, 'Hide the zero usage lines');
+
+    // Saved in the settings view, which gives the history back.
+    await page.click('settings-button');
+    state.zeroLines = false;
+    await page.click('settings-cancel');
+
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines', 'the history comes up with what is saved');
+});
+
+test('a choice that cannot be saved holds all the same, says so in red, and is asked for by name from then on', async () => {
+    const state = historyBackend({ postHistory: () => ({ status: 500, body: { error: 'The history settings could not be saved: access is denied' } }) });
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+
+    await page.click('zero-lines');
+
+    assert.equal(page.el('log-error').hidden, false);
+    assert.equal(page.el('log-error').textContent, 'The history settings could not be saved: access is denied', 'the reason, said once');
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines', 'it holds, though the backend still has the old value');
+    assert.equal(historyGets(page).pop(), '/api/history?zeroLines=false', 'asked for by what was chosen, not by what is saved');
+    assert.equal(page.el('panel-lines').children.length, 2);
+
+    await page.click('history-button');
+    await page.click('history-button');
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines', 'for the run: also when the history is shown again');
+    assert.equal(historyGets(page).pop(), '/api/history?zeroLines=false');
+
+    state.postHistory = body => { state.zeroLines = body.zeroLines; return { status: 200, body }; };
+    await page.click('zero-lines');
+    assert.equal(page.el('log-error').hidden, true, 'the line goes with a change that is saved');
+    assert.equal(historyGets(page).pop(), '/api/history', 'and the setting decides again');
+});
+
+test('an answer of the history that was asked for before a press is not shown, and does not put the button back', async () => {
+    const state = historyBackend();
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    let reads = 0;
+    // The first read from here on is held back and answers with the lines as they were; the one that follows it fails, so
+    // that what the page shows afterwards is what it made of the held one alone.
+    state.history = async () => {
+        reads += 1;
+        if (reads === 1) {
+            await held;
+            return { status: 200, body: { ...HISTORY, zeroLines: true, total: 0, lines: [] } };
+        }
+        return { status: 500, body: { error: 'The usage history could not be read.' } };
+    };
+    // A read is under way, begun by a new row, when the button is pressed.
+    state.status = { ...SPEND_STATUS, historyStamp: 'another' };
+    page.firePoll();
+    await settle();
+
+    page.click('zero-lines');
+    await settle();
+    release();
+    await settle();
+    await settle();
+
+    assert.equal(reads, 2, 'the read that was overtaken is followed by one of its own');
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines', 'the old answer does not put the button back');
+    assert.equal(page.el('panel-lines').children.length, 4, 'and its lines are not drawn: what was shown stays');
+});
+
+test('the button does nothing before the history has said what is saved, and nothing with another panel', async () => {
+    const page = await load(backendOf(historyBackend()));
+
+    await page.click('zero-lines');
+    await page.click('log-button');
+    await page.click('zero-lines');
+
+    assert.deepEqual(historyPosts(page), []);
 });

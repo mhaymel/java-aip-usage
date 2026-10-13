@@ -1701,8 +1701,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   tooltip is `Show the zero usage lines`; while they are shown it is gray like the zoom buttons and its tooltip is `Hide the zero
   usage lines`.
 - **After a click the history stands at the top**, at its newest line, whatever it was scrolled to before.
-- **When it cannot be saved** it holds for the run, and a red line in the history says `The history settings could not be saved:
-  <reason>`, until a change is saved.
+- **When it cannot be saved** it holds for the run, also when the history is closed and shown again, and a red line in the history says `The history settings could not be saved:
+  <reason>`, until a change is saved. The settings view shows what is saved, which is then not what the button says.
+- **The button is shown when the history has its first answer**, which says what is saved, like the two choices of the log.
 - **Only the history has it.** The log and the error log have no such button, and the failed lines are still hidden and shown by
   their checkbox alone.
 
@@ -2113,8 +2114,8 @@ These are things the program does that the sections above do not say, written do
   format is `The setting timeFormat must be "hh:mm" or "hh:mm:ss".`, also when it is not a text. A key that is not a setting is ignored. An interval out of range refuses the whole set before anything is written, so no other
   value of that request is kept. A set that was applied is answered with the settings as they now are, in the shape `GET /api/settings` has, which is what the view shows next.
 - **The order of the checks on a request**: the path (404), then the method (405), then the `Content-Type` (415), then the size (413), then whether it is JSON (400), then the settings themselves. So a `POST` of the wrong type
-  to a path that does not exist is 404. The 405 says which method is right: `{"error":"Use GET."}` with `Allow: GET` for the config, the status, the log, the errors and the history; `{"error":"Use POST."}` with
-  `Allow: POST` for the refresh; `{"error":"Use GET or POST."}` with `Allow: GET, POST` for the settings.
+  to a path that does not exist is 404. The 405 says which method is right: `{"error":"Use GET."}` with `Allow: GET` for the config, the status and the errors; `{"error":"Use POST."}` with
+  `Allow: POST` for the refresh; `{"error":"Use GET or POST."}` with `Allow: GET, POST` for the settings, for the log, which takes its two choices, and (since version 0.79) for the history, which takes its one.
 - **The `Content-Type` and the body, exactly.** The type is read without regard to case and by its beginning, so `application/json; charset=utf-8` passes; a request with no `Content-Type` is 415. The limit is 4,096 bytes
   exactly: 4,096 is taken and 4,097 is 413. A body with nothing in it is 400. `POST /api/refresh` does not read its body: with the right type, any body or none will do.
 - **The `Host` check, exactly.** The 403 is plain text, `Forbidden`, not JSON. It is also the answer when there is no `Host` header, when the port is missing or another, and for every other way of naming this machine,

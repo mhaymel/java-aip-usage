@@ -1895,16 +1895,123 @@ class ApiTest {
     }
 
     @Test
-    void theHistoryIsReadOnlyAndTheLogTakesNothingButItsTwoChoices() throws Exception {
+    void theHistoryTakesNothingButItsOneChoiceAndTheLogNothingButItsTwo() throws Exception {
         AppRuntime app = start(new FakeFetch());
 
-        HttpResponse<String> response = post(app, "/api/history", "{}");
+        HttpResponse<String> response = send(app, "/api/history", HttpRequest.newBuilder().PUT(HttpRequest.BodyPublishers.ofString("{}")));
         assertEquals(405, response.statusCode());
-        assertEquals("GET", response.headers().firstValue("Allow").orElse(""));
+        assertEquals("GET, POST", response.headers().firstValue("Allow").orElse(""));
+        assertEquals("Use GET or POST.", json(response).get("error").asText());
 
         HttpResponse<String> put = send(app, "/api/log", HttpRequest.newBuilder().PUT(HttpRequest.BodyPublishers.ofString("{}")));
         assertEquals(405, put.statusCode());
         assertEquals("GET, POST", put.headers().firstValue("Allow").orElse(""));
+    }
+
+    // ---- the one choice of the history panel: whether its zero usage lines are shown
+
+    private void writeThreeReadingsOneOfThemChanged() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,10.00,1000.00,USD,,60,400",
+                "2026-10-08 14:01:00,10.00,1000.00,USD,,60,400",
+                "2026-10-08 14:02:00,10.00,1000.00,USD,,60,400",
+                "2026-10-08 14:03:00,10.50,1000.00,USD,,60,400");
+    }
+
+    private AppRuntime startWithNoUsage() throws Exception {
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        return start(plan);
+    }
+
+    @Test
+    void theHistorySaysWhetherItsZeroUsageLinesAreShownWhichTheyAreByDefault() throws Exception {
+        writeThreeReadingsOneOfThemChanged();
+        AppRuntime app = startWithNoUsage();
+
+        Json history = json(get(app, "/api/history"));
+
+        assertTrue(history.get("zeroLines").asBoolean());
+        assertEquals(4, history.get("lines").size());
+    }
+
+    @Test
+    void theChoiceOfTheHistoryPanelIsSavedAtOnceAsTheSettingAndTheHistoryComesWithoutItsZeroUsageLines() throws Exception {
+        writeThreeReadingsOneOfThemChanged();
+        AppRuntime app = startWithNoUsage();
+
+        HttpResponse<String> saved = post(app, "/api/history", "{\"zeroLines\": false}");
+
+        assertEquals(200, saved.statusCode(), saved.body());
+        assertFalse(json(saved).get("zeroLines").asBoolean());
+        assertFalse(JsonReader.read(Files.readString(dir.resolve("settings.json"))).get("historyZeroLines").asBoolean(), "under the key the setting has");
+        assertFalse(json(get(app, "/api/settings")).at("/settings/historyZeroLines").asBoolean(), "the checkbox of History view shows the same");
+
+        Json history = json(get(app, "/api/history"));
+        assertFalse(history.get("zeroLines").asBoolean());
+        assertEquals(2, history.get("lines").size(), "the reading that changed, and the first, which has nothing before it");
+        assertTrue(history.get("note").asText().contains("zero usage"), "and the note says what is hidden");
+
+        assertTrue(json(post(app, "/api/history", "{\"zeroLines\": true}")).get("zeroLines").asBoolean());
+        assertEquals(4, json(get(app, "/api/history")).get("lines").size(), "and back");
+    }
+
+    @Test
+    void theOtherSettingsAreLeftAsTheyAreByTheChoiceOfTheHistoryPanel() throws Exception {
+        AppRuntime app = startWithNoUsage();
+        post(app, "/api/settings", allSettings(90, true, "hh:mm:ss"));
+        Json before = json(get(app, "/api/settings")).get("settings");
+
+        post(app, "/api/history", "{\"zeroLines\": false}");
+
+        Json after = json(get(app, "/api/settings")).get("settings");
+        for (String key : before.keys()) {
+            if (!key.equals("historyZeroLines")) {
+                assertEquals(before.get(key).toString(), after.get(key).toString(), key);
+            }
+        }
+        assertFalse(after.get("historyZeroLines").asBoolean());
+    }
+
+    @Test
+    void zeroLinesNamedInTheRequestIsWhatIsGivenAndTheSavedOneIsStillSaid() throws Exception {
+        writeThreeReadingsOneOfThemChanged();
+        AppRuntime app = startWithNoUsage();
+
+        Json hidden = json(get(app, "/api/history?zeroLines=false"));
+
+        assertEquals(2, hidden.get("lines").size(), "as asked");
+        assertTrue(hidden.get("zeroLines").asBoolean(), "what is saved, not what was asked for");
+        assertEquals(4, json(get(app, "/api/history?zeroLines=true")).get("lines").size());
+        assertEquals(400, get(app, "/api/history?zeroLines=maybe").statusCode());
+        assertEquals(4, json(get(app, "/api/history")).get("lines").size(), "nothing was saved by asking");
+    }
+
+    @Test
+    void aChoiceOfTheHistoryPanelThatIsNoneIsRefusedAndNothingIsSaved() throws Exception {
+        AppRuntime app = startWithNoUsage();
+
+        for (String body : new String[] {"{}", "{\"zeroLines\": \"no\"}", "{\"zeroLines\": 0}", "{\"zeroLines\": null}"}) {
+            HttpResponse<String> response = post(app, "/api/history", body);
+            assertEquals(400, response.statusCode(), body);
+            assertTrue(json(response).get("error").asText().startsWith("The setting zeroLines "), response.body());
+        }
+        assertTrue(json(get(app, "/api/history")).get("zeroLines").asBoolean());
+    }
+
+    @Test
+    void whenTheChoiceOfTheHistoryPanelCannotBeSavedItSaysSoAndNothingChanges() throws Exception {
+        AppRuntime app = AppRuntime.start(
+                new AppFiles(dir.resolve("no-such-dir").resolve("settings.json"), dir.resolve("history.csv"), dir.resolve("log")),
+                LaunchOptions.none(), new FakeFetch());
+        runtimes.add(app);
+
+        HttpResponse<String> response = post(app, "/api/history", "{\"zeroLines\": false}");
+
+        assertEquals(500, response.statusCode());
+        assertTrue(json(response).get("error").asText().startsWith("The history settings could not be saved: "), response.body());
+        assertFalse(response.body().contains(dir.toString()), "no path in the answer");
+        assertTrue(json(get(app, "/api/history")).get("zeroLines").asBoolean());
     }
 
     private static final String[] LEVELS = {

@@ -1043,3 +1043,16 @@ test('a panel button that is switched off and shown while the settings are open 
     assert.match(rule, /opacity:\s*0\.4/, 'at 40 percent of its strength');
     assert.doesNotMatch(rule, /width|height|margin|padding|display/, 'in its place and at its size, so the row is as wide with it as without');
 });
+
+test('the history has a button in the line of the zoom buttons, after them, for its zero usage lines: an icon with no text, blue while they are hidden', () => {
+    const line = html.slice(html.indexOf('id="log-controls"'), html.indexOf('id="log-error"'));
+    assert.ok(line.indexOf('id="zoom-out"') < line.indexOf('id="history-choices"'), 'after the two zoom buttons');
+    assert.match(line, /<span id="history-choices" class="zoom" hidden>\s*<button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines" title="Hide the zero usage lines" aria-pressed="false">/,
+        'hidden until the history says what is saved');
+    const button = line.slice(line.indexOf('id="zero-lines"'));
+    assert.match(button, /<path d="M2\.5 8h11M8 1\.5v4M6 3\.7l2 1\.8 2-1\.8M8 14\.5v-4M6 12\.3l2-1\.8 2 1\.8"\/>/, 'two short arrows that point at a line between them');
+    assert.equal(button.slice(0, button.indexOf('</button>')).replace(/<svg[\s\S]*<\/svg>/, '').replace(/<[^>]*>/g, '').replace(/^[^>]*>/, '').trim(), '', 'no text');
+    const rule = ruleOf('.icon.tiny.on');
+    assert.match(rule, /color:\s*var\(--info\)/, 'the blue of the notes');
+    assert.doesNotMatch(rule, /width|height|margin/, 'at the size of the zoom buttons, not the bigger one of an open panel');
+});
