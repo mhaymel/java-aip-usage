@@ -233,17 +233,25 @@
         return form === null || form === undefined ? text : form;
     }
 
+    // The panel buttons that are shown although they are switched off, which they are while the settings are open: dimmed, by name.
+    var offButtons = {};
+
     /**
-     * The buttons of the history, the log and the error log are there when their settings say so; the gear never goes. They follow
-     * their switches while the settings are shown as well, so that a click on a checkbox is seen in the row. The button of the panel
-     * that is shown is always there, so that the panel can be closed: a button that is switched off is never taken away from a panel
-     * that is open.
+     * The buttons of the history, the log, the error log and the cost control are there when their settings say so; the gear never
+     * goes. While the settings are shown all four are there, whatever their switches say, so that a panel whose button is switched
+     * off can be reached through the settings: one that is switched off, as its checkbox stands in the view, is dimmed and says in
+     * its tooltip that it will go. The button of the panel that is shown is always there, so that the panel can be closed: a
+     * button that is switched off is never taken away from a panel that is open.
      */
     function renderButtons(show) {
         var flags = { history: show.historyIcon, log: show.logIcon, errors: show.errorIcon, cost: show.costIcon };
+        var settingsOpen = openPanel === 'settings';
         Object.keys(flags).forEach(function (name) {
-            $(PANELS[name].button).hidden = !(flags[name] !== false || openPanel === name);
+            var on = flags[name] !== false;
+            $(PANELS[name].button).hidden = !(on || openPanel === name || settingsOpen);
+            offButtons[name] = settingsOpen && !on;
         });
+        labelButtons();
     }
 
     // The classes of the optional items of the row, which are a gray box of their own width when they have no value.
@@ -309,9 +317,6 @@
     var TABS = ['general', 'main', 'history', 'cost', 'debug', 'about'];
     var currentTab = TABS[0];
     var tabChosen = false;
-
-    // The setting that switches the button of each panel on and off; the settings have none, as their button is always there.
-    var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon', cost: 'showCostIcon' };
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
     var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon', 'showCostIcon'];
@@ -552,10 +557,7 @@
         try {
             var body = await postJson('/api/settings', readForm());
             takeSettings(body);
-            // A panel whose button has just been switched off is not given back.
-            if (returnTo && body.settings[ICON_SETTINGS[returnTo]] === false) {
-                returnTo = null;
-            }
+            // The panel the settings replaced is given back whatever its switch now says: its button stays until it is closed.
             return true;
         } catch (e) {
             setNote('settings-error', e.message);
@@ -1163,16 +1165,21 @@
         }
     }
 
+    // The second line of the tooltip of a panel button that is switched off and shown all the same, while the settings are open.
+    var OFF_NOTE = 'Switched off: this button goes when the settings are closed.';
+
     function labelButtons() {
         Object.keys(PANELS).forEach(function (name) {
             var spec = PANELS[name];
             var label = openPanel === name ? spec.hide : spec.show;
+            var off = Boolean(offButtons[name]) && openPanel === 'settings';
             var button = $(spec.button);
-            button.title = label;
+            button.title = off ? label + '\n' + OFF_NOTE : label;
             button.setAttribute('aria-label', label);
             button.setAttribute('aria-expanded', String(openPanel === name));
-            // The button of the panel that is shown is green; closing it, or showing another, gives it back its colour.
-            button.className = 'icon tiny' + (openPanel === name ? ' active' : '');
+            // The button of the panel that is shown is blue; closing it, or showing another, gives it back its colour. One that is
+            // switched off is dimmed.
+            button.className = 'icon tiny' + (openPanel === name ? ' active' : '') + (off ? ' off' : '');
         });
     }
 

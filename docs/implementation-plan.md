@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.79 is being built: 91 phases are built, and phases 92 to 99 are planned for the same version.** One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.79 is being built: 92 phases are built, and phases 93 to 99 are planned for the same version.** One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2028,7 +2028,7 @@ The requirements have no section "specified, not yet built" any more.
 
 ### 92. The panel buttons while the settings are shown
 
-**Status: planned.** Requirements: The panel buttons while the settings are shown; Compact window (the row); A click is shown in the row at once.
+**Status: built (version 0.79); not looked at in the window yet.** Requirements: The panel buttons while the settings are shown; Compact window (the row); A click is shown in the row at once.
 
 - **Today.** While the settings are open the four buttons follow the checkboxes of the view (`ICON_SETTINGS`, and the preview that `checked('showLogIcon')` and its neighbours feed); the button of the open panel is shown whatever its switch says.
 - **The change, in the page only.** While `openPanel === 'settings'`, each of the four buttons is shown, and has the class `off` when its checkbox, as it stands in the view, is unchecked. `app.css`: `.icon.tiny.off { opacity: 0.4; }` and nothing else, so the size and the place are those of a button that is on. The decision belongs where it is made today: if `view.js` says which buttons are shown from the `show` block, it is told whether the settings are open and answers `shown` and `off` for each; the page then only sets `hidden` and the class.
@@ -2037,6 +2037,10 @@ The requirements have no section "specified, not yet built" any more.
 - **Leaving**: with the settings closed the buttons follow the saved switches, as today. What changes is the giving back: `app.js` drops `returnTo` when the saved settings switch that panel's button off (`if (returnTo && body.settings[ICON_SETTINGS[returnTo]] === false) returnTo = null`); that goes, so the panel is given back whatever its switch says, and its button is shown as the open panel's.
 - **The width.** The row is as wide with a dimmed button as with a full one, so a click on one of the four checkboxes no longer changes the width the page asks for while the settings are open; `contentSize` is not touched.
 - **Tests.** `view.test.cjs` (shown and `off` for each combination of the switch, the settings open or not, the panel open or not), `app.test.cjs` (with `showLogIcon` off: no button with the settings closed, a dimmed one with them open, its two-line tooltip; a click on the checkbox takes the class away at once; a click on the dimmed button saves and opens the log, the button is then not dimmed, and it is gone when the log is closed; from that log the gear, then `Save`, `Cancel` or the gear again, and the log is back each time, also when its checkbox was switched off in between; the refresh button still goes with its checkbox), `layout.test.cjs` (the rule of the class).
+- **As built.** All of it is in `app.js` and one rule of `app.css`; `view.js` is not touched, since the decision which buttons are shown was in `renderButtons` of `app.js` and stays there. `renderButtons` shows every panel button while `openPanel === 'settings'`, notes in `offButtons` which of them are switched off, and calls `labelButtons`, which gives such a button the class `off` and the second line of its tooltip (`OFF_NOTE`), the `aria-label` staying the first line. The switch is the one the row is drawn from: the checkbox of the view once something was clicked, the backend's until then. `.icon.tiny.off` is `opacity: 0.4` and nothing else. `ICON_SETTINGS`, and the lines of `saveSettings` that dropped `returnTo` for a panel whose button was switched off, are gone.
+- **How it was checked.** The frontend suite, 382 tests. Four rules were broken on purpose and each was caught: the buttons following their switches again (6 tests fail), no dimming (8), no second line in the tooltip (2), a switched-off panel not given back (1). No Java changed.
+- **Found on the way.** Three tests had a backend that kept saying the old settings after a save, so the row went back to them at the next status; they now make the backend say what was saved. That is how the fake differs from the program, not a fault of the page.
+- **By eye, still to do:** how well a button at 40 percent is seen on the light and the dark theme, and the two-line tooltip in the JavaFX window, where the tooltip is drawn by the host.
 
 ### 93. The button in the history for the zero usage lines
 

@@ -268,6 +268,14 @@ body {
     color: var(--muted);
 }
 
+/*
+ * A panel button that is switched off and shown all the same, which it is while the settings are open: dimmed, in its place and
+ * at its size, so that the row is as wide with it as with a button that is on.
+ */
+.icon.tiny.off {
+    opacity: 0.4;
+}
+
 .icon:hover,
 .icon:focus-visible {
     border-color: var(--muted);

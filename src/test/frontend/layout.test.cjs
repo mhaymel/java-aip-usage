@@ -1037,3 +1037,9 @@ test('the tooltips of the settings are the texts the requirements give, with the
         assert.ok(html.slice(label, html.indexOf('>', label) + 1).endsWith(range + '">'), id + ' says its range');
     }
 });
+
+test('a panel button that is switched off and shown while the settings are open is dimmed, and nothing else of it changes', () => {
+    const rule = ruleOf('.icon.tiny.off');
+    assert.match(rule, /opacity:\s*0\.4/, 'at 40 percent of its strength');
+    assert.doesNotMatch(rule, /width|height|margin|padding|display/, 'in its place and at its size, so the row is as wide with it as without');
+});

@@ -1833,17 +1833,27 @@ test('a button that was off comes back at the next poll when it is switched on',
     assert.equal(page.el('log-button').hidden, false);
 });
 
-test('Apply that switches off the button of the panel the settings would give back gives nothing back; Cancel still does', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+test('Save that switches off the button of the panel the settings would give back gives it back all the same, and so does Cancel', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
     await page.click('history-button');
     await page.click('settings-button');
-    page.el('set-showHistoryIcon').checked = false;
+    await change(page, 'set-showHistoryIcon', false);
 
+    // The backend says what was saved from the next status on.
+    state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, historyIcon: false });
     await page.click('settings-save');
 
-    assert.equal(page.el('panel').hidden, true, 'the history is not shown again');
     assert.equal(page.el('settings-view').hidden, true);
+    assert.equal(page.el('panel').hidden, false, 'the history is shown again, whatever its switch says');
+    assert.equal(page.el('history-button').title, 'Hide the usage history');
+    assert.equal(page.el('history-button').hidden, false, 'and its button stays until the panel is closed');
+    assert.doesNotMatch(page.el('history-button').className, /\boff\b/, 'as the button of the open panel, not dimmed');
+    await page.click('history-button');
+    assert.equal(page.el('history-button').hidden, true, 'closed, it goes: it is switched off');
 
+    state.status = SPEND_STATUS;
+    await page.firePoll();
     await page.click('log-button');
     await page.click('settings-button');
     page.el('set-showHistoryIcon').checked = false;
@@ -1966,13 +1976,105 @@ const BUTTONS = ['log-button', 'history-button', 'errors-button', 'settings-butt
 const NO_ICONS = { historyIcon: false, logIcon: false, errorIcon: false };
 const visible = page => BUTTONS.filter(id => !page.el(id).hidden);
 
-test('with all three switched off only the gear is there, and opening the settings does not bring them back', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
+const OFF_LINE = 'Switched off: this button goes when the settings are closed.';
+const dimmed = page => ['log-button', 'history-button', 'errors-button', 'cost-button'].filter(id => /\boff\b/.test(page.el(id).className));
+
+test('with the panel buttons switched off only the gear is there, and opening the settings shows them all, dimmed, until the settings are left', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { ...NO_ICONS, costIcon: false }) }));
     assert.deepEqual(visible(page), ['settings-button']);
+    assert.equal(page.el('cost-button').hidden, true);
 
     await page.click('settings-button');
 
-    assert.deepEqual(visible(page), ['settings-button'], 'the buttons follow their switches while the settings are shown too');
+    assert.deepEqual(visible(page), BUTTONS, 'every panel button is in the row while the settings are shown');
+    assert.equal(page.el('cost-button').hidden, false, 'the cost button too');
+    assert.deepEqual(dimmed(page), ['log-button', 'history-button', 'errors-button', 'cost-button'], 'each is dimmed, since it is switched off');
+    assert.equal(page.el('log-button').title, 'Show the log\n' + OFF_LINE, 'the tooltip says that it will go, on a second line');
+    assert.equal(page.el('log-button').attrs['aria-label'], 'Show the log', 'its name is the first line alone');
+    assert.doesNotMatch(page.el('settings-button').className, /\boff\b/, 'the gear is never dimmed');
+
+    await page.click('settings-cancel');
+
+    assert.deepEqual(visible(page), ['settings-button'], 'left, the buttons that are switched off go');
+    assert.deepEqual(dimmed(page), [], 'and nothing is dimmed');
+    assert.equal(page.el('log-button').title, 'Show the log');
+});
+
+test('a panel button that is switched on is not dimmed while the settings are shown, and has its usual tooltip', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { ...NO_ICONS, logIcon: true }) }));
+
+    await page.click('settings-button');
+
+    assert.deepEqual(dimmed(page), ['history-button', 'errors-button'], 'the two that are off; the log and the cost button are on');
+    assert.equal(page.el('log-button').title, 'Show the log');
+    assert.equal(page.el('cost-button').title, 'Show the cost control');
+});
+
+test('a click on the checkbox of a panel button dims the button, or brings it back to full strength, at once and without moving the row', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    const before = page.window.contentSize();
+    assert.deepEqual(dimmed(page), []);
+
+    await change(page, 'set-showLogIcon', false);
+    assert.equal(page.el('log-button').hidden, false, 'still in the row');
+    assert.deepEqual(dimmed(page), ['log-button']);
+    assert.equal(page.el('log-button').title, 'Show the log\n' + OFF_LINE);
+
+    await change(page, 'set-showLogIcon', true);
+    assert.deepEqual(dimmed(page), [], 'on again: full strength');
+    assert.equal(page.el('log-button').title, 'Show the log');
+
+    await page.click('set-all');
+    await page.click('set-all');
+    assert.deepEqual(dimmed(page), ['log-button', 'history-button', 'errors-button', 'cost-button'], 'the button of Main view dims all four');
+    assert.equal(page.el('refresh').hidden, true, 'the refresh button still goes with its checkbox: only the panel buttons stay');
+    assert.equal(page.el('time').hidden, true, 'and so do the figures');
+    assert.equal(settingsPosts(page).length, 0, 'a preview sends nothing');
+    assert.equal(before.split(',')[2] + before.split(',')[3], '3settings');
+});
+
+test('a click on a dimmed button saves the settings and opens its panel, whose button then stays until the panel is closed', async () => {
+    const state = { config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    for (const key of ['showLogIcon', 'showHistoryIcon', 'showErrorIcon']) {
+        await change(page, 'set-' + key, false);
+    }
+    await change(page, 'set-showDeltaUsed', true);
+    assert.match(page.el('log-button').className, /\boff\b/);
+
+    await page.click('log-button');
+
+    assert.equal(settingsPosts(page).length, 1, 'the settings are saved, as by any button of the row');
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).showLogIcon, false, 'the button stays switched off');
+    assert.equal(page.el('settings-view').hidden, true);
+    assert.equal(page.el('log-button').title, 'Hide the log', 'the log is shown');
+    assert.match(page.el('log-button').className, /\bactive\b/);
+    assert.doesNotMatch(page.el('log-button').className, /\boff\b/, 'the button of the open panel is not dimmed');
+    assert.deepEqual(visible(page), ['log-button', 'settings-button'], 'the other two went with the settings');
+
+    await page.click('log-button');
+    assert.deepEqual(visible(page), ['settings-button'], 'closed, its button goes');
+});
+
+test('a panel reached through a dimmed button is given back by the settings, however they are left and whatever its switch says', async () => {
+    for (const leave of ['settings-save', 'settings-cancel', 'settings-button']) {
+        const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
+        await page.click('settings-button');
+        await page.click('log-button');
+        assert.equal(page.el('log-button').title, 'Hide the log');
+
+        await page.click('settings-button');
+        assert.equal(page.el('log-button').hidden, false);
+        assert.match(page.el('log-button').className, /\boff\b/, 'in the settings it is one of the dimmed buttons again');
+        await page.click(leave);
+
+        assert.equal(page.el('settings-view').hidden, true, leave);
+        assert.equal(page.el('log-button').title, 'Hide the log', 'the log is back after ' + leave);
+        assert.equal(page.el('log-button').hidden, false);
+        assert.doesNotMatch(page.el('log-button').className, /\boff\b/);
+    }
 });
 
 /** Sets a control of the settings as a click would, and tells the page. */
@@ -2002,11 +2104,15 @@ test('a click on a checkbox of the main view shows in the row at once, and nothi
     const polls = page.calls.filter(c => c.url === '/api/status').length;
 
     for (const [key, id] of Object.entries(ROW_ELEMENTS)) {
+        const panelButton = /-button$/.test(id);
         assert.equal(page.el(id).hidden, false, id + ' is there to begin with');
         await change(page, 'set-' + key, false);
-        assert.equal(page.el(id).hidden, true, key + ' off takes ' + id + ' away at once');
+        // A panel button stays while the settings are shown, dimmed; every other element goes.
+        assert.equal(page.el(id).hidden, !panelButton, key + ' off takes ' + id + ' away at once, unless it is a panel button');
+        assert.equal(/\boff\b/.test(page.el(id).className), panelButton, key + ' off dims ' + id + ' if it is a panel button');
         await change(page, 'set-' + key, true);
         assert.equal(page.el(id).hidden, false, key + ' on brings ' + id + ' back');
+        assert.doesNotMatch(page.el(id).className, /\boff\b/);
     }
     assert.equal(settingsPosts(page).length, 0, 'a preview sends nothing');
     assert.equal(page.calls.filter(c => c.url === '/api/status').length, polls, 'and needs no poll');
@@ -2757,8 +2863,12 @@ test('what the button does is shown in the row at once, saved with the view, and
     assert.equal(page.el('delta-used').hidden, false);
 
     await page.click('set-all');
-    for (const id of ['time', 'spend', 'refresh', 'countdown', 'interval', 'delta-used', 'delta-time', 'duration', 'log-button', 'history-button', 'errors-button']) {
+    for (const id of ['time', 'spend', 'refresh', 'countdown', 'interval', 'delta-used', 'delta-time', 'duration']) {
         assert.equal(page.el(id).hidden, true, id + ' is gone from the row');
+    }
+    for (const id of ['log-button', 'history-button', 'errors-button', 'cost-button']) {
+        assert.equal(page.el(id).hidden, false, id + ' stays while the settings are shown');
+        assert.match(page.el(id).className, /\boff\b/, id + ' is dimmed');
     }
     assert.equal(page.el('settings-button').hidden, false, 'the gear is always there');
 
@@ -3900,13 +4010,18 @@ test('the width of the cost control follows the widest row and the history\'s ta
 });
 
 test('the checkbox Cost button is in Main view, is posted with the rest and shows or hides the button in the row at once', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    const page = await load(backendOf(state));
     await page.click('settings-button');
     assert.equal(page.el('set-showCostIcon').checked, true, 'on by default');
 
     await change(page, 'set-showCostIcon', false);
-    assert.equal(page.el('cost-button').hidden, true, 'the row follows at once');
+    assert.equal(page.el('cost-button').hidden, false, 'while the settings are shown the button stays');
+    assert.match(page.el('cost-button').className, /\boff\b/, 'dimmed at once');
+    // The backend says what was saved from the next status on.
+    state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: false });
     await page.click('settings-save');
+    assert.equal(page.el('cost-button').hidden, true, 'and goes when they are left');
 
     assert.equal(JSON.parse(settingsPosts(page)[0].body).showCostIcon, false);
 });
