@@ -91,10 +91,11 @@ body {
 
 /*
  * A border of the page is at the edges of the window, not a fraction of a pixel inside them: the window's size is the
- * row's rounded up, so the app, which is as wide as the row, fills the window while it has a border. Not while a settings
- * view is shown, where the window's height is measured from the app's own (see contentSize).
+ * row's rounded up, so the app, which is as wide as the row, fills the window while it has a border. Not while a view is
+ * shown whose height the window is given, the settings and the cost control, where the window's height is measured from
+ * the app's own (see contentSize): the app is as wide as the window there by its own rule, and as tall as its content.
  */
-#app.bare,
+#app.bare:not(.fit),
 #app.fake:not(.fit) {
     min-width: 100%;
     min-height: 100%;

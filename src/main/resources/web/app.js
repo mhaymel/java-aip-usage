@@ -295,11 +295,12 @@
     }
 
     /**
-     * Whether the window has no title bar and the page draws its border: the setting is off and no panel is shown, since a
-     * panel brings the title bar back. Not while the red border of the fake backend is round the window.
+     * Whether the window has no title bar and the page draws its border: the setting is off and no panel is shown that brings
+     * the title bar back, which every panel does but the cost control. Not while the red border of the fake backend is round
+     * the window.
      */
     function bare() {
-        return Boolean(lastStatus && lastStatus.display && lastStatus.display.titleBar === false) && !openPanel && !fakeInUse();
+        return Boolean(lastStatus && lastStatus.display && lastStatus.display.titleBar === false) && (!openPanel || openPanel === 'cost') && !fakeInUse();
     }
 
     // ---- the settings view: a form the backend fills in each time it is opened

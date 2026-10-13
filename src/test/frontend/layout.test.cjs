@@ -897,7 +897,7 @@ test('with a settings view shown the app is as wide as the window, so that the r
 });
 
 test('an app with a border fills the window, so that the border is at its edges, but not while a settings view is measured', () => {
-    const rule = ruleOf('#app.bare,\n#app.fake:not(.fit)');
+    const rule = ruleOf('#app.bare:not(.fit),\n#app.fake:not(.fit)');
     assert.match(rule, /min-width:\s*100%/);
     assert.match(rule, /min-height:\s*100%/);
     assert.doesNotMatch(ruleOf('#app.fit'), /height/, 'the height of a settings view is the content\'s own');

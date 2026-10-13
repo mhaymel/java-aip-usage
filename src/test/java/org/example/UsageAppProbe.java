@@ -24,6 +24,12 @@ import java.util.concurrent.CountDownLatch;
 public final class UsageAppProbe {
 
     public static void main(String[] args) throws Exception {
+        // The window class is started here and not by Main, which opens the log: what the program logs is put on the
+        // console by the probe, so that the test can read it.
+        org.example.log.Log.addSink(entry -> {
+            System.out.print(entry.written(java.time.ZoneId.systemDefault()));
+            System.out.flush();
+        });
         // The fake backend is a debug setting now, and counts only in debug mode. Its amount does not grow here, so that
         // what the row shows can be said in advance: 186.02 of 1,000.00.
         Files.writeString(Path.of("settings.json"), "{\"showTitleBar\": false, \"fakeBackend\": true, \"fakeIncreaseCents\": 0}");
@@ -102,6 +108,13 @@ public final class UsageAppProbe {
             step("log-back", null);
             step("errors", "errors-button");
             step("errors-closed", "errors-button");
+            // The cost control cannot be resized, so it has no title bar: the window has its border, and is moved by dragging it.
+            step("cost-panel", "cost-button");
+            drag("drag-cost", "time");
+            // From it to a panel that can be resized, and back: the title bar comes and goes.
+            step("cost-to-log", "log-button");
+            step("cost-panel-again", "cost-button");
+            step("cost-panel-closed", "cost-button");
             // The settings with every element of the row hidden: the view is far wider than the row then.
             // The settings open on General, the first tab: the button of Main view is measured with its own tab shown.
             step("settings-open", "settings-button");
@@ -172,12 +185,13 @@ public final class UsageAppProbe {
             onFx(() -> page().getEngine().executeScript("document.getElementById('" + button + "').click()"));
         }
         Thread.sleep(1500);
-        // The title bar is switched off in this probe, so the window has it exactly while the page shows a panel. On a
-        // machine that is busy the exchange of the window can take longer than the wait above: it is given some more.
+        // The title bar is switched off in this probe, so the window has it exactly while the page shows a panel other than
+        // the cost control. On a machine that is busy the exchange of the window can take longer than the wait above: it is
+        // given some more.
         for (int waited = 0; waited < 10; waited++) {
             boolean[] settled = new boolean[1];
-            onFx(() -> settled[0] = StageSwap.hasTitleBar(window())
-                    == Boolean.TRUE.equals(page().getEngine().executeScript("!document.getElementById('panel').hidden")));
+            onFx(() -> settled[0] = StageSwap.hasTitleBar(window()) == Boolean.TRUE.equals(page().getEngine().executeScript(
+                    "!document.getElementById('panel').hidden && document.getElementById('cost-view').hidden")));
             if (settled[0]) {
                 break;
             }
@@ -188,7 +202,8 @@ public final class UsageAppProbe {
             Thread.sleep(300);
         }
         onFx(() -> {
-            List<Window> showing = Window.getWindows().stream().filter(Window::isShowing).toList();
+            // The windows of the program: a tooltip is a window of the toolkit too, and is none of them.
+            List<Window> showing = Window.getWindows().stream().filter(w -> w instanceof Stage && w.isShowing()).toList();
             System.out.println("PROBE " + name + "=titleBar:" + StageSwap.hasTitleBar(window())
                     + " windows:" + showing.size()
                     + " size:" + page().getEngine().executeScript("window.contentSize()")

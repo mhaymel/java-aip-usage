@@ -78,7 +78,7 @@ class TitleBarWindowTest {
         String all = String.join("\n", output.stream().filter(line -> line.startsWith("PROBE")).toList());
         System.out.println(all);
 
-        for (String bare : List.of("start", "settings-left", "history-closed", "errors-closed")) {
+        for (String bare : List.of("start", "settings-left", "history-closed", "errors-closed", "cost-panel-closed")) {
             assertTrue(line(all, bare).contains("titleBar:false"), bare + ": no panel, no title bar:\n" + all);
             assertTrue(line(all, bare).matches(".* size:\\d+,\\d+,0 .*"), bare + ": the row alone:\n" + all);
         }
@@ -86,6 +86,19 @@ class TitleBarWindowTest {
             assertTrue(line(all, open).contains("titleBar:true"), open + ": a panel is open, so the title bar is there:\n" + all);
             assertTrue(line(all, open).contains("," + open + " "), open + ": and the page names it:\n" + all);
         }
+        // The cost control cannot be resized, so it has no title bar: the page draws the border of such a window round it, the
+        // window is as large as the page asks, and it is moved by dragging it. A panel that can be resized, opened from it, has
+        // the title bar, and the cost control after that has none again.
+        for (String cost : List.of("cost-panel", "cost-panel-again")) {
+            assertTrue(line(all, cost).contains("titleBar:false"), cost + ": the cost control has no title bar:\n" + all);
+            assertTrue(line(all, cost).matches(".* size:\\d+,\\d+,3,cost .*"), cost + ": and the page names it:\n" + all);
+            // The fake backend is in use in this probe, so the border round the window is its red one, which takes the place of the
+            // black one of a window with no title bar; that one is checked with the page, where the fake backend can be off.
+            assertTrue(line(all, cost).contains(" app:[fit fake] border:3px "), cost + ": with a border round the window, as tall as its content:\n" + all);
+            assertTrue(line(all, cost).contains(" overflow:0 gap:0 below:0 "), cost + ": the border is at the edges of the window:\n" + all);
+        }
+        assertEquals("moved:40,25 hasTitleBar:false panel:true", line(all, "drag-cost").substring("PROBE drag-cost=".length()), all);
+        assertTrue(line(all, "cost-to-log").contains("titleBar:true"), "the log, opened from the cost control, has the title bar:\n" + all);
         // With no title bar the window is moved by dragging it, from a figure and from its edge, and not from a button; with
         // the title bar a drag inside it moves nothing.
         assertEquals("moved:40,25 hasTitleBar:false panel:false", line(all, "drag-figure").substring("PROBE drag-figure=".length()), all);

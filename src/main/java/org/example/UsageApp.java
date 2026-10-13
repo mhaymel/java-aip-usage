@@ -67,7 +67,8 @@ public class UsageApp extends Application {
     private Stage stage;
 
     /** Whether the page last said that a panel is open, which is when the window has its title bar whatever the setting says. */
-    private boolean panelOpen;
+    /** Whether the page shows a panel that keeps the title bar whatever the setting says: any but the cost control. */
+    private boolean panelKeepsTitleBar;
 
     /** Releases the runtime once, whether the window was closed or the process was told to stop. */
     private final RunOnce cleanup = new RunOnce(this::release);
@@ -253,14 +254,15 @@ public class UsageApp extends Application {
 
     /**
      * Gives the window its title bar or takes it away, as the setting says, and gives it whatever the setting says for as
-     * long as a panel is open: a window with no title bar has no frame, so it could be neither moved nor closed, nor a
-     * panel in it resized. The window is exchanged for another to do it, with the same page in it at the same place.
+     * long as a panel is open that can be resized: a window with no title bar has no frame, so a panel in it could not be
+     * dragged larger. The cost control, which cannot be resized, has none; it is moved by dragging it, like the row alone.
+     * The window is exchanged for another to do it, with the same page in it at the same place.
      */
     private void followTitleBar() {
         if (runtime == null || raising) {
             return;
         }
-        boolean wanted = runtime.settings().current().showTitleBar() || panelOpen;
+        boolean wanted = runtime.settings().current().showTitleBar() || panelKeepsTitleBar;
         if (StageSwap.hasTitleBar(stage) == wanted) {
             return;
         }
@@ -423,7 +425,7 @@ public class UsageApp extends Application {
     private void fit(WebView webView, Stage stage) {
         try {
             Object reported = webView.getEngine().executeScript(ASK_CONTENT_SIZE);
-            WindowFit.parse(reported).ifPresent(size -> panelOpen = size.panel() != null);
+            WindowFit.parse(reported).ifPresent(size -> panelKeepsTitleBar = size.keepsTitleBar());
             WindowFit.next(reported, appliedSize).ifPresent(size -> resize(stage, size));
             followView(webView, reported);
         } catch (RuntimeException e) {

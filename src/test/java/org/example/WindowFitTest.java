@@ -77,6 +77,16 @@ class WindowFitTest {
     }
 
     @Test
+    void everyPanelKeepsTheTitleBarButTheCostControlWhichCannotBeResized() {
+        for (String panel : new String[] {"history", "log", "errors", "settings", "debug"}) {
+            assertEquals(true, WindowFit.parse("400,420,2," + panel).orElseThrow().keepsTitleBar(), panel);
+        }
+        assertEquals(false, WindowFit.parse("400,120,3,cost").orElseThrow().keepsTitleBar(), "the cost control has none, like the row alone");
+        assertEquals(false, WindowFit.parse("400,42,0").orElseThrow().keepsTitleBar(), "no panel");
+        assertEquals(false, WindowFit.parse("400,42").orElseThrow().keepsTitleBar());
+    }
+
+    @Test
     void aNewSizeIsAppliedAndTheSameOneIsNot() {
         Optional<Size> none = Optional.empty();
         assertEquals(Optional.of(new Size(400, 42)), WindowFit.next("400,42", none));

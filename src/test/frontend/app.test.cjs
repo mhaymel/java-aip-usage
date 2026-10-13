@@ -4323,3 +4323,40 @@ test('what the history list lacked is forgotten when the table is another, and i
     box.scrollWidth = 100;
     assert.equal(widthAsked(), 500 + 16, 'the new table by itself, with nothing carried over');
 });
+
+// ---- version 0.79: the cost control has no title bar when the setting is off
+
+test('with the title bar off the cost control has the border of a window with no title bar, and is larger by it; every other panel takes it away', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: bareStatus(SPEND_STATUS) }));
+
+    await page.click('cost-button');
+
+    assert.match(page.el('app').className, /\bbare\b/, 'the cost control cannot be resized, so the window has no title bar with it');
+    assert.match(page.el('app').className, /\bfit\b/, 'and is as tall as its content, as before');
+    const [width, height, resize, panel] = page.window.contentSize().split(',');
+    assert.equal(resize + ',' + panel, '3,cost');
+    assert.ok(Number(width) >= 402, 'at least the row and a pixel of border at each side: ' + width);
+    assert.equal(Number(height), 42, 'the height of the page, which has the border in it');
+
+    for (const button of ['log-button', 'history-button', 'errors-button', 'settings-button']) {
+        await page.click(button);
+        assert.doesNotMatch(page.el('app').className, /\bbare\b/, button + ': a panel that can be resized, so the title bar is there');
+        if (button === 'settings-button') {
+            await page.click('settings-cancel');
+        } else {
+            await page.click('cost-button');
+        }
+        assert.match(page.el('app').className, /\bbare\b/, 'and the border is back with the cost control');
+    }
+});
+
+test('with the title bar on, and with the fake backend in use, the cost control has no such border', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('cost-button');
+    assert.doesNotMatch(page.el('app').className, /\bbare\b/);
+
+    const fake = await load(backendOf({ config: CONFIG, status: { ...bareStatus(SPEND_STATUS), fake: true } }));
+    await fake.click('cost-button');
+    assert.doesNotMatch(fake.el('app').className, /\bbare\b/, 'the red border is round the window then');
+    assert.match(fake.el('app').className, /\bfake\b/);
+});

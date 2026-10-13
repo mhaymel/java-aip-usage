@@ -24,8 +24,8 @@ final class WindowFit {
      *
      * @param resize what of the window the person may drag
      * @param panel which panel the page has open, if it said ({@code history}, {@code log}, {@code errors}, {@code settings}
-     *     or {@code debug}); the host remembers the height of the history and the log, and gives the window its title bar
-     *     for as long as any panel is open
+     *     {@code cost} or {@code debug}); the host remembers the height of the history and the log, and gives the window its
+     *     title bar for as long as a panel is open that keeps it
      */
     record Size(int width, int height, Resize resize, String panel) {
 
@@ -39,6 +39,15 @@ final class WindowFit {
 
         boolean resizable() {
             return resize == Resize.HEIGHT || resize == Resize.BOTH;
+        }
+
+        /**
+         * Whether the window has its title bar for this, whatever the setting says. A panel that the person can resize has
+         * it, since a window with no frame cannot be dragged larger: the log, the error log, the history, and the settings,
+         * one tab of which can be dragged wider. The cost control cannot be resized and has none, like the row alone.
+         */
+        boolean keepsTitleBar() {
+            return panel != null && !panel.equals("cost");
         }
     }
 

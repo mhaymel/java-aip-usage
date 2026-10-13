@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.79 is being built: 94 phases are built, and phases 95 to 99 are planned for the same version.** One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.79 is being built: 95 phases are built, and phases 96 to 99 are planned for the same version.** One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2076,13 +2076,18 @@ The requirements have no section "specified, not yet built" any more.
 
 ### 95. The title bar only for a panel that can be resized
 
-**Status: planned.** Requirements: Settings (The title bar), A border round the window that has no title bar, Dragging the window that has no title bar, The cost control panel: two bars.
+**Status: built (version 0.79); seen in a real window on Windows, with the red border of the fake backend. The black border round the cost control is still to be looked at.** Requirements: Settings (The title bar), A border round the window that has no title bar, Dragging the window that has no title bar, The cost control panel: two bars.
 
 - **Host.** `UsageApp.followTitleBar`: `wanted` is today `showTitleBar || panelOpen`. `panelOpen` becomes "a panel is open that keeps the title bar": every panel name but `cost`. It is set where the page's size is parsed (`WindowFit.parse(reported).ifPresent(size -> panelOpen = …)`); the rule gets a name and a home, `WindowFit.Size.keepsTitleBar()`, so that it is tested without a window. The swap of the stage, the measuring of the frame again and the debug lines are as they are.
 - **Going from a panel with the title bar to the cost control**, with the setting off, swaps the window once, and once more on the way back: the flicker the requirements accept.
 - **The page.** `bare()`, which says whether the window has no title bar (the border of one pixel, and the `edge` of 2 in `contentSize`), must say so for the cost control too. The red border of the fake backend still wins.
 - **Dragging.** `UsageApp` begins a drag only when `!StageSwap.hasTitleBar(stage)`, so the cost panel is dragged without more; `window.dragStartsAt` already refuses buttons, and the bars are none.
 - **Tests.** `WindowFitTest` (`keepsTitleBar` for each panel name and for none), `app.test.cjs` (`bare` with the cost control, the border, the size larger by 2), `TitleBarWindowTest` (the real window: the setting off, the cost control opened, no title bar; the log opened from it, a title bar; closed, none).
+- **As built.** `WindowFit.Size.keepsTitleBar()`: a panel is named and is not `cost`. `UsageApp`: the field `panelOpen` is `panelKeepsTitleBar`, set from it where the size is parsed, and `followTitleBar` asks it. The page: `bare()` holds with no panel and with the cost control. Nothing was needed for the dragging, as planned.
+- **Not foreseen: the height of the cost control.** The app of a window with no title bar is made to fill the window (`min-height: 100%`), so that its border is at the edges. With the cost control the window is as tall as the app says, so an app that is as tall as the window would have said the window's own height back, and the window could never have become lower again. The rule is now `#app.bare:not(.fit)`, as it was for the red border already: where the height is the content's own, the app is as tall as its content.
+- **`TitleBarWindowTest` passes again**, for the first time since phase 81: both of its tests, run in the real window. What was left of it after phase 94 was the test's own. The probe counted every window of the toolkit, a tooltip among them, where the rule is about the windows of the program; and since phase 85, when the program began to write its log itself, nothing the program logged reached the console the test reads, because the probe starts the window class without `Main`, which opens the log. The probe now counts stages and puts what is logged on the console. It also opens the cost control: no title bar, the size `...,3,cost`, a border at the edges of the window, a drag that moves the window by 40 and 25 pixels, the log opened from it with a title bar, and none again after.
+- **How it was checked.** The frontend suite, 398 tests; `./gradlew test`; `TitleBarWindowTest` and `PanelWindowTest` in the real window. Three rules were broken on purpose and each was caught: the cost control keeping the title bar in the page, a bare app filling the window where its height is measured, the host keeping the title bar for every panel.
+- **Not seen.** The probe runs with the fake backend in use, so the border it saw round the cost control is the red one. The black border of one pixel is held by the tests of the page only.
 
 ### 96. The tab `About` can be dragged wider
 
