@@ -61,12 +61,20 @@ public class UsageApp extends Application {
     /** The window that is running, so that a shutdown hook can release what it holds. */
     private static volatile UsageApp running;
 
+    /**
+     * The toolkit makes this object on its own thread and, as soon as it is made, names its application after this class,
+     * which is what macOS then shows in the menu beside the apple. The toolkit takes a name only while it has none, so the
+     * program's name is given here, where it is the first.
+     */
+    public UsageApp() {
+        MacName.nameTheApplication();
+    }
+
     private AppRuntime runtime;
 
     /** The window that is showing. It is another one after the title bar has come or gone; see {@link StageSwap}. */
     private Stage stage;
 
-    /** Whether the page last said that a panel is open, which is when the window has its title bar whatever the setting says. */
     /** Whether the page shows a panel that keeps the title bar whatever the setting says: any but the cost control. */
     private boolean panelKeepsTitleBar;
 
@@ -168,6 +176,8 @@ public class UsageApp extends Application {
         watchHeight(stage);
         stage.show();
         bringToFront();
+        // On macOS the Dock would show the icon of a program that has none.
+        MacName.showTheIconInTheDock();
         keepFitting(webView);
         letTheWindowBeDragged(webView);
     }

@@ -2513,9 +2513,23 @@ What holds for the version written in Java, and only for it. Everything above ho
 - **The About view** names the runtime `Java` and the toolkit of the window `JavaFX`, each with its version; `JavaFX`
   is `unknown` in a run that has no window.
 - **The name on macOS.** Started as it is, a Java program is `java` to macOS, and its menu reads `Quit org.example.UsageApp`.
-  This version gives the system its name, `aip usage`, and its icon for the Dock (see The name of the program, as the system
-  shows it), when it is started with `./gradlew run` and when it is started from an IDE as a plain `main` method alike,
-  without an app bundle.
+  This version does for itself what a program can do there without an app bundle (see The name of the program, as the system
+  shows it), and the same when it is started with `./gradlew run` and from an IDE as a plain `main` method:
+  - **The entries of the menu beside the apple** read `Hide aip usage` and `Quit aip usage`. The toolkit of the window writes
+    them with the name of its application, and takes a name only while it has none: the program gives its own when the
+    application object is made, before the toolkit gives the name of the class.
+  - **The icon in the Dock** is the gauge. Started with `./gradlew run`, the start names the icon and the toolkit follows it;
+    started from an IDE, the program asks the system's own Java for it, on a thread of its own, once the window is shown. That
+    part of Java is loaded for this alone.
+  - **Not met by this version: the name the menu bar shows in bold beside the apple, and the name under the icon in the Dock.**
+    macOS takes both from the bundle of an application, and a program started as `java` has none; nothing the program can do
+    for itself changes them, and the toolkit of the window does not follow the option the start has for it. They stay `java`
+    until there is an app bundle, which this version leaves out on purpose (see Systems below). It is an open point, not a
+    decision against the requirement.
+  - **The steps can be switched off** with `-Daipusage.macname=false`, should one of them do harm on some machine; each that
+    cannot be taken is a debug line in the log and stops nothing.
+  - **None of it has been seen on a Mac yet**: it was built on Windows, where the first step can be seen in the toolkit and the
+    others cannot.
 - **The frontend tests** are run by `./gradlew frontendTest`, a task of its own that is not part of `build`, so that
   building needs nothing but a JDK.
 - **The test that opens a real window** runs only with `-Daipusage.windows=true`.

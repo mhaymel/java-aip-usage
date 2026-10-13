@@ -42,6 +42,8 @@ public final class Main {
         try (Logging logging = Logging.install(Path.of(Logging.LOG_FILE_NAME).toAbsolutePath(), options.debug())) {
             // Also tidies up if the process is told to stop; see ShutdownHook.
             ShutdownHook.install(() -> UsageApp.shutDown(), logging);
+            // On macOS a program started as java is shown under that name: the system is told the program's own.
+            MacName.beforeLaunch();
             Application.launch(UsageApp.class, args);
         }
     }

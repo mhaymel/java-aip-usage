@@ -23,7 +23,22 @@ application {
     applicationName = "java-aip-usage"
     // JavaFX loads native libraries; without this the JDK warns on every start
     // that restricted methods "will be blocked in a future release".
-    applicationDefaultJvmArgs = listOf("--enable-native-access=javafx.graphics,javafx.web")
+    // The second option lets the program name the toolkit's application, which is what macOS shows in the menu beside the
+    // apple ("Quit aip usage"): the toolkit has no public way to do it, and here it is on the module path, where its own
+    // classes are closed to the program unless the start opens them. See MacName.
+    val toolkit = listOf(
+        "--enable-native-access=javafx.graphics,javafx.web",
+        "--add-exports=javafx.graphics/com.sun.glass.ui=ALL-UNNAMED",
+    )
+    // On macOS the start also names the program and its icon for the Dock. Only the launcher of macOS knows these two
+    // options; on another system they would stop the start. The toolkit follows the icon; whether anything follows the
+    // name is not known, and it does no harm.
+    val dock = if (org.gradle.internal.os.OperatingSystem.current().isMacOsX) {
+        listOf("-Xdock:name=aip usage", "-Xdock:icon=" + file("src/main/resources/icons/icon-256.png").absolutePath)
+    } else {
+        emptyList()
+    }
+    applicationDefaultJvmArgs = toolkit + dock
 }
 
 repositories {

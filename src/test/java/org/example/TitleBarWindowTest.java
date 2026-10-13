@@ -78,6 +78,10 @@ class TitleBarWindowTest {
         String all = String.join("\n", output.stream().filter(line -> line.startsWith("PROBE")).toList());
         System.out.println(all);
 
+        // The toolkit's application has the program's name, which is what macOS writes into the menu beside the apple, and not
+        // the name of the window class, which the toolkit gives it by itself. And the system's own Java, loaded for the icon
+        // of the Dock, did no harm: every step that follows was taken.
+        assertEquals("PROBE application-name=aip usage", line(all, "application-name"), all);
         for (String bare : List.of("start", "settings-left", "history-closed", "errors-closed", "cost-panel-closed")) {
             assertTrue(line(all, bare).contains("titleBar:false"), bare + ": no panel, no title bar:\n" + all);
             assertTrue(line(all, bare).matches(".* size:\\d+,\\d+,0 .*"), bare + ": the row alone:\n" + all);
@@ -365,6 +369,11 @@ class TitleBarWindowTest {
                 "--module-path", String.join(java.io.File.pathSeparator, modulePath),
                 "--add-modules", "javafx.controls,javafx.web",
                 "--enable-native-access=javafx.graphics,javafx.web",
+                // As the build starts the program: the toolkit's own class is open to it, so that it can name the toolkit's
+                // application. And the steps for macOS are taken here whatever the system, so that the first of them, which
+                // the toolkit takes the same way everywhere, is seen in a real window.
+                "--add-exports=javafx.graphics/com.sun.glass.ui=ALL-UNNAMED",
+                "-D" + MacName.SWITCH + "=true",
                 "-cp", String.join(java.io.File.pathSeparator, classPath),
                 probe.getName(), dir.toString())
                 // The application keeps its files in the directory it is started in.

@@ -51,6 +51,12 @@ public final class UsageAppProbe {
     private static void drive() {
         try {
             Thread.sleep(5000);
+            // What the toolkit calls its application: the program's name when the probe is started with the switch for it, and
+            // the name of the window class, which the toolkit gives by itself, when it is not.
+            onFx(() -> {
+                System.out.println("PROBE application-name=" + com.sun.glass.ui.Application.GetApplication().getName());
+                System.out.flush();
+            });
             step("start", null);
             // The mouse rests on the amount used: its tooltip comes, and is of the size the window's style sheet gives it.
             hover("tooltip", "used");
