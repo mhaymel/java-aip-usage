@@ -7,10 +7,11 @@ package org.example.usage;
  * <p>It remembers one figure, the refused interval: the interval at which the last HTTP 429 came. After a 429 the
  * interval is a tenth longer than that, rounded up to the next 5, at least 5 more. After eight answers in a row without a 429 it is 5
  * seconds shorter, but never as short as the refused one, so it stays just above what was refused and mostly does not run into it
- * again. The memory is forgotten slowly, 5 seconds for every sixty answers without a 429, so that a limit that has gone
- * down is followed down. Before any refusal is known the interval goes down by a tenth with each answer.
+ * again. The memory is forgotten by time, 5 seconds for every ten minutes without a 429, whatever the interval is, so
+ * that a limit that has gone down is followed down at the same pace by a search that asks every ten seconds and by one
+ * that asks every five minutes. Before any refusal is known the interval goes down by a tenth with each answer.
  *
- * <p>It has no clock and no thread: it is told what happened and says what the interval is.
+ * <p>It has no clock and no thread: it is told what happened, and when, and says what the interval is.
  */
 public final class IntervalSearch {
 
@@ -29,8 +30,8 @@ public final class IntervalSearch {
     /** How many answers in a row without a 429 it takes to speed up by a step. */
     static final int ANSWERS_PER_STEP = 8;
 
-    /** How many answers in a row without a 429 it takes to forget a step of the refused interval. */
-    static final int ANSWERS_PER_DECAY = 60;
+    /** How long without a 429 it takes to forget a step of the refused interval, in nanoseconds: ten minutes. */
+    static final long DECAY_NANOS = 600L * 1_000_000_000L;
 
     private int interval;
 
@@ -39,7 +40,15 @@ public final class IntervalSearch {
 
     private int stepCount;
 
-    private int decayCount;
+    /**
+     * The time the ten minutes are counted from: the first answer the search is told of, the last 429, or the last step
+     * of the refused interval. It is not saved: a search that is made, at the start of the program or when the automatic
+     * interval is switched on, begins its ten minutes with its first answer.
+     */
+    private long decayFrom;
+
+    /** Whether the search has been told of an answer yet, so that {@link #decayFrom} is a time. */
+    private boolean timed;
 
     private IntervalSearch(int interval, int refused) {
         this.interval = interval;
@@ -83,8 +92,16 @@ public final class IntervalSearch {
         return refused == 0 ? null : refused;
     }
 
-    /** Anthropic answered without a 429. */
-    public void succeeded() {
+    /**
+     * Anthropic answered without a 429.
+     *
+     * @param nowNanos the time of the answer, on a clock that only goes forward
+     */
+    public void succeeded(long nowNanos) {
+        if (!timed) {
+            timed = true;
+            decayFrom = nowNanos;
+        }
         if (refused == 0) {
             // A tenth less, rounded up to the next 5, and never less than 5 below where it was.
             interval = Math.max(MIN_SECONDS, Math.min(roundUp((interval * 9L + 9) / 10), interval - STEP_SECONDS));
@@ -94,26 +111,26 @@ public final class IntervalSearch {
             stepCount = 0;
             interval = Math.min(interval, Math.max(Math.max(MIN_SECONDS, refused + STEP_SECONDS), interval - STEP_SECONDS));
         }
-        if (++decayCount >= ANSWERS_PER_DECAY) {
-            decayCount = 0;
+        // One step for one answer, however long it is since the last: only an answer of Anthropic moves the search.
+        if (nowNanos - decayFrom >= DECAY_NANOS) {
+            decayFrom = nowNanos;
             refused = refused - STEP_SECONDS < MIN_SECONDS ? 0 : refused - STEP_SECONDS;
         }
-    }
-
-    /** Anthropic answered HTTP 429. */
-    public void rateLimited() {
-        rateLimited(0);
     }
 
     /**
      * A 429 with which the server named a wait, in seconds; none is 0. The interval that was refused is remembered and the
      * new one is a tenth longer; when the wait the server names is longer than that, the interval becomes that wait, so that
-     * there is one figure for the wait. Never more than 300 seconds.
+     * there is one figure for the wait. Never more than 300 seconds. The ten minutes after which the refused interval is
+     * forgotten a step begin again.
+     *
+     * @param nowNanos the time of the answer, on a clock that only goes forward
      */
-    public void rateLimited(long serverSeconds) {
+    public void rateLimited(long serverSeconds, long nowNanos) {
         refused = interval;
         stepCount = 0;
-        decayCount = 0;
+        timed = true;
+        decayFrom = nowNanos;
         interval = Math.min(MAX_SECONDS, Math.max(roundUp((refused * 11L + 9) / 10), refused + STEP_SECONDS));
         if (serverSeconds > interval) {
             interval = Math.min(MAX_SECONDS, roundUp(serverSeconds));

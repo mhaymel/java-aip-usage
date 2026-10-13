@@ -1343,9 +1343,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   again at 0 after each step and after each 429. So the interval stays just above what was refused, and sinks one step at a time while nothing is refused, which is why
   the search keeps near the limit and mostly does not run into it.
 - **`R` is forgotten by time** (since version 0.79): for every **10 minutes without a 429** `R` is 5 seconds lower, whatever the interval is; below 10 it is none. The 10 minutes are counted while the program runs with `Automatic` on, and
-  start again after each step, after each 429, when `Automatic` is switched on and at the start of the program. The step is made with an answer without a 429, the first that comes when the 10 minutes are over, and no more than one step with one answer, so it is still only
+  start again after each step and after each 429; at the start of the program and when `Automatic` is switched on they begin with the first answer that comes then, since the time is not saved with the search. The step is made with an answer without a 429, the first that comes when the 10 minutes are over, and no more than one step with one answer, so it is still only
   an answer of Anthropic that moves the search. A step of `R` writes the line of the log, as a step of the interval does. (Until version 0.78 `R` was 5 seconds lower after 60 answers in a row without a 429, which at an interval of 200 seconds is more than three hours for one step:
-  the interval stayed where it was although nothing was refused, which read as a fault.) So when
+  the interval stayed where it was although nothing was refused, which read as a fault.) **What then holds the interval is its own pace**, a step of 5 seconds for 8 answers, which is 27 minutes at 200 seconds and
+  2 minutes at 15: at a long interval it comes down by 5 seconds about every half hour, no faster. **Once it has settled a 429 comes no more often than every ten minutes**, since the refused interval has to be forgotten a step before it is tried again. So when
   the limit of the server has gone down the search follows it down.
 - **Before a refusal is known** (no `R`) the interval goes down by a tenth with each answer without a 429, rounded up to a multiple of 5 and at least 5 less than it was, not below 10, so the search does not
   take minutes to come down from 60.

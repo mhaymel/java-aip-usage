@@ -85,6 +85,9 @@ public final class UsageService implements AutoCloseable {
     /** The search for the interval, while the automatic interval is on; {@code null} while it is off. */
     private IntervalSearch search;
 
+    /** The clock the search is told the time of an answer by; another one only in a test, which cannot wait ten minutes. */
+    private volatile java.util.function.LongSupplier searchClock = System::nanoTime;
+
     /** Told where the search is whenever it has moved, so that it can be saved. */
     private java.util.function.Consumer<IntervalSearch> searchListener = moved -> { };
 
@@ -228,6 +231,11 @@ public final class UsageService implements AutoCloseable {
         }
     }
 
+    /** For a test: the clock by which the search is told when an answer came, in nanoseconds. */
+    void searchClock(java.util.function.LongSupplier clock) {
+        searchClock = clock;
+    }
+
     /** Registers who is told where the search for the automatic interval is, each time it has moved; replaces any earlier listener. */
     public void onSearchMoved(java.util.function.Consumer<IntervalSearch> listener) {
         ask(() -> {
@@ -359,6 +367,9 @@ public final class UsageService implements AutoCloseable {
     /** Begins a request, which runs beside the loop and hands its outcome back as a message. */
     private void begin(long now) {
         schedule.begin(now);
+        // What follows from a step is published before the state that tells of it: whoever sees the new state then reads
+        // the interval and the countdown that belong to it, not the ones of the step before.
+        publish();
         state = state.startedRefresh();
         long begun = generation;
         Cancel cancel = new Cancel();
@@ -393,6 +404,9 @@ public final class UsageService implements AutoCloseable {
             LOG.warning("Usage refresh failed: " + outcome.error());
             errors.add(Instant.now(), outcome.error());
         }
+        // The interval and the countdown first, then the state: an answer is not to be seen with the interval of the one
+        // before it, as a 429 with the interval it was refused at.
+        publish();
         state = outcome.applyTo(state);
         if (searchMoved && search != null) {
             // The listener saves a file, and may ask this service something in turn, which the loop answers on the spot.
@@ -491,7 +505,7 @@ public final class UsageService implements AutoCloseable {
         if (outcome.rateLimited()) {
             long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
             // In whole seconds, rounded up: a wait of 2.5 seconds is not over after 2.
-            search.rateLimited((retryAfter + 999_999_999L) / 1_000_000_000L);
+            search.rateLimited((retryAfter + 999_999_999L) / 1_000_000_000L, searchClock.getAsLong());
             long next = Duration.ofSeconds(search.interval()).toNanos();
             schedule.setInterval(next);
             LOG.info("Automatic interval: " + search.describe());
@@ -499,7 +513,7 @@ public final class UsageService implements AutoCloseable {
             return outcome;
         }
         if (outcome.snapshot() != null) {
-            search.succeeded();
+            search.succeeded(searchClock.getAsLong());
             schedule.setInterval(Duration.ofSeconds(search.interval()).toNanos());
             if (!search.describe().equals(before)) {
                 // A search that has settled says nothing more: nothing of it has changed.

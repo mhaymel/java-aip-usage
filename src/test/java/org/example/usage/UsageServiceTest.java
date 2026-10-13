@@ -75,12 +75,14 @@ class UsageServiceTest {
 
         @Override
         public UsageSnapshot fetch(org.example.Cancel cancel) {
+            // Whether this call is held is settled before it says that it is under way: a test that sees it under way and
+            // then lets the next call through must not let this one through with it.
+            CountDownLatch latch = hold;
             int n = calls.incrementAndGet();
             fetchThread = Thread.currentThread();
             maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
             entered.countDown();
             try {
-                CountDownLatch latch = hold;
                 if (latch != null) {
                     // Told to give up, a held call is let go, as the real one stops waiting for the network.
                     cancel.onCancel(latch::countDown);
@@ -566,9 +568,16 @@ class UsageServiceTest {
 
     @Test
     void aRateLimitedRefreshIsMarkedAndDoesNotMakeTheReadingStale() {
-        Scripted fetch = new Scripted(false, true);
+        // A reading, and a 429 for every request after it: one 429 alone is over with the next request, 30 milliseconds
+        // later, and a test that looks every few milliseconds on a busy machine can miss it for good.
+        AtomicInteger calls = new AtomicInteger();
 
-        UsageService service = start(fetch, Duration.ofMillis(30));
+        UsageService service = start(() -> {
+            if (calls.getAndIncrement() > 0) {
+                throw rateLimited();
+            }
+            return snapshot(0);
+        }, Duration.ofMillis(30));
         await(() -> service.state().rateLimited());
 
         UsageState state = service.state();
@@ -1088,5 +1097,70 @@ class UsageServiceTest {
 
         assertEquals(30, service.effectiveIntervalSeconds());
         assertEquals(List.of(), saved, "30 with 25 refused stays what it is");
+    }
+
+    // ---- the refused interval is forgotten by time
+
+    @Test
+    void theRefusedIntervalIsForgottenAStepForTenMinutesWithoutA429AndTheLogAndTheSavedFiguresSaySo() {
+        List<String> lines = new CopyOnWriteArrayList<>();
+        org.example.log.Log.Sink capture = entry -> lines.add(entry.message());
+        org.example.log.Log.addSink(capture);
+        try {
+            List<String> saved = new CopyOnWriteArrayList<>();
+            AtomicInteger calls = new AtomicInteger();
+            java.util.concurrent.atomic.AtomicLong clock = new java.util.concurrent.atomic.AtomicLong(50_000_000_000_000L);
+            UsageService service = new UsageService(() -> { calls.incrementAndGet(); return snapshot(1); }, HOUR);
+            started.add(service);
+            service.searchClock(clock::get);
+            service.onSearchMoved(moved -> saved.add(moved.describe()));
+            // What was seen: 200 seconds with the refused interval at 195, and no request failing.
+            service.setAutomatic(IntervalSearch.of(200, 195));
+            service.start();
+            await(() -> calls.get() == 1 && !service.state().refreshing());
+            assertEquals(List.of(), saved, "the first answer begins the ten minutes and moves nothing");
+
+            // A second short of ten minutes, and then the ten minutes.
+            clock.addAndGet(Duration.ofSeconds(599).toNanos());
+            assertTrue(service.refreshNow());
+            await(() -> calls.get() == 2 && !service.state().refreshing());
+            assertEquals(List.of(), saved, "not yet");
+            clock.addAndGet(Duration.ofSeconds(1).toNanos());
+            assertTrue(service.refreshNow());
+            await(() -> calls.get() == 3 && !service.state().refreshing());
+
+            assertEquals(List.of("200 s (refused at 190 s)"), saved, "a step of the refused interval alone is given to be saved");
+            assertEquals(200, service.effectiveIntervalSeconds(), "the interval follows by its own steps, of eight answers");
+            assertEquals(List.of("Automatic interval: 200 s (refused at 195 s)", "Automatic interval: 200 s (refused at 190 s)"),
+                    lines.stream().filter(line -> line.startsWith("Automatic interval:")).toList(), "the log says where the search is when it is switched on, and then the step");
+
+            for (int n = 4; n <= 8; n++) {
+                int wanted = n;
+                assertTrue(service.refreshNow());
+                await(() -> calls.get() == wanted && !service.state().refreshing());
+            }
+            assertEquals(195, service.effectiveIntervalSeconds(), "the eighth answer: a step down, which the refused interval now allows");
+            assertEquals(List.of("200 s (refused at 190 s)", "195 s (refused at 190 s)"), saved);
+        } finally {
+            org.example.log.Log.removeSink(capture);
+        }
+    }
+
+    @Test
+    void whoeverSeesTheStateOfAnAnswerReadsTheIntervalThatBelongsToIt() {
+        // The state is what a reader waits for, and the interval is what it reads next: the interval must be there first.
+        for (int round = 0; round < 200; round++) {
+            UsageService service = new UsageService(() -> {
+                throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429, Duration.ofSeconds(500));
+            }, HOUR);
+            started.add(service);
+            service.setAutomatic(IntervalSearch.fresh());
+            service.start();
+            while (!service.state().rateLimited()) {
+                Thread.onSpinWait();
+            }
+            assertEquals(300, service.effectiveIntervalSeconds(), "round " + round + ": the 429 is seen, so its interval is in force");
+            service.close();
+        }
     }
 }
