@@ -128,8 +128,21 @@ final class Logging implements AutoCloseable {
 
     /** The name of the log file without its ending {@code .log}, which the name of an old log begins with. */
     private String stem() {
+        return stem(logFile);
+    }
+
+    private static String stem(Path logFile) {
         String name = logFile.getFileName().toString();
         return name.endsWith(".log") ? name.substring(0, name.length() - ".log".length()) : name;
+    }
+
+    /**
+     * The form the name of an old log of this log file has, as a pattern: the name of the log, a date and time, and
+     * {@code .log}. Nothing else beside the log is an old log, whoever asks: the merge, and the log panel, which makes a
+     * link of the path of one.
+     */
+    static Pattern oldLogName(Path logFile) {
+        return Pattern.compile(Pattern.quote(stem(logFile) + ".") + STAMP_PATTERN + Pattern.quote(".log"));
     }
 
     /** The name an old log has: {@code java-aip-usage.2026-10-13_14-30-05.log}. */
@@ -142,7 +155,7 @@ final class Logging implements AutoCloseable {
      * form of the name is one, so that no other file is ever taken for an old log, joined and deleted.
      */
     Optional<Path> newestOldLog() throws IOException {
-        Pattern form = Pattern.compile(Pattern.quote(stem() + ".") + STAMP_PATTERN + Pattern.quote(".log"));
+        Pattern form = oldLogName(logFile);
         Path folder = logFile.toAbsolutePath().getParent();
         try (Stream<Path> files = Files.list(folder)) {
             return files
@@ -199,7 +212,8 @@ final class Logging implements AutoCloseable {
             }
             return null;
         });
-        LOG.info("The log was reset: the lines before are in " + name);
+        // The full path, so that the line says where the file is, and the log panel can make a link of it.
+        LOG.info("The log was reset: the lines before are in " + logFile.toAbsolutePath().resolveSibling(name));
         return name;
     }
 
@@ -241,7 +255,7 @@ final class Logging implements AutoCloseable {
             }
             return old.getFileName().toString();
         });
-        LOG.info("The log was merged with " + name);
+        LOG.info("The log was merged with " + logFile.toAbsolutePath().resolveSibling(name));
         if (left[0] != null) {
             // Its lines are in the log now: left where it is, the next merge would put them there a second time.
             LOG.warning("Could not delete the old log " + name + ", whose lines are in the log now; delete it by hand", left[0]);

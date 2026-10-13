@@ -280,8 +280,8 @@ class LoggingTest {
 
             assertEquals("java-aip-usage.2026-10-13_14-30-05.log", name, "the date and time between the name and its ending");
             assertEquals(before, Files.readString(dir.resolve(name)), "the old log is the file as it was, to the last byte");
-            assertEquals(List.of("[Logging] The log was reset: the lines before are in java-aip-usage.2026-10-13_14-30-05.log", "[LoggingTest] after the reset"),
-                    messages(file), "the new file begins with the line that says where the others are, and goes on from there");
+            assertEquals(List.of("[Logging] The log was reset: the lines before are in " + dir.resolve(name).toAbsolutePath(), "[LoggingTest] after the reset"),
+                    messages(file), "the new file begins with the line that says where the others are, by their full path, and goes on from there");
             assertTrue(logging.hasOldLog());
         }
     }
@@ -319,7 +319,8 @@ class LoggingTest {
             assertFalse(Files.exists(dir.resolve(name)), "the old log is deleted");
             String merged = Files.readString(file);
             assertTrue(merged.startsWith(before + after), "the lines of the old log, then those of the current one, byte for byte");
-            assertEquals(List.of("[Logging] The log was merged with java-aip-usage.2026-10-13_14-30-05.log"), messages(file).subList(messages(file).size() - 1, messages(file).size()));
+            assertEquals(List.of("[Logging] The log was merged with " + dir.resolve(name).toAbsolutePath()), messages(file).subList(messages(file).size() - 1, messages(file).size()),
+                    "the line of the merge names the old log by its full path too");
             assertFalse(Files.exists(dir.resolve("java-aip-usage.log.tmp")), "and nothing is left of the joining");
             assertFalse(logging.hasOldLog());
 

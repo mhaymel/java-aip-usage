@@ -89,21 +89,35 @@
         }
         var cut = data.date === false ? DATE_LENGTH : 0;
         var entries = [];
-        data.lines.forEach(function (line) {
+        // Each line with its place in what was sent, so that what the backend said of a line stays with it when the order is turned.
+        data.lines.forEach(function (line, index) {
+            var item = { text: line, index: index };
             if (beginsEntry(line) || entries.length === 0) {
-                entries.push([line]);
+                entries.push([item]);
             } else {
-                entries[entries.length - 1].push(line);
+                entries[entries.length - 1].push(item);
             }
         });
         var ordered = [].concat.apply([], entries.reverse());
+        // The paths the backend says are files of the program's own, for each line, moved by what is cut from its beginning.
+        var linked = {};
+        (data.links || []).forEach(function (link) {
+            (linked[link.line] = linked[link.line] || []).push(link);
+        });
+        var linksOf = function (item) {
+            var moved = cut && beginsEntry(item.text) ? cut : 0;
+            return (linked[item.index] || [])
+                .filter(function (link) { return link.from >= moved && link.to > link.from && link.to <= item.text.length; })
+                .map(function (link) { return { from: link.from - moved, to: link.to - moved, file: link.file }; });
+        };
         return {
             note: data.truncated ? 'Showing the newest ' + data.lines.length + ' lines of the log.' : null,
             // It says that not everything is shown, like the history's line: in the blue of such notes.
             noteHighlight: Boolean(data.truncated),
             header: null,
-            rows: ordered.map(function (line) { return [cut && beginsEntry(line) ? line.slice(cut) : line]; }),
-            marks: ordered.map(isRunStart),
+            rows: ordered.map(function (item) { return [cut && beginsEntry(item.text) ? item.text.slice(cut) : item.text]; }),
+            links: ordered.map(linksOf),
+            marks: ordered.map(function (item) { return isRunStart(item.text); }),
             // The log's start line has a light gray background; the history's is in green text (see describeHistory).
             markClass: 'mark'
         };

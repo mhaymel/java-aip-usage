@@ -143,6 +143,9 @@ function backendOf(state) {
         }
         if (call.url === '/api/status') return { status: 200, body: withDisplay(state.status) };
         if (call.url === '/api/refresh') return { status: 202, body: { started: true } };
+        if (call.url === '/api/log/open') {
+            return state.logOpen ? state.logOpen(JSON.parse(call.body)) : { status: 200, body: { done: true } };
+        }
         if (call.url === '/api/log/reset' || call.url === '/api/log/merge') {
             return state.logFiles ? state.logFiles(call) : { status: 200, body: { oldLog: call.url === '/api/log/reset' } };
         }
@@ -4604,4 +4607,80 @@ test('a view that is opened while the cost control is still being read is read a
     assert.equal(page.el('panel-lines').hidden, false, 'the history is drawn as soon as the read of the cost control has ended');
     assert.equal(page.el('panel-lines').children.length, 3);
     assert.equal(page.el('cost-view').hidden, true);
+});
+
+// ---- version 0.80: the paths in the log are links
+
+// Where a path stands in its line is counted here as the backend counts it, not by hand.
+const LINKED_LINES = ['2026-10-08 19:00:00 INFO    [Logging] Logging to C:\\work\\java-aip-usage.log', '2026-10-08 19:00:01 INFO    [A] nothing to see',
+    '2026-10-08 19:00:02 INFO    [Logging] The log was reset: the lines before are in C:\\work\\java-aip-usage.2026-10-08_19-00-02.log now'];
+const linkAt = (line, path, file) => ({ line, from: LINKED_LINES[line].indexOf(path), to: LINKED_LINES[line].indexOf(path) + path.length, file });
+const LINKED_LOG = {
+    ...LOG, date: true, lines: LINKED_LINES,
+    links: [linkAt(0, 'C:\\work\\java-aip-usage.log', 'log'),
+        linkAt(2, 'C:\\work\\java-aip-usage.2026-10-08_19-00-02.log', 'old:java-aip-usage.2026-10-08_19-00-02.log')],
+};
+const partsOf = row => row.children[0].children.map(part => (part.id === '<a>' ? 'link:' : 'text:') + part.textContent);
+
+test('a path the backend marks in a line of the log is a link, and the rest of the line is text', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, log: () => ({ status: 200, body: LINKED_LOG }) }));
+
+    await page.click('log-button');
+
+    const [reset, plain, first] = page.el('panel-lines').children;
+    assert.deepEqual(partsOf(first), ['text:2026-10-08 19:00:00 INFO    [Logging] Logging to ', 'link:C:\\work\\java-aip-usage.log'], 'the text before, and the path as a link');
+    assert.deepEqual(partsOf(reset), ['text:2026-10-08 19:00:02 INFO    [Logging] The log was reset: the lines before are in ',
+        'link:C:\\work\\java-aip-usage.2026-10-08_19-00-02.log', 'text: now'], 'and what follows the path is text again');
+    assert.equal(plain.children[0].children.length, 0, 'a line with no path is drawn as it was');
+    assert.equal(plain.children[0].textContent, '2026-10-08 19:00:01 INFO    [A] nothing to see');
+    const link = first.children[0].children[1];
+    assert.equal(link.className, 'about-link', 'it looks like a path of About');
+    assert.equal(link.title, 'Open the folder of this file');
+    assert.equal(link.attrs.href, '#');
+});
+
+test('a click on a link of the log asks the program for the file by the name the backend gave, and never by the path', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, log: () => ({ status: 200, body: LINKED_LOG }) }));
+    await page.click('log-button');
+    const reset = page.el('panel-lines').children[0];
+    let prevented = false;
+
+    await reset.children[0].children[1].listeners.click({ preventDefault() { prevented = true; } });
+    await settle();
+
+    const opens = page.calls.filter(c => c.url === '/api/log/open');
+    assert.deepEqual(opens.map(c => c.method + ' ' + c.body), ['POST {"file":"old:java-aip-usage.2026-10-08_19-00-02.log"}']);
+    assert.doesNotMatch(opens[0].body, /work/, 'no path in the request');
+    assert.equal(prevented, true, 'the link leads nowhere by itself');
+    assert.equal(page.el('log-error').hidden, true);
+});
+
+test('a folder that cannot be opened from the log says so in red, once', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, log: () => ({ status: 200, body: LINKED_LOG }),
+        logOpen: () => ({ status: 500, body: { error: 'The folder could not be opened: the system did not start it' } }) }));
+    await page.click('log-button');
+
+    await page.el('panel-lines').children[2].children[0].children[1].listeners.click({ preventDefault() {} });
+    await settle();
+
+    assert.equal(page.el('log-error').hidden, false);
+    assert.equal(page.el('log-error').textContent, 'The folder could not be opened: the system did not start it');
+});
+
+test('with the date cut from the lines of the log a link is where its path is', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, log: () => ({ status: 200, body: { ...LINKED_LOG, date: false } }) }));
+
+    await page.click('log-button');
+
+    assert.deepEqual(partsOf(page.el('panel-lines').children[2]), ['text:19:00:00 INFO    [Logging] Logging to ', 'link:C:\\work\\java-aip-usage.log']);
+});
+
+test('the links of the log are not built again while the log says the same', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, log: () => ({ status: 200, body: LINKED_LOG }) }));
+    await page.click('log-button');
+    const link = page.el('panel-lines').children[2].children[0].children[1];
+
+    await page.firePoll();
+
+    assert.equal(page.el('panel-lines').children[2].children[0].children[1], link, 'the same link is under the mouse after a poll');
 });

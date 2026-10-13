@@ -2131,6 +2131,76 @@ class ApiTest {
         assertTrue(json(get(app, "/api/history")).get("zeroLines").asBoolean());
     }
 
+    // ---- the paths in the log are links
+
+    private static List<String> linksOf(Json log) {
+        return log.get("links").items().stream()
+                .map(link -> link.get("line").asInt() + ":" + linesOf(log).get(link.get("line").asInt()).substring(link.get("from").asInt(), link.get("to").asInt()) + "=" + link.get("file").asText())
+                .toList();
+    }
+
+    @Test
+    void theLogSaysWhichPartsOfItsLinesAreThePathsOfTheProgramsOwnFilesAndOfNothingElse() throws Exception {
+        AppFiles files = AppFiles.in(dir);
+        String folder = dir.toAbsolutePath() + java.io.File.separator;
+        String old = folder + "java-aip-usage.2026-10-13_21-06-29.log";
+        writeLog(
+                "2026-10-11 13:24:01 INFO    [Logging] Logging to " + files.log().toAbsolutePath(),
+                "2026-10-11 13:24:02 INFO    [AppRuntime] Settings are stored in " + files.settings().toAbsolutePath(),
+                "2026-10-11 13:24:03 INFO    [AppRuntime] Usage history is written to " + files.fakeHistory().toAbsolutePath(),
+                "2026-10-11 13:24:04 INFO    [Logging] The log was reset: the lines before are in " + old,
+                "2026-10-11 13:24:05 INFO    [A] another file, C:\\Windows\\win.ini, and " + folder + "notes.txt, and https://example.org/x",
+                "2026-10-11 13:24:06 INFO    [A] " + files.log().toAbsolutePath() + ".tmp is not the log, and " + folder + "java-aip-usage.notes.log is no old log",
+                "2026-10-11 13:24:07 INFO    [A] twice: " + files.history().toAbsolutePath() + " and " + files.history().toAbsolutePath());
+        AppRuntime app = start(new FakeFetch());
+
+        Json log = json(get(app, "/api/log"));
+
+        String history = files.history().toAbsolutePath().toString();
+        assertEquals(List.of(
+                        "0:" + files.log().toAbsolutePath() + "=log",
+                        "1:" + files.settings().toAbsolutePath() + "=settings",
+                        "2:" + files.fakeHistory().toAbsolutePath() + "=fake-history",
+                        "3:" + old + "=old:java-aip-usage.2026-10-13_21-06-29.log",
+                        "6:" + history + "=history",
+                        "6:" + history + "=history"),
+                linksOf(log), "a whole path of a file the program knows, and an old log by the form of its name though it is not there; nothing else");
+    }
+
+    @Test
+    void aLinkOfTheLogOpensTheFolderOfItsFileByTheNameTheLogGaveAndNothingElse() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        NotedDesk desk = new NotedDesk();
+        app.desk(desk);
+        AppFiles files = AppFiles.in(dir);
+        String old = "java-aip-usage.2026-10-13_21-06-29.log";
+
+        for (String name : new String[] {"settings", "log", "history", "fake-history", "old:" + old}) {
+            HttpResponse<String> opened = post(app, "/api/log/open", "{\"file\": \"" + name + "\"}");
+            assertEquals(200, opened.statusCode(), name + " " + opened.body());
+            assertFalse(opened.body().contains(dir.toString()), "no path in the answer");
+        }
+        assertEquals(List.of("reveal " + files.settings(), "reveal " + files.log(), "reveal " + files.history(), "reveal " + files.fakeHistory(),
+                        "reveal " + dir.toAbsolutePath().resolve(old)),
+                desk.asked.stream().map(asked -> asked.replace(dir.toAbsolutePath().normalize().toString(), dir.toAbsolutePath().toString())).toList(),
+                "each by the path the program knows; the old log beside the log, though it is not there any more");
+
+        desk.asked.clear();
+        for (String body : new String[] {"{\"file\": \"old:../settings.json\"}", "{\"file\": \"old:java-aip-usage.notes.log\"}", "{\"file\": \"old:\"}",
+                "{\"file\": \"C:\\\\Windows\\\\win.ini\"}", "{\"file\": \"" + dir.toString().replace("\\", "\\\\") + "\"}", "{\"file\": 3}", "{}"}) {
+            HttpResponse<String> refused = post(app, "/api/log/open", body);
+            assertEquals(400, refused.statusCode(), body);
+            assertEquals("The file must be one of settings, log, history, fake-history, or an old log.", json(refused).get("error").asText());
+        }
+        assertEquals(List.of(), desk.asked, "a name the program does not know, or a path, opens nothing");
+        assertEquals(405, get(app, "/api/log/open").statusCode());
+
+        desk.failure = "no such program";
+        HttpResponse<String> failed = post(app, "/api/log/open", "{\"file\": \"log\"}");
+        assertEquals(500, failed.statusCode());
+        assertEquals("The folder could not be opened: no such program", json(failed).get("error").asText());
+    }
+
     // ---- the two buttons of the log panel: reset, and the undo of it
 
     @Test
@@ -2147,7 +2217,8 @@ class ApiTest {
             assertFalse(reset.body().contains(dir.toString()), "no path in the answer");
             Json log = json(get(app, "/api/log?level=debug"));
             assertTrue(log.get("oldLog").asBoolean(), "the log says that there is one to put back");
-            assertTrue(linesOf(log).get(0).contains("[Logging] The log was reset: the lines before are in java-aip-usage."), linesOf(log).toString());
+            assertTrue(linesOf(log).get(0).contains("[Logging] The log was reset: the lines before are in " + dir.toAbsolutePath() + java.io.File.separator + "java-aip-usage."),
+                    linesOf(log).toString());
             assertFalse(linesOf(log).stream().anyMatch(line -> line.contains("of before")), "the lines of before are in the old log");
             try (java.util.stream.Stream<Path> files = Files.list(dir)) {
                 assertEquals(1, files.filter(file -> file.getFileName().toString().matches("java-aip-usage\\.\\d{4}-\\d\\d-\\d\\d_\\d\\d-\\d\\d-\\d\\d\\.log")).count());
@@ -2159,7 +2230,7 @@ class ApiTest {
             assertFalse(json(merged).get("oldLog").asBoolean(), "the one old log is put back and deleted");
             List<String> lines = linesOf(json(get(app, "/api/log?level=debug")));
             assertEquals("2026-10-11 13:24:01 INFO    [A] of before", lines.get(0), "the lines of before are first again");
-            assertTrue(lines.get(lines.size() - 1).contains("[Logging] The log was merged with java-aip-usage."), lines.toString());
+            assertTrue(lines.get(lines.size() - 1).contains("[Logging] The log was merged with " + dir.toAbsolutePath() + java.io.File.separator + "java-aip-usage."), lines.toString());
 
             HttpResponse<String> none = post(app, "/api/log/merge", "{}");
             assertEquals(409, none.statusCode());

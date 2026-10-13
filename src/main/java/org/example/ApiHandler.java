@@ -145,6 +145,13 @@ final class ApiHandler implements HttpHandler {
                     throw new ApiException(405, "Use GET or POST.", "GET, POST");
                 }
             }
+            case "/api/log/open" -> {
+                if (!method.equals("POST")) {
+                    throw new ApiException(405, "Use POST.", "POST");
+                }
+                requireJson(exchange);
+                openLogLink(exchange);
+            }
             case "/api/log/reset", "/api/log/merge" -> {
                 if (!method.equals("POST")) {
                     throw new ApiException(405, "Use POST.", "POST");
@@ -523,11 +530,92 @@ final class ApiHandler implements HttpHandler {
         try {
             LogTail.Tail tail = LogTail.read(files.log(), LOG_LINES, LOG_BYTES, asked != null ? asked : now.logLevel());
             return new LogBody(files.log().getFileName().toString(), tail.exists(), tail.truncated(), tail.lines(), tail.hidden(),
-                    now.logLevel().json(), now.logDate(), Logging.of(files.log()).map(Logging::hasOldLog).orElse(false));
+                    now.logLevel().json(), now.logDate(), Logging.of(files.log()).map(Logging::hasOldLog).orElse(false), logLinks(tail.lines()));
         } catch (IOException e) {
             LOG.warning("Could not read the log", e);
             throw new ApiException(500, "The log could not be read.", null);
         }
+    }
+
+    /** The files of the program's own that a line of the log may name, each under the name the page asks for it by. */
+    private java.util.Map<String, java.nio.file.Path> linkedFiles() {
+        java.util.Map<String, java.nio.file.Path> known = new java.util.LinkedHashMap<>();
+        known.put("settings", files.settings());
+        known.put("log", files.log());
+        known.put("history", files.history());
+        known.put("fake-history", files.fakeHistory());
+        return known;
+    }
+
+    /** The folder the log is in, where its old logs are too. */
+    private java.nio.file.Path logFolder() {
+        return files.log().toAbsolutePath().getParent();
+    }
+
+    /**
+     * Where in the lines of the log the path of a file of the program's own stands: the settings file, the log, the two
+     * usage histories, and an old log beside the log, which is known by the form of its name whether or not it is still
+     * there. Only a whole path that the program knows is found; nothing is made of what a line looks like. The page makes a
+     * link of each, and asks for the file by the name given here, never by the path.
+     */
+    private List<LogLink> logLinks(List<String> lines) {
+        java.util.regex.Pattern old = java.util.regex.Pattern.compile(
+                java.util.regex.Pattern.quote(logFolder().toString() + java.io.File.separator) + "(" + Logging.oldLogName(files.log()).pattern() + ")");
+        List<LogLink> links = new java.util.ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            List<LogLink> found = new java.util.ArrayList<>();
+            java.util.regex.Matcher match = old.matcher(line);
+            while (match.find()) {
+                found.add(new LogLink(i, match.start(), match.end(), "old:" + match.group(1)));
+            }
+            for (java.util.Map.Entry<String, java.nio.file.Path> known : linkedFiles().entrySet()) {
+                // As the program logs it, which is the path as it was given, and as an absolute one.
+                for (String path : new java.util.LinkedHashSet<>(List.of(known.getValue().toString(), absolute(known.getValue())))) {
+                    for (int at = line.indexOf(path); at >= 0; at = line.indexOf(path, at + path.length())) {
+                        int from = at;
+                        int to = at + path.length();
+                        // Not inside a longer path already found, and not the beginning of a longer name.
+                        boolean free = found.stream().noneMatch(link -> from < link.to() && link.from() < to);
+                        boolean whole = to == line.length() || !isPartOfAName(line.charAt(to));
+                        if (free && whole) {
+                            found.add(new LogLink(i, from, to, known.getKey()));
+                        }
+                    }
+                }
+            }
+            found.sort(java.util.Comparator.comparingInt(LogLink::from));
+            links.addAll(found);
+        }
+        return links;
+    }
+
+    private static boolean isPartOfAName(char next) {
+        return Character.isLetterOrDigit(next) || next == '.' || next == '_' || next == '-';
+    }
+
+    /**
+     * A click on a link of the log panel: the file is shown in its folder, with the file marked, or the folder alone when
+     * the file is no longer there, as an old log that was merged since. The page names the file by what {@code GET /api/log}
+     * called it, never by a path: the path is the one the program knows, and a name it does not know is refused.
+     */
+    private void openLogLink(HttpExchange exchange) throws IOException {
+        Json name = readJson(exchange).get("file");
+        String asked = name != null && name.isText() ? name.text() : "";
+        java.nio.file.Path file = linkedFiles().get(asked);
+        if (file == null && asked.startsWith("old:") && Logging.oldLogName(files.log()).matcher(asked.substring("old:".length())).matches()) {
+            file = logFolder().resolve(asked.substring("old:".length()));
+        }
+        if (file == null) {
+            throw new ApiException(400, "The file must be one of settings, log, history, fake-history, or an old log.", null);
+        }
+        try {
+            sources.desk().reveal(file);
+        } catch (IOException | RuntimeException e) {
+            LOG.warning("The folder could not be opened: " + Failure.of(e));
+            throw new ApiException(500, "The folder could not be opened: " + Failure.of(e), null);
+        }
+        send(exchange, 200, Json.object().put("done", true));
     }
 
     /**
@@ -1208,8 +1296,27 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
-    /** @param oldLog whether there is an old log, kept by a reset, that a merge would put back */
-    record LogBody(String file, boolean exists, boolean truncated, List<String> lines, boolean hidden, String level, boolean date, boolean oldLog) {
+    /**
+     * A path in a line of the log that is a file of the program's own.
+     *
+     * @param line which of the lines, counted from 0
+     * @param from where the path begins in the line, and {@code to} where it ends, the first place after it
+     * @param file what the page asks for the file by: {@code settings}, {@code log}, {@code history}, {@code fake-history},
+     *     or {@code old:} and the name of an old log
+     */
+    record LogLink(int line, int from, int to, String file) {
+
+        Json toJson() {
+            return Json.object().put("line", line).put("from", from).put("to", to).put("file", file);
+        }
+    }
+
+    /**
+     * @param oldLog whether there is an old log, kept by a reset, that a merge would put back
+     * @param links the paths in the lines that are files of the program's own, which the page makes links of
+     */
+    record LogBody(String file, boolean exists, boolean truncated, List<String> lines, boolean hidden, String level, boolean date, boolean oldLog,
+            List<LogLink> links) {
 
         Json toJson() {
             return Json.object()
@@ -1220,7 +1327,16 @@ final class ApiHandler implements HttpHandler {
                     .put("hidden", hidden)
                     .put("level", level)
                     .put("date", date)
-                    .put("oldLog", oldLog);
+                    .put("oldLog", oldLog)
+                    .put("links", linksJson());
+        }
+
+        private Json linksJson() {
+            Json all = Json.array();
+            for (LogLink link : links) {
+                all.add(link.toJson());
+            }
+            return all;
         }
     }
 

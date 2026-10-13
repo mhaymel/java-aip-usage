@@ -20,6 +20,7 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `POST` | `/api/refresh` | Start a usage fetch now |
 | `GET` | `/api/log` | The end of the log file, at the level the log panel shows |
 | `POST` | `/api/log` | Save the two choices of the log panel, the level and the date |
+| `POST` | `/api/log/open` | Show a file a line of the log names, one of the program's own, in its folder |
 | `POST` | `/api/log/reset` | Reset the log: keep the file under a name with the date and time, and begin a new one |
 | `POST` | `/api/log/merge` | Take the last reset back: put the newest old log in front of the log again |
 | `GET` | `/api/history` | The usage history, as finished lines |
@@ -353,7 +354,8 @@ do (for example log in with Claude Code).
   "hidden": false,
   "level": "info",
   "date": false,
-  "oldLog": false
+  "oldLog": false,
+  "links": [{ "line": 0, "from": 39, "to": 77, "file": "log" }]
 }
 ```
 
@@ -372,6 +374,7 @@ and time, and a run with the line that has `] Starting java-aip-usage`.
   one also when the query asked for another. Whether the date is shown is the page's to do: with `date` false it
   cuts the first 11 characters of each line that begins an entry.
 - `oldLog`: `true` when there is an old log, a file a reset has kept, that `POST /api/log/merge` would put back; the button of the log panel that does it can be pressed only then. It is `false` as well when the program does not write its log to the file, as in a run that logs to the console alone.
+- `links`: where in the lines the path of a file of the program's own stands, for the page to make a link of: `line`, counted from 0 in `lines`; `from` and `to`, the place of the path in that line, the first character and the one after the last; and `file`, the name the page asks for the file by with `POST /api/log/open`: `settings`, `log`, `history` (the real usage history), `fake-history`, or `old:<name>` for an old log beside the log, which is known by the form of its name whether or not the file is still there. Only a whole path the program knows is listed; nothing else in a line is a link. A client that cuts the date from a line moves the places by what it cut.
 - `truncated`: `true` when earlier lines were left out. When the file is larger than the 512 kilobytes the
   first line of what was read is dropped, so that none is ever shown half.
 - `exists`: `false`, with no lines, when there is no log yet, or what is there is not an ordinary file.
@@ -383,14 +386,18 @@ be given: `{"level": "warning", "date": true}`. A level that is none of the four
 `The log settings could not be saved: <reason>`. The settings of `/api/settings` do not have the two, and saving
 them leaves the two as they are.
 
+## `POST /api/log/open`
+
+Shows a file that a line of the log names in its folder, with the file marked, or the folder alone when the file is no longer there: `{"file": "old:java-aip-usage.2026-10-13_21-06-29.log"}`. The `file` is a name `GET /api/log` gave in its `links`, never a path: `settings`, `log`, `history`, `fake-history`, or `old:` and a name of the form an old log has. The answer is `{"done": true}`. Anything else is `400` with `The file must be one of settings, log, history, fake-history, or an old log.`, and nothing is opened; a desktop that refuses is `500` with `The folder could not be opened: <reason>`. Any other method is `405` with `Allow: POST`.
+
 ## `POST /api/log/reset` and `POST /api/log/merge`
 
 The two buttons of the log panel. Neither reads its body, names a file or gives a path away: the program uses the names it knows.
 
 - `POST /api/log/reset`: the log file is renamed to `java-aip-usage.<yyyy-MM-dd_HH-mm-ss>.log`, with the local date and time, in the same directory, which makes it an **old log**, and the program goes on logging to a new
-  `java-aip-usage.log`, whose first line is `The log was reset: the lines before are in <the name of the old log>`.
+  `java-aip-usage.log`, whose first line is `The log was reset: the lines before are in <the full path of the old log>`.
 - `POST /api/log/merge`: the newest old log, the one whose name has the latest date and time, is put in front of the log again: its lines first, then those of the current log, written beside the log as `java-aip-usage.log.tmp` and put in its place
-  in one step; the old log is deleted, and the line `The log was merged with <the name of the old log>` is written at the end. Only a file whose name has exactly that form is an old log.
+  in one step; the old log is deleted, and the line `The log was merged with <the full path of the old log>` is written at the end. Only a file whose name has exactly that form is an old log.
 
 Both answer `200` with `{"oldLog": true}` or `{"oldLog": false}`: whether there is an old log now. Nothing is logged between the old file and the new: a line another part of the program logs meanwhile is in one of them, whole.
 

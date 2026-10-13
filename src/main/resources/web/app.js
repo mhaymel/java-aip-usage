@@ -1148,6 +1148,52 @@
         return row;
     }
 
+    /**
+     * Draws a line of the log that has paths the backend says are files of the program's own: the text before, each path as a
+     * link, the text between and after. The link looks like the paths of About and opens the folder of its file; the page
+     * finds no path itself, and asks for the file by the name it was given, not by the path.
+     */
+    function linkPaths(cell, text, links) {
+        var parts = [];
+        var at = 0;
+        var plain = function (to) {
+            if (to > at) {
+                var span = document.createElement('span');
+                span.textContent = text.slice(at, to);
+                parts.push(span);
+            }
+        };
+        links.forEach(function (link) {
+            plain(link.from);
+            var a = document.createElement('a');
+            a.className = 'about-link';
+            a.setAttribute('href', '#');
+            a.title = 'Open the folder of this file';
+            a.textContent = text.slice(link.from, link.to);
+            a.addEventListener('click', function (event) {
+                if (event && event.preventDefault) {
+                    event.preventDefault();
+                }
+                return openLogFile(link.file);
+            });
+            parts.push(a);
+            at = link.to;
+        });
+        plain(text.length);
+        cell.textContent = '';
+        cell.replaceChildren.apply(cell, parts);
+    }
+
+    /** Asks the program to show a file a line of the log names in its folder. The red line of the log says when it could not. */
+    async function openLogFile(file) {
+        try {
+            await postJson('/api/log/open', { file: file });
+            setNote('log-error', '');
+        } catch (e) {
+            setNote('log-error', e.message.indexOf('The folder could not be opened: ') === 0 ? e.message : 'The folder could not be opened: ' + e.message);
+        }
+    }
+
     function showPanel(shown) {
         var key = JSON.stringify(shown);
         setNote('panel-error', '');
@@ -1165,7 +1211,11 @@
             box.append(cells('row head', shown.header, false, false, '', shown.wide, null, shown.kinds, shown.columnTitles));
         }
         shown.rows.forEach(function (row, i) {
-            box.append(cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide, shown.markClass, shown.kinds));
+            var line = cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide, shown.markClass, shown.kinds);
+            if (shown.links && shown.links[i] && shown.links[i].length > 0) {
+                linkPaths(line.children[0], row[0], shown.links[i]);
+            }
+            box.append(line);
         });
         // Rows that came in above what the person was reading push it down; follow it.
         var added = panelRows.length ? rowKeys.indexOf(panelRows[0]) : 0;

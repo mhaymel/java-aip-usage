@@ -296,3 +296,28 @@ test('the log\'s note that not everything is shown is one of the highlighted one
     assert.equal(whole.note, null);
     assert.equal(whole.noteHighlight, false);
 });
+
+test('the links of the log stay with their lines when the newest is put first, and move with the date that is cut', () => {
+    const view = require('../../main/resources/web/view.js');
+    const lines = ['2026-10-08 19:00:00 INFO    [A] in C:\\x\\settings.json', '2026-10-08 19:00:01 WARNING [A] failed', '\tat C:\\x\\a.log here', '2026-10-08 19:00:02 INFO    [A] none'];
+    const links = [{ line: 0, from: 35, to: 53, file: 'settings' }, { line: 2, from: 4, to: 14, file: 'log' }];
+    const data = { exists: true, truncated: false, hidden: false, lines, links };
+
+    const dated = view.describeLog({ ...data, date: true });
+    assertEqualRows(dated, ['2026-10-08 19:00:02 INFO    [A] none', '2026-10-08 19:00:01 WARNING [A] failed', '\tat C:\\x\\a.log here', '2026-10-08 19:00:00 INFO    [A] in C:\\x\\settings.json']);
+    assert.deepEqual(dated.links, [[], [], [{ from: 4, to: 14, file: 'log' }], [{ from: 35, to: 53, file: 'settings' }]]);
+    assert.equal(dated.rows[3][0].slice(35, 53), 'C:\\x\\settings.json');
+
+    const plain = view.describeLog({ ...data, date: false });
+    assert.deepEqual(plain.links, [[], [], [{ from: 4, to: 14, file: 'log' }], [{ from: 24, to: 42, file: 'settings' }]], 'eleven characters earlier in a line that begins an entry, and where it was in one that follows');
+    assert.equal(plain.rows[3][0].slice(24, 42), 'C:\\x\\settings.json');
+    assert.equal(plain.rows[2][0].slice(4, 14), 'C:\\x\\a.log');
+
+    assert.deepEqual(view.describeLog({ ...data, links: undefined, date: true }).links, [[], [], [], []], 'a log that says no links has none');
+    assert.deepEqual(view.describeLog({ ...data, date: false, links: [{ line: 0, from: 3, to: 9, file: 'log' }, { line: 9, from: 0, to: 4, file: 'log' }, { line: 3, from: 30, to: 99, file: 'log' }] }).links,
+        [[], [], [], []], 'a link that is cut away with the date, of a line that is not there, or that ends after its line is left out');
+});
+
+function assertEqualRows(shown, texts) {
+    assert.deepEqual(shown.rows.map(row => row[0]), texts);
+}
