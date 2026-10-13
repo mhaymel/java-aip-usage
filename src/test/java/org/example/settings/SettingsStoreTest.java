@@ -501,28 +501,20 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theTabOfTheSettingsIsKeptBesideTheSettingsAndEveryOtherSaveLeavesItAsItIs() throws IOException {
+    void theTabOfTheSettingsIsNotKeptAKeyOfAnEarlierVersionIsNotReadAndGoesWithTheNextSave() throws IOException {
+        Files.writeString(file(), "{\"settingsTab\": \"general\", \"usageIntervalSeconds\": 45, \"lastPanel\": \"settings\", \"lastTab\": \"about\"}");
         SettingsStore store = new SettingsStore(file());
-        assertNull(store.loadSettingsTab(), "none by default");
 
-        store.saveSettingsTab("general");
-        store.save(interval(45));
-        assertEquals("general", store.loadSettingsTab(), "saving the settings keeps it");
+        assertEquals(45, store.load().usageIntervalSeconds(), "the file is read as it is, the key passed over like any that is none");
+        assertEquals("about", store.loadLast().tab(), "the tab of the window that is restored at start is another thing, and stays");
         store.saveHeights(new SettingsStore.Heights(640, 500));
-        store.saveSearch(new SettingsStore.Search(30, null));
-        store.saveLast(new SettingsStore.LastWindow("log", null, 400, 300, 1, 2));
-        assertEquals("general", store.loadSettingsTab(), "and so does every other save");
-        assertEquals(45, store.load().usageIntervalSeconds(), "and saving the tab keeps the settings");
-        assertEquals(new SettingsStore.LastWindow("log", null, 400, 300, 1, 2), store.loadLast());
+        assertFalse(Files.readString(file()).contains("settingsTab"), "and it is not written again");
+        assertEquals("about", store.loadLast().tab());
     }
 
     @Test
-    void aTabThatIsNotOneOfTheSixIsNone() throws IOException {
-        Files.writeString(file(), "{\"settingsTab\": \"calendar\"}");
-        assertNull(new SettingsStore(file()).loadSettingsTab());
-        Files.writeString(file(), "{\"settingsTab\": 3}");
-        assertNull(new SettingsStore(file()).loadSettingsTab());
-        assertTrue(SettingsStore.isTab("about") && SettingsStore.isTab("debug"));
+    void theNamesOfTheTabsAreTheSix() {
+        assertTrue(SettingsStore.isTab("about") && SettingsStore.isTab("debug") && SettingsStore.isTab("general"));
         assertFalse(SettingsStore.isTab("calendar") || SettingsStore.isTab(null));
     }
 

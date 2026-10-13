@@ -1118,28 +1118,18 @@ class ApiTest {
     }
 
     @Test
-    void theTabOfTheSettingsIsStoredByAPostAndComesBackWithTheSettings() throws Exception {
+    void theTabOfTheSettingsIsNoBusinessOfTheBackendAnyMore() throws Exception {
+        Files.writeString(dir.resolve("settings.json"), "{\"settingsTab\": \"cost\", \"usageIntervalSeconds\": 90}");
         AppRuntime app = start(new FakeFetch());
-        assertTrue(json(get(app, "/api/settings")).get("settingsTab").isNull(), "none yet");
 
-        HttpResponse<String> answer = post(app, "/api/settings-tab", "{\"tab\": \"general\"}");
+        assertFalse(json(get(app, "/api/settings")).has("settingsTab"), "the settings say nothing of a tab");
+        assertEquals(404, post(app, "/api/settings-tab", "{\"tab\": \"general\"}").statusCode(), "and there is no request to store one");
+        assertEquals(404, get(app, "/api/settings-tab").statusCode());
 
-        assertEquals(200, answer.statusCode());
-        assertEquals("general", json(get(app, "/api/settings")).get("settingsTab").asText());
         post(app, "/api/settings", allSettings(60, false, "hh:mm"));
-        assertEquals("general", json(get(app, "/api/settings")).get("settingsTab").asText(), "saving the settings leaves it as it is");
-        assertEquals("general", JsonReader.read(Files.readString(dir.resolve("settings.json"))).get("settingsTab").asText(), "and it is in the file");
+        assertFalse(JsonReader.read(Files.readString(dir.resolve("settings.json"))).has("settingsTab"), "a key left by an earlier version is gone with the next save");
     }
 
-    @Test
-    void aTabThatDoesNotExistIsRefusedAndTheSettingsTabIsPostOnly() throws Exception {
-        AppRuntime app = start(new FakeFetch());
-
-        assertEquals(400, post(app, "/api/settings-tab", "{\"tab\": \"calendar\"}").statusCode());
-        assertEquals(400, post(app, "/api/settings-tab", "{}").statusCode());
-        assertEquals(405, get(app, "/api/settings-tab").statusCode());
-        assertTrue(json(get(app, "/api/settings")).get("settingsTab").isNull());
-    }
 
     @Test
     void theCostPanelIsWorkedOutFromTheHistoryAndTheLimits() throws Exception {

@@ -1839,32 +1839,32 @@ test('a button that was off comes back at the next poll when it is switched on',
     assert.equal(page.el('log-button').hidden, false);
 });
 
-test('Save that switches off the button of the panel the settings would give back gives it back all the same, and so does Cancel', async () => {
-    const state = { config: CONFIG, status: SPEND_STATUS };
-    const page = await load(backendOf(state));
+test('a view whose icon is unchecked in the settings is not given back by Save, by the gear or by another icon; Cancel gives it back', async () => {
+    for (const leave of ['settings-save', 'settings-button', 'log-button']) {
+        const state = { config: CONFIG, status: SPEND_STATUS };
+        const page = await load(backendOf(state));
+        await page.click('history-button');
+        await page.click('settings-button');
+        await change(page, 'set-showHistoryIcon', false);
+
+        // The backend says what was saved from the next status on.
+        state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, historyIcon: false });
+        await page.click(leave);
+
+        assert.equal(page.el('settings-view').hidden, true, leave);
+        assert.equal(JSON.parse(settingsPosts(page)[0].body).showHistoryIcon, false, leave + ' saved it');
+        assert.equal(page.el('history-button').hidden, true, leave + ': the icon is gone');
+        assert.notEqual(page.el('history-button').title, 'Hide the usage history', leave + ': and the history is not shown again');
+        assert.equal(page.el('panel').hidden, leave !== 'log-button', leave + ': the row alone, or the view that was asked for');
+    }
+
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('history-button');
     await page.click('settings-button');
     await change(page, 'set-showHistoryIcon', false);
-
-    // The backend says what was saved from the next status on.
-    state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, historyIcon: false });
-    await page.click('settings-save');
-
-    assert.equal(page.el('settings-view').hidden, true);
-    assert.equal(page.el('panel').hidden, false, 'the history is shown again, whatever its switch says');
-    assert.equal(page.el('history-button').title, 'Hide the usage history');
-    assert.equal(page.el('history-button').hidden, false, 'and its button stays until the panel is closed');
-    assert.doesNotMatch(page.el('history-button').className, /\boff\b/, 'as the button of the open panel, not dimmed');
-    await page.click('history-button');
-    assert.equal(page.el('history-button').hidden, true, 'closed, it goes: it is switched off');
-
-    state.status = SPEND_STATUS;
-    await page.firePoll();
-    await page.click('log-button');
-    await page.click('settings-button');
-    page.el('set-showHistoryIcon').checked = false;
     await page.click('settings-cancel');
-    assert.equal(page.el('log-button').title, 'Hide the log', 'Cancel changes nothing, so the log comes back');
+    assert.equal(page.el('history-button').title, 'Hide the usage history', 'Cancel changes nothing, so the history comes back');
+    assert.equal(settingsPosts(page).length, 0);
 });
 
 test('Apply that switches off a different panel\'s button still gives the earlier panel back', async () => {
@@ -2069,22 +2069,33 @@ test('a click on a dimmed button saves the settings and opens its panel, whose b
     assert.deepEqual(visible(page), ['settings-button'], 'closed, its button goes');
 });
 
-test('a panel reached through a dimmed button is given back by the settings, however they are left and whatever its switch says', async () => {
-    for (const leave of ['settings-save', 'settings-cancel', 'settings-button']) {
-        const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) }));
+test('a view reached through a dimmed icon is not given back when the settings are left again, since its icon is still switched off; Cancel gives it back', async () => {
+    const off = { ...SETTINGS, settings: { ...SETTINGS.settings, showLogIcon: false, showHistoryIcon: false, showErrorIcon: false } };
+    for (const [leave, back] of [['settings-save', false], ['settings-button', false], ['settings-cancel', true]]) {
+        const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS), settings: () => ({ status: 200, body: off }) }));
         await page.click('settings-button');
         await page.click('log-button');
-        assert.equal(page.el('log-button').title, 'Hide the log');
+        assert.equal(page.el('log-button').title, 'Hide the log', 'the dimmed icon opens its view');
+        assert.equal(page.el('log-button').hidden, false, 'whose icon stays while it is open');
 
         await page.click('settings-button');
-        assert.equal(page.el('log-button').hidden, false);
-        assert.match(page.el('log-button').className, /\boff\b/, 'in the settings it is one of the dimmed buttons again');
+        assert.match(page.el('log-button').className, /\boff\b/, 'in the settings it is one of the dimmed icons again');
         await page.click(leave);
 
         assert.equal(page.el('settings-view').hidden, true, leave);
-        assert.equal(page.el('log-button').title, 'Hide the log', 'the log is back after ' + leave);
-        assert.equal(page.el('log-button').hidden, false);
-        assert.doesNotMatch(page.el('log-button').className, /\boff\b/);
+        assert.equal(page.el('log-button').title === 'Hide the log', back, leave + (back ? ': the log is back' : ': the log is not shown again'));
+        assert.equal(page.el('log-button').hidden, !back);
+    }
+});
+
+test('a view whose icon is on is given back as ever, however the settings are left', async () => {
+    for (const leave of ['settings-save', 'settings-cancel', 'settings-button']) {
+        const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+        await page.click('history-button');
+        await page.click('settings-button');
+        await change(page, 'set-showLogIcon', false);
+        await page.click(leave);
+        assert.equal(page.el('history-button').title, 'Hide the usage history', leave + ': another icon was unchecked, not this one');
     }
 });
 
@@ -3709,37 +3720,28 @@ test('the settings open on the tab they were left on, however they were left', a
     assert.deepEqual(shownTabs(page), ['cost'], 'after the button of another panel');
 });
 
-test('each change of tab is told to the backend once, and opening the settings tells nothing', async () => {
+test('the tab the settings are on is the page\'s own to remember: nothing of it is told to the backend', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
-    assert.equal(page.calls.filter(c => c.url === '/api/settings-tab').length, 0, 'opening is no change');
-
-    await page.click('tabbtn-general');
+    await page.click('tabbtn-main');
     await page.click('tabbtn-history');
+    await page.click('settings-cancel');
 
-    const sent = page.calls.filter(c => c.url === '/api/settings-tab').map(c => JSON.parse(c.body).tab);
-    assert.deepEqual(sent, ['general', 'history']);
+    assert.deepEqual(page.calls.filter(c => c.method === 'POST').map(c => c.url), [], 'no request for a tab, and none at all');
 });
 
-test('the first opening after a start is on the tab the backend stored, and only the first', async () => {
-    const stored = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'cost' } }) }));
-    await stored.click('settings-button');
-    assert.deepEqual(shownTabs(stored), ['cost']);
+test('the first opening after a start is on General, whatever a backend says of a tab, and after that on the tab the settings were left on', async () => {
+    // A backend of an earlier version said the tab the settings were last on; it is not looked at any more.
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'cost' } }) }));
+    await page.click('settings-button');
+    assert.deepEqual(shownTabs(page), ['general'], 'the first tab');
 
-    const unknown = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'nonsense' } }) }));
-    await unknown.click('settings-button');
-    assert.deepEqual(shownTabs(unknown), ['general'], 'a name that is not a tab: the first one, General');
-
-    const debug = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'debug' } }) }));
-    await debug.click('settings-button');
-    assert.deepEqual(shownTabs(debug), ['general'], 'Debug outside debug mode: the first one, General');
-
-    const again = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'cost' } }) }));
-    await again.click('settings-button');
-    await again.click('tabbtn-main');
-    await again.click('settings-cancel');
-    await again.click('settings-button');
-    assert.deepEqual(shownTabs(again), ['main'], 'the stored one is used at the first opening only');
+    for (const [tab, leave] of [['main', 'settings-cancel'], ['about', 'settings-save'], ['history', 'settings-button'], ['cost', 'log-button']]) {
+        await page.click('tabbtn-' + tab);
+        await page.click(leave);
+        await page.click('settings-button');
+        assert.deepEqual(shownTabs(page), [tab], 'left by ' + leave + ' on ' + tab + ': opened there again');
+    }
 });
 
 test('what was changed on one tab is kept while another is shown, and sent together', async () => {

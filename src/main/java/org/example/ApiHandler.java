@@ -164,12 +164,6 @@ final class ApiHandler implements HttpHandler {
                 }
                 send(exchange, 200, cost().toJson());
             }
-            case "/api/settings-tab" -> {
-                if (!method.equals("POST")) {
-                    throw new ApiException(405, "Use POST.", "POST");
-                }
-                updateSettingsTab(exchange);
-            }
             case "/api/about" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
@@ -351,8 +345,7 @@ final class ApiHandler implements HttpHandler {
                 toBody(Settings.defaults()),
                 new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())),
                 settings.current().usageIntervalSeconds(),
-                settings.current().cost().dailyIn(java.time.YearMonth.now()).map(CostControl::text).orElse(null),
-                settings.settingsTab());
+                settings.current().cost().dailyIn(java.time.YearMonth.now()).map(CostControl::text).orElse(null));
     }
 
     /**
@@ -589,17 +582,6 @@ final class ApiHandler implements HttpHandler {
             LOG.warning("Could not read the usage history", e);
             throw new ApiException(500, "The usage history could not be read.", null);
         }
-    }
-
-    /** The tab the settings view is on, stored so that it opens on it the next time, also after a start. The other settings are left as they are. */
-    private void updateSettingsTab(HttpExchange exchange) throws IOException {
-        requireJson(exchange);
-        Json tab = readJson(exchange).get("tab");
-        if (tab == null || !tab.isText() || !org.example.settings.SettingsStore.isTab(tab.text())) {
-            throw new ApiException(400, "The tab must be one of main, history, cost, debug, general and about.", null);
-        }
-        settings.storeSettingsTab(tab.text());
-        send(exchange, 200, new SettingsTabBody(settings.settingsTab()).toJson());
     }
 
     /**
@@ -1184,8 +1166,7 @@ final class ApiHandler implements HttpHandler {
      * @param configuredIntervalSeconds the interval that is saved, which {@code settings.usageIntervalSeconds} is not while
      *     a back-off or the automatic interval has another in force
      */
-    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds, String costDailyWorkedOut,
-            String settingsTab) {
+    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds, String costDailyWorkedOut) {
 
         Json toJson() {
             return Json.object()
@@ -1193,15 +1174,7 @@ final class ApiHandler implements HttpHandler {
                     .put("defaults", defaults.toJson())
                     .put("limits", limits.toJson())
                     .put("configuredIntervalSeconds", configuredIntervalSeconds)
-                    .put("costDailyWorkedOut", costDailyWorkedOut)
-                    .put("settingsTab", settingsTab);
-        }
-    }
-
-    record SettingsTabBody(String tab) {
-
-        Json toJson() {
-            return Json.object().put("tab", tab);
+                    .put("costDailyWorkedOut", costDailyWorkedOut);
         }
     }
 

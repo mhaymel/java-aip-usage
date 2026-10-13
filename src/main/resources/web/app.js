@@ -320,12 +320,13 @@
     // Counts the questions about the daily limit: an answer to an earlier one, arriving late, is not the one to show.
     var costAsked = 0;
     // The tabs of the settings, in order: the page of each is `tab-<id>`, its title in the strip `tabbtn-<id>`. The Debug tab is there
-    // in debug mode only. The settings open on the tab they were last on: the one the page has shown, and, at the first opening after a
-    // start, the one the backend stored (`settingsTab`), unless the person has already chosen a tab or the host has restored one.
-    // General is the first tab, and the one the settings fall back to; About is the last.
+    // in debug mode only. The settings open on the tab they were last on in this run, and on the first one, General, the first
+    // time after a start: the tab is the page's own to remember, and is kept nowhere else. About is the last tab.
     var TABS = ['general', 'main', 'history', 'cost', 'debug', 'about'];
     var currentTab = TABS[0];
-    var tabChosen = false;
+
+    // The setting that switches the icon of each view on and off; the settings have none, as their icon is always there.
+    var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon', cost: 'showCostIcon' };
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
     var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon', 'showCostIcon'];
@@ -506,13 +507,6 @@
         try {
             var body = await request('/api/settings');
             takeSettings(body);
-            if (!tabChosen) {
-                // The first opening after a start: the tab the settings were last on, stored by the backend.
-                tabChosen = true;
-                if (TABS.indexOf(body.settingsTab) >= 0) {
-                    currentTab = body.settingsTab;
-                }
-            }
             fillInterval(body.settings.usageIntervalSeconds);
             fillForm(body.settings);
             // The field is enabled while the form is filled, so that the checkbox alone says how it is afterwards.
@@ -566,7 +560,6 @@
         try {
             var body = await postJson('/api/settings', readForm());
             takeSettings(body);
-            // The panel the settings replaced is given back whatever its switch now says: its button stays until it is closed.
             return true;
         } catch (e) {
             setNote('settings-error', e.message);
@@ -596,11 +589,23 @@
         return true;
     }
 
+    /**
+     * A view whose icon is switched off is not given back when the settings are left: unchecking the icon of the view that is
+     * open closes it. It goes by the settings as they are saved, which the form was last told, whether this leaving saved
+     * them or found nothing to save. Cancel does not ask: it changes nothing, and gives back what was shown.
+     */
+    function dropWhatIsSwitchedOff() {
+        if (returnTo && settingsShown && settingsShown[ICON_SETTINGS[returnTo]] === false) {
+            returnTo = null;
+        }
+    }
+
     /** Save: saves, and then the view closes and the row shows the change at once. */
     async function applySettings() {
         if (settingsShown === null || !(await saveAll(false))) {
             return;
         }
+        dropWhatIsSwitchedOff();
         leaveForm(null, true);
     }
 
@@ -642,13 +647,9 @@
         }
     }
 
-    /** The person has picked a tab: it is shown and told to the backend, which stores it for the next opening, also after a start. */
+    /** The person has picked a tab: it is shown, and is the one the settings open on the next time in this run. */
     function chooseTab(id) {
-        tabChosen = true;
         showTab(id);
-        postJson('/api/settings-tab', { tab: currentTab }).catch(function () {
-            // Only a convenience: the tab is still the one shown, and the next change tells the backend again.
-        });
     }
 
     /** The tabs there are: all of them, and the Debug tab in debug mode only. */
@@ -1322,6 +1323,7 @@
             if (changed && !(await form.save())) {
                 return;
             }
+            dropWhatIsSwitchedOff();
             leaveForm(name === openPanel ? null : name, changed);
             return;
         }
@@ -1430,7 +1432,6 @@
             returnTo = openPanel;
             showPanelNamed('settings');
             if (visibleTabs().indexOf(tab) >= 0) {
-                tabChosen = true;
                 showTab(tab);
             }
             return true;

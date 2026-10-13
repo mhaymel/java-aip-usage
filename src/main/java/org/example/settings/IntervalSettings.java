@@ -106,20 +106,6 @@ public final class IntervalSettings {
         LOG.info("The fake backend's options changed: " + options);
     }
 
-    /** The tab the settings view was last on, as stored; none if it never was. */
-    public synchronized String settingsTab() {
-        return store.loadSettingsTab();
-    }
-
-    /** Remembers the tab the settings view is on. A file that cannot be written is logged and nothing more: it is only a convenience. */
-    public synchronized void storeSettingsTab(String tab) {
-        try {
-            store.saveSettingsTab(tab);
-        } catch (IOException e) {
-            LOG.warning("Could not save the settings tab to " + store.file(), e);
-        }
-    }
-
     /** What the window showed when the program last stopped, as stored; nothing if it never was. */
     public synchronized SettingsStore.LastWindow lastWindow() {
         return store.loadLast();

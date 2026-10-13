@@ -27,7 +27,6 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 | `POST` | `/api/text-size` | Save the size of the text of the three lists |
 | `GET` | `/api/cost` | The cost control panel: the two bars, finished |
-| `POST` | `/api/settings-tab` | Save the tab the settings view is on, for the next opening |
 | `GET` | `/api/cost/daily` | The daily limit that follows from a monthly one, in the current month |
 | `GET` | `/api/about` | What the About view says: the version, where the files are, what the program runs on |
 | `POST` | `/api/about/open` | Show one of the program's three files in its folder |
@@ -119,8 +118,7 @@ The two figures of the search, `autoIntervalSeconds` and `autoRefusedSeconds` (t
 US dollars as a finished text with two decimals, `"250.00"`, or `null` for none; and `costDailyAutomatic`, `true` by
 default, which has the daily limit worked out from the monthly one. Beside them the answer has `costDailyWorkedOut`: the
 daily limit in force this month, as a finished text, or `null`: the monthly limit divided by the weekdays, Monday to
-Friday, of the current month, rounded down to the cent, while `costDailyAutomatic` is on, and else the one typed in. The answer has `settingsTab` too:
-the tab the settings view was last on (see `POST /api/settings-tab`), or `null`.
+Friday, of the current month, rounded down to the cent, while `costDailyAutomatic` is on, and else the one typed in. (Until version 0.79 the answer had `settingsTab` too, the tab the settings view was last on, and `POST /api/settings-tab` stored it; the tab is the page's own to remember since version 0.80, and neither is there any more.)
 
 In a `POST` the three may be given or left out, and what is left out stays as it is. A limit is `null` or an empty
 text for none, or an amount, as a number or the text of one, from 0.01 to 1,000,000 with two decimals at most. `400`:
@@ -418,13 +416,6 @@ The cost control panel, finished: the page only draws it. Read when the panel op
 `fraction` is the green share of the bar, 0 to 1, never more. `over` is true when the amount is more than the limit (the bar is full and the page shows the warning sign), and `noLimit` when there is no limit to compare with: the bar is gray and empty, the text is
 `<used> \u00b7 no limit set`, and there is no percentage. The amounts are written as in the row, with the currency symbol when `showCurrency` is on. The month is the amount used of the newest reading, against the monthly limit; today is that amount less the one of the last
 reading before today in the same month (else the first reading of today; a fall is 0.00), against the daily limit in force. With no reading to say what is used both rows are empty with `noLimit`, and `note` is `No usage has been read yet.`; else it is `null`. Any method but `GET` is `405`.
-
-## `POST /api/settings-tab`
-
-Saves the tab the settings view is on, so that it opens on it the next time, also after a start: `{"tab": "general"}`, one of `main`, `history`, `cost`,
-`debug`, `general` and `about`. It is saved in `settings.json` under `settingsTab`, and the answer is the tab that is saved, `{"tab": "general"}`;
-`GET /api/settings` says it as `settingsTab` (a text, or `null` when none was saved or what the file holds is not a tab). A `tab` that is missing or
-not one of the six is `400`, and nothing is saved. The settings of `/api/settings` do not have it, and saving them leaves it as it is. Any other method is `405`.
 
 ## `POST /api/text-size`
 

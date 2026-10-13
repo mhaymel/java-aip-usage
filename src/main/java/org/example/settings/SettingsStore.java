@@ -109,8 +109,6 @@ public final class SettingsStore {
 
     static final String RESTORE_WINDOW_KEY = "restoreWindow";
 
-    static final String SETTINGS_TAB_KEY = "settingsTab";
-
     static final String LAST_PANEL_KEY = "lastPanel";
 
     static final String LAST_TAB_KEY = "lastTab";
@@ -290,7 +288,7 @@ public final class SettingsStore {
                 throw new Fault("the settings file is not a JSON object");
             }
         }
-        write(load(), heights, loadSearch(), loadFake(), loadLast(), loadSettingsTab());
+        write(load(), heights, loadSearch(), loadFake(), loadLast());
     }
 
     /** The scenario of the fake backend, by its name; a name that is none of them is logged and passed over. */
@@ -421,7 +419,7 @@ public final class SettingsStore {
     public void save(Settings settings) throws IOException {
         boolean there = Files.exists(file);
         write(settings, there ? loadHeights() : Heights.NONE, there ? loadSearch() : Search.BEGINNING,
-                there ? loadFake() : org.example.fake.FakeOptions.DEFAULTS, there ? loadLast() : LastWindow.NONE, there ? loadSettingsTab() : null);
+                there ? loadFake() : org.example.fake.FakeOptions.DEFAULTS, there ? loadLast() : LastWindow.NONE);
     }
 
     /**
@@ -491,7 +489,7 @@ public final class SettingsStore {
                 throw new Fault("the settings file is not a JSON object");
             }
         }
-        write(load(), loadHeights(), loadSearch(), options, loadLast(), loadSettingsTab());
+        write(load(), loadHeights(), loadSearch(), options, loadLast());
     }
 
     /**
@@ -563,31 +561,6 @@ public final class SettingsStore {
         return name != null && TABS.contains(name);
     }
 
-    /** The tab the settings view was last on, as stored; {@code null} for none or a name that is not a tab. Never fails. */
-    public String loadSettingsTab() {
-        try {
-            Json root = JsonReader.read(Files.readString(file));
-            return root == null || !root.isObject() ? null : name(root, SETTINGS_TAB_KEY, TABS);
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    /**
-     * Stores the tab the settings view is on, keeping everything else the file has.
-     *
-     * @throws IOException if the file cannot be written; it is then unchanged
-     */
-    public void saveSettingsTab(String tab) throws IOException {
-        if (Files.exists(file)) {
-            Json root = JsonReader.read(Files.readString(file));
-            if (root == null || !root.isObject()) {
-                throw new Fault("the settings file is not a JSON object");
-            }
-        }
-        write(load(), loadHeights(), loadSearch(), loadFake(), loadLast(), tab);
-    }
-
     private static String name(Json root, String key, java.util.Set<String> known) {
         Json node = root.get(key);
         return node != null && node.isText() && known.contains(node.text()) ? node.text() : null;
@@ -612,7 +585,7 @@ public final class SettingsStore {
                 throw new Fault("the settings file is not a JSON object");
             }
         }
-        write(load(), loadHeights(), loadSearch(), loadFake(), last, loadSettingsTab());
+        write(load(), loadHeights(), loadSearch(), loadFake(), last);
     }
 
     /**
@@ -627,7 +600,7 @@ public final class SettingsStore {
                 throw new Fault("the settings file is not a JSON object");
             }
         }
-        write(load(), loadHeights(), search, loadFake(), loadLast(), loadSettingsTab());
+        write(load(), loadHeights(), search, loadFake(), loadLast());
     }
 
     /** An amount of cents as the file has it: a number of dollars, always with two decimals, {@code 1000.00}. */
@@ -635,7 +608,7 @@ public final class SettingsStore {
         return Json.number(org.example.money.Amount.ofCents(cents).plain());
     }
 
-    private void write(Settings settings, Heights heights, Search search, org.example.fake.FakeOptions fake, LastWindow last, String settingsTab) throws IOException {
+    private void write(Settings settings, Heights heights, Search search, org.example.fake.FakeOptions fake, LastWindow last) throws IOException {
         Json root = Json.object();
         root.put(USAGE_KEY, settings.usageIntervalSeconds());
         root.put(LOG_RESPONSE_KEY, settings.logResponse());
@@ -691,10 +664,6 @@ public final class SettingsStore {
         root.put(RESTORE_WINDOW_KEY, settings.restoreWindow());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
-        // The tab the settings view was last on; only what was stored is written.
-        if (settingsTab != null) {
-            root.put(SETTINGS_TAB_KEY, settingsTab);
-        }
         // What the window showed when the program last stopped; only what was stored is written.
         if (last.panel() != null) {
             root.put(LAST_PANEL_KEY, last.panel());
