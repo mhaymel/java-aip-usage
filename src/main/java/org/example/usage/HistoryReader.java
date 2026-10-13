@@ -53,9 +53,11 @@ public final class HistoryReader {
     }
 
     /**
-     * Which lines are left out. A <em>zero usage line</em> is a row whose change in the amount used, against the row directly
-     * before it, is exactly zero, or a startup line (the first row of a run, which has no change); a failed row, which has
-     * no amounts, is not one, and a failed startup line is a failed line. A <em>failed line</em> is a row of a failed query.
+     * Which lines are left out. A <em>zero usage line</em> is a row whose change in the amount used is 0.00: the change the
+     * history shows for it, against the last earlier row that has an amount, whatever lies between, a failed row or the
+     * start of a run. So the lines that are hidden with the zero usage lines are exactly those whose change would be an
+     * empty cell. A startup line is a row like any other in this; a failed row, which has no amounts, is not one, and a
+     * failed startup line is a failed line. A <em>failed line</em> is a row of a failed query.
      */
     public record Filter(boolean showZero, boolean showFailed) {
 
@@ -89,18 +91,17 @@ public final class HistoryReader {
                 rows.add(List.copyOf(row));
             }
         }
-        // What a zero usage line is is decided on the whole file, against the row directly before each row, before anything is hidden.
-        List<HistoryDeltas.Delta> against = HistoryDeltas.compute(rows);
+        // What a zero usage line is is decided on the whole file, by the change the history shows for a row, before anything is hidden.
+        List<org.example.money.Amount> changes = HistoryDeltas.amountChanges(rows);
         boolean[] visible = new boolean[rows.size()];
         int hiddenZero = 0;
         int hiddenFailed = 0;
         List<Integer> order = new ArrayList<>();
         for (int i = 0; i < rows.size(); i++) {
             boolean failed = rows.get(i).get(4).contains("failed");
-            // A failed startup line (start-failed) is a failed line, checked first. A startup line that read the usage has no change, and is handled like the
-            // lines that show none: a zero usage line.
-            boolean startup = rows.get(i).get(4).startsWith("start");
-            boolean zero = !failed && (startup || (against.get(i).used() != null && against.get(i).used().signum() == 0));
+            // A failed line is checked first: it has no amount, and so no change. For every other the question is the one the
+            // cell of the change asks: is it 0.00, to the cent?
+            boolean zero = !failed && changes.get(i) != null && changes.get(i).cents() == 0;
             if (failed && !filter.showFailed()) {
                 hiddenFailed++;
             } else if (zero && !filter.showZero()) {

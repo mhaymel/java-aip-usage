@@ -1126,7 +1126,7 @@
      * the style sheet gives it its width by that: by its place a column would have the width of another when one before it is
      * switched off. The red of a failed line is on its amount used, wherever that is.
      */
-    function cells(className, values, marked, failed, title, wide, markClass, kinds) {
+    function cells(className, values, marked, failed, title, wide, markClass, kinds, cellTitles) {
         var row = document.createElement('div');
         row.className = className + ' cols-' + values.length + (kinds ? ' columns' : '') + (marked ? ' ' + (markClass || 'mark') : '') + (wide ? ' date' : '');
         if (title) {
@@ -1138,6 +1138,10 @@
             var kind = kinds ? kinds[i] : null;
             var red = failed && (kinds ? kind === 'used' : i === 1);
             cell.className = (kind ? 'c-' + kind : '') + (red ? (kind ? ' ' : '') + 'failed' : '');
+            // The titles of the history have a tooltip each, which the backend wrote: what the column is.
+            if (cellTitles && cellTitles[i]) {
+                cell.title = cellTitles[i];
+            }
             row.append(cell);
         });
         return row;
@@ -1157,7 +1161,7 @@
         box.replaceChildren();
         if (shown.header) {
             // The first child of the box, kept at its top as the rows scroll under it.
-            box.append(cells('row head', shown.header, false, false, '', shown.wide, null, shown.kinds));
+            box.append(cells('row head', shown.header, false, false, '', shown.wide, null, shown.kinds, shown.columnTitles));
         }
         shown.rows.forEach(function (row, i) {
             box.append(cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide, shown.markClass, shown.kinds));

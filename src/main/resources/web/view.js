@@ -124,6 +124,8 @@
             header: lines.length > 0 ? data.columns : null,
             // What each column is, as the backend names it: a column has its width by that, whichever columns are shown beside it.
             kinds: data.kinds || null,
+            // The tooltip of each title, as the backend wrote it.
+            columnTitles: data.columnTitles || null,
             // A time with the date is wider than one without.
             wide: Boolean(data.wide),
             rows: lines.map(function (line) { return line.cells; }),

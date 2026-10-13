@@ -1133,6 +1133,8 @@ class UsageServiceTest {
             clock.addAndGet(Duration.ofSeconds(1).toNanos());
             assertTrue(service.refreshNow());
             await(() -> calls.get() == 3 && !service.state().refreshing());
+            // Whoever saves is told after the state is set, so it is waited for.
+            await(() -> saved.size() == 1);
 
             assertEquals(List.of("200 s (refused at 190 s)"), saved, "a step of the refused interval alone is given to be saved");
             assertEquals(200, service.effectiveIntervalSeconds(), "the interval follows by its own steps, of eight answers");
@@ -1144,6 +1146,7 @@ class UsageServiceTest {
                 assertTrue(service.refreshNow());
                 await(() -> calls.get() == wanted && !service.state().refreshing());
             }
+            await(() -> saved.size() == 2);
             assertEquals(195, service.effectiveIntervalSeconds(), "the eighth answer: a step down, which the refused interval now allows");
             assertEquals(List.of("200 s (refused at 190 s)", "195 s (refused at 190 s)"), saved);
         } finally {

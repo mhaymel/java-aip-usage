@@ -213,37 +213,57 @@ class HistoryReaderTest {
     private static final String HEADER = "datetime,used,limit,currency,status,interval,duration_ms\n";
 
     @Test
-    void aStartupLineIsAZeroUsageLineAndAFailedStartupLineIsAFailedLine() throws IOException {
+    void aStartupLineThatFoundAChangeIsNoZeroUsageLineAndAFailedStartupLineIsAFailedLine() throws IOException {
         Path file = write(HEADER
                 + "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400\n"
                 + "2026-10-08 14:01:00,10.10,1000.00,USD,,60,400\n"
                 + "2026-10-08 15:00:00,,,,start-failed,60,5000\n"
-                + "2026-10-08 15:01:00,10.20,1000.00,USD,,60,400\n");
+                + "2026-10-08 15:01:00,10.20,1000.00,USD,,60,400\n"
+                + "2026-10-08 16:00:00,10.20,1000.00,USD,start,60,400\n");
 
         HistoryReader.Table all = HistoryReader.read(file, 100);
         HistoryReader.Table noZero = HistoryReader.read(file, 100, new HistoryReader.Filter(false, true));
         HistoryReader.Table noFailed = HistoryReader.read(file, 100, new HistoryReader.Filter(true, false));
 
-        assertEquals(4, all.rows().size());
+        assertEquals(5, all.rows().size());
         assertEquals(0, all.hiddenZero());
-        assertEquals(1, noZero.hiddenZero(), "the startup line that read the usage");
+        assertEquals(1, noZero.hiddenZero(), "the start at 16:00, which found the amount as it was");
         assertEquals(0, noZero.hiddenFailed());
-        assertEquals(List.of("2026-10-08 15:01:00", "2026-10-08 15:00:00", "2026-10-08 14:01:00"), times(noZero));
+        assertEquals(List.of("2026-10-08 15:01:00", "2026-10-08 15:00:00", "2026-10-08 14:01:00", "2026-10-08 14:00:00"), times(noZero),
+                "the first line of the file is shown: its change is its amount");
         assertEquals(1, noFailed.hiddenFailed(), "the failed startup line");
         assertEquals(0, noFailed.hiddenZero());
-        assertEquals(List.of("2026-10-08 15:01:00", "2026-10-08 14:01:00", "2026-10-08 14:00:00"), times(noFailed));
+        assertEquals(List.of("2026-10-08 16:00:00", "2026-10-08 15:01:00", "2026-10-08 14:01:00", "2026-10-08 14:00:00"), times(noFailed));
     }
 
     @Test
-    void whenTheStartupLineIsHiddenTheNextLineShownOfItsRunHasNoTimeButStillAChange() throws IOException {
+    void aLineIsAZeroUsageLineWhenItsAmountIsThatOfTheLastEarlierLineThatHasOneWhateverLiesBetween() throws IOException {
         Path file = write(HEADER
                 + "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400\n"
-                + "2026-10-08 14:01:00,10.10,1000.00,USD,,60,400\n");
+                + "2026-10-08 14:01:00,,,,failed,60,5000\n"
+                + "2026-10-08 14:02:00,10.00,1000.00,USD,,60,400\n"
+                + "2026-10-08 14:03:00,9.90,1000.00,USD,,60,400\n"
+                + "2026-10-08 14:04:00,9.904,1000.00,USD,,60,400\n");
 
         HistoryReader.Table noZero = HistoryReader.read(file, 100, new HistoryReader.Filter(false, true));
 
-        assertEquals(List.of("2026-10-08 14:01:00"), times(noZero));
-        assertEquals(new HistoryDeltas.Delta(Amount.parse("0.10"), null), noZero.deltas().get(0), "no time, since the startup line is hidden; the change does not depend on it");
-        assertEquals(1, noZero.visible());
+        assertEquals(2, noZero.hiddenZero());
+        assertEquals(List.of("2026-10-08 14:03:00", "2026-10-08 14:01:00", "2026-10-08 14:00:00"), times(noZero),
+                "14:02 repeats 14:00 across the failed line and is hidden; 14:03 fell and is shown; 14:04 changed by less than half a cent, which is 0.00, and is hidden");
+    }
+
+    @Test
+    void whenAStartupLineIsHiddenTheNextLineShownHasItsTimeAgainstTheLineShownBeforeAndStillItsChange() throws IOException {
+        Path file = write(HEADER
+                + "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400\n"
+                + "2026-10-08 15:00:00,10.00,1000.00,USD,start,60,400\n"
+                + "2026-10-08 15:01:00,10.10,1000.00,USD,,60,400\n");
+
+        HistoryReader.Table noZero = HistoryReader.read(file, 100, new HistoryReader.Filter(false, true));
+
+        assertEquals(List.of("2026-10-08 15:01:00", "2026-10-08 14:00:00"), times(noZero), "the start at 15:00 found no change and is hidden");
+        assertEquals(Amount.parse("0.10"), noZero.deltas().get(0).used(), "the change does not depend on what is hidden");
+        assertEquals(3660L, noZero.deltas().get(0).seconds(), "the time is against the previous line that is shown");
+        assertEquals(2, noZero.visible());
     }
 }

@@ -496,6 +496,7 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
   "exists": true,
   "columns": ["time", "used", "limit", "\u0394 used", "\u0394 time", "Cur."],
   "kinds": ["time", "used", "limit", "deltaUsed", "deltaTime", "currency"],
+  "columnTitles": ["When the usage was read", "The amount used at that reading", "The budget at that reading", "The change in the amount used since the last earlier reading: + for a rise, - for a fall", "The seconds since the previous line that is shown", "The currency of the amounts"],
   "wide": false,
   "note": "Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.",
   "noteHighlight": true,
@@ -511,15 +512,15 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
 
 - `kinds`: what each column is, in the order of `columns`, by a fixed name: `time`, `used`, `limit`, `deltaUsed`, `deltaTime` or `currency`. A column is known by this, not by its title or its place: the page gives it its width by it,
   and puts the red of a failed line on the cell of `used`.
+- `columnTitles`: the tooltip of each title, in the order of `columns`, written by the backend: what the column is. With the date the first is `The date and time at which the usage was read`. The page puts each on its title as it is given.
 - `columns`: the titles, in the order of the `cells`: the time (`time`, or `date time` when the date setting is on), `used`, `limit`, when their settings are on `\u0394 used` and `\u0394 time`, and
   last, the right-most column, the currency (`Cur.`). The currency cells are `$` for US dollars and the bare code for any other currency (`EUR`), empty when there is none.
 - `lines`: the newest 1,000 of the lines that are shown, **sorted by the date and time, latest first** (not merely the file reversed, so a file that is out of order is still right; of two
   with the same time, the one written later is first). Each has `cells` (the strings of the table, an empty cell empty: the time as the setting says, `failed` in the place of the amount of a
-  failed line, `\u0394 used` with its sign and empty for no change or for a change of zero, `\u0394 time` in whole seconds, `63 s`, never minutes), `start` (it is the first line of a run),
+  failed line, `\u0394 used` with its sign, `+0.05` for a rise and `-0.14` for a fall, and empty for a change of 0.00 and for a line with no amount, `\u0394 time` in whole seconds, `63 s`, never minutes), `start` (it is the first line of a run),
   `failed` (it is the line of a failed query) and `title` (the hover text, `The program started here` for a start, else empty). A line of the file without the columns (a row from before the
   currency was one, with three, is given an empty currency), and the header, are not lines.
-- **Hidden lines.** The settings `historyZeroLines` and `historyFailedLines` (both on unless switched off) say whether the **zero usage lines** (a line whose change in the amount used, against the row
-  directly before it in the same run, is exactly zero, or a startup line, the first line of a run, which has no change; never a failed line, and a failed startup line is a failed line) and the **failed lines** are shown. The changes of the lines that are shown (`\u0394 used`,
+- **Hidden lines.** The settings `historyZeroLines` and `historyFailedLines` (both on unless switched off) say whether the **zero usage lines** (a line whose change in the amount used is 0.00: the change of its `\u0394 used`, against the last earlier line that has an amount, whatever lies between; a startup line is a line like any other in this; never a failed line, and a failed startup line is a failed line) and the **failed lines** are shown. The changes of the lines that are shown (`\u0394 used`,
   `\u0394 time`) are worked out against the previous line that is shown in the same run, so with lines hidden they span them; a row that begins a run begins it even if it is hidden.
 - `note`: one line for the page to show above the table, or `null` when everything is shown: `There is no usage history yet.`, `The history has no rows yet.`, or `Showing N of M lines:` with the zero usage and failed
   lines hidden and the older lines beyond the newest 1,000 that are not shown (counts with a comma for thousands).

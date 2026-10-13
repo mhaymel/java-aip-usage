@@ -735,31 +735,39 @@ final class ApiHandler implements HttpHandler {
                     new HistoryReader.Filter(zeroLines != null ? zeroLines : now.historyZeroLines(), now.historyFailedLines()));
             // Each column is there when its setting is on, in the order of the view: the time, the amounts, the changes and the currency.
             // With each title goes what the column is, by a fixed name: the page gives a column its width by that, not by its place.
+            // And the tooltip of each title, which says what the column is.
             List<String> columns = new java.util.ArrayList<>();
             List<String> kinds = new java.util.ArrayList<>();
+            List<String> tips = new java.util.ArrayList<>();
             if (now.historyTime()) {
                 columns.add(now.historyDate() ? "date time" : "time");
                 kinds.add("time");
+                tips.add(now.historyDate() ? "The date and time at which the usage was read" : "When the usage was read");
             }
             if (now.historyUsed()) {
                 columns.add("used");
                 kinds.add("used");
+                tips.add("The amount used at that reading");
             }
             if (now.historyLimit()) {
                 columns.add("limit");
                 kinds.add("limit");
+                tips.add("The budget at that reading");
             }
             if (now.historyDeltaUsed()) {
                 columns.add("\u0394 used");
                 kinds.add("deltaUsed");
+                tips.add("The change in the amount used since the last earlier reading: + for a rise, - for a fall");
             }
             if (now.historyDeltaTime()) {
                 columns.add("\u0394 time");
                 kinds.add("deltaTime");
+                tips.add("The seconds since the previous line that is shown");
             }
             if (now.historyCurrent()) {
                 columns.add("Cur.");
                 kinds.add("currency");
+                tips.add("The currency of the amounts");
             }
             List<HistoryLine> lines = new java.util.ArrayList<>();
             for (int i = 0; i < table.rows().size(); i++) {
@@ -778,8 +786,8 @@ final class ApiHandler implements HttpHandler {
                     cells.add(row.get(2));
                 }
                 if (now.historyDeltaUsed()) {
-                    // The history shows a change only when it is greater than 0.00: a zero or a fall is an empty cell.
-                    cells.add(delta.deltaUsedText() == null || delta.deltaUsed().signum() < 0 ? "" : delta.deltaUsedText());
+                    // The history shows every change but one of 0.00: a rise with its plus, a fall with its minus.
+                    cells.add(delta.deltaUsedText() == null ? "" : delta.deltaUsedText());
                 }
                 if (now.historyDeltaTime()) {
                     cells.add(delta.deltaSecondsText() == null ? "" : delta.deltaSecondsText());
@@ -791,7 +799,7 @@ final class ApiHandler implements HttpHandler {
                 lines.add(new HistoryLine(cells, start, failed, start ? START_TOOLTIP : ""));
             }
             return new HistoryBody(
-                    sources.history().getFileName().toString(), table.exists(), columns, kinds, now.historyDate(),
+                    sources.history().getFileName().toString(), table.exists(), columns, kinds, tips, now.historyDate(),
                     historyNote(table), historyNoteHighlighted(table), table.total(), now.historyZeroLines(), lines);
         } catch (IOException e) {
             LOG.warning("Could not read the usage history", e);
@@ -1280,10 +1288,11 @@ final class ApiHandler implements HttpHandler {
     /**
      * @param kinds what each column is, in the order of {@code columns}: {@code time}, {@code used}, {@code limit}, {@code deltaUsed},
      *     {@code deltaTime} or {@code currency}
+     * @param columnTitles the tooltip of each title, in the order of {@code columns}: what the column is
      * @param zeroLines whether the zero usage lines are shown as the setting has it, which is what is saved, not what a request asked for
      */
     record HistoryBody(
-            String file, boolean exists, List<String> columns, List<String> kinds, boolean wide, String note, boolean noteHighlight, int total,
+            String file, boolean exists, List<String> columns, List<String> kinds, List<String> columnTitles, boolean wide, String note, boolean noteHighlight, int total,
             boolean zeroLines, List<HistoryLine> lines) {
 
         Json toJson() {
@@ -1296,6 +1305,7 @@ final class ApiHandler implements HttpHandler {
                     .put("exists", exists)
                     .put("columns", Json.texts(columns))
                     .put("kinds", Json.texts(kinds))
+                    .put("columnTitles", Json.texts(columnTitles))
                     .put("wide", wide)
                     .put("note", note)
                     .put("noteHighlight", noteHighlight)

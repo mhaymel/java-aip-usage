@@ -4530,3 +4530,27 @@ test('the two buttons of the log do nothing with another panel', async () => {
 
     assert.deepEqual(logFilePosts(page), []);
 });
+
+// ---- version 0.80: a tooltip for each column title of the history
+
+test('each title of the history has the tooltip the backend wrote for it, and the cells under it have none of it', async () => {
+    const history = { ...HISTORY, columns: ['time', 'used', '\u0394 used'], kinds: ['time', 'used', 'deltaUsed'],
+        columnTitles: ['When the usage was read', 'The amount used at that reading', 'The change in the amount used since the last earlier reading: + for a rise, - for a fall'],
+        lines: [line(['20:46:11', '260.66', '-0.14']), line(['20:44:12', '260.80', '+0.30'], { start: true, title: 'The program started here' })] };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
+
+    await page.click('history-button');
+
+    const [head, first, start] = page.el('panel-lines').children;
+    assert.deepEqual(head.children.map(cell => cell.title), history.columnTitles, 'as given, one for each title');
+    assert.deepEqual(first.children.map(cell => cell.title), ['', '', ''], 'a cell of a line has none');
+    assert.equal(first.children[2].textContent, '-0.14', 'a fall is drawn as the backend wrote it');
+    assert.equal(start.title, 'The program started here', 'a line keeps the tooltip it has');
+    assert.deepEqual(page.el('table-probe').children[0].children.map(cell => cell.title), ['', '', ''], 'the copy that is measured needs none');
+});
+
+test('a history that says no tooltips for its titles is drawn without them', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('history-button');
+    assert.deepEqual(page.el('panel-lines').children[0].children.map(cell => cell.title), ['', '', '', '']);
+});

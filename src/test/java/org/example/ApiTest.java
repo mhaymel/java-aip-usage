@@ -1057,7 +1057,7 @@ class ApiTest {
     }
 
     @Test
-    void theHistoryShowsAChangeOnlyWhenItIsGreaterThanZeroAndTheRowShowsAFallToo() throws Exception {
+    void theHistoryShowsEveryChangeButOneOfNothingAFallWithItsMinusLikeTheRow() throws Exception {
         writeHistory(CSV_HEADER,
                 "2026-10-08 14:00:00,10.40,1000.00,USD,start,60,400",
                 "2026-10-08 14:01:00,10.40,1000.00,USD,,60,400",
@@ -1070,13 +1070,33 @@ class ApiTest {
 
         Json lines = json(get(app, "/api/history")).get("lines");
 
-        assertEquals("", lines.get(0).at("/cells/3").asText(), "a fall shows nothing in the history");
+        assertEquals("-0.10", lines.get(0).at("/cells/3").asText(), "a fall is a value, with its minus, against the last earlier amount");
         assertEquals("", lines.get(1).at("/cells/3").asText(), "the failed line has no amount");
         assertEquals("", lines.get(2).at("/cells/3").asText(), "no change: nothing");
         assertEquals("+10.40", lines.get(3).at("/cells/3").asText(), "the first line: the amount itself");
 
         Json change = json(get(app, "/api/status")).get("change");
-        assertEquals(-0.10, change.get("delta_used").asDouble(), 0.0001, "the row has the fall, against the last earlier amount");
+        assertEquals(-0.10, change.get("delta_used").asDouble(), 0.0001, "the row has the same fall");
+    }
+
+    @Test
+    void withTheZeroUsageLinesHiddenEveryLineThatIsShownHasAChangeButAFailedOne() throws Exception {
+        // What the notes asked for: lines whose amount fell stay, and have their value; none is shown with an empty change.
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,186.64,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:00,186.50,1000.00,USD,start,60,400",
+                "2026-10-08 14:02:00,,,,failed,60,5000",
+                "2026-10-08 14:03:00,186.50,1000.00,USD,,60,400",
+                "2026-10-08 14:04:00,186.57,1000.00,USD,start,60,400",
+                "2026-10-08 14:05:00,186.57,1000.00,USD,start,60,400");
+
+        Json history = historyWith(false, true);
+
+        assertEquals(java.util.List.of("14:04:00", "14:02:00", "14:01:00", "14:00:00"), times(history));
+        assertEquals(java.util.List.of("+0.07", "", "-0.14", "+186.64"),
+                history.get("lines").items().stream().map(line -> line.at("/cells/3").asText()).toList(),
+                "a rise, the failed line, a fall, and the first line of the file");
+        assertEquals("Showing 4 of 6 lines: 2 zero usage hidden.", history.get("note").asText());
     }
 
     @Test
@@ -1409,9 +1429,9 @@ class ApiTest {
 
         Json history = historyWith(false, true);
 
-        // 14:01 repeats 14:00 and 14:05 repeats 14:04: zero usage. 14:04 follows a failed row, so it has no change to be zero. 14:00 is the startup line,
-        // which counts as a zero usage line too.
-        assertEquals(java.util.List.of("14:06:00", "14:04:00", "14:03:00", "14:02:00"), times(history));
+        // 14:01 repeats 14:00, and 14:04 and 14:05 repeat 14:02, the last amount before them: zero usage, though a failed line
+        // is between. 14:00 is the first line of the file: its change is its amount, so it is shown, start line or not.
+        assertEquals(java.util.List.of("14:06:00", "14:03:00", "14:02:00", "14:00:00"), times(history));
         assertEquals("Showing 4 of 7 lines: 3 zero usage hidden.", history.get("note").asText());
     }
 
@@ -1432,21 +1452,43 @@ class ApiTest {
 
         Json history = historyWith(false, false);
 
-        assertEquals(java.util.List.of("14:06:00", "14:04:00", "14:02:00"), times(history));
+        assertEquals(java.util.List.of("14:06:00", "14:02:00", "14:00:00"), times(history));
         assertEquals("Showing 3 of 7 lines: 3 zero usage and 1 failed hidden.", history.get("note").asText());
     }
 
     @Test
-    void theChangesAreWorkedOutOnTheLinesThatAreShown() throws Exception {
+    void theHistorySaysATooltipForEachOfItsTitlesWhicheverColumnsAreShown() throws Exception {
+        writeMixedHistory();
+
+        Json all = historyWith(true, true);
+        assertEquals(java.util.List.of("When the usage was read", "The amount used at that reading", "The budget at that reading",
+                        "The change in the amount used since the last earlier reading: + for a rise, - for a fall",
+                        "The seconds since the previous line that is shown", "The currency of the amounts"),
+                all.get("columnTitles").items().stream().map(Json::asText).toList());
+        assertEquals(titles(all).size(), all.get("columnTitles").size(), "one for each title");
+
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"historyDate\": false", "\"historyDate\": true")
+                .replace("\"historyDeltaTime\": true", "\"historyDeltaTime\": false"));
+        Json dated = json(get(app, "/api/history"));
+        assertEquals(java.util.List.of("The date and time at which the usage was read", "The amount used at that reading", "The budget at that reading", "The currency of the amounts"),
+                dated.get("columnTitles").items().stream().map(Json::asText).toList(), "with the date, and with the two changes switched off");
+    }
+
+    @Test
+    void theChangeInTheAmountDoesNotDependOnWhatIsHidden() throws Exception {
         writeMixedHistory();
 
         Json lines = historyWith(false, false).get("lines");
 
-        // Shown, newest first: 14:06 (10.20), 14:04 (10.05), 14:02 (10.05). The startup line 14:00 is hidden with the zero usage lines.
+        // Shown, newest first: 14:06 (10.20), 14:02 (10.05), 14:00 (10.00). Hidden: 14:01, 14:04 and 14:05, which repeat the amount
+        // before them, and the failed 14:03.
         assertEquals(3, lines.size());
-        assertEquals("+0.15", lines.get(0).at("/cells/3").asText(), "against 14:04, the previous line shown");
-        assertEquals("", lines.get(1).at("/cells/3").asText(), "14:04 is the same as 14:02, the last earlier line with an amount (14:03 failed is ignored): nothing greater than 0.00");
-        assertEquals("+0.05", lines.get(2).at("/cells/3").asText(), "14:02 against 14:01, which is hidden: the change does not depend on what is hidden");
+        assertEquals("+0.15", lines.get(0).at("/cells/3").asText(), "against 14:05, which is hidden: the change does not depend on what is hidden");
+        assertEquals("+0.05", lines.get(1).at("/cells/3").asText(), "14:02 against 14:01, which is hidden as well");
+        assertEquals("+10.00", lines.get(2).at("/cells/3").asText(), "the first line of the file: the amount itself");
     }
 
     @Test
@@ -1460,8 +1502,9 @@ class ApiTest {
         Json history = json(get(app, "/api/history"));
 
         int time = history.get("columns").size() - 2;
-        // 14:06 against 14:04: 120 s. 14:04 against 14:02, the failed 14:03 being hidden between them: 120 s, not 60 s.
-        assertEquals("120 s", history.at("/lines/0/cells/" + time).asText());
+        // Shown: 14:06, 14:02, 14:00. 14:06 against 14:02, with the failed 14:03 and the unchanged 14:04 and 14:05 hidden between
+        // them: 240 s. 14:02 against 14:00, with 14:01 hidden: 120 s, not 60 s.
+        assertEquals("240 s", history.at("/lines/0/cells/" + time).asText());
         assertEquals("120 s", history.at("/lines/1/cells/" + time).asText());
     }
 
@@ -1498,17 +1541,26 @@ class ApiTest {
     }
 
     @Test
-    void theStartupLinesCountAsZeroUsageLinesAndComeBackWithTheirMarkerWhenTheyAreShown() throws Exception {
-        writeMixedHistory();
+    void aStartupLineIsALineLikeAnyOtherHiddenWhenItsChangeIsNothingAndShownWhenItHasOne() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400",
+                "2026-10-08 14:01:00,10.05,1000.00,USD,,60,400",
+                "2026-10-08 15:00:00,10.05,1000.00,USD,start,60,400",
+                "2026-10-08 16:00:00,10.20,1000.00,USD,start,60,400");
 
         Json hidden = historyWith(false, true);
         Json shown = historyWith(true, true);
 
-        assertFalse(times(hidden).contains("14:00:00"), "hidden with the zero usage lines");
-        Json first = shown.get("lines").get(6);
-        assertEquals("14:00:00", first.at("/cells/0").asText());
-        assertTrue(first.get("start").asBoolean(), "back with its gray flag");
-        assertEquals("The program started here", first.get("title").asText());
+        assertEquals(java.util.List.of("16:00:00", "14:01:00", "14:00:00"), times(hidden),
+                "the start at 15:00 found the amount as it was and is hidden; the one at 16:00 found a change and is shown");
+        Json changed = hidden.get("lines").get(0);
+        assertTrue(changed.get("start").asBoolean(), "with its mark of a start");
+        assertEquals("The program started here", changed.get("title").asText());
+        assertEquals("+0.15", changed.at("/cells/3").asText(), "and its change, against the last line of the run before");
+        Json unchanged = shown.get("lines").get(1);
+        assertEquals("15:00:00", unchanged.at("/cells/0").asText());
+        assertTrue(unchanged.get("start").asBoolean(), "back with its mark when the zero usage lines are shown");
+        assertEquals("", unchanged.at("/cells/3").asText());
     }
 
     @Test
@@ -1558,8 +1610,8 @@ class ApiTest {
         Json history = historyWith(false, true);
 
         assertEquals(1102, history.get("total").asInt());
-        assertEquals(1, history.get("lines").size(), "the one change: the startup line is a zero usage line too");
-        assertEquals("Showing 1 of 1,102 lines: 1,101 zero usage hidden.", history.get("note").asText());
+        assertEquals(2, history.get("lines").size(), "the one change, and the first line of the file, whose change is its amount");
+        assertEquals("Showing 2 of 1,102 lines: 1,100 zero usage hidden.", history.get("note").asText());
     }
 
     @Test
