@@ -163,7 +163,7 @@ function backendOf(state) {
 const COST = {
     rows: [
         { label: 'Today', text: '12.40 of 25.00 \u00b7 50%', tooltip: 'Today: 12.40 of 25.00 (50%)', fraction: 0.5, over: false, noLimit: false },
-        { label: 'This month', text: '300.00 of 250.00 \u00b7 120%', tooltip: 'This month: 300.00 of 250.00 (120%)', fraction: 1, over: true, noLimit: false },
+        { label: 'Month', text: '300.00 of 250.00 \u00b7 120%', tooltip: 'Month: 300.00 of 250.00 (120%)', fraction: 1, over: true, noLimit: false },
     ],
     note: null,
 };
@@ -2773,6 +2773,48 @@ test('what the button does is shown in the row at once, saved with the view, and
     assert.deepEqual(ELEMENTS.filter(key => sent[key] === true), ELEMENTS, 'saved as any other click is');
 });
 
+const HISTORY_BOXES = ['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent'];
+const historyChecked = page => HISTORY_BOXES.filter(key => page.el('set-' + key).checked);
+
+test('the button of History view switches all nine checkboxes on when not all are on, and all off when all are', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    const before = historyChecked(page);
+    const elements = checkedOf(page);
+    assert.ok(before.length > 0 && before.length < 9, 'some are on at the start');
+
+    await page.click('set-all-history');
+    assert.deepEqual(historyChecked(page), HISTORY_BOXES, 'all nine on: the date, the two kinds of lines and the six columns');
+
+    await page.click('set-all-history');
+    assert.deepEqual(historyChecked(page), [], 'all on, so all off');
+
+    await page.click('set-all-history');
+    page.el('set-historyUsed').checked = false;
+    await page.click('set-all-history');
+    assert.deepEqual(historyChecked(page), HISTORY_BOXES, 'one off: all on');
+
+    assert.deepEqual(checkedOf(page), elements, 'the elements of Main view are not touched');
+    assert.equal(page.calls.filter(c => c.method === 'POST').length, 0, 'nothing is sent by the button');
+
+    await page.click('settings-cancel');
+    await page.click('settings-button');
+    assert.deepEqual(historyChecked(page), before, 'Cancel leaves the settings as they were');
+});
+
+test('what the button of History view did is saved with the view, and it does nothing before the settings have been read', async () => {
+    const idle = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await idle.click('set-all-history');
+    assert.deepEqual(historyChecked(idle), [], 'nothing before the settings are open');
+
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    await page.click('set-all-history');
+    await page.click('settings-save');
+    const sent = JSON.parse(page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST')[0].body);
+    assert.deepEqual(HISTORY_BOXES.filter(key => sent[key] === true), HISTORY_BOXES);
+});
+
 test('the button does nothing before the settings have been read', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
 
@@ -3106,6 +3148,22 @@ test('a selection that the mouse begins is refused, except in the field to type 
 
 // ---- the About view: opened from the settings, shown in the place of their form, and left by Back
 
+// A path of About as it reads: the folders and the name of the file are two parts of its link.
+const pathOf = (page, id) => page.el(id).children.map(part => part.textContent).join('');
+
+test('the name of the file is a part of its own in each path of About, so that it alone can be bold', async () => {
+    const files = { settings: 'C:\\work\\aip\\settings.json', log: '/Users/me/aip/java-aip-usage.log', history: 'java-aip-usage.csv' };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, about: () => ({ status: 200, body: { ...ABOUT, files } }) }));
+    await page.click('settings-button');
+    await page.click('tabbtn-about');
+
+    const parts = id => page.el(id).children.map(part => part.className + '|' + part.textContent);
+    assert.deepEqual(parts('about-settings'), ['about-folders|C:\\work\\aip\\', 'about-file|settings.json'], 'cut at the last backslash');
+    assert.deepEqual(parts('about-log'), ['about-folders|/Users/me/aip/', 'about-file|java-aip-usage.log'], 'or at the last slash');
+    assert.deepEqual(parts('about-history'), ['about-folders|', 'about-file|java-aip-usage.csv'], 'a bare name is all name');
+    assert.equal(pathOf(page, 'about-settings'), files.settings, 'the two parts are the path, with nothing added or lost');
+});
+
 test('About is the last tab and shows what the backend says of the program', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
@@ -3120,9 +3178,9 @@ test('About is the last tab and shows what the backend says of the program', asy
     assert.equal(page.el('settings-view').hidden, false, 'it is a part of the settings view');
     assert.equal(page.el('about-name').textContent, 'aip usage');
     assert.equal(page.el('about-version').textContent, 'v0.57');
-    assert.equal(page.el('about-settings').textContent, 'C:\\work\\aip\\settings.json');
-    assert.equal(page.el('about-log').textContent, 'C:\\work\\aip\\java-aip-usage.log');
-    assert.equal(page.el('about-history').textContent, 'C:\\work\\aip\\java-aip-usage.csv');
+    assert.equal(pathOf(page, 'about-settings'), 'C:\\work\\aip\\settings.json');
+    assert.equal(pathOf(page, 'about-log'), 'C:\\work\\aip\\java-aip-usage.log');
+    assert.equal(pathOf(page, 'about-history'), 'C:\\work\\aip\\java-aip-usage.csv');
     assert.equal(page.el('about-runtime-label').textContent, 'Java', 'the name of the runtime is what the backend says');
     assert.equal(page.el('about-runtime').textContent, '25.0.1');
     assert.equal(page.el('about-toolkit-label').textContent, 'JavaFX', 'and so is the name of the toolkit of the window');
@@ -3455,13 +3513,14 @@ test('an answer about the daily limit that arrives after a later question was as
 const TAB_PAGES = { main: 'tab-main', history: 'tab-history', cost: 'tab-cost', debug: 'tab-debug', general: 'tab-general', about: 'about-view' };
 const shownTabs = page => Object.keys(TAB_PAGES).filter(tab => !page.el(TAB_PAGES[tab]).hidden);
 
-test('the settings open on the first tab, Main view, with Save and Cancel under it', async () => {
+test('the settings open on the first tab, General, with Save and Cancel under it', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
 
     await page.click('settings-button');
 
-    assert.deepEqual(shownTabs(page), ['main']);
-    assert.equal(page.el('tabbtn-main').attrs['aria-selected'], 'true');
+    assert.deepEqual(shownTabs(page), ['general']);
+    assert.equal(page.el('tabbtn-general').attrs['aria-selected'], 'true');
+    assert.equal(page.el('tabbtn-main').attrs['aria-selected'], 'false');
     assert.equal(page.el('tabbtn-history').attrs['aria-selected'], 'false');
     assert.equal(page.el('settings-buttons').hidden, false);
 });
@@ -3548,18 +3607,18 @@ test('the first opening after a start is on the tab the backend stored, and only
 
     const unknown = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'nonsense' } }) }));
     await unknown.click('settings-button');
-    assert.deepEqual(shownTabs(unknown), ['main'], 'a name that is not a tab: Main view');
+    assert.deepEqual(shownTabs(unknown), ['general'], 'a name that is not a tab: the first one, General');
 
     const debug = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'debug' } }) }));
     await debug.click('settings-button');
-    assert.deepEqual(shownTabs(debug), ['main'], 'Debug outside debug mode: Main view');
+    assert.deepEqual(shownTabs(debug), ['general'], 'Debug outside debug mode: the first one, General');
 
     const again = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, settingsTab: 'cost' } }) }));
     await again.click('settings-button');
-    await again.click('tabbtn-general');
+    await again.click('tabbtn-main');
     await again.click('settings-cancel');
     await again.click('settings-button');
-    assert.deepEqual(shownTabs(again), ['general'], 'the stored one is used at the first opening only');
+    assert.deepEqual(shownTabs(again), ['main'], 'the stored one is used at the first opening only');
 });
 
 test('what was changed on one tab is kept while another is shown, and sent together', async () => {
@@ -3653,9 +3712,9 @@ test('currentView says which panel is open and, for the settings, the tab; and n
     await page.click('history-button');
     assert.equal(page.window.currentView(), 'history,');
     await page.click('settings-button');
-    assert.equal(page.window.currentView(), 'settings,main');
-    await page.click('tabbtn-general');
     assert.equal(page.window.currentView(), 'settings,general');
+    await page.click('tabbtn-main');
+    assert.equal(page.window.currentView(), 'settings,main');
     await page.click('settings-cancel');
     await page.click('log-button');
     assert.equal(page.window.currentView(), 'log,');
@@ -3713,8 +3772,8 @@ test('the checkbox that restores the window at start is in the General tab, in t
 // ---- the cost control: two bars
 
 const rowsOf = page => page.el('cost-rows').children.map(line => ({
-    label: line.children[0].textContent, bar: line.children[1], fill: line.children[1].children[0], text: line.children[2].textContent,
-    sign: line.children[3], tooltip: line.title,
+    label: line.children[0].textContent, bar: line.children[1], fill: line.children[1].children[0], text: line.children[2].children[0].textContent,
+    sign: line.children[2].children[1], tooltip: line.title, cells: line.children,
 }));
 
 test('the cost button is there unless the backend says otherwise, and opens and closes the panel with the blue, bigger button', async () => {
@@ -3749,7 +3808,12 @@ test('the two bars are drawn from the backend\'s texts: the label, the green sha
     assert.equal(day.fill.style.width, '50%');
     assert.equal(day.sign.hidden, true, 'under the limit: no sign');
     assert.equal(day.tooltip, 'Today: 12.40 of 25.00 (50%)');
-    assert.equal(month.label, 'This month');
+    assert.equal(day.cells.length, 3, 'three cells, as in every row: the label, the bar, and the figures with the sign');
+    assert.equal(day.cells[2].className, 'cost-figures');
+    for (const cell of [day.cells[0], day.cells[1], day.cells[2].children[0]]) {
+        assert.equal(cell.title, day.tooltip, 'each part of the row says the tooltip of the row');
+    }
+    assert.equal(month.label, 'Month');
     assert.equal(month.text, '300.00 of 250.00 \u00b7 120%', 'the true percentage, over the limit');
     assert.equal(month.fill.style.width, '100%', 'a full bar');
     assert.equal(month.sign.hidden, false);
@@ -3761,7 +3825,7 @@ test('the two bars are drawn from the backend\'s texts: the label, the green sha
 test('a bar with no limit is empty and gray, and a note under the bars is shown when there is one', async () => {
     const cost = { rows: [
         { label: 'Today', text: '1.10 \u00b7 no limit set', tooltip: 'Today: 1.10, no limit set', fraction: 0, over: false, noLimit: true },
-        { label: 'This month', text: '0.00 \u00b7 no limit set', tooltip: 'This month: 0.00, no limit set', fraction: 0.7, over: false, noLimit: true },
+        { label: 'Month', text: '0.00 \u00b7 no limit set', tooltip: 'Month: 0.00, no limit set', fraction: 0.7, over: false, noLimit: true },
     ], note: 'No usage has been read yet.' };
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, cost: () => ({ status: 200, body: cost }) }));
 
@@ -3823,16 +3887,16 @@ test('the cost control asks for a window as wide as the history or as its bars n
 test('the width of the cost control follows the widest row and the history\'s table', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('cost-button');
-    for (const line of page.el('cost-rows').children) {
-        line.children[0].rect = { width: 60 };
-        line.children[2].rect = { width: 300 };
-        line.children[3].rect = { width: 20 };
-    }
+    const [day, month] = page.el('cost-rows').children;
+    day.children[0].rect = { width: 40 };
+    day.children[2].rect = { width: 320 };
+    month.children[0].rect = { width: 60 };
+    month.children[2].rect = { width: 200 };
 
     const wide = Number(page.window.contentSize().split(',')[0]);
 
-    // The bar's least width, three gaps, the label, the figures and the sign, and the padding.
-    assert.equal(wide, 120 + 3 * 8 + 60 + 300 + 20 + 16);
+    // The rows share their columns: the wider label, the bar's least width, the wider figures (the sign is in their cell), two gaps, and the padding.
+    assert.equal(wide, 60 + 120 + 320 + 2 * 8 + 16);
 });
 
 test('the checkbox Cost button is in Main view, is posted with the rest and shows or hides the button in the row at once', async () => {
@@ -3858,7 +3922,7 @@ test('the cost control is a panel like the others: another button replaces it, a
     await page.click('cost-button');
     await page.click('settings-button');
     assert.equal(page.el('cost-view').hidden, true);
-    assert.equal(page.window.currentView(), 'settings,' + 'main');
+    assert.equal(page.window.currentView(), 'settings,' + 'general');
     await page.click('settings-cancel');
     assert.equal(page.el('cost-view').hidden, false, 'given back');
     assert.equal(page.window.currentView(), 'cost,');

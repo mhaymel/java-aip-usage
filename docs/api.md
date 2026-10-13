@@ -388,7 +388,7 @@ The cost control panel, finished: the page only draws it. Read when the panel op
 {
   "rows": [
     { "label": "Today", "text": "12.50 of 50.00 \u00b7 25%", "tooltip": "Today: 12.50 of 50.00 (25%)", "fraction": 0.25, "over": false, "noLimit": false },
-    { "label": "This month", "text": "262.50 of 1,000.00 \u00b7 26%", "tooltip": "This month: 262.50 of 1,000.00 (26%)", "fraction": 0.2625, "over": false, "noLimit": false }
+    { "label": "Month", "text": "262.50 of 1,000.00 \u00b7 26%", "tooltip": "Month: 262.50 of 1,000.00 (26%)", "fraction": 0.2625, "over": false, "noLimit": false }
   ],
   "note": null
 }

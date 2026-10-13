@@ -6,8 +6,6 @@
     --bad: #cf222e;
     /* A note that tells the person something about what they are looking at. */
     --info: #0969da;
-    /* The background of the start line of a run, in the log and in the history: a very light blue. */
-    --mark: #ddf4ff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -15,7 +13,6 @@
         --ok: #3fb950;
         --bad: #f85149;
         --info: #58a6ff;
-        --mark: #0c2d6b;
     }
 }
 
@@ -498,6 +495,11 @@ body {
     cursor: pointer;
 }
 
+/* The name of the file, the last part of a path, is the one part of it that is bold, so that it is found at a glance. */
+.about-link .about-file {
+    font-weight: 700;
+}
+
 /* The button that copies a path: the icon of a copy, and for a moment after a copy the tick that says it was made. */
 .settings .copy {
     width: 18px;
@@ -799,18 +801,17 @@ body {
     text-align: left;
 }
 
-/* The start line of a run, in the log: a very light blue background over the whole line. */
+/* The start line of a run, in the log: blue text, the blue of the notes and of the open panel's icon, and no background of its own. */
 .panel-lines .mark {
-    background: var(--mark);
+    color: var(--info);
 }
 
 /*
- * The history's first line of a run: green text, the green of the figures, on the very light blue background of the log's start line, and no bold. A failed
- * startup line's `failed` keeps its red through its own rule.
+ * The history's first line of a run: the same blue text, no background of its own, and no bold. A failed startup line's
+ * `failed` keeps its red through its own rule, which comes after this one.
  */
 .panel-lines .start {
-    color: var(--ok);
-    background: var(--mark);
+    color: var(--info);
 }
 
 /* A row of a query that did not succeed says so in red, in the place of its amount. */
@@ -897,16 +898,19 @@ body {
     padding: 4px 8px;
 }
 
+/*
+ * The two rows share three columns, the label, the bar and the figures, so that the bars begin and end under one another and
+ * are equally wide whatever the texts beside them: a row is no box of its own, its parts are the cells.
+ */
 .cost-rows {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: max-content minmax(120px, 1fr) max-content;
+    align-items: center;
     gap: 8px;
 }
 
 .cost-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    display: contents;
 }
 
 .cost-label {
@@ -915,10 +919,10 @@ body {
 
 .cost-bar {
     position: relative;
-    flex: 1 1 auto;
     min-width: 120px;
     height: 14px;
-    border-radius: 7px;
+    /* Square corners. */
+    border-radius: 0;
     overflow: hidden;
     /* The gray of the track: the muted gray at a third of its strength. */
     background: color-mix(in srgb, var(--muted) 33%, transparent);
@@ -928,12 +932,20 @@ body {
     display: block;
     height: 100%;
     background: var(--ok);
-    border-radius: 7px;
+    border-radius: 0;
 }
 
 /* A limit that is not set: the bar stays gray and empty. */
 .cost-bar.none .cost-fill {
     width: 0;
+}
+
+/* The figures and, over the limit, the warning sign after them: one cell, at the right. */
+.cost-figures {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 .cost-text {

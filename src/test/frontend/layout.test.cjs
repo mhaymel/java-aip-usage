@@ -290,7 +290,7 @@ test('the heading of Main view has a small button with an icon and no text that 
     assert.match(legend, /aria-label="Select every element, or none"/, 'it has no text, so it has a name');
     assert.match(legend, /<rect x="2" y="2" width="12" height="12" rx="2"\/>\s*<path d="M5 8\.2l2\.2 2\.3L11 5\.6"\/>/, 'a square with a tick in it');
     assert.equal(legend.replace(/<svg[\s\S]*<\/svg>/, '').replace(/<[^>]*>/g, '').trim(), 'Main view', 'no text but the heading');
-    assert.equal((html.match(/class="select-all"/g) || []).length, 1, 'Main view alone has one');
+    assert.equal((html.match(/class="select-all"/g) || []).length, 2, 'Main view has one, and History view');
 
     const rule = ruleOf('.settings .select-all');
     assert.match(rule, /border-color:\s*transparent/, 'an icon, not a boxed button like Apply');
@@ -350,7 +350,7 @@ test('the text of the lists is as large as the page says, twelve pixels when it 
 
 test('the group Request has the checkbox Automatic in the line of the interval, after the field and its unit', () => {
     const request = html.slice(html.indexOf('<legend>Request</legend>'), html.indexOf('<legend>Window</legend>'));
-    assert.match(request, /<span class="line">\s*<label>Interval\s*<input id="set-usageIntervalSeconds"[^>]*> s<\/label>\s*<label title="[^"]+"><input id="set-autoInterval" type="checkbox"> Automatic<\/label>\s*<\/span>/);
+    assert.match(request, /<span class="line">\s*<label title="[^"]+">Interval\s*<input id="set-usageIntervalSeconds"[^>]*> s<\/label>\s*<label title="[^"]+"><input id="set-autoInterval" type="checkbox"> Automatic<\/label>\s*<\/span>/);
     assert.match(request, /title="Lets the program find the shortest time between usage requests that Anthropic accepts, between 10 and 300 seconds\."/);
     assert.match(css, /\.settings input\[type="text"\]\[disabled\]\s*{\s*opacity:\s*0\.5/, 'the field is grayed while it is not to be typed in');
 });
@@ -411,6 +411,7 @@ test('the three paths of About are links that are not bold, each with a button o
 
     const link = ruleOf('.about-link');
     assert.match(link, /font-weight:\s*400/, 'not bold');
+    assert.match(ruleOf('.about-link .about-file'), /font-weight:\s*700/, 'but for the name of the file, the last part of the path');
     assert.match(link, /color:\s*var\(--info\)/, 'the blue of the notes');
     assert.match(link, /text-decoration:\s*underline/);
     assert.match(link, /cursor:\s*pointer/);
@@ -420,7 +421,7 @@ test('the three paths of About are links that are not bold, each with a button o
 });
 
 test('the Debug tab has a group for how the fake backend answers: the account, the increase, the two amounts, the two times', () => {
-    const view = html.slice(html.indexOf('<div id="tab-debug"'), html.indexOf('<div id="tab-general"'));
+    const view = html.slice(html.indexOf('<div id="tab-debug"'), html.indexOf('<div id="about-view"'));
     assert.match(view, /<fieldset id="debug-fake">\s*<legend>Fake backend, scenario normal<\/legend>/);
     assert.match(view, /<label title="[^"]+">Account\s*<select id="debug-fakeAccount"[^>]*><\/select><\/label>/, 'the kinds of account are the backend\'s to name');
     const fields = [...view.matchAll(/<label title="[^"]{30,}">([A-Za-z ]+)\s*<input id="(debug-fake[A-Za-z]+)" class="(number|amount)" type="text"[^>]*> ([A-Za-z]+)<\/label>/g)]
@@ -438,9 +439,9 @@ test('the Debug tab has a group for how the fake backend answers: the account, t
 });
 
 test('the settings have a tab Cost control, with the monthly limit, the daily limit and its checkbox Automatic', () => {
-    const order = ['id="tab-main"', 'id="tab-history"', 'id="tab-cost"', 'id="tab-debug"', 'id="tab-general"'].map(id => html.indexOf(id));
+    const order = ['id="tab-general"', 'id="tab-main"', 'id="tab-history"', 'id="tab-cost"', 'id="tab-debug"', 'id="about-view"'].map(id => html.indexOf(id));
     assert.ok(order.every(p => p >= 0) && order.every((p, i) => i === 0 || order[i - 1] < p), 'the pages are in the order of the tabs');
-    const group = html.slice(order[2], order[3]);
+    const group = html.slice(order[3], order[4]);
     assert.match(group, /<legend>Cost control<\/legend>/);
     assert.match(group, /<label title="[^"]{40,}">Monthly limit\s*<input id="set-costMonthlyLimit" class="amount" type="text"[^>]*> USD<\/label>/);
     assert.match(group, /<span class="line">\s*<label title="[^"]+">Daily limit\s*<input id="set-costDailyLimit" class="amount" type="text"[^>]*> USD<\/label>\s*<label title="[^"]{40,}"><input id="set-costDailyAutomatic" type="checkbox"> Automatic<\/label>\s*<\/span>/,
@@ -615,10 +616,10 @@ test('the dropdowns of the settings have room for the value and the arrow', () =
 });
 
 test('the settings texts are the ones the requirements give', () => {
-    assert.match(html, /<label>Interval\s*<input id="set-usageIntervalSeconds"/);
+    assert.match(html, /<label title="[^"]+">Interval\s*<input id="set-usageIntervalSeconds"/);
     assert.match(html, /<input id="set-showInterval" type="checkbox"> Interval<\/label>/);
     assert.match(html, /<input id="set-logResponse" type="checkbox"> Log the response<\/label>/);
-    assert.match(html, /<legend>History view<\/legend>/);
+    assert.match(html, /<legend>History view<button id="set-all-history"/);
     assert.match(html, /<input id="set-historyDate" type="checkbox"> Date<\/label>/);
     assert.match(html, /<input id="set-historyZeroLines" type="checkbox"> Zero usage lines<\/label>/);
     assert.match(html, /<input id="set-historyFailedLines" type="checkbox"> Failed lines<\/label>/);
@@ -714,7 +715,7 @@ test('nothing in the settings wraps: every text on one line and the two buttons 
 });
 
 test('the History view tab has the date, the two lines, and a checkbox for every column in the order of the view', () => {
-    const view = html.slice(html.indexOf('<legend>History view</legend>'), html.indexOf('id="tab-cost"'));
+    const view = html.slice(html.indexOf('<legend>History view<'), html.indexOf('id="tab-cost"'));
     const order = ['set-historyDate', 'set-historyZeroLines', 'set-historyFailedLines', 'set-historyTime', 'set-historyUsed', 'set-historyLimit', 'set-historyDeltaUsed', 'set-historyDeltaTime', 'set-historyCurrent'];
     const positions = order.map(id => view.indexOf('id="' + id + '"'));
     positions.forEach((p, i) => assert.ok(p >= 0, order[i] + ' is in the History view group'));
@@ -737,7 +738,7 @@ test('the currency is the right-most column of the history, with the change colu
     }
 });
 
-const MAIN = html.slice(html.indexOf('<legend>Main view'), html.indexOf('<legend>History view</legend>'));
+const MAIN = html.slice(html.indexOf('<legend>Main view'), html.indexOf('<legend>History view<'));
 const MAIN_CHECKBOXES = [
     ['set-showTime', 'Time'], ['set-showPercentage', 'Percentage spent'], ['set-showUsed', 'Amount used'], ['set-showLimit', 'Budget'],
     ['set-showRefresh', 'Refresh button'], ['set-showCountdown', 'Countdown'], ['set-showInterval', 'Interval'],
@@ -825,13 +826,15 @@ test('the interval is one entry field with its unit, in the Request section', ()
     assert.equal((request.match(/<select/g) || []).length, 0, 'no dropdown');
 });
 
-test('the history\'s start line is green text on the very light blue and not bold; the log\'s has the same blue', () => {
-    const start = ruleOf('.panel-lines .start');
-    assert.match(start, /color:\s*var\(--ok\)/, 'the green of the figures');
-    assert.match(start, /background:\s*var\(--mark\)/, 'the very light blue, as the log\'s start line has it');
-    assert.doesNotMatch(start, /font-weight/, 'not bold');
-    assert.match(ruleOf('.panel-lines .mark'), /background:\s*var\(--mark\)/, 'the log\'s start line has the light blue, from a variable');
-    assert.doesNotMatch(ruleOf('.panel-lines .mark'), /color/);
+test('the start line of the history and of the log is blue text, the blue of the notes, with no background of its own, and not bold', () => {
+    for (const selector of ['.panel-lines .start', '.panel-lines .mark']) {
+        const rule = ruleOf(selector);
+        assert.match(rule, /color:\s*var\(--info\)/, selector + ': the blue of the notes and of the open panel\'s icon');
+        assert.doesNotMatch(rule, /background/, selector + ': no background of its own');
+        assert.doesNotMatch(rule, /font-weight/, selector + ': not bold');
+        assert.doesNotMatch(rule, /--ok/, selector + ': the green is gone');
+    }
+    assert.ok(css.indexOf('.panel-lines .failed {') > css.indexOf('.panel-lines .start {'), 'the red of failed comes after the blue, to win in a failed start line');
 });
 
 test('the seconds of the row have room for their usual values without the space: 99s, 120s, 3600s', () => {
@@ -865,11 +868,11 @@ test('old figures are dimmed, the two changes with the amounts', () => {
     assert.match(ruleOf('.stale .time,\n.stale .spend,\n.stale .delta-used,\n.stale .delta-time,\n.stale .delta-duration'), /opacity:\s*0\.6/);
 });
 
-test('the start line has a very light blue for each theme, a light one and a dark one that the light text can be read on', () => {
-    const colours = [...css.matchAll(/--mark:\s*(#[0-9a-f]{6})/g)].map(m => m[1]);
-    assert.deepEqual(colours, ['#ddf4ff', '#0c2d6b'], 'the light theme, then the dark one');
-    assert.ok(css.indexOf('--mark: #0c2d6b') > css.indexOf('prefers-color-scheme: dark'), 'the second is in the dark block');
+test('the start line has no background colour of its own on either theme: the very light blue is gone, like the gray before it', () => {
+    assert.doesNotMatch(css, /--mark/, 'no variable for it');
+    assert.doesNotMatch(css, /#ddf4ff|#0c2d6b/i, 'neither the light one nor the dark one');
     assert.doesNotMatch(css, /#e6e6e6|#30363d/, 'the gray is gone');
+    assert.deepEqual([...css.matchAll(/--info:\s*(#[0-9a-f]{6})/g)].map(m => m[1]), ['#0969da', '#58a6ff'], 'the blue of the text: the light theme, then the dark one');
 });
 
 test('an optional item of the row with no value is a gray box of the item\'s own width, never an unseen gap, and is not dimmed', () => {
@@ -890,7 +893,7 @@ test('there is no debug button in the row, and no yellow of its own', () => {
     assert.match(html, /<button id="tabbtn-debug" class="tab" type="button" role="tab" data-tab="debug" hidden>Debug<\/button>/, 'a tab, hidden until the page knows it is debug mode');
 });
 test('the debug settings are a tab of the settings, with the scenario beside the switch of the fake backend, and no buttons of their own', () => {
-    const view = html.slice(html.indexOf('<div id="tab-debug"'), html.indexOf('<div id="tab-general"'));
+    const view = html.slice(html.indexOf('<div id="tab-debug"'), html.indexOf('<div id="about-view"'));
     assert.match(view, /^<div id="tab-debug" class="tab-page" hidden>/);
     assert.doesNotMatch(html, /id="debug-view"|debug-apply|debug-cancel|debug-buttons/);
     for (const id of ['debug-fakeBackend', 'debug-fakeToken']) {
@@ -901,10 +904,12 @@ test('the debug settings are a tab of the settings, with the scenario beside the
     assert.ok(line.indexOf('debug-fakeBackend') < line.indexOf('debug-fakeScenario'), 'the scenario is beside the switch of the fake backend');
 });
 
-test('the tabs are in the order Main view, History view, Cost control, Debug, General, About, with no arrows', () => {
+test('the tabs are in the order General, Main view, History view, Cost control, Debug, About, with no arrows', () => {
     const strip = html.slice(html.indexOf('id="settings-tabs"'), html.indexOf('id="settings-form"'));
     assert.deepEqual([...strip.matchAll(/data-tab="([a-z]+)"[^>]*>([^<]+)</g)].map(m => m[1] + ':' + m[2]),
-        ['main:Main view', 'history:History view', 'cost:Cost control', 'debug:Debug', 'general:General', 'about:About']);
+        ['general:General', 'main:Main view', 'history:History view', 'cost:Cost control', 'debug:Debug', 'about:About'], 'General first, About last');
+    const pages = ['id="tab-general"', 'id="tab-main"', 'id="tab-history"', 'id="tab-cost"', 'id="tab-debug"', 'id="about-view"'].map(id => html.indexOf(id));
+    assert.deepEqual([...pages].sort((a, b) => a - b), pages, 'and the pages are in the order of the strip');
     assert.doesNotMatch(html, /tab-prev|tab-next|tab-arrow/, 'no arrows');
     assert.match(ruleOf('.settings .tab[aria-selected="true"]'), /color:\s*var\(--info\)/, 'the tab shown is blue');
     assert.match(ruleOf('.settings .tab[aria-selected="true"]'), /border-bottom-color:\s*var\(--info\)/);
@@ -941,10 +946,12 @@ test('the mark of the fake backend is a solid red border, three pixels, that fad
     assert.match(frames, /50% \{ border-color: Canvas; \}/, 'the background of the window, where the border is not seen');
 });
 
-test('the cost control: a gray bar with the green of the figures, 14 px tall and round, the sign in the red of errors, and the text at 12 px', () => {
+test('the cost control: a gray bar with the green of the figures, 14 px tall with square corners, the sign in the red of errors, and the text at 12 px', () => {
     const bar = ruleOf('.cost-bar');
     assert.match(bar, /height:\s*14px/);
-    assert.match(bar, /border-radius:\s*7px/);
+    for (const selector of ['.cost-bar', '.cost-fill']) {
+        assert.doesNotMatch(ruleOf(selector), /border-radius:\s*[1-9]/, selector + ' has square corners');
+    }
     assert.match(bar, /min-width:\s*120px/, 'COST_BAR_MIN of app.js');
     assert.match(bar, /var\(--muted\) 33%/, 'the muted gray at a third of its strength');
     assert.match(ruleOf('.cost-fill'), /background:\s*var\(--ok\)/, 'the green of the figures');
@@ -958,4 +965,75 @@ test('the open panel button is blue and bigger, whichever panel it is, the cost 
     assert.ok(html.includes('id="cost-button"') && html.includes('id="cost-view"'));
     assert.ok(html.indexOf('id="errors-button"') < html.indexOf('id="cost-button"') && html.indexOf('id="cost-button"') < html.indexOf('id="settings-button"'),
         'after the error log button, before the gear');
+});
+
+// ---- version 0.79: the small changes of the page
+
+test('the two bars of the cost control are equally wide: the rows share the columns of one grid', () => {
+    const rows = ruleOf('.cost-rows');
+    assert.match(rows, /display:\s*grid/);
+    assert.match(rows, /grid-template-columns:\s*max-content minmax\(120px, 1fr\) max-content/, 'the label, the bar with its least width (COST_BAR_MIN of app.js), the figures');
+    assert.match(rows, /gap:\s*8px/, 'COST_GAP of app.js');
+    assert.match(ruleOf('.cost-row'), /display:\s*contents/, 'a row is no box of its own: its parts are the cells');
+    assert.doesNotMatch(ruleOf('.cost-bar'), /flex/, 'the bar takes the column, not what its own row leaves');
+    assert.match(ruleOf('.cost-figures'), /justify-content:\s*flex-end/, 'the figures and the sign are one cell');
+});
+
+test('the heading of History view has the button of Main view, which selects every checkbox, or none', () => {
+    const legend = html.slice(html.indexOf('<legend>History view'), html.indexOf('</legend>', html.indexOf('<legend>History view')));
+    assert.match(legend, /^<legend>History view<button id="set-all-history" class="select-all" type="button"/, 'in the line of the heading, after it');
+    assert.match(legend, /title="Select every checkbox, or none"/);
+    assert.match(legend, /aria-label="Select every checkbox, or none"/);
+    assert.match(legend, /<rect x="2" y="2" width="12" height="12" rx="2"\/>\s*<path d="M5 8\.2l2\.2 2\.3L11 5\.6"\/>/, 'the same icon');
+    assert.equal(legend.replace(/<svg[\s\S]*<\/svg>/, '').replace(/<[^>]*>/g, '').trim(), 'History view', 'no text but the heading');
+});
+
+test('every control of the settings has a tooltip, on itself or on the label it is in', () => {
+    const view = html.slice(html.indexOf('<div id="settings-form">'), html.indexOf('</div>\n    </div>\n</div>'));
+    const controls = [...view.matchAll(/<(input|select|button)\b[^>]*>/g)].filter(m => !/class="tab"/.test(m[0]));
+    assert.ok(controls.length >= 45 && controls.some(m => /id="settings-save"/.test(m[0])) && controls.some(m => /id="about-copy-log"/.test(m[0])), 'the controls were found, to the last: ' + controls.length);
+    for (const control of controls) {
+        if (/\btitle="[^"]{10,}"/.test(control[0])) {
+            continue;
+        }
+        const label = view.lastIndexOf('<label', control.index);
+        const closed = view.lastIndexOf('</label>', control.index);
+        const tag = label > closed ? view.slice(label, view.indexOf('>', label) + 1) : '';
+        assert.match(tag, /^<label title="[^"]{10,}">$/, 'no tooltip for ' + control[0]);
+    }
+    assert.doesNotMatch(html.slice(html.indexOf('id="tab-strip"'), html.indexOf('id="settings-form"')), /title=/, 'the titles of the tabs have none');
+});
+
+test('the tooltips of the settings are the texts the requirements give, with the range of a value where it has one', () => {
+    const texts = {
+        'set-usageIntervalSeconds': 'The time between two usage requests: a whole number of seconds from 5 to 3600. The default is 60.',
+        'set-restoreWindow': 'Opens the window at the next start as it was when the program was stopped: the same panel, the same size and the same place.',
+        'set-logResponse': 'Writes the JSON of every usage response to the log. Anything shaped like a credential is masked.',
+        'set-showTitleBar': 'Shows the title bar of the window. Off, the window is the row alone; the title bar comes back for as long as a panel that can be resized is open, so open one to close the window.',
+        'set-showCostIcon': 'A button that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.',
+        'set-historyDate': 'Shows the date before the time of each line.',
+        'set-historyZeroLines': 'Shows the lines whose amount used is that of the line before, the first line of each run among them. Off, they are left out.',
+        'set-historyFailedLines': 'Shows the lines of the usage requests that failed. Off, they are left out.',
+        'set-historyTime': 'The column with the time of the reading.',
+        'set-historyUsed': 'The column with the amount used.',
+        'set-historyLimit': 'The column with the budget.',
+        'set-historyDeltaUsed': 'The column with what was spent since the last earlier reading. It is empty when nothing was spent.',
+        'set-historyDeltaTime': 'The column with the seconds since the previous line that is shown.',
+        'set-historyCurrent': 'The column with the currency: the dollar sign for US dollars, the code for any other.',
+        'set-costMonthlyLimit': 'What may be spent in a month, in US dollars: from 0.01 to 1,000,000, with up to two decimals. Empty for no limit.',
+        'set-costDailyLimit': 'What may be spent in a day, in US dollars: from 0.01 to 1,000,000, with up to two decimals, and not more than the monthly limit.',
+        'set-costDailyAutomatic': 'Works the daily limit out: the monthly limit divided by the weekdays, Monday to Friday, of the current month.',
+    };
+    for (const [id, text] of Object.entries(texts)) {
+        const at = html.indexOf('id="' + id + '"');
+        const label = html.lastIndexOf('<label', at);
+        assert.equal(html.slice(label, html.indexOf('>', label) + 1), '<label title="' + text + '">', id);
+    }
+    const ranges = { 'debug-fakeIncreaseCents': 'From 0 to 100,000 cents.', 'debug-fakeBudget': 'from 0.01 to 1,000,000.', 'debug-fakeStartAmount': 'From 0 to the budget.',
+        'debug-fakeRefuseSeconds': 'From 0 to 3,600 s.', 'debug-fakeDelayMillis': 'From 0 to 60,000 ms.' };
+    for (const [id, range] of Object.entries(ranges)) {
+        const at = html.indexOf('id="' + id + '"');
+        const label = html.lastIndexOf('<label', at);
+        assert.ok(html.slice(label, html.indexOf('>', label) + 1).endsWith(range + '">'), id + ' says its range');
+    }
 });

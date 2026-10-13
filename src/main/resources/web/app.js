@@ -305,8 +305,9 @@
     // The tabs of the settings, in order: the page of each is `tab-<id>`, its title in the strip `tabbtn-<id>`. The Debug tab is there
     // in debug mode only. The settings open on the tab they were last on: the one the page has shown, and, at the first opening after a
     // start, the one the backend stored (`settingsTab`), unless the person has already chosen a tab or the host has restored one.
-    var TABS = ['main', 'history', 'cost', 'debug', 'general', 'about'];
-    var currentTab = 'main';
+    // General is the first tab, and the one the settings fall back to; About is the last.
+    var TABS = ['general', 'main', 'history', 'cost', 'debug', 'about'];
+    var currentTab = TABS[0];
     var tabChosen = false;
 
     // The setting that switches the button of each panel on and off; the settings have none, as their button is always there.
@@ -316,6 +317,8 @@
     var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon', 'showCostIcon'];
     // The fourteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
+    // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
+    var HISTORY_FLAGS = ['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent'];
     var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
 
     /**
@@ -342,16 +345,17 @@
     }
 
     /**
-     * The button in the heading of Main view: switches every element of the row on, or, when every one is on already, all of
-     * them off. The two properties, the currency symbol and the time format, are left as they are. The row shows it at once,
-     * like a click on a checkbox, and it is saved when the view is.
+     * The button in the heading of Main view, and the one in the heading of History view: switches every checkbox of its list
+     * on, or, when every one is on already, all of them off. For Main view the list is the elements of the row: the two
+     * properties, the currency symbol and the time format, are left as they are, and the row shows it at once, like a click on
+     * a checkbox. History view has no preview. Either is saved when the view is.
      */
-    function selectAllOrNone() {
+    function selectAllOrNone(flags) {
         if (openPanel !== 'settings' || settingsShown === null) {
             return;
         }
-        var allOn = ELEMENT_FLAGS.every(function (key) { return Boolean($('set-' + key).checked); });
-        ELEMENT_FLAGS.forEach(function (key) { $('set-' + key).checked = !allOn; });
+        var allOn = flags.every(function (key) { return Boolean($('set-' + key).checked); });
+        flags.forEach(function (key) { $('set-' + key).checked = !allOn; });
         previewNow();
     }
 
@@ -649,9 +653,9 @@
             var about = await request('/api/about');
             $('about-name').textContent = about.name;
             $('about-version').textContent = 'v' + about.version;
-            $('about-settings').textContent = about.files.settings;
-            $('about-log').textContent = about.files.log;
-            $('about-history').textContent = about.files.history;
+            showPath('about-settings', about.files.settings);
+            showPath('about-log', about.files.log);
+            showPath('about-history', about.files.history);
             // What the program runs on is the backend's to name: the page writes the names it is given.
             $('about-runtime-label').textContent = about.runtime.name;
             $('about-runtime').textContent = about.runtime.version;
@@ -664,6 +668,22 @@
             show('about-details', false);
             setNote('about-error', 'The details could not be read: ' + e.message);
         }
+    }
+
+    /**
+     * Writes a path into its link in two parts, the folders and the name of the file, so that the name alone can be bold: the
+     * name is what follows the last separator of the path, whichever of the two the system has.
+     */
+    function showPath(id, path) {
+        var text = String(path);
+        var cut = Math.max(text.lastIndexOf('/'), text.lastIndexOf('\\')) + 1;
+        var folders = document.createElement('span');
+        folders.className = 'about-folders';
+        folders.textContent = text.slice(0, cut);
+        var name = document.createElement('span');
+        name.className = 'about-file';
+        name.textContent = text.slice(cut);
+        $(id).replaceChildren(folders, name);
     }
 
     // How long the button that copied a path says so, in milliseconds.
@@ -1036,7 +1056,7 @@
     // What the cost control shows now, as JSON, so that it is drawn again only when it changed.
     var costKey = null;
 
-    // The least width of a bar, and the gap between the parts of a row, as the style sheet has them (`.cost-bar`, `.cost-row`).
+    // The least width of a bar, and the gap between the parts of a row, as the style sheet has them (`.cost-bar`, `.cost-rows`).
     var COST_BAR_MIN = 120;
     var COST_GAP = 8;
 
@@ -1071,26 +1091,37 @@
             sign.title = 'Over the limit';
             sign.textContent = row.over ? '\u26a0' : '';
             sign.hidden = !row.over;
-            line.append(label, bar, text, sign);
+            // The figures and the sign are one cell, so that the two rows have the same three columns whether or not a sign is there.
+            var figures = document.createElement('span');
+            figures.className = 'cost-figures';
+            figures.append(text, sign);
+            // A row is no box of its own in the grid, so each of its cells says the tooltip of the row.
+            label.title = row.tooltip;
+            bar.title = row.tooltip;
+            text.title = row.tooltip;
+            line.append(label, bar, figures);
             box.append(line);
         });
         setNote('cost-note', shown.note, 'panel-note');
     }
 
-    /** How wide the bars need the window to be: the widest row's label, figures and sign, a bar's least width and the gaps between them. */
+    /**
+     * How wide the bars need the window to be. The rows share their columns, so that the two bars are equally wide: the widest
+     * label, a bar's least width, the widest figures with their sign, and the gaps between the three.
+     */
     function costWidth() {
-        var widest = 0;
-        Array.prototype.slice.call($('cost-rows').children).forEach(function (line) {
-            var parts = line.children;
-            var sum = COST_BAR_MIN + (parts.length - 1) * COST_GAP;
-            [0, 2, 3].forEach(function (i) {
-                var box = parts[i] && !parts[i].hidden ? parts[i].getBoundingClientRect() : null;
-                sum += box ? Math.ceil(box.width) : 0;
-            });
-            widest = Math.max(widest, sum);
-        });
+        var lines = Array.prototype.slice.call($('cost-rows').children);
+        if (lines.length === 0) {
+            return 0;
+        }
+        var widest = function (i) {
+            return lines.reduce(function (most, line) {
+                var part = line.children[i];
+                return Math.max(most, part ? Math.ceil(part.getBoundingClientRect().width) : 0);
+            }, 0);
+        };
         // 16 px is the panel's own padding, as for the history.
-        return widest > 0 ? widest + 16 : 0;
+        return widest(0) + COST_BAR_MIN + widest(2) + 2 * COST_GAP + 16;
     }
 
     /**
@@ -1437,7 +1468,8 @@
                 render();
             });
         });
-        $('set-all').addEventListener('click', selectAllOrNone);
+        $('set-all').addEventListener('click', function () { selectAllOrNone(ELEMENT_FLAGS); });
+        $('set-all-history').addEventListener('click', function () { selectAllOrNone(HISTORY_FLAGS); });
         ['settings', 'log', 'history'].forEach(function (name) {
             $('about-' + name).addEventListener('click', function (event) {
                 // A link that goes nowhere: the click asks the program, and the page stays where it is.

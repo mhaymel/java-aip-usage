@@ -1137,7 +1137,7 @@ class ApiTest {
         assertEquals("Today", cost.at("/rows/0/label").asText());
         assertEquals("10.00 of 20.00 \u00b7 50%", cost.at("/rows/0/text").asText(), "110 less the 100 of the first reading of today");
         assertEquals(0.5, cost.at("/rows/0/fraction").asDouble(), 0.0001);
-        assertEquals("This month", cost.at("/rows/1/label").asText());
+        assertEquals("Month", cost.at("/rows/1/label").asText());
         assertEquals("110.00 of 200.00 \u00b7 55%", cost.at("/rows/1/text").asText());
         assertFalse(cost.at("/rows/1/over").asBoolean());
         assertTrue(cost.get("note").isNull());

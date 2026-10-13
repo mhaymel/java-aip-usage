@@ -36,7 +36,7 @@ class CostPanelTest {
         assertEquals("Today", view.rows().get(0).label());
         assertEquals("12.50 of 50.00 · 25%", view.rows().get(0).text(), "262.50 less the 250.00 of yesterday's last reading");
         assertEquals(0.25, view.rows().get(0).fraction(), 0.0001);
-        assertEquals("This month", view.rows().get(1).label());
+        assertEquals("Month", view.rows().get(1).label());
         assertEquals("262.50 of 1,000.00 · 26%", view.rows().get(1).text(), "26.25 rounds to 26");
         assertNull(view.note());
     }
@@ -87,7 +87,7 @@ class CostPanelTest {
             assertFalse(row.over());
         }
         assertEquals("12.50 · no limit set", view.rows().get(0).text());
-        assertEquals("This month: 262.50, no limit set", view.rows().get(1).tooltip());
+        assertEquals("Month: 262.50, no limit set", view.rows().get(1).tooltip());
     }
 
     @SuppressWarnings("unchecked")
@@ -99,7 +99,7 @@ class CostPanelTest {
         assertEquals("224.00 of 200.00 · 112%", month.text());
         assertEquals(1.0, month.fraction());
         assertTrue(month.over());
-        assertEquals("This month: 224.00 of 200.00 (112%)", month.tooltip());
+        assertEquals("Month: 224.00 of 200.00 (112%)", month.tooltip());
         assertFalse(view.rows().get(0).over());
     }
 
@@ -137,7 +137,7 @@ class CostPanelTest {
         CostPanel.View view = build(LIMITS, false, row("2026-10-12 10:00:00", ""));
 
         assertEquals(CostPanel.NO_READING, view.note());
-        assertEquals(List.of("Today", "This month"), view.rows().stream().map(CostPanel.Row::label).toList());
+        assertEquals(List.of("Today", "Month"), view.rows().stream().map(CostPanel.Row::label).toList());
         assertTrue(view.rows().stream().allMatch(CostPanel.Row::noLimit));
         assertEquals(CostPanel.NO_READING, CostPanel.build(List.of(), LIMITS, false, TODAY).note());
     }

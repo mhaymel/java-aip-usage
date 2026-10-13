@@ -69,7 +69,7 @@ final class CostPanel {
     static View build(List<List<String>> rows, CostControl limits, boolean withSymbol, LocalDate today) {
         List<List<String>> readings = rows.stream().filter(row -> amount(row) != null && time(row) != null).toList();
         if (readings.isEmpty()) {
-            return new View(List.of(empty("Today"), empty("This month")), NO_READING);
+            return new View(List.of(empty("Today"), empty("Month")), NO_READING);
         }
         List<String> newest = readings.get(0);
         Amount used = amount(newest);
@@ -79,7 +79,7 @@ final class CostPanel {
         Optional<Long> daily = limits.dailyIn(month);
         return new View(List.of(
                 row("Today", spentToday, daily.orElse(null), currency, withSymbol),
-                row("This month", used, limits.monthlyCents(), currency, withSymbol)), null);
+                row("Month", used, limits.monthlyCents(), currency, withSymbol)), null);
     }
 
     /** What was spent since an earlier amount: the difference, and nothing where the amount has fallen. */
