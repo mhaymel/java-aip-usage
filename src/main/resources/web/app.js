@@ -923,13 +923,13 @@
             }
             var shown = spec.describe(body);
             if (name === 'cost') {
+                // The cost control has its bars and no lines. What follows the reading is not left out for it: a view that was
+                // opened while this read was under way starts its own below, at once, and does not wait for the next poll.
                 if (name === openPanel) {
                     showCost(shown);
                 }
-                return;
-            }
-            // A read that was begun for another level than the one chosen meanwhile is not shown: the one that follows is.
-            if (name === openPanel && !overtaken && !(name === 'log' && level !== null && level !== logLevel)) {
+            } else if (name === openPanel && !overtaken && !(name === 'log' && level !== null && level !== logLevel)) {
+                // A read that was begun for another level than the one chosen meanwhile is not shown: the one that follows is.
                 showPanel(shown);
                 if (name === 'log' && logToTop) {
                     $('panel-lines').scrollTop = 0;

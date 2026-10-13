@@ -751,6 +751,13 @@ final class ApiHandler implements HttpHandler {
                 kinds.add("currency");
                 tips.add("The currency of the amounts");
             }
+            if (columns.isEmpty() && table.exists() && table.total() > 0) {
+                // Every column is switched off, as the button in the heading of History view leaves them when all were on: there
+                // is nothing a line could show. That is said, and not how many lines are shown, under which there would be none.
+                return new HistoryBody(
+                        sources.history().getFileName().toString(), true, columns, kinds, tips, now.historyDate(),
+                        NO_HISTORY_COLUMN, true, table.total(), now.historyZeroLines(), List.of());
+            }
             List<HistoryLine> lines = new java.util.ArrayList<>();
             for (int i = 0; i < table.rows().size(); i++) {
                 List<String> row = table.rows().get(i);
@@ -788,6 +795,9 @@ final class ApiHandler implements HttpHandler {
             throw new ApiException(500, "The usage history could not be read.", null);
         }
     }
+
+    /** What the history says in the place of its table when no column of it is switched on. */
+    static final String NO_HISTORY_COLUMN = "No column of the history is switched on. Switch one on in the settings, under History view.";
 
     /** The one line above the table: why there is nothing, or what is left out; {@code null} when everything is shown. */
     private static String historyNote(HistoryReader.Table table) {

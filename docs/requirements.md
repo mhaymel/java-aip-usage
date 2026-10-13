@@ -1731,8 +1731,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   switched on.
 - **It is a click like any other in `History view`**: nothing is previewed, and it is saved when the view is saved, by `Save` or
   by leaving through a button of the row; `Cancel` leaves the settings as they were.
-- **With every column off the history has no table to show**, as when the six are switched off one by one; the button adds no
-  rule of its own.
+- **With every column off the history says that no column is switched on** (since version 0.80, see The lines of the usage
+  history are always shown), as when the six are switched off one by one; the button adds no rule of its own.
 
 ### A tooltip for every control of the settings
 
@@ -1965,9 +1965,20 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **The fault that was** (before version 0.80). With lines hidden, the note above the table said how many lines were shown,
   `Showing 35 of 48 lines: 12 zero usage and 1 failed hidden.`, and under it was nothing: the lines were not drawn.
+- **What it was.** Every column of the history was switched off: the button in the heading of `History view`, which version
+  0.79 brought, switches all nine checkboxes off when all are on, the six of the columns among them, and with them the two
+  kinds of lines, which is the picture exactly. The lines were there, each with nothing in it, and the note counted them.
+- **With no column switched on the history says so, in the place of its table**: `No column of the history is switched on.
+  Switch one on in the settings, under History view.`, in the blue of the notes that tell what is not shown, and bold. It
+  does not say how many lines are shown, and no lines are drawn. With one column on it is a table again. (This takes the
+  place of the rule of version 0.79, that with every column off the history has no table to show and nothing more is said.)
+- **A history that is not there, or has no rows**, keeps its own note, whatever columns are on.
 - **Whenever the note says that lines are shown, they are shown**: after the history was opened in the place of another view,
   the cost control or the settings among them, after the button of the zero usage lines was pressed, and after the settings
   were left. A view that has no lines of its own, the cost control, leaves the list of the next view as that view needs it.
+- **A view that is opened while another is still being read is read as soon as that read has ended**, the cost control
+  included: until version 0.79 a view opened while the cost control was being read waited for the next poll, a second, with
+  nothing under its icon.
 
 ## Debug mode
 

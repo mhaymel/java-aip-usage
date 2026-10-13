@@ -4556,3 +4556,52 @@ test('a history that says no tooltips for its titles is drawn without them', asy
     await page.click('history-button');
     assert.deepEqual(page.el('panel-lines').children[0].children.map(cell => cell.title), ['', '', '', '']);
 });
+
+// ---- version 0.80: the history with a note that says lines are shown, and none under it
+
+test('a history with no column switched on shows its note, in blue, and no list of empty lines', async () => {
+    const none = { ...HISTORY, columns: [], kinds: [], columnTitles: [], lines: [], total: 48,
+        note: 'No column of the history is switched on. Switch one on in the settings, under History view.', noteHighlight: true };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: none }) }));
+
+    await page.click('history-button');
+
+    assert.equal(page.el('panel-note').hidden, false);
+    assert.equal(page.el('panel-note').textContent, none.note);
+    assert.match(page.el('panel-note').className, /\bhighlight\b/);
+    assert.equal(page.el('panel-lines').hidden, true, 'no list, since there is no line to draw');
+    assert.equal(page.el('history-choices').hidden, false, 'the button of the zero usage lines is still there');
+});
+
+test('the list of a view is shown whenever that view has lines, whatever view was shown before it', async () => {
+    for (const before of ['cost-button', 'settings-button', 'log-button', 'errors-button']) {
+        const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+        await page.click(before);
+        if (before === 'settings-button') {
+            await page.click('settings-cancel');
+        }
+        await page.click('history-button');
+        assert.equal(page.el('panel-lines').hidden, false, 'after ' + before);
+        assert.equal(page.el('panel-lines').children.length, 3, 'the header and the two lines, after ' + before);
+    }
+});
+
+test('a view that is opened while the cost control is still being read is read at once, not at the next poll', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS };
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    state.cost = async () => { await held; return { status: 200, body: COST }; };
+    const page = await load(backendOf(state));
+    page.click('cost-button');
+    await settle();
+
+    page.click('history-button');
+    await settle();
+    release();
+    await settle();
+    await settle();
+
+    assert.equal(page.el('panel-lines').hidden, false, 'the history is drawn as soon as the read of the cost control has ended');
+    assert.equal(page.el('panel-lines').children.length, 3);
+    assert.equal(page.el('cost-view').hidden, true);
+});

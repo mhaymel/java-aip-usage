@@ -1970,6 +1970,61 @@ class ApiTest {
         assertEquals(titles(five).size(), five.at("/lines/0/cells").size(), "a kind for each column, and a cell for each");
     }
 
+    // ---- the history with every column switched off: the picture of a note and no lines under it
+
+    private static final String NO_COLUMN = "No column of the history is switched on. Switch one on in the settings, under History view.";
+
+    /** Every checkbox of History view off, as the button in its heading leaves them when all were on. */
+    private static String withNothingOfTheHistory() {
+        return allSettings(60, false, "hh:mm")
+                .replace("\"historyDeltaTime\": true", "\"historyDeltaTime\": false")
+                .replace("\"historyZeroLines\": true", "\"historyZeroLines\": false")
+                .replace("\"historyFailedLines\": true", "\"historyFailedLines\": false")
+                .replace("}", ", \"historyTime\": false, \"historyUsed\": false, \"historyLimit\": false, \"historyCurrent\": false}");
+    }
+
+    @Test
+    void withEveryColumnOfTheHistorySwitchedOffItSaysSoAndDoesNotSayThatLinesAreShown() throws Exception {
+        writeMixedHistory();
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", withNothingOfTheHistory());
+
+        Json history = json(get(app, "/api/history"));
+
+        assertEquals(0, history.get("columns").size(), "no column is on");
+        assertEquals(NO_COLUMN, history.get("note").asText(), "which is what the note says, where it said: Showing 3 of 7 lines");
+        assertTrue(history.get("noteHighlight").asBoolean(), "in the blue of the notes that tell what is not shown");
+        assertEquals(0, history.get("lines").size(), "and no lines are sent that have nothing in them");
+        assertEquals(7, history.get("total").asInt(), "the file is as it was");
+    }
+
+    @Test
+    void withOneColumnOnTheHistoryIsATableAgainAndTheNoteCountsItsLines() throws Exception {
+        writeMixedHistory();
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", withNothingOfTheHistory().replace("\"historyUsed\": false", "\"historyUsed\": true"));
+
+        Json history = json(get(app, "/api/history"));
+
+        assertEquals(java.util.List.of("used"), titles(history));
+        assertEquals(3, history.get("lines").size());
+        assertEquals("Showing 3 of 7 lines: 3 zero usage and 1 failed hidden.", history.get("note").asText());
+    }
+
+    @Test
+    void aHistoryThatIsNotThereOrIsEmptyKeepsItsOwnNoteWithNoColumnOn() throws Exception {
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", withNothingOfTheHistory());
+
+        assertEquals("There is no usage history yet.", json(get(app, "/api/history")).get("note").asText(), "there is nothing a column could show");
+    }
+
     // ---- the one choice of the history panel: whether its zero usage lines are shown
 
     private void writeThreeReadingsOneOfThemChanged() throws Exception {
