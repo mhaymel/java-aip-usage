@@ -55,6 +55,17 @@ class PanelWindowTest {
         assertTrue(tops.length == 2 && tops[0].equals(tops[1]), "the two buttons are in one row:\n" + all);
         assertTrue(all.contains("PROBE settings-overflow=0"), "and nothing sticks out at the right:\n" + all);
         assertEquals(width(all, "closed"), width(all, "settings-closed"), "the row's width again when the settings are left:\n" + all);
+        assertEquals(width(all, "settings-narrow"), width(all, "settings-after-wide"),
+                "the settings ask for their own width also in a window as wide as the log left it:\n" + all);
+        assertTrue(all.contains("PROBE history-kinds=c-time|c-used|c-limit|c-deltaUsed|c-deltaTime"), "both changes and no currency: the time change is the last column:\n" + all);
+        assertTrue(all.contains("PROBE history-overflow=0"), "with the window as wide as the page asks, the history has nothing to scroll sideways:\n" + all);
+        assertTrue(all.contains("PROBE history-cell-overflow=0"), "and no cell is wider than its column:\n" + all);
+        // The probe pushes the lines 24 pixels to the right; what the list then lacks is that less the margin it keeps at its right.
+        int lacking = Integer.parseInt(all.lines().filter(l -> l.startsWith("PROBE history-lacking=")).findFirst().orElseThrow().substring("PROBE history-lacking=".length()));
+        assertTrue(lacking > 0 && lacking <= 24, "the list lacks room, and can be scrolled sideways:\n" + all);
+        assertEquals(width(all, "history-columns") + lacking, width(all, "history-wider"), "the page asks for what the list lacks:\n" + all);
+        assertEquals(width(all, "history-wider"), width(all, "history-settled"), "and keeps to it once the window has it:\n" + all);
+        assertTrue(all.contains("PROBE history-overflow-after=0"), "so that the list is not scrolled sideways any more:\n" + all);
         assertTrue(all.contains("PROBE other-windows=0"), "no window besides the main one:\n" + all);
         assertTrue(all.contains("PROBE the program ended after the main window was closed"), all);
         assertEquals(0, exit, "the program ended by itself once the main window was closed:\n" + all);
@@ -91,7 +102,7 @@ class PanelWindowTest {
                 .redirectErrorStream(true)
                 .start();
         process.getOutputStream().close();
-        boolean ended = process.waitFor(60, TimeUnit.SECONDS);
+        boolean ended = process.waitFor(80, TimeUnit.SECONDS);
         if (!ended) {
             process.destroyForcibly();
             process.waitFor(5, TimeUnit.SECONDS);

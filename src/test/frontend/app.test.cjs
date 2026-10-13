@@ -3809,12 +3809,16 @@ test('with the whole strip of the titles wider than everything else the window i
     page.el('app').rect = { left: 0, width: 120, height: 300 };
     page.el('settings-form').rect = { left: 8, width: 200, height: 200 };
     page.el('settings-buttons').rect = { left: 8, width: 150, height: 20 };
-    page.el('tab-strip').rect = { left: 8, width: 120, height: 24 };
-    page.el('tab-strip').scrollWidth = 600;
+    // The strip is as wide as the view lets it be, and as wide as its titles when it is let go of that.
+    const strip = page.el('tab-strip');
+    let titles = 600;
+    strip.getBoundingClientRect = () => ({ left: 8, width: strip.style.width === 'max-content' ? titles : 120, height: 24 });
 
     assert.equal(page.window.contentSize(), '616,300,3,settings', 'the strip, with the room at its left again at its right');
+    assert.equal(strip.style.width, '', 'let go of only for the moment of the measuring');
+    assert.equal(strip.style.flex, '');
 
-    page.el('tab-strip').scrollWidth = 150;
+    titles = 150;
     assert.equal(page.window.contentSize(), '400,300,3,settings', 'a strip that fits changes nothing: the row is the widest');
 });
 
@@ -4217,4 +4221,105 @@ test('the button does nothing before the history has said what is saved, and not
     await page.click('zero-lines');
 
     assert.deepEqual(historyPosts(page), []);
+});
+
+// ---- version 0.79: the settings have their own width, and the columns of the history have theirs
+
+test('after a wide panel the settings ask for their own width: the strip of the titles is not measured as wide as the window has made it', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('log-button');
+    assert.equal(page.window.contentSize().split(',')[0], String(3 * 400), 'the log is three times as wide as the row');
+
+    await page.click('settings-button');
+    page.el('app').rect = { left: 0, width: 1200, height: 300 };
+    page.el('settings-form').rect = { left: 8, width: 200, height: 200 };
+    page.el('settings-buttons').rect = { left: 8, width: 150, height: 20 };
+    // The window is still as wide as the log left it, and the strip fills it: 1,184 pixels, of which its titles need 380.
+    const strip = page.el('tab-strip');
+    strip.getBoundingClientRect = () => ({ left: 8, width: strip.style.width === 'max-content' ? 380 : 1184, height: 24 });
+    strip.scrollWidth = 1184;
+
+    assert.equal(page.window.contentSize(), '400,300,3,settings', 'the row is the widest thing: nothing of the 1,200 pixels is asked for again');
+});
+
+const kindsOf = row => row.children.map(cell => cell.className);
+
+test('each cell of the history says what its column is, so that it has that column\'s width whichever columns are shown', async () => {
+    // The currency is switched off and both changes are on: five columns, of which the last is the time change.
+    const history = { ...HISTORY, columns: ['time', 'used', 'limit', '\u0394 used', '\u0394 time'], kinds: ['time', 'used', 'limit', 'deltaUsed', 'deltaTime'],
+        lines: [line(['20:46:11', '260.66', '1000.00', '+0.30', '1464 s']), line(['20:44:12', 'failed', '', '', '119 s'], { failed: true })] };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
+
+    await page.click('history-button');
+
+    const [head, first, failed] = page.el('panel-lines').children;
+    assert.match(head.className, /\bcolumns\b/);
+    assert.deepEqual(kindsOf(head), ['c-time', 'c-used', 'c-limit', 'c-deltaUsed', 'c-deltaTime'], 'the titles as the cells under them');
+    assert.deepEqual(kindsOf(first), ['c-time', 'c-used', 'c-limit', 'c-deltaUsed', 'c-deltaTime'], 'the last is the time change, not a currency');
+    assert.deepEqual(kindsOf(failed), ['c-time', 'c-used failed', 'c-limit', 'c-deltaUsed', 'c-deltaTime']);
+    assert.deepEqual(kindsOf(page.el('table-probe').children[1]), kindsOf(first), 'and the copy the width is measured on is the same');
+});
+
+test('the red of a failed line is on its amount used wherever that is, also when the time is switched off', async () => {
+    const history = { ...HISTORY, columns: ['used', 'limit'], kinds: ['used', 'limit'], lines: [line(['failed', ''], { failed: true }), line(['260.36', '1000.00'])] };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
+
+    await page.click('history-button');
+
+    const [, failed, good] = page.el('panel-lines').children;
+    assert.deepEqual(kindsOf(failed), ['c-used failed', 'c-limit'], 'the first cell here, not the second');
+    assert.deepEqual(kindsOf(good), ['c-used', 'c-limit']);
+});
+
+test('the error log, which has no kinds of columns, is drawn as it was', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+
+    await page.click('errors-button');
+
+    const row = page.el('panel-lines').children[1];
+    assert.match(row.className, /\bcols-2\b/);
+    assert.doesNotMatch(row.className, /\bcolumns\b/);
+    assert.deepEqual(kindsOf(row), ['', '']);
+});
+
+test('a history list that can be scrolled sideways at the width the page asked for makes the page ask for that much more, once, and keep it', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('history-button');
+    const box = page.el('panel-lines');
+    const widthAsked = () => Number(page.window.contentSize().split(',')[0]);
+    const asked = widthAsked();
+    assert.equal(widthAsked(), asked, 'with nothing known of the window, nothing is added');
+
+    // The window has the width asked for, and the list lacks 15 pixels: its own width is 100 in this stand-in.
+    page.window.innerWidth = asked;
+    box.scrollWidth = 115;
+    assert.equal(widthAsked(), asked + 15, 'what the list lacks is added');
+    assert.equal(widthAsked(), asked + 15, 'and not a second time while the window is still as wide as it was');
+
+    page.window.innerWidth = asked + 15;
+    box.scrollWidth = 100;
+    assert.equal(widthAsked(), asked + 15, 'kept when the list has room: the width does not go back and forth');
+
+    box.scrollWidth = 1000;
+    assert.equal(widthAsked(), asked + 48, 'never by more than a scrollbar and a little, whatever the list says');
+});
+
+test('what the history list lacked is forgotten when the table is another, and is nothing for a window that is not as wide as was asked', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('history-button');
+    const box = page.el('panel-lines');
+    const widthAsked = () => Number(page.window.contentSize().split(',')[0]);
+    const asked = widthAsked();
+
+    page.window.innerWidth = asked + 200;
+    box.scrollWidth = 130;
+    assert.equal(widthAsked(), asked, 'a window of another width says nothing of the width that was asked for');
+
+    page.window.innerWidth = asked;
+    assert.equal(widthAsked(), asked + 30);
+    // Another table: a column was switched on, so the copy it is measured on is wider.
+    page.el('table-probe').rect = { width: 500, height: 0 };
+    page.el('table-probe').children.push({});
+    box.scrollWidth = 100;
+    assert.equal(widthAsked(), 500 + 16, 'the new table by itself, with nothing carried over');
 });

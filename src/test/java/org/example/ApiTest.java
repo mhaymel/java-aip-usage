@@ -1908,6 +1908,26 @@ class ApiTest {
         assertEquals("GET, POST", put.headers().firstValue("Allow").orElse(""));
     }
 
+    @Test
+    void theHistorySaysWhatEachOfItsColumnsIsWhicheverAreSwitchedOn() throws Exception {
+        writeHistory(CSV_HEADER, "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+
+        Json four = json(get(app, "/api/history"));
+        assertEquals(java.util.List.of("time", "used", "limit", "currency"), four.get("kinds").items().stream().map(Json::asText).toList());
+
+        // Both changes on and the currency off: five columns, of which the last is the time change.
+        post(app, "/api/settings", allSettings(60, false, "hh:mm")
+                .replace("\"historyDeltaUsed\": false", "\"historyDeltaUsed\": true")
+                .replace("}", ", \"historyCurrent\": false}"));
+        Json five = json(get(app, "/api/history"));
+        assertEquals(java.util.List.of("time", "used", "limit", "\u0394 used", "\u0394 time"), titles(five));
+        assertEquals(java.util.List.of("time", "used", "limit", "deltaUsed", "deltaTime"), five.get("kinds").items().stream().map(Json::asText).toList());
+        assertEquals(titles(five).size(), five.at("/lines/0/cells").size(), "a kind for each column, and a cell for each");
+    }
+
     // ---- the one choice of the history panel: whether its zero usage lines are shown
 
     private void writeThreeReadingsOneOfThemChanged() throws Exception {

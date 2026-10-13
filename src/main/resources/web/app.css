@@ -742,56 +742,49 @@ body {
  * (the `date` class) it is 19. The widths hold amounts up to 9,999,999.99; the room the columns leave between `used` and `limit`
  * is about three characters. A row is never narrower than its content, so a table wider than the panel scrolls sideways.
  */
-.panel-lines .cols-4 {
+.panel-lines .columns {
     display: grid;
+    /* The columns that are shown, one after another, each as wide as it is by what it is, not by its place. */
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
     /* What width the columns leave is shared out equally as room between them: the first is at the left edge, the last at the right. */
     justify-content: space-between;
-    grid-template-columns: 8ch 10ch 10ch 5ch;
     column-gap: 8px;
     min-width: max-content;
 }
 
-.panel-lines .cols-4.date {
-    grid-template-columns: 19ch 10ch 10ch 5ch;
-}
-
-.panel-lines .cols-4 > :not(:first-child) {
+/* The figures are at the right of their columns, so that they line up by their last digit, and their titles with them. */
+.panel-lines .columns > * {
+    display: block;
     text-align: right;
 }
 
-/*
- * The change columns, when switched on, are between the budget and the currency, which is the right-most column: fixed widths again.
- * With one change column it is 9 characters, whichever of the two it is.
- */
-.panel-lines .cols-5 {
-    display: grid;
-    /* What width the columns leave is shared out equally as room between them: the first is at the left edge, the last at the right. */
-    justify-content: space-between;
-    grid-template-columns: 8ch 10ch 10ch 9ch 5ch;
-    column-gap: 8px;
-    min-width: max-content;
+/* The time is at the left, 8 characters, or 19 with the date. */
+.panel-lines .columns > .c-time {
+    width: 8ch;
+    text-align: left;
 }
 
-.panel-lines .cols-5.date {
-    grid-template-columns: 19ch 10ch 10ch 9ch 5ch;
+.panel-lines .columns.date > .c-time {
+    width: 19ch;
 }
 
-.panel-lines .cols-6 {
-    display: grid;
-    /* What width the columns leave is shared out equally as room between them: the first is at the left edge, the last at the right. */
-    justify-content: space-between;
-    grid-template-columns: 8ch 10ch 10ch 9ch 8ch 5ch;
-    column-gap: 8px;
-    min-width: max-content;
+/* The amounts: up to 9,999,999.99. A larger one overruns its column rather than widening the table. */
+.panel-lines .columns > .c-used,
+.panel-lines .columns > .c-limit {
+    width: 10ch;
 }
 
-.panel-lines .cols-6.date {
-    grid-template-columns: 19ch 10ch 10ch 9ch 8ch 5ch;
+.panel-lines .columns > .c-deltaUsed {
+    width: 9ch;
 }
 
-.panel-lines .cols-5 > :not(:first-child),
-.panel-lines .cols-6 > :not(:first-child) {
-    text-align: right;
+.panel-lines .columns > .c-deltaTime {
+    width: 8ch;
+}
+
+.panel-lines .columns > .c-currency {
+    width: 5ch;
 }
 
 /* The error log: the time, then the message, which is never wrapped. */
@@ -807,11 +800,6 @@ body {
     top: 0;
     font-weight: 700;
     background: Canvas;
-}
-
-/* The titles are aligned like their columns: the time at the left, the others at the right, whatever the cells below them do. */
-.panel-lines .head > :first-child {
-    text-align: left;
 }
 
 /* The start line of a run, in the log: blue text, the blue of the notes and of the open panel's icon, and no background of its own. */

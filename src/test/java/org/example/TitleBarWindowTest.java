@@ -95,8 +95,8 @@ class TitleBarWindowTest {
         assertEquals("moved:0,0 hasTitleBar:true panel:true", line(all, "drag-with-title-bar").substring("PROBE drag-with-title-bar=".length()), all);
 
         // The button of Main view: a small icon in the line of the heading, which switches every element on, and all off when all are on.
-        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/8 .*"), "some elements are on, and the button is in the middle of its heading:\n" + all);
-        assertTrue(line(all, "settings-all").contains("/13 note:"), "one press: all thirteen on:\n" + all);
+        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/9 .*"), "some elements are on, and the button is in the middle of its heading:\n" + all);
+        assertTrue(line(all, "settings-all").contains("/14 note:"), "one press: all fourteen on, the cost button among them:\n" + all);
         assertTrue(line(all, "settings-narrow").contains("/0 note:"), "another: all off:\n" + all);
 
         // The window has the program's icon in its four sizes, with the title bar and without, in each window that took the place of another.
@@ -256,7 +256,8 @@ class TitleBarWindowTest {
         // message are as wide as the window, not as the two buttons, and the message is a few lines, not a column.
         Matcher narrow = Pattern.compile(" note:\\[(\\d+)x(\\d+)\\|top:(\\d+)\\|elements:(\\d+)\\|window:(\\d+)]").matcher(line(all, "message-narrow-settings"));
         assertTrue(narrow.find(), all);
-        assertTrue(Integer.parseInt(narrow.group(4)) < 80, "the row is two buttons:\n" + all);
+        // While the settings are shown the four panel buttons are in the row, dimmed when they are switched off, beside the gear.
+        assertTrue(Integer.parseInt(narrow.group(4)) < 120, "the row is its five buttons and nothing else:\n" + all);
         assertEquals(narrow.group(5), narrow.group(3), "its box is as wide as the window:\n" + all);
         assertTrue(Integer.parseInt(narrow.group(1)) > 200, "and so is the message, less the room at its sides:\n" + all);
         assertTrue(Integer.parseInt(narrow.group(2)) < 100, "which is a few lines tall:\n" + all);

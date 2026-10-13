@@ -492,45 +492,37 @@ test('the row has its own width, which the window follows: it wraps at 900 px, a
     assert.doesNotMatch(ruleOf('#app'), /max-width/, 'a wide log is not held to the width of the row');
 });
 
+// The width a kind of column has, in characters, with or without the date.
+const widthOf = (kind, date) => Number(ruleOf('.panel-lines .columns' + (date ? '.date' : '') + ' > .c-' + kind).match(/width:\s*(\d+)ch/)[1]);
+
 test('the history is a table of fixed columns, the time at the left and the others right-aligned, with the spare width shared out between them', () => {
-    const table = ruleOf('.panel-lines .cols-4');
+    const table = ruleOf('.panel-lines .columns');
     assert.match(table, /display:\s*grid/);
-    const columns = table.match(/grid-template-columns:\s*(.+);/)[1].trim().split(/\s+(?![^(]*\))/);
-    assert.equal(columns.length, 4);
-    assert.match(columns[0], /^\d+ch$/, 'the time is a fixed column too: the spare width is not its alone');
-    assert.ok(Number(columns[0].match(/\d+/)[0]) >= '21:01:22'.length, 'it has room for the time of day');
-    for (const cols of ['cols-4', 'cols-5', 'cols-6']) {
-        assert.match(ruleOf('.panel-lines .' + cols), /justify-content:\s*space-between/, cols + ': equal room between the columns, the first and the last at the edges');
-        assert.doesNotMatch(ruleOf('.panel-lines .' + cols), /1fr/, cols + ': no column takes what room there is');
-        assert.doesNotMatch(ruleOf('.panel-lines .' + cols + '.date'), /1fr/, cols + ' with the date');
-    }
-    for (const fixed of columns.slice(1)) {
-        assert.match(fixed, /^\d+ch$/, 'a fixed width, so that the rows line up with each other: ' + fixed);
-    }
-    assert.ok(Number(columns[3].replace('ch', '')) >= 'USD'.length && Number(columns[3].replace('ch', '')) >= 'Cur.'.length, 'wide enough for the code and its short title');
-    assert.ok(Number(columns[1].replace('ch', '')) >= '9999999.99'.length, 'used holds the amounts the requirements name');
-    assert.ok(Number(columns[2].replace('ch', '')) >= '9999999.99'.length, 'so does limit');
-    const withDate = ruleOf('.panel-lines .cols-4.date').match(/grid-template-columns:\s*(\d+)ch/);
-    assert.ok(Number(withDate[1]) >= '2026-10-08 21:01:22'.length, 'with the date the time is wider');
+    assert.match(table, /grid-auto-flow:\s*column/, 'the columns that are shown, one after another');
+    assert.match(table, /grid-auto-columns:\s*max-content/, 'each as wide as its cell says');
+    assert.match(table, /justify-content:\s*space-between/, 'equal room between the columns, the first and the last at the edges');
+    assert.doesNotMatch(table, /1fr|grid-template-columns/, 'no column takes what room there is, and none has its width by its place');
     assert.ok(Number(table.match(/column-gap:\s*(\d+)px/)[1]) <= 10, 'little space between the columns');
-    assert.match(ruleOf('.panel-lines .cols-4 > :not(:first-child)'), /text-align:\s*right/);
-    assert.doesNotMatch(table, /text-align/, 'the time keeps the default, at the left');
+    assert.ok(widthOf('time') >= '21:01:22'.length, 'the time is a fixed column too, with room for the time of day');
+    assert.ok(widthOf('time', true) >= '2026-10-08 21:01:22'.length, 'with the date the time is wider');
+    const amounts = ruleOf('.panel-lines .columns > .c-used,\n.panel-lines .columns > .c-limit').match(/width:\s*(\d+)ch/);
+    assert.ok(Number(amounts[1]) >= '9999999.99'.length, 'used and limit hold the amounts the requirements name');
+    assert.ok(widthOf('currency') >= 'USD'.length && widthOf('currency') >= 'Cur.'.length, 'wide enough for the code and its short title');
+    assert.match(ruleOf('.panel-lines .columns > *'), /text-align:\s*right/, 'the others are at the right of their columns');
+    assert.match(ruleOf('.panel-lines .columns > .c-time'), /text-align:\s*left/, 'the time at the left');
+    assert.ok(css.indexOf('.panel-lines .columns > .c-time {') > css.indexOf('.panel-lines .columns > * {'), 'which comes after, to win');
 });
 
-test('the change columns are fixed and right-aligned too, after the currency, in both widths of the time', () => {
-    for (const [cols, count] of [['cols-5', 5], ['cols-6', 6]]) {
-        for (const suffix of ['', '.date']) {
-            const columns = ruleOf('.panel-lines .' + cols + suffix).match(/grid-template-columns:\s*(.+);/)[1].trim().split(/\s+(?![^(]*\))/);
-            assert.equal(columns.length, count, cols + suffix);
-            assert.match(columns[0], /^\d+ch$/);
-            columns.slice(1).forEach(c => assert.match(c, /^\d+ch$/, cols + suffix + ' ' + c));
-        }
-    }
-    assert.match(ruleOf('.panel-lines .cols-5 > :not(:first-child),\n.panel-lines .cols-6 > :not(:first-child)'), /text-align:\s*right/);
+test('a column of the history has its width by what it is, not by its place: no rule by the number of columns is left', () => {
+    assert.doesNotMatch(css, /\.cols-[3-9]/, 'the rules by count, which gave the last column the width of the currency whatever it was, are gone');
+    assert.deepEqual(['time', 'deltaUsed', 'deltaTime', 'currency'].map(kind => widthOf(kind)), [8, 9, 8, 5], 'the time, the two changes and the currency, in characters');
+    assert.ok(widthOf('deltaTime') >= '\u0394 time'.length && widthOf('deltaTime') >= '3600 s'.length, 'the time change has room for its title and its values, also as the last column');
+    assert.ok(widthOf('deltaUsed') >= '+1,234.50'.length);
+    assert.equal(widthOf('time', true), 19, 'with the date');
 });
 
-test('the titles are aligned like their columns: the time at the left, the others at the right', () => {
-    assert.match(ruleOf('.panel-lines .head > :first-child'), /text-align:\s*left/);
+test('the titles are aligned like their columns: the time at the left, the others at the right, wherever each is', () => {
+    assert.doesNotMatch(css, /\.head > :first-child/, 'not the first title at the left whatever it is: with the time switched off it is a figure');
     assert.doesNotMatch(css, /\.head\.cols-\d > \*[^{]*{[^}]*text-align:\s*center/, 'nothing is centred any more');
 });
 
@@ -587,9 +579,7 @@ test('the countdown is red during a back-off, and its message is bold red under 
 });
 
 test('a history table wider than the panel scrolls sideways: rows are never narrower than their content, and the box scrolls on x only when needed', () => {
-    for (const cols of ['cols-4', 'cols-5', 'cols-6']) {
-        assert.match(ruleOf('.panel-lines .' + cols), /min-width:\s*max-content/, cols);
-    }
+    assert.match(ruleOf('.panel-lines .columns'), /min-width:\s*max-content/);
     assert.match(ruleOf('.panel-lines'), /overflow-x:\s*auto/, 'only when needed: no room is reserved for it');
 });
 
@@ -722,22 +712,6 @@ test('the History view tab has the date, the two lines, and a checkbox for every
     assert.deepEqual([...positions].sort((a, b) => a - b), positions);
     assert.match(view, /<input id="set-historyCurrent" type="checkbox"> Cur\./);
 });
-test('the currency is the right-most column of the history, with the change columns between the budget and it', () => {
-    for (const [cols, count] of [['cols-4', 4], ['cols-5', 5], ['cols-6', 6]]) {
-        for (const suffix of ['', '.date']) {
-            const columns = ruleOf('.panel-lines .' + cols + suffix).match(/grid-template-columns:\s*(.+);/)[1].trim().split(/\s+(?![^(]*\))/);
-            assert.equal(columns.length, count, cols + suffix);
-            assert.equal(columns[columns.length - 1], '5ch', 'the currency, 5 characters wide, is last in ' + cols + suffix);
-            if (count >= 5) {
-                assert.equal(columns[3], '9ch', 'the first change column, after the budget, in ' + cols + suffix);
-            }
-            if (count === 6) {
-                assert.equal(columns[4], '8ch', 'the time change column, then the currency, in ' + cols + suffix);
-            }
-        }
-    }
-});
-
 const MAIN = html.slice(html.indexOf('<legend>Main view'), html.indexOf('<legend>History view<'));
 const MAIN_CHECKBOXES = [
     ['set-showTime', 'Time'], ['set-showPercentage', 'Percentage spent'], ['set-showUsed', 'Amount used'], ['set-showLimit', 'Budget'],

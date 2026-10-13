@@ -1080,18 +1080,23 @@
         }
     }
 
-    function cells(className, values, marked, failed, title, wide, markClass) {
+    /**
+     * A line of a table. With `kinds`, which the history has, each cell is marked with what its column is (`c-used`), and
+     * the style sheet gives it its width by that: by its place a column would have the width of another when one before it is
+     * switched off. The red of a failed line is on its amount used, wherever that is.
+     */
+    function cells(className, values, marked, failed, title, wide, markClass, kinds) {
         var row = document.createElement('div');
-        row.className = className + ' cols-' + values.length + (marked ? ' ' + (markClass || 'mark') : '') + (wide ? ' date' : '');
+        row.className = className + ' cols-' + values.length + (kinds ? ' columns' : '') + (marked ? ' ' + (markClass || 'mark') : '') + (wide ? ' date' : '');
         if (title) {
             row.title = title;
         }
         values.forEach(function (value, i) {
             var cell = document.createElement('span');
             cell.textContent = value;
-            if (failed && i === 1) {
-                cell.className = 'failed';
-            }
+            var kind = kinds ? kinds[i] : null;
+            var red = failed && (kinds ? kind === 'used' : i === 1);
+            cell.className = (kind ? 'c-' + kind : '') + (red ? (kind ? ' ' : '') + 'failed' : '');
             row.append(cell);
         });
         return row;
@@ -1111,10 +1116,10 @@
         box.replaceChildren();
         if (shown.header) {
             // The first child of the box, kept at its top as the rows scroll under it.
-            box.append(cells('row head', shown.header, false, false, '', shown.wide));
+            box.append(cells('row head', shown.header, false, false, '', shown.wide, null, shown.kinds));
         }
         shown.rows.forEach(function (row, i) {
-            box.append(cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide, shown.markClass));
+            box.append(cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide, shown.markClass, shown.kinds));
         });
         // Rows that came in above what the person was reading push it down; follow it.
         var added = panelRows.length ? rowKeys.indexOf(panelRows[0]) : 0;
@@ -1211,12 +1216,12 @@
         if (!shown.header || shown.rows.length === 0) {
             return;
         }
-        probe.append(cells('row head', shown.header, false, false, '', shown.wide));
+        probe.append(cells('row head', shown.header, false, false, '', shown.wide, null, shown.kinds));
         shown.rows
             .map(function (row) { return { row: row, size: row.join('').length }; })
             .sort(function (a, b) { return b.size - a.size; })
             .slice(0, 3)
-            .forEach(function (entry) { probe.append(cells('row', entry.row, false, false, '', shown.wide)); });
+            .forEach(function (entry) { probe.append(cells('row', entry.row, false, false, '', shown.wide, null, shown.kinds)); });
         tableWidth = Math.ceil(probe.getBoundingClientRect().width);
     }
 
@@ -1442,8 +1447,9 @@
             return (3 * width + scrollbarWidth) + ',' + panelHeight + ',2,log';
         }
         if (openPanel === 'history') {
-            // As wide as the table needs (16 px is the panel's padding), never narrower than the row.
-            return (Math.max(width, currentTableWidth() + 16) + scrollbarWidth) + ',' + panelHeight + ',1,history';
+            // As wide as the table needs (16 px is the panel's padding), never narrower than the row, and wider by what the
+            // list was seen to lack at that width.
+            return (Math.max(width, currentTableWidth() + 16) + scrollbarWidth + historyLack(width)) + ',' + panelHeight + ',1,history';
         }
         if (openPanel === 'errors') {
             // Half as wide as the log; a long message scrolls sideways.
@@ -1451,6 +1457,38 @@
         }
         return width + ',' + height + ',0';
     };
+
+    // What the list of the history was seen to lack in width, in pixels, and for which table that was: see historyLack.
+    var historyLacking = 0;
+    var historyLackFor = null;
+    var historyAsked = 0;
+    // The most the width asked for is ever raised by what the list lacks: a scrollbar and a little, never a table's width.
+    var HISTORY_LACK_MAX = 48;
+
+    /**
+     * What the window has to be wider by than the table says, so that the history has no horizontal scrollbar. The width asked
+     * for is worked out from the table measured apart and from the width of a scrollbar measured once, and where that sum
+     * falls short, as where the scrollbar of the list takes more room than the one that was measured, the list itself says
+     * so: it can be scrolled sideways by what it lacks. That is added, once the window has the width that was asked for, and
+     * kept for as long as the table is the same, so that the width does not go back and forth. It never takes anything away,
+     * and it is not the window's width that is reported: only what the list lacks at the width the page itself asked for.
+     */
+    function historyLack(rowWidth) {
+        var box = $('panel-lines');
+        var key = currentTableWidth() + ',' + rowWidth + ',' + listSize + ',' + scrollbarWidth;
+        if (key !== historyLackFor) {
+            historyLackFor = key;
+            historyLacking = 0;
+            historyAsked = 0;
+        }
+        var lacks = Math.ceil((box.scrollWidth || 0) - (box.clientWidth || 0));
+        var fitted = typeof window.innerWidth === 'number' && historyAsked > 0 && Math.abs(window.innerWidth - historyAsked) <= 1;
+        if (fitted && lacks > 0 && !box.hidden) {
+            historyLacking = Math.min(HISTORY_LACK_MAX, historyLacking + lacks);
+        }
+        historyAsked = Math.max(rowWidth, currentTableWidth() + 16) + scrollbarWidth + historyLacking;
+        return historyLacking;
+    }
 
     /**
      * The least width of the settings: that of the widest tab. Every page of the form is let into the layout for the moment of the
@@ -1467,14 +1505,21 @@
     }
 
     /**
-     * How wide the window has to be for the whole strip of the titles to be seen, in one line: the strip's scroll width, which is
-     * that of its titles whatever the width of the view, and the room there is at the left of it again at its right.
+     * How wide the window has to be for the whole strip of the titles to be seen, in one line: the width of its titles, and the
+     * room there is at the left of it again at its right. The strip is as wide as the view when the view is the wider, and so is
+     * its scroll width, so it is let go of that for the moment of the measuring, like the form: measured as it lies, a window
+     * that was wide, after the log, asked to stay as wide, and the settings never went back to their own width.
      */
     function stripWidth() {
         var strip = $('tab-strip');
         var left = $('app').getBoundingClientRect().left || 0;
         var edge = Math.max(0, (strip.getBoundingClientRect().left || 0) - left);
-        return Math.ceil((strip.scrollWidth || 0) + 2 * edge);
+        strip.style.flex = 'none';
+        strip.style.width = 'max-content';
+        var titles = strip.getBoundingClientRect().width || 0;
+        strip.style.flex = '';
+        strip.style.width = '';
+        return Math.ceil(titles + 2 * edge);
     }
 
     /**

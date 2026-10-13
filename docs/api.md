@@ -475,6 +475,7 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
   "file": "java-aip-usage.csv",
   "exists": true,
   "columns": ["time", "used", "limit", "\u0394 used", "\u0394 time", "Cur."],
+  "kinds": ["time", "used", "limit", "deltaUsed", "deltaTime", "currency"],
   "wide": false,
   "note": "Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.",
   "noteHighlight": true,
@@ -488,6 +489,8 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
 }
 ```
 
+- `kinds`: what each column is, in the order of `columns`, by a fixed name: `time`, `used`, `limit`, `deltaUsed`, `deltaTime` or `currency`. A column is known by this, not by its title or its place: the page gives it its width by it,
+  and puts the red of a failed line on the cell of `used`.
 - `columns`: the titles, in the order of the `cells`: the time (`time`, or `date time` when the date setting is on), `used`, `limit`, when their settings are on `\u0394 used` and `\u0394 time`, and
   last, the right-most column, the currency (`Cur.`). The currency cells are `$` for US dollars and the bare code for any other currency (`EUR`), empty when there is none.
 - `lines`: the newest 1,000 of the lines that are shown, **sorted by the date and time, latest first** (not merely the file reversed, so a file that is out of order is still right; of two

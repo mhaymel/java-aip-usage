@@ -131,6 +131,8 @@ public final class PanelProbe {
     private static void settings(WebEngine page, Stage main) {
         click(page, "settings-button");
         after(1.5, () -> {
+            // The tab of the row's elements, whose lines are the ones measured below; the settings open on General.
+            click(page, "tabbtn-main");
             // Every element of the row off, as a person would click them, so that the row is at its narrowest: the gear alone.
             page.executeScript(
                     "Array.from(document.querySelectorAll('#settings-form input[id^=\"set-show\"]')).forEach(function (box) {"
@@ -158,7 +160,80 @@ public final class PanelProbe {
                 click(page, "settings-cancel");
                 after(0.5, () -> {
                     System.out.println("PROBE settings-closed=" + size(page));
-                    report(main);
+                    settingsAfterAWideWindow(page, main);
+                });
+            });
+        });
+    }
+
+    /** Gives the window the width of content the page asks for, as the application would. */
+    private static void fitWidth(Stage main, int content) {
+        main.setWidth(main.getWidth() - main.getScene().getWidth() + content);
+    }
+
+    /**
+     * The settings opened in a window as narrow as they ask for, and again in one as wide as the log leaves it: what the
+     * page asks for must be the same, since it is the settings' own width and not the window's.
+     */
+    private static void settingsAfterAWideWindow(WebEngine page, Stage main) {
+        click(page, "settings-button");
+        after(1.5, () -> {
+            String narrow = size(page);
+            System.out.println("PROBE settings-narrow=" + narrow);
+            click(page, "settings-cancel");
+            fitWidth(main, 1200);
+            after(0.7, () -> {
+                click(page, "settings-button");
+                after(1.5, () -> {
+                    System.out.println("PROBE settings-after-wide=" + size(page));
+                    click(page, "settings-cancel");
+                    after(0.5, () -> historyWithTheTimeChangeLast(page, main));
+                });
+            });
+        });
+    }
+
+    /**
+     * The history with both change columns and without the currency, so that its last column is the time change: with
+     * the window as wide as the page asks for, nothing of the table may stick out at the right of the list.
+     */
+    private static void historyWithTheTimeChangeLast(WebEngine page, Stage main) {
+        page.executeScript(
+                "fetch('/api/settings').then(function (r) { return r.json(); }).then(function (b) { var s = b.settings;"
+                        + " s.historyDeltaUsed = true; s.historyDeltaTime = true; s.historyCurrent = false;"
+                        + " return fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) }); })");
+        after(1.0, () -> {
+            click(page, "history-button");
+            after(1.5, () -> {
+                String size = size(page);
+                System.out.println("PROBE history-columns=" + size);
+                fitWidth(main, Integer.parseInt(size.split(",")[0]));
+                after(0.7, () -> {
+                    // What each column is, as its cells are marked: the titles have a letter the console may not have.
+                    System.out.println("PROBE history-kinds=" + page.executeScript(
+                            "Array.from(document.querySelectorAll('#panel-lines .head > *')).map(function (cell) { return cell.className; }).join('|')"));
+                    System.out.println("PROBE history-overflow=" + page.executeScript(
+                            "(function () { var box = document.getElementById('panel-lines'); return Math.max(0, box.scrollWidth - box.clientWidth); })()"));
+                    System.out.println("PROBE history-cell-overflow=" + page.executeScript(
+                            "Math.max.apply(null, Array.from(document.querySelectorAll('#panel-lines .row > *')).map(function (cell) {"
+                                    + " return Math.max(0, cell.scrollWidth - cell.clientWidth); }))"));
+                    // A list that lacks room at the width the page asked for, as where its scrollbar is wider than the one
+                    // that was measured: here its lines are pushed 24 pixels to the right. The page is to ask for that much more.
+                    page.executeScript("document.getElementById('panel-lines').style.paddingLeft = '24px'");
+                    after(0.3, () -> {
+                        System.out.println("PROBE history-lacking=" + page.executeScript(
+                                "(function () { var box = document.getElementById('panel-lines'); return Math.max(0, box.scrollWidth - box.clientWidth); })()"));
+                        String wider = size(page);
+                        System.out.println("PROBE history-wider=" + wider);
+                        fitWidth(main, Integer.parseInt(wider.split(",")[0]));
+                        after(0.7, () -> {
+                            System.out.println("PROBE history-settled=" + size(page));
+                            System.out.println("PROBE history-overflow-after=" + page.executeScript(
+                                    "(function () { var box = document.getElementById('panel-lines'); return Math.max(0, box.scrollWidth - box.clientWidth); })()"));
+                            click(page, "history-button");
+                            after(0.5, () -> report(main));
+                        });
+                    });
                 });
             });
         });

@@ -103,7 +103,9 @@ public final class UsageAppProbe {
             step("errors", "errors-button");
             step("errors-closed", "errors-button");
             // The settings with every element of the row hidden: the view is far wider than the row then.
-            step("settings-again", "settings-button");
+            // The settings open on General, the first tab: the button of Main view is measured with its own tab shown.
+            step("settings-open", "settings-button");
+            step("settings-again", "tabbtn-main");
             // By the button of Main view: not every element is on, so the first press switches all on, and the second all off.
             step("settings-all", "set-all");
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-all').click()"));

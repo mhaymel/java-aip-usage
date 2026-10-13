@@ -278,3 +278,10 @@ test('what is said of a reading with no spend is passed on as it is, and is noth
     assert.equal(view.describeStatus({ display: { ...DISPLAY, noSpend: 'Received, but ...' } }).noSpend, 'Received, but ...');
     assert.equal(view.describeStatus({ display: { ...DISPLAY } }).noSpend, null);
 });
+
+test('the kinds of the history\'s columns are passed on as the backend names them, and are none when it names none', () => {
+    const view = require('../../main/resources/web/view.js');
+    const data = { columns: ['used', '\u0394 time'], kinds: ['used', 'deltaTime'], lines: [{ cells: ['1.00', '60 s'], start: false, failed: false, title: '' }] };
+    assert.deepEqual(view.describeHistory(data).kinds, ['used', 'deltaTime']);
+    assert.equal(view.describeHistory({ ...data, kinds: undefined }).kinds, null);
+});

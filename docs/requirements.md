@@ -1772,7 +1772,11 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 ### The settings have their own width, whatever was shown before
 
 - **The fault that was** (before version 0.79). With the log shown, which is three times as wide as the row, a click on the gear
-  showed the settings in a window that kept the width of the log: far wider than the settings need.
+  showed the settings in a window that kept the width of the log: far wider than the settings need. The cause was in the page: the
+  strip of the tab titles was measured as it lay, and a strip is as wide as the view it is in when the view is the wider, so a
+  window that was wide asked to stay as wide, and never came back to the settings' own width however often they were opened.
+- **Nothing the settings are measured by follows the width the window has.** The strip of the titles is measured by its titles,
+  the form by its content and the buttons by themselves, each let go of the window for the moment of the measuring.
 - **When the settings are shown the window has the width the settings have**, the least width of the view or the width the row
   has by itself, whichever is more (see Settings), whatever panel was shown before and whatever width that panel had, also one
   the person had dragged it to. The width of a panel is that panel's own and is not carried to the next.
@@ -1780,9 +1784,21 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### The usage history has no horizontal scrollbar
 
-- **The fault that was** (before version 0.79, on macOS). With both change columns shown the table was wider than the window:
-  the history had a horizontal scrollbar, and the beginning of the first column, the title `time` and the first digit of each
-  time, was out of sight at the left.
+- **The fault that was** (before version 0.79; seen on macOS). With both change columns shown and the currency switched off the
+  table was wider than the window: the history had a horizontal scrollbar, and the beginning of the first column, the title `time`
+  and the first digit of each time, was out of sight at the left. The cause was not the system: the columns had their widths by
+  their place and their number, so with five columns the last was 5 characters wide, the width of the currency, whatever it held,
+  and `Δ time` with its values stuck out of it at the right. It came with version 0.64, when every column could be switched.
+- **A column has its width by what it is**, whichever columns are shown beside it: the time 8 characters, or 19 with the date,
+  `used` and `limit` 10, `Δ used` 9, `Δ time` 8 and `Cur.` 5. The backend says what each column is, and the page looks at no
+  title. The time and its title are at the left of their column and every other column and its title at the right, also when the
+  time is switched off and a figure is the first column.
+- **The red of `failed` is on the amount used**, wherever that column is, not on the second cell.
+- **The page asks for more when the list lacks room.** The width asked for is worked out from the table and from the width of a
+  scrollbar, each measured apart. Where that sum falls short, as where the scrollbar of the list takes more room than the one
+  that was measured, the list can be scrolled sideways by what it lacks, and the page then asks for that much more, once the
+  window has the width that was asked for, and keeps to it while the table is the same. It is never more than 48 pixels, and
+  nothing is ever taken away again.
 - **The window is as wide as the table needs**, as The usage history panel says, on every system the version is made for, with
   every column on, the date and both change columns among them, and at every size of the text of the lists: every column is
   whole, the first from its first character, and there is no horizontal scrollbar. The one case with one stays the table that is
@@ -2213,10 +2229,10 @@ These are things the program does that the sections above do not say, written do
   clears the lines, the note and the red line of the one before at once, so nothing of another panel is ever under the new button, and an answer that comes for a panel that is no longer the one shown is dropped. A panel with no lines shows no box of lines, only its note. The red line goes with the next read that
   succeeds, even one that brings nothing new. The log and the error log are read again at every poll, and the history when its stamp is not the one it was last read and shown at; a read that failed is tried again at the next poll, for the history as for the others, whether or not a row was added meanwhile. Only one panel is read at a time: a panel opened while another is still being read is read as soon as that read has ended, without waiting for a poll or a new row. The header of a table stays at the
   top with the page's background behind it; the log has none. The 16 pixels kept clear at the right are kept in the log and the error log as in the history. How far the lines are moved to keep a person's place is worked out from the average height of a line.
-- **The history, exactly.** The columns are, in characters: the time at least 8, or 19 with the date, and taking the room that is left; `used` 10; `limit` 10; `Δ used` 9; `Δ time` 8; `Cur.` 5; with 8 pixels between them. With one of the two change columns on it is 9 wide, whichever it is. The room between
-  `used` and `limit` is what an amount shorter than its column leaves, not a gap of its own. The width of the first column follows what the backend says of the date, and the red of `failed` is put on the second cell of a line the backend marks as failed: the page looks for no word. The header is shown only when
+- **The history, exactly.** The columns are, in characters: the time at least 8, or 19 with the date, and taking the room that is left; `used` 10; `limit` 10; `Δ used` 9; `Δ time` 8; `Cur.` 5; with 8 pixels between them. (Until version 0.78 the widths went by the place and the number of the columns: one change column was 9 wide whichever it was, and the last column 5 whatever it was; see The usage history has no horizontal scrollbar.) The room between
+  `used` and `limit` is what an amount shorter than its column leaves, not a gap of its own. The width of the first column follows what the backend says of the date, and the red of `failed` is put on the amount used of a line the backend marks as failed (the second cell, until version 0.78): the page looks for no word, and knows a column by the kind the backend names. The header is shown only when
   there is a line. The table is measured on a copy that is not seen, holding the header and the three lines with the most characters, each time the program asks for the size; the width last measured is kept while the panel is closed. The width asked for is the larger of the row's and the table's with 16 pixels
-  for the panel's sides, and the scrollbar's width.
+  for the panel's sides, and the scrollbar's width, and what the list was seen to lack at that width (since version 0.79).
 - **The log, exactly.** A line begins an entry when it begins with a date, a time and a blank, `yyyy-MM-dd HH:mm:ss `; every other line belongs to the entry before it. Lines at the beginning of what was read that come before the first such line, the end of an entry the 512 kilobytes cut, are kept together and
   shown at the very bottom. The start of a run is a line that has `] Starting java-aip-usage` followed by a blank or by the end of the line. The number in `Showing the newest N lines of the log.` is the number of lines received, which are the lines of the level chosen. The date that is cut from a line with `Date` off is its first 11 characters, `yyyy-MM-dd `, and only of a line that begins an entry.
 - **The error log, exactly.** The time is 8 characters wide and the message as wide as its text, 8 pixels apart, both at the left; its header, `time` and `message`, stays at the top and is bold. `There are no errors in this run.` is the page's own text.
