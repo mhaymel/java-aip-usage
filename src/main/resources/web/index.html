@@ -199,10 +199,10 @@
                     <label title="How much the amount used has changed since the reading before this one. 0.00 when it has not changed."><input id="set-showDeltaUsed" type="checkbox"> Change in the amount used</label>
                     <label title="The seconds between this reading and the one before it."><input id="set-showDeltaTime" type="checkbox"> Time since the previous reading</label>
                     <label title="How long the latest usage request to Anthropic took, in milliseconds, and in seconds and milliseconds from one second on."><input id="set-showDuration" type="checkbox"> Request duration</label>
-                    <label title="A button that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log button</label>
-                    <label title="A button that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History button</label>
-                    <label title="A button that shows the failed refreshes of this run below the row, and hides it again."><input id="set-showErrorIcon" type="checkbox"> Error log button</label>
-                    <label title="A button that shows the cost control, a bar for the day and one for the month, below the row, and hides it again."><input id="set-showCostIcon" type="checkbox"> Cost button</label>
+                    <label title="The icon that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log icon</label>
+                    <label title="The icon that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History icon</label>
+                    <label title="The icon that shows the failed refreshes of this run below the row, and hides it again."><input id="set-showErrorIcon" type="checkbox"> Error log icon</label>
+                    <label title="The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again."><input id="set-showCostIcon" type="checkbox"> Cost icon</label>
                 </fieldset>
                 </div>
                 <div id="tab-history" class="tab-page" hidden>
@@ -271,6 +271,7 @@
             </div>
             <div id="about-view" class="about" hidden>
                 <img id="about-logo" class="about-logo" src="icon.png" width="96" height="96" alt="The logo of the program: a gauge">
+                <div id="about-text" class="about-text">
                 <p id="about-name" class="about-name">aip usage</p>
                 <p id="about-version" class="about-version"></p>
                 <p id="about-error" class="panel-error" role="alert" hidden></p>
@@ -315,6 +316,7 @@
                     <span id="about-toolkit-label" class="about-label"></span><span id="about-toolkit"></span>
                     <span class="about-label">System</span><span id="about-system"></span>
                     <span class="about-label">Debug mode</span><span id="about-debug"></span>
+                </div>
                 </div>
             </div>
             <p id="settings-buttons" class="buttons">

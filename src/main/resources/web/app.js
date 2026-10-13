@@ -1180,7 +1180,7 @@
 
     // The least width of a bar, and the gap between the parts of a row, as the style sheet has them (`.cost-bar`, `.cost-rows`).
     var COST_BAR_MIN = 120;
-    var COST_GAP = 8;
+    var COST_GAP = 6;
 
     /** Draws the two bars: a label, a bar with its green share, the figures and, over the limit, the warning sign; and the note under them. */
     function showCost(shown) {

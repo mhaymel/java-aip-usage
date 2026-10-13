@@ -95,6 +95,24 @@ public final class PanelProbe {
                 + " return at ? at.textContent : 'nothing'; })()";
     }
 
+    /**
+     * Which of the typefaces the lists name the window has, and which of them the list is drawn in. A page cannot ask for
+     * the name of the typeface it was given, so a text is measured: set in a named typeface with another behind it, it is
+     * as wide as in that other alone when the named one is not there. The list is drawn in the one whose width it has.
+     */
+    private static String typefaces() {
+        return "(function () { var names = ['ui-monospace', 'Cascadia Mono', 'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas'];"
+                + " var s = document.createElement('span'); s.style.cssText = 'position:absolute;left:-9999px;font-size:72px;white-space:nowrap';"
+                + " s.textContent = 'mmmmiiiillllWW00.,'; document.body.appendChild(s);"
+                + " function w(f) { s.style.fontFamily = f; return s.getBoundingClientRect().width; }"
+                + " var bases = ['monospace', 'serif', 'sans-serif']; var plain = bases.map(w);"
+                + " function q(n) { return n === 'ui-monospace' ? n : '\"' + n + '\"'; }"
+                + " var has = names.filter(function (n) { return bases.some(function (b, i) { return w(q(n) + ',' + b) !== plain[i]; }); });"
+                + " var list = w(getComputedStyle(document.getElementById('panel')).fontFamily);"
+                + " var used = has.filter(function (n) { return w(q(n) + ',serif') === list; })[0] || (list === plain[0] ? 'monospace' : 'another');"
+                + " document.body.removeChild(s); return 'has:[' + has.join('|') + '] used:' + used; })()";
+    }
+
     private static void click(WebEngine page, String button) {
         page.executeScript("document.getElementById('" + button + "').click()");
     }
@@ -106,6 +124,7 @@ public final class PanelProbe {
         after(1.5, () -> {
             System.out.println("PROBE history=" + size(page));
             System.out.println("PROBE history-lines=" + lines(page));
+            System.out.println("PROBE list-typefaces=" + page.executeScript(typefaces()));
             click(page, "log-button");
             after(1.5, () -> {
                 System.out.println("PROBE log=" + size(page));

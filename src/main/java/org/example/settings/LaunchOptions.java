@@ -23,7 +23,7 @@ public record LaunchOptions(boolean debug, Optional<URI> baseUrl, boolean help) 
     public static final String USAGE = """
             Usage: java-aip-usage [--debug] [--anthropic-url <url>]
 
-              --debug                     debug mode: a debug button in the window, whose settings say whether
+              --debug                     debug mode: a tab Debug in the settings, whose settings say whether
                                           usage comes from a fake backend inside this program, what it answers,
                                           and whether a placeholder token is sent
               --anthropic-url <url>       where to fetch usage from, without the path (default %s)

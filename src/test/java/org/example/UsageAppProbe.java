@@ -250,7 +250,7 @@ public final class UsageAppProbe {
                     // The amount used: its classes, the width of its border and its colour, its tooltip, and what the row has as text.
                     + " usedBox:[" + page().getEngine().executeScript(
                             "(function () { var u = document.getElementById('used'), c = getComputedStyle(u);"
-                                    + " return u.className + '|' + c.borderTopWidth + '|' + c.borderTopColor + '|' + u.title + '|'"
+                                    + " return u.className + '|' + c.borderBottomWidth + '|' + c.borderBottomColor + '|' + u.title + '|'"
                                     + " + document.querySelector('.strip').textContent.replace(/\\u00a0/g, '').replace(/\\s+/g, ' ').trim(); })()") + "]"
                     // The button of Main view: its size, and how far its middle is from the middle of the heading it is in.
                     + " allButton:" + page().getEngine().executeScript(
@@ -285,7 +285,10 @@ public final class UsageAppProbe {
                                     + " return !v.hidden + '|' + Math.round(b.width) + 'x' + Math.round(b.height) + '|' + i.naturalWidth + '|' + document.getElementById('about-version').textContent"
                                     + " + '|' + document.getElementById('about-debug').textContent + '|' + document.getElementById('about-settings').textContent.slice(-13)"
                                     + " + '|' + document.getElementById('about-history').textContent.slice(-23) + '|' + !document.getElementById('settings-form').hidden"
-                                    + " + '|' + Math.round(v.getBoundingClientRect().width) + '/' + window.innerWidth + '|' + (document.documentElement.scrollWidth - window.innerWidth); })()") + "]"
+                                    + " + '|' + Math.round(v.getBoundingClientRect().width) + '/' + window.innerWidth + '|' + (document.documentElement.scrollWidth - window.innerWidth)"
+                                    // Whether the logo is at the left of the name, the version and the table, and at their top.
+                                    + " + '|side:' + (b.right <= document.getElementById('about-text').getBoundingClientRect().left"
+                                    + " && Math.abs(b.top - document.getElementById('about-text').getBoundingClientRect().top) < 12); })()") + "]"
                     // The history's table: the left edge of each cell of the first row beside the list's own edges, so that the
                     // room between the columns can be worked out.
                     + " columns:[" + page().getEngine().executeScript(

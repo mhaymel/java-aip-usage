@@ -121,5 +121,8 @@ class LaunchOptionsTest {
         for (String gone : List.of("--fake-backend", "--fake-token", "--fake-scenario", "--usage-interval", "--poll-interval")) {
             assertFalse(LaunchOptions.USAGE.contains(gone), gone);
         }
+        assertTrue(LaunchOptions.USAGE.contains("--debug                     debug mode: a tab Debug in the settings, whose settings say whether"),
+                "the debug settings are a tab of the settings, and the text says so");
+        assertFalse(LaunchOptions.USAGE.contains("debug button"), "there is no debug button");
     }
 }

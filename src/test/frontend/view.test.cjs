@@ -285,3 +285,14 @@ test('the kinds of the history\'s columns are passed on as the backend names the
     assert.deepEqual(view.describeHistory(data).kinds, ['used', 'deltaTime']);
     assert.equal(view.describeHistory({ ...data, kinds: undefined }).kinds, null);
 });
+
+test('the log\'s note that not everything is shown is one of the highlighted ones, and there is none when everything is', () => {
+    const view = require('../../main/resources/web/view.js');
+    const lines = ['2026-10-08 19:00:00 INFO    [A] one'];
+    const cut = view.describeLog({ exists: true, truncated: true, hidden: false, date: true, lines });
+    assert.equal(cut.note, 'Showing the newest 1 lines of the log.');
+    assert.equal(cut.noteHighlight, true);
+    const whole = view.describeLog({ exists: true, truncated: false, hidden: false, date: true, lines });
+    assert.equal(whole.note, null);
+    assert.equal(whole.noteHighlight, false);
+});

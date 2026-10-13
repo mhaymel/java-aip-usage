@@ -263,9 +263,8 @@ one refresh to the next. An item whose switch is off is not there and takes no r
 
 A button that is switched off is not shown and takes no room, so the row is narrower by it (the window follows when the
 settings are applied, as for any other item). Without its button a panel cannot be opened, except through the
-settings, where every panel button is shown (see The panel buttons while the settings are shown). **The panel that the settings give back when they are left
-(see Settings) is given back whatever its switch says** (since version 0.79; before, a panel whose button was switched off was not given back), and its button stays
-until the panel is closed.
+settings, where every panel button is shown (see The panel buttons while the settings are shown). **A panel whose button is switched off when the settings are left is not given back by them** (see Settings): the row alone is shown, or the
+other views that were open. (So since version 0.80, as until version 0.78; in version 0.79 the panel was given back whatever its switch said.)
 
 **While the settings are shown all the panel buttons are in the row** (since version 0.79; before, the buttons followed their switches there as well), and one that is
 switched off is dimmed, as the checkboxes stand in the view at that moment, so
@@ -281,7 +280,7 @@ shown stands out so that it is seen at a glance: it is **blue, the blue of the n
 instead of 12, and its lines are heavier (about 2.2 instead of 1.6; the gear, which is 13 pixels and drawn on a finer grid, is made to look the same). Twenty-four pixels is
 the height of the refresh button, so the row keeps its height and the window does not change size when a panel is opened or
 closed. When that panel is closed, or another is opened, the new one turns blue and bigger and the one that was goes back to
-what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is blue, and none is when no panel is shown. The other icons are as they were.
+what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is blue, and none is when no panel is shown; with `Several views at once` on (since version 0.80), the icon of every view that is shown is blue and bigger. The other icons are as they were.
 
 **One green.** The percentage spent, the amount used, the budget, the change in the amount used, the time since
 the previous reading and the request duration are all in one green, `#1a7f37` on the light theme and `#3fb950` on the dark one. The green is
@@ -389,7 +388,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
 - **The change in the amount used** (since version 0.65) is the amount used of a line minus the amount used of **the last earlier line that has an amount used**, whatever lies between: failed lines
   have none and are ignored, and so is the run they belong to; the start line of a run is a line like any other. Only a line that has an amount used has a change in the amount used. **When there is no earlier
   line with an amount used, the change is the amount used itself.** The arithmetic is exact, on the text of the file. This is worked out on the whole file: the lines the history hides (see Hiding lines) change
-  no figure. **The history shows it only when it is greater than 0.00**: a change of zero or less is an empty cell, so the column shows what was spent. **The row shows it whenever the reading has an amount used**,
+  no figure. **The history shows every change but one of exactly 0.00** (since version 0.80): a rise with its plus, `+0.86`, and a fall with its minus, `-0.14`, as the row writes them; a change of 0.00 is an empty cell. (From version 0.65 to 0.79 a fall was an empty cell too, so that the column showed what was spent; with the zero usage lines hidden that left lines with no value in it.) **The row shows it whenever the reading has an amount used**,
   also a change of 0.00, as written below, and a gray box when the reading has none. (This takes the place of the rules of earlier versions: against the row directly before, in the same run only, with nothing for a
   start line, for a line after a failed one, and for a fall.)
 - **The time since the previous reading** is the time between two rows. The backend works
@@ -402,24 +401,25 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   the time of a line is that against the previous line that is shown, not against the row directly before it in the file: with the unchanged readings hidden, the time is the
   time since the previous reading that is shown. The first line shown has none. The change in the amount used is not affected by what the history hides (above), and neither are the main row's items.
 - **The time is a value even at no seconds at all**, `0 s`; only a negative one is empty. A time is given when it can be worked out, whether or not the change can.
-- **A zero usage line is still defined as before**, by a change of exactly zero against the row directly before it in the same run (the amount used is compared inside a run for this definition alone), the startup lines counting as zero usage lines (see Hiding lines): the
-  new rule for the change in the amount used changes what a column shows, and not which lines are zero usage lines.
+- **A zero usage line is a line whose change in the amount used is exactly 0.00** (since version 0.80), by the rule above: its amount used is that of the last earlier line that has an amount used, whatever lies between, a failed line or the start of a run. So the lines that are hidden
+  with the zero usage lines are exactly those whose `Δ used` would be empty, and every line that is shown then has a value there, a failed line alone excepted. (Until version 0.79 the amount was compared with the row directly before it in the same run for this, and the startup lines counted as zero usage lines whatever their change: see Hiding lines.)
 - **The time is the difference of the two local times as they are written.** Across a change of the clocks it is
   therefore an hour too long when they go forward, and too short, or empty, when they go back.
-- **A row that follows a failed row is never a zero usage line** (it has no change against the row directly before it) and is always
-  shown, even when its amount is the one of the last good reading; its change in the amount used, in the column and in the row, is against the last line that has an amount.
+- **A row that follows a failed row is a zero usage line when its amount is the one of the last good reading** (since version 0.80; until then it never was one, and was always shown): its change in the amount used, in the column and in the row, is against the last line that has an amount, and a change of 0.00 makes it a zero usage line like any other.
 
 **Settings**
 
 - Pressing the settings button shows the settings view in the same place as the log and the history,
   below the row and its message lines, sharing the one panel area with them: showing one replaces the
-  other. Its tooltip and behaviour are those of the other two buttons. It replaces the config button
+  other (the log, the history, the error log and the cost control can be shown together when `Several views at once` is on, see Several views at once; the settings are always shown alone). Its tooltip and behaviour are those of the other two buttons. It replaces the config button
   and the interval field in the row, which are gone.
 - **Leaving the settings brings back the view that was shown before.** If the log, the history or the error log was shown when
   the settings button was pressed, it is shown again when the settings are left, whichever way they are left (Save, Cancel, or the
   settings button once more), at the size it had before, so the person finds the window as they left it: the history and the log at
   their remembered height, the error log at its opening size. It shows the changes the settings made: the history with its new
   columns, times and date, the row with its new items. If nothing was shown before, nothing is shown afterwards, as before.
+  **A view whose button is switched off when the settings are left is not brought back** (since version 0.80): unchecking the icon of the view that is open, in `Main view`, and leaving the settings
+  by `Save`, by the gear or by the button of another panel, closes that view; `Cancel`, which changes nothing, brings it back.
   Pressing the button of another panel while the settings are shown shows that panel, and the settings are left without coming back
   to anything: what was shown before the settings is then forgotten.
 - **Leaving the settings by a button of the row saves them**, not only `Save`: the gear pressed again, and the button of any
@@ -479,6 +479,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Keep the window above every other window (`Stay on top`) | on, off | off |
   | Show the title bar of the window (`Title bar`) | on, off | on |
   | Restore the window at start (`Restore the window at start`) | on, off | off |
+  | Show several views at once (`Several views at once`) | on, off | off |
   | Time format in the row | hours and minutes, or hours, minutes and seconds | hours and minutes |
   | Show the date in the history, as well as the time | on, off | off |
   | Show the zero usage lines in the history | on, off | on |
@@ -499,8 +500,8 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   the row item's tooltip keeps `Time between usage requests`. The checkbox for the log reads `Log the response`.
   In the tab `History view` the checkboxes read `Date`, `Zero usage lines`, `Failed lines`, and one for each column of the history, in the order of the view:
   `time`, `used`, `limit`, `Δ used`, `Δ time` and `Cur.` (like the titles of the columns they switch on; saved under `historyTime`, `historyUsed`, `historyLimit`, `historyDeltaUsed`, `historyDeltaTime` and `historyCurrent`): no `Show` in front, no `Column`, and no colon in them. Under `Main view` the two checkboxes for the row keep their longer
-  texts, `Change in the amount used` and `Time since the previous reading`. The other ones in `Main view` read as The elements of the row names them, the three buttons `Log button`, `History button` and
-  `Error log button`, and the property of the amounts reads `Currency symbol`.
+  texts, `Change in the amount used` and `Time since the previous reading`. The other ones in `Main view` read as The elements of the row names them, the four icons `Log icon`, `History icon`,
+  `Error log icon` and `Cost icon` (since version 0.80; until then `Log button`, `History button`, `Error log button` and `Cost button`), and the property of the amounts reads `Currency symbol`.
 - **A checkbox and its text are centred on each other vertically**, and so is every other control and its label
   (the interval's field, the time format), in every line of the view, so that nothing sits higher or lower than its
   label.
@@ -519,10 +520,9 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   - **The strip is always whole**: while the settings are shown the window is never narrower than the whole strip of the titles needs, in one line, besides what the widest tab needs. So the
     settings have **no horizontal scrollbar** and every title is seen, also when every element of the main row is hidden and the row alone would make the window very narrow
     (the fault that was: with nothing in the main row the window was so narrow that the strip did not fit and a horizontal scrollbar hid the tabs).
-  - **The settings open on the tab they were last on** (since version 0.68; before, always on the first one, `Main view`). However the view was left, by `Save`, by `Cancel`, by the gear or by the button of another panel, the next time it is shown it
-    is on the tab it was on when it was left, `About` included. **That holds across starts, always**: the tab is stored in `settings.json`, under the key `settingsTab` (`main`, `history`, `cost`, `debug`, `general` or `about`), each time the tab is changed, whatever the
-    setting `Restore the window at the start` says, and the first time the settings are shown after a start they are on it. With no tab stored, or one that is not known, or `debug` when the program is not in debug mode, they open on the first tab, `General` (`Main view` until version 0.78, when that was the first). It is no setting of the
-    settings view and is not saved by it (saving the settings leaves it as it is). When the window is restored at the start with the settings open, the tab is the same one (see The window is restored at start). The window is as tall as the shown tab needs, and the height follows when the tab is changed; the
+  - **The settings open on the tab they were last on, and on `General` the first time after a start** (since version 0.80). However the view was left, by `Save`, by `Cancel`, by the gear or by the button of another panel, the next time it is shown in the same run it
+    is on the tab it was on when it was left, `About` included. **The first time the settings are shown after the program was started they are on the first tab, `General`**, whatever tab they were on when the program was stopped: the tab is not kept across starts.
+    The key `settingsTab` of `settings.json`, under which the tab was stored from version 0.68 to 0.79, is read no more and is not written again. The one exception is the window that is restored at the start with the settings open, which is restored on the tab it had (see The window is restored at start). The window is as tall as the shown tab needs, and the height follows when the tab is changed; the
     least width is that of the widest tab, so the window does not change its width from tab to tab.
   - **The buttons `Save` and `Cancel` are under every tab**, `About` included, and are the same on each.
 - **The title bar.** The setting `Title bar`, in the group `Window` before `Stay on top`, on by default and saved under the key
@@ -726,22 +726,23 @@ The history is shown inside the main window, not in a window of its own.
   file and sent with the rows. The titles are a delta symbol, a space, and `used` or `time`: they sit
   beside the `used` column and are told apart from it by the symbol. Each column is shown only when its setting
   is on, and both are off by default; the columns are between `limit` and the currency, which stays the last. An empty value is an
-  empty cell, and a change in the amount used that is not greater than 0.00 is an empty cell too, not `0.00` (since version 0.65, see Changes between readings). **The time is in whole seconds, with the unit,
+  empty cell, and a change in the amount used of exactly 0.00 is an empty cell too, not `0.00`; a fall is written with its minus, `-0.14` (since version 0.80, see Changes between readings). **The time is in whole seconds, with the unit,
   never in minutes or hours**: `63 s`, `126 s`, `3600 s`. (The row's item is in seconds too, but written without the space, `63s`.)
 - **Hiding lines.** Two settings (see Settings) say whether the history shows its zero usage lines and its failed lines; both are
   shown unless switched off. A **zero usage line** is a line whose change in the amount used, as under Changes between readings (against the
-  row directly before it, in the same run), is exactly zero: the reading is the same as the one before. **The startup lines count as zero usage
-  lines**: the first line of each run, the blue one with the `The program started here` hover text, has no change and
-  is handled like the others that show no change, so it is hidden and shown with them. A startup line of a failed query (it has no amounts) is a failed line
+  last earlier line that has an amount used), is exactly 0.00: the reading is the same as the last one before it. **A startup line is a line like any other in this** (since version 0.80): the first line of a run, the blue one
+  with the `The program started here` hover text, is hidden with the zero usage lines when its change is 0.00 and shown when it has a change, a rise or a fall. (Until version 0.79 every startup line counted as a zero usage line,
+  so one that showed a change was hidden, and a line whose amount fell had an empty cell and stayed: the two things that read as a fault.) A startup line of a failed query (it has no amounts) is a failed line
   and goes with those. A **failed line** is a row of a failed query. What is hidden is
   left out of the table, and so of its sorting, its count of 1,000 lines and the changes worked out on it (see Changes between readings).
   The file itself is not touched.
 - **When not all the data is shown, the panel says so.** One line above the table, written by the backend, says how many lines there are,
-  how many are shown, and why the others are not: hidden zero usage lines (the startup lines among them), hidden failed lines, and older lines beyond the newest 1,000. For example
+  how many are shown, and why the others are not: hidden zero usage lines, hidden failed lines, and older lines beyond the newest 1,000. For example
   `Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.` It is there whenever anything is left out, and not
   otherwise; it replaces the line that said how many of the lines were shown. The window shows it as received. **It is blue** (about `#0969da` on the
-  light theme and `#58a6ff` on the dark one), in the panel's own small regular text, not bold, so that it stands out by its colour as the sign that not everything is shown. **The error log's `There are no errors in this run.` is blue as well**,
-  the same blue, since it too is a line that tells the person something about what they are looking at; the other notes (no history yet, no rows yet, and the log's) keep their gray.
+  light theme and `#58a6ff` on the dark one), in the panel's own small text, **and bold** (weight 700, since version 0.80; until then regular), so that it stands out as the sign that not everything is shown. **The error log's `There are no errors in this run.` is blue as well**,
+  the same blue, since it too is a line that tells the person something about what they are looking at; the other notes (no history yet, no rows yet, no log yet) keep their gray and their regular weight. **Every blue note is bold**: this line of the history, the log's
+  `Showing the newest N lines of the log.` and `The log has no lines at this level.`, and the error log's `There are no errors in this run.`
 - **The page does no calculation and makes no decision about the lines.** The backend sends each line finished: its cells, as the table
   shows them (the time as the setting says, the amounts, `failed` in the place of the amount of a failed line, the changes), whether it is the first
   line of a run, whether it is a failed line, and its hover text. The page only puts them on the screen. The status, the interval and the duration of
@@ -768,6 +769,7 @@ The history is shown inside the main window, not in a window of its own.
   12 pixels with tight line spacing and no padding between lines, so that many readings fit in
   little space. This is the one place the 14-pixel minimum does not apply. It is regular weight,
   not bold, and not thin; only the header row of the history, and that of the error log, is bold.
+  **The typeface is a sturdy one on every system** (since version 0.80, see A sturdier typeface for the lists).
 - The panel scrolls: older readings are reached by scrolling it, or by making the window taller. It
   holds the newest 1,000 of the lines that are not hidden; the line above the table says so (see above).
 - While the panel is shown it keeps up with the history: a new reading appears at the top soon
@@ -945,7 +947,8 @@ the first reading.
 ### The thirteen elements and their names
 
 The row has fourteen elements that can be shown or hidden (the fourteenth, the cost button, since version 0.69; wherever this document says thirteen it counts those of before), and the settings button, the gear, which is
-always there. Each has a name, which is the text of its checkbox in the settings and the word this
+always there. (The four that show a view are called icons since version 0.80, `Log icon`, `History icon`, `Error log icon` and `Cost icon`, where their checkboxes read `Log button` and so on before: they are small icons, and the word says which thing of the
+row is meant. Where an older passage of this document says the log button, the history button, the error log button or the cost button, it is the same four. `Refresh button` keeps its name: it does something, and shows no view.) Each has a name, which is the text of its checkbox in the settings and the word this
 document uses for it. From left to right (see `docs/img_2.png`, where each but the request duration, which came later, is marked):
 
 | # | Name | What it is | Example | Shown by default | Key in `settings.json` |
@@ -960,10 +963,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 | 8 | `Change in the amount used` | the amount used less that of the reading before | `+1.37` | no | `showDeltaUsed` |
 | 9 | `Time since the previous reading` | the seconds between the two readings | `30s` | no | `showDeltaTime` |
 | 10 | `Request duration` | how long the latest usage request took | `87ms` | no | `showDuration` |
-| 11 | `Log button` | shows and hides the log | the sheet with lines | yes | `showLogIcon` |
-| 12 | `History button` | shows and hides the usage history | the table | yes | `showHistoryIcon` |
-| 13 | `Error log button` | shows and hides the error log | the triangle | yes | `showErrorIcon` |
-| 14 | `Cost button` | shows and hides the cost control panel (since version 0.69) | the two bars | yes | `showCostIcon` |
+| 11 | `Log icon` | shows and hides the log | the sheet with lines | yes | `showLogIcon` |
+| 12 | `History icon` | shows and hides the usage history | the table | yes | `showHistoryIcon` |
+| 13 | `Error log icon` | shows and hides the error log | the triangle | yes | `showErrorIcon` |
+| 14 | `Cost icon` | shows and hides the cost control panel (since version 0.69) | the two bars | yes | `showCostIcon` |
 
 - The time, the amount used, the budget, the refresh button and the countdown were always shown before version 0.32. They are on
   by default, so a settings file that says nothing of them changes nothing.
@@ -1016,9 +1019,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   | `Change in the amount used` | `How much the amount used has changed since the reading before this one. 0.00 when it has not changed.` |
   | `Time since the previous reading` | `The seconds between this reading and the one before it.` |
   | `Request duration` | `How long the latest usage request to Anthropic took, in milliseconds, and in seconds and milliseconds from one second on.` |
-  | `Log button` | `A button that shows the log of the program below the row, and hides it again.` |
-  | `History button` | `A button that shows the usage history, one line for each reading, below the row, and hides it again.` |
-  | `Error log button` | `A button that shows the failed refreshes of this run below the row, and hides it again.` |
+  | `Log icon` | `The icon that shows the log of the program below the row, and hides it again.` |
+  | `History icon` | `The icon that shows the usage history, one line for each reading, below the row, and hides it again.` |
+  | `Error log icon` | `The icon that shows the failed refreshes of this run below the row, and hides it again.` |
 
   The two properties have one as well: the time format, `Whether the time is shown with or without
   seconds.`; the currency symbol, `Puts the currency symbol before the amount used and the budget: the dollar sign for
@@ -1056,12 +1059,13 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 ### A placeholder at the start
 
 - When the program starts, and until the first reading or the first failure is there, **each element that is switched on
-  and has no value yet is shown as an empty rectangle with a thin green frame**, about as wide as the element usually is
-  and as tall as its text. There is no word: the row does not say `Loading…`.
-- The frame is in the same green as the text of the figures, its corners are square, and nothing fills the box: the
-  background of the window is seen in it (since version 0.77; see Gray boxes in the place of `No usage reported` and
-  `No data`). Until version 0.76 the box was filled, first with gray and then with a light green, and its corners were
-  rounded by 3 pixels.
+  and has no value yet is shown as a green line where the foot of its text would be**, about as wide as the element usually is.
+  There is no word: the row does not say `Loading…`.
+- **The line is all there is of it** (since version 0.80): 2 pixels thick, the thickness of the line under the selected tab of the
+  settings, in the same green as the text of the figures, at the bottom of the place the element has; nothing is drawn at its
+  top or at its sides, and nothing fills it (see Gray boxes in the place of `No usage reported` and `No data`). In versions 0.77
+  to 0.79 it was a rectangle with a frame of one pixel all the way round; until version 0.76 the box was filled, first with gray
+  and then with a light green, and its corners were rounded by 3 pixels.
 - The placeholder has **the tooltip of its element**, in the form that needs no value: `Last update`,
   `Share of the budget spent`, `Credits used`, `Credit budget`, `Seconds until the next refresh`,
   `Change in the amount used since the previous reading`, `Time since the previous reading` and `How long the latest usage request took`.
@@ -1119,12 +1123,13 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   or `no data`. So `Credits used: no usage reported`, `Credit budget: no data`, `Share of the budget spent: no usage
   reported`, `Last update: no data`. A box at the start, and the box of a figure that is not known, keep the tooltip
   they have.
-- **No gray box of the row has a background colour** (since version 0.77): nothing fills it, and the background of the window is seen inside the frame, on both themes. It had a light green one from version 0.66 (about `#dafbe1` on the light theme and `#12301d` on the dark one), and a gray one before that. Where
-  these requirements say a gray box, this is the box: its name stays, though nothing of it is gray any more.
-- **Every gray box of the row has a thin green frame, and the frame is all there is of it**: 1 pixel, in the same green as the text of the figures (`#1a7f37` on the light theme, `#3fb950` on the dark one), at its full
-  strength. **Its corners are square**: they are not rounded (since version 0.77; they were, by 3 pixels). That holds for every gray box, at the start, for a figure that is not known,
-  and for no usage and no data alike. The box is as wide and as tall as it was: the frame is inside it.
-- **The boxes are not dimmed** after a failed refresh, border included.
+- **No gray box of the row has a background colour** (since version 0.77): nothing fills it, and the background of the window is seen in its place, on both themes. It had a light green one from version 0.66 (about `#dafbe1` on the light theme and `#12301d` on the dark one), and a gray one before that. Where
+  these requirements say a gray box, this is the placeholder: its name stays, though nothing of it is gray any more, nor a box.
+- **Every gray box of the row is a green line at its bottom, and the line is all there is of it** (since version 0.80): 2 pixels thick, like the line under the selected tab of the settings, in the same green as the text of the figures (`#1a7f37` on the light theme, `#3fb950` on the dark one), at its full
+  strength, as wide as the box. It has no frame at its top or at its sides (in versions 0.77 to 0.79 it had a frame of 1 pixel all the way round, with square corners). That holds for every gray box, at the start, for a figure that is not known,
+  and for no usage and no data alike.
+- **The place of a gray box is as wide and as tall as it was**, and it is the whole of that place the mouse is on it: the tooltip of the box, and the line that says an answer has no spend, come with the mouse anywhere in the place the figure would have, not on the 2 pixels of the line alone.
+- **The lines are not dimmed** after a failed refresh.
 - **The two changes and the request duration** are as A gray box for a figure that is not known says; with no usage
   and with no data the two changes are gray boxes, since there is nothing to compare.
 - **Nothing else says `No usage reported` in the window.** The log still records each reading as it does.
@@ -1300,6 +1305,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **The text of the three lists can be made larger and smaller** (since version 0.52) with two small buttons, each an icon with no text: a
   magnifying glass with a plus, and one with a minus. Their tooltips are `Larger text` and `Smaller text`.
+- **The icons of this line are easy to see** (since version 0.80): the two of the zoom, the one of the zero usage lines in the history, and the two of the log's reset and merge are drawn **in the colour of the text**, not in the muted gray,
+  **16 pixels** large where they were 13, with a line of about 2 where it was 1.6; the button round each is 22 pixels. One that cannot be pressed is at a third of its strength, as before, and the button of the zero usage lines is blue while the lines are hidden.
+  The icons of the row, the log, history, error log and cost icons and the gear, are as they were.
 - **Where they are.** In a line at the top of each list, at its left, which stays while the list is scrolled: in the
   log it is the line of `Level` and `Date`, after those two; the history and the error log get such a line for them.
 - **One size for all three lists.** A change made in one holds for the others.
@@ -1426,11 +1434,11 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **The program stores on shutdown what the window showed, and starts as it was** (since version 0.65), when the checkbox `Restore the window at start` is on. It is in the tab `General`, in the group `Window`,
   **off by default** and saved under the key `restoreWindow`. Off, the program starts as before, with the row alone, and stores nothing.
-- **What is stored**, in `settings.json`, when the program stops (by closing the window or by the system's stop): the panel that was open, `log`, `history`, `errors` or `settings` or none, and for the settings the tab that was shown; the size of
+- **What is stored**, in `settings.json`, when the program stops (by closing the window or by the system's stop): the panel that was open, `log`, `history`, `errors`, `cost` or `settings` or none, or, with `Several views at once`, every view that was open, their names with commas between them in the order of the icons (`history,cost`), and for the settings the tab that was shown; the size of
   the window, its width and its height, in pixels of its content; and the place of the window on the screen. The keys are `lastPanel`, `lastTab`, `windowWidth`, `windowHeight`, `windowX` and `windowY`. They are no settings
   of the settings view: it neither shows nor changes them, and saving the settings leaves them as they are.
-- **What is restored.** At the next start with the checkbox on, the window has that size and place and the panel is open on the tab as it was, as if the person had opened it. With the settings open the tab
-  is the stored one (the same as `settingsTab`), and the first tab, `General`, when the program is not in debug mode and it was `Debug`. The remembered heights of the history and the log (see Remembered heights) are kept as they are; the stored size of
+- **What is restored.** At the next start with the checkbox on, the window has that size and place and the panel is open on the tab as it was, as if the person had opened it. **With several views stored, all of them are opened again**, stacked as they were, when `Several views at once` is on at that start; when it is off, the first of them alone. With the settings open the tab
+  is the stored one, `lastTab`, and the first tab, `General`, when the program is not in debug mode and it was `Debug`. The remembered heights of the history and the log (see Remembered heights) are kept as they are; the stored size of
   the window is the one that is used at this start.
 - **Nothing that cannot be is restored.** A value in the file that is not a whole number, a panel or tab that is not known, or a place that no screen shows (a screen that has gone) is left out, and the window
   then has its usual size or place; the other values are still used. A window is never restored larger than the screen it is on.
@@ -1445,7 +1453,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   for it in the row of the window, and no window of its own.
 - **It is shown in the place of the other tabs**, in the panel area below the row, with the strip of the titles above it and `Save` and `Cancel` below; the window is as tall as the row and the About view need,
   and as wide as the least width of the tabs.
-- **What it shows**, from the top:
+- **The logo is at the left, and everything else at the right of it** (since version 0.80; until then the logo, the name and the version were centred above the table). The view is two columns: the logo alone in the
+  left one, at its top; and in the right one, from the top, the name, the version and the table. So the view is lower than it was, and the table begins beside the logo, not under it.
+- **What it shows**:
   - the **logo**, the gauge of the program's icon, **96 pixels** wide and tall, drawn from the largest file of the icon;
   - the **name**, `aip usage`, and under it the **version**, as the title bar has it: `v0.57` in the version that brought it;
   - **where the files are**, each with its full path: `Settings`, `Log` and `Usage history`. The history is the file
@@ -1458,7 +1468,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   - **`Debug mode`**: `off`; or `on` when the program was started with `--debug`; or `on, the fake backend is in
     use` while it is.
 - **The lines are a table of two columns**, the name of a thing at the left in the muted gray and what it is at the
-  right, in the type of the settings view. The logo, the name and the version are centred above it.
+  right, in the type of the settings view. The name and the version are above it, at the left edge of the table, and the logo is at the left of all three.
 - **The text cannot be selected**, like everything in the window (see Nothing in the window can be selected); a path
   is copied with the button beside it (see The paths of the About view are links, with a button to copy each). A path that is longer than the view is wide is broken over lines; it never makes the
   window wider.
@@ -1634,13 +1644,14 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 ### The cost control panel: two bars
 
 - **A panel, `Cost control`, shows how much of the limits is spent** (since version 0.69): two bar charts, one for the day and one for the month, as in `docs/img.png` (a bar, the amount at its right). It is a panel like
-  the history, log and error log: below the row, in the one panel area, replacing the one that is shown, with a button of its own in the row, the `Cost button` (its checkbox `Cost button` in `Main view`, on by default, saved under
+  the history, log and error log: below the row, in the one panel area, replacing the one that is shown, with a button of its own in the row, the cost icon (its checkbox `Cost icon` in `Main view`; `Cost button` until version 0.79, on by default, saved under
   `showCostIcon`; its icon is two short horizontal bars, one longer than the other; its tooltips are `Show the cost control` and `Hide the cost control`). The limits stay settings, in the tab `Cost control` of the settings (see Cost control).
 - **The panel is as tall as its two bars need and as wide as the history's table**, and it cannot be dragged to another size. It has the title bar only when the setting `Title bar` is on (since version 0.79; before, like every panel, always: see Settings, The title bar). The settings give it back as they give back the others
   (see Settings). It is one of the panels the window restores at the start (`cost`, see The window is restored at start).
 - **Two rows**, each: a label, a bar and, at its right, the figures. The labels are `Today` and `Month` (since version 0.79; the second was `This month`). The bar is **green for what is consumed and gray for what is left**, and nothing else is coloured but the warning sign (below), in the
   green of the figures `#1a7f37` / `#3fb950` and a gray, muted, `#8a8f98` at a third of its strength. The bar is 14 pixels tall and **its corners are square** (since version 0.79; they were rounded), those of the green part as well. **The two bars are equally wide** (since version 0.79; before, each took what its own label and figures left, so the
-  bar with the shorter text was the longer one): the labels are in one column, as wide as the wider of the two, the figures in one column, as wide as the wider of the two texts with the room of the warning sign, and the bars take what is between, beginning and ending under one another; the green part is the share used, never more than the whole.
+  bar with the shorter text was the longer one): the labels are in one column, as wide as the wider of the two, the figures in one column, as wide as the wider of the two texts with the room of the warning sign, and the bars take what is between, beginning and ending under one another; the green part is the share used, never more than the whole. **There is little room between them** (since version 0.80): the column of the labels is as wide as the wider label and no wider
+  (it had a least width of five and a half characters, which left a gap after `Today` and `Month`), 6 pixels are between a label and its bar and between a bar and its figures, and 4 pixels between the two rows, where there were 8.
 - **The figures** are written `<used> of <limit> · <percent>%`, for example `12.40 of 25.00 · 50%`: the amount used, the limit, both in the form of the amounts of the row (two decimals, the currency symbol when `Currency symbol` is on), and the percentage, a
   whole number, rounded to the nearer and upwards at half. The amount is the one of the figures, so it is `$` for US dollars with the symbol on and the plain number with it off, as the row writes it.
 - **The monthly bar**: the amount used of the newest reading, against the monthly limit of the cost control. **The daily bar**: the amount spent today against the daily limit in force this month (the typed one, or the one worked out from the monthly limit, see Cost control).
@@ -1678,10 +1689,12 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **Its tooltip says that it will go**: the usual text of the button, and a second line under it, `Switched off: this button
   goes when the settings are closed.` A button that is switched on has its usual tooltip alone.
 - **When the settings are left, the buttons that are switched off go**, as before, and the window follows the narrower row.
-- **A panel that was open before the settings is given back, whatever its switch says.** A panel that was reached through a
-  dimmed button, and from which the gear was pressed, is shown again when the settings are left, by `Save`, by `Cancel` or by the
-  gear, also when its switch is off or was switched off in that visit; its button is then that of the open panel and goes when
-  the panel is closed. (Until version 0.78 a panel whose button was switched off was not given back.)
+- **A panel whose button is switched off when the settings are left is not given back** (since version 0.80, which takes back
+  the rule of version 0.79, that it was given back whatever its switch said). Leaving the settings by `Save`, by the gear or by
+  the button of another panel saves them, and a view whose button the saved settings switch off is then closed: the row alone is
+  shown, or, with `Several views at once`, the other views that were open. So unchecking the icon of the view that is open
+  closes that view. `Cancel` saves nothing, so it brings back what was shown, as it was. A panel that was reached through a dimmed
+  button, and from which the gear was pressed, is therefore not shown again unless its switch was switched on meanwhile.
 - **Only the four panel buttons.** The refresh button and the figures of the row follow their checkboxes while the settings
   are shown, as before: one that is switched off is not there. The gear is always there.
 
@@ -1735,14 +1748,14 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   | `General` | `Interval` | `The time between two usage requests: a whole number of seconds from 5 to 3600. The default is 60.` |
   | `General` | `Restore the window at start` | `Opens the window at the next start as it was when the program was stopped: the same panel, the same size and the same place.` |
   | `General` | `Log the response` | `Writes the JSON of every usage response to the log. Anything shaped like a credential is masked.` |
-  | `Main view` | `Cost button` | `A button that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.` |
+  | `Main view` | `Cost icon` | `The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.` |
   | `History view` | `Date` | `Shows the date before the time of each line.` |
-  | `History view` | `Zero usage lines` | `Shows the lines whose amount used is that of the line before, the first line of each run among them. Off, they are left out.` |
+  | `History view` | `Zero usage lines` | `Shows the lines whose amount used is that of the reading before. Off, they are left out.` |
   | `History view` | `Failed lines` | `Shows the lines of the usage requests that failed. Off, they are left out.` |
   | `History view` | `time` | `The column with the time of the reading.` |
   | `History view` | `used` | `The column with the amount used.` |
   | `History view` | `limit` | `The column with the budget.` |
-  | `History view` | `Δ used` | `The column with what was spent since the last earlier reading. It is empty when nothing was spent.` |
+  | `History view` | `Δ used` | `The column with the change in the amount used since the last earlier reading: a rise with a plus, a fall with a minus. It is empty when nothing changed.` |
   | `History view` | `Δ time` | `The column with the seconds since the previous line that is shown.` |
   | `History view` | `Cur.` | `The column with the currency: the dollar sign for US dollars, the code for any other.` |
   | `Cost control` | `Monthly limit` | `What may be spent in a month, in US dollars: from 0.01 to 1,000,000, with up to two decimals. Empty for no limit.` |
@@ -1814,11 +1827,11 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **Reset.** The log file is renamed and a new, empty one is begun. The file that was `java-aip-usage.log` becomes
   `java-aip-usage.<yyyy-MM-dd_HH-mm-ss>.log`, with the local date and time of the reset, for example
   `java-aip-usage.2026-10-13_14-30-05.log`, in the same directory; such a file is an **old log**. The program goes on logging to
-  a new `java-aip-usage.log`, whose first line says `The log was reset: the lines before are in <the name of the old log>`, at
+  a new `java-aip-usage.log`, whose first line says `The log was reset: the lines before are in <the full path of the old log>`, at
   the information level, and the panel shows the new file at once, so it is nearly empty.
 - **Merge, the undo.** The current log is joined with the **newest old log**, the one whose name has the latest date and time:
   the lines of the old log come first and the lines of the current one after them, as if the reset had not been, the result is
-  `java-aip-usage.log`, and **the old log is deleted**. The line `The log was merged with <the name of the old log>` is written
+  `java-aip-usage.log`, and **the old log is deleted**. The line `The log was merged with <the full path of the old log>` is written
   at the end, at the information level. With several old logs a second click joins the next older one in the same way.
 - **The button of the merge is disabled while there is no old log**, and the program says with the log whether there is one.
 - **The tooltips** are `Reset the log: the file is kept under a name with the date and time, and a new one is started` and `Undo
@@ -1851,6 +1864,110 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   not the icon the system gives a program that has none.
 - **`Quit aip usage` ends the program as closing the window does**, with the same lines in the log.
 - **The name in the log is as it was**, `java-aip-usage`, and so are the names of the files.
+
+### Several views at once
+
+- **More than one view can be shown at the same time** (since version 0.80), the cost control and the usage history for one,
+  when the checkbox `Several views at once` is on. It is in the tab `General`, in the group `Window`, after `Restore the window
+  at start`, **off by default**, saved under the key `severalViews`, and takes effect when the settings are saved. Its tooltip is
+  `Lets more than one view be shown at the same time: an icon opens its view and leaves the others open. Off, opening a view
+  closes the one that is shown.`
+- **Off, nothing is changed**: showing a view replaces the one that is shown, as before.
+- **On, an icon opens its view and leaves the others open.** A press on the icon of a view that is not shown shows it, and the
+  icon turns blue and bigger, as usual; a view that is open already stays open, and its icon stays blue. A press on a blue icon
+  closes that view, and that view alone, and its icon is gray again. So any number of the four can be blue at once, where before
+  no more than one was.
+- **Which views.** The log, the usage history, the error log and the cost control. **The settings are always shown alone**:
+  a press on the gear puts the settings in the place of every view that is open, and leaving them brings back all the views
+  that were open, each as Settings says of the one: at the size it had, and not one whose icon the saved settings switch off.
+  With the settings shown, a press on the icon of a view leaves the settings, saving them, and shows that view and the views
+  that were open before the settings.
+- **The views are stacked below the row in the order of their icons**, whatever order they were opened in: the log, the usage
+  history, the error log, the cost control, from the top down. A view that is opened takes its place among those that are
+  shown, and the others move to make room; a view that is closed leaves no gap.
+- **Each view has the height it has alone.** The usage history and the log open at their remembered heights (see Remembered
+  heights), the error log at ten times the row's height, and the cost control is as tall as its two bars need. The window is as
+  tall as the row, its message lines and all of them together, and never taller than the program makes a window (1,600 pixels):
+  when the views would need more, the lowest list is given what is left, and no less than three times the row's height.
+- **The window is as wide as the widest of the open views needs**: three times the row with the log, one and a half times with
+  the error log, the table with the usage history, and the history's table or its bars with the cost control. Every view is as
+  wide as the window; a list that is wider than it has to be shows its lines as it does in a window dragged wider.
+- **What may be dragged.** The height, when any of the three lists is open: dragging it changes the height of **the lowest
+  list**, and the views above keep theirs. The width, when the log or the error log is among the open views. With the cost
+  control alone, nothing, as before.
+- **A dragged height is remembered** for the usage history and for the log as before, when that list is the lowest one and it
+  is its height that was dragged; the height of the error log is not remembered, with other views or alone.
+- **The title bar** is there whenever something of the window can be dragged, which is whenever a list is among the open views;
+  with the cost control alone and the title bar switched off there is none, as before.
+- **Each view keeps up by itself**, as it does alone: the log and the error log with every poll, the usage history when a row
+  is added, the cost control with every poll. Each has its own line at its top, with the buttons that belong to it (the zoom
+  for each list, the level and the date and the two buttons of its file for the log, the button of the zero usage lines for the
+  history), its own note and its own red line; the size of the text is still one for all three lists.
+- **The window restored at start** has every view that was open (see The window is restored at start).
+- **Switched off while several views are shown**, by saving the settings, the first of them in the order of the icons stays
+  and the others are closed.
+- **The page says which views are open** to its host, in the order of the icons, with what may be dragged and the size it
+  needs for all of them (`docs/api.md`, Window host contract).
+
+### A sturdier typeface for the lists
+
+- **The fault that was** (before version 0.80, on Windows). The lists, the usage history, the log and the error log, were set in
+  the system's fixed-width font, and on Windows the page was given Courier New for that, a thin typeface: the lines were hard
+  to read, and looked lighter than the regular weight they are.
+- **The lists name sturdy fixed-width typefaces, and the system's own last**: `ui-monospace`, then `Cascadia Mono`, `SF Mono`,
+  `Menlo` and `Consolas`, and `monospace` when none of them is there. So Windows shows Cascadia Mono or Consolas and macOS SF
+  Mono or Menlo, and none is fetched: a typeface that is not on the machine is passed over.
+- **Where the window does not take these names**, and the lists are still thin, **the program brings a typeface of its own**:
+  a fixed-width one under an open licence, kept among the program's files with its licence, served to the page by the program
+  like the page's other files, and named first. It is still not fetched from anywhere. Whether a version needs this is seen in
+  its window, and is said in that version's section once it is known.
+- **The weight stays regular**, and the header of a table and the blue notes bold; the size, the line height and the widths of
+  the history's columns, which are in characters, are as they were.
+- **The copy the history's table is measured on has the same typefaces**, so that the window is as wide as the table is.
+
+### A tooltip for each column title of the usage history
+
+- **Each title of the history's table has a tooltip** (since version 0.80), which says what the column is:
+
+  | Title | Tooltip |
+  | --- | --- |
+  | `time`, `date time` | `When the usage was read`, and with the date `The date and time at which the usage was read` |
+  | `used` | `The amount used at that reading` |
+  | `limit` | `The budget at that reading` |
+  | `Δ used` | `The change in the amount used since the last earlier reading: + for a rise, - for a fall` |
+  | `Δ time` | `The seconds since the previous line that is shown` |
+  | `Cur.` | `The currency of the amounts` |
+
+- **The backend writes them** and sends them with the titles; the page puts them on the titles as it is given them.
+- The lines keep the tooltips they have: `The program started here` on the first line of a run, and none on the others.
+
+### The paths in the log are links
+
+- **The lines of a reset and of a merge of the log name the old log by its full path** (since version 0.80; before, by its name
+  alone): `The log was reset: the lines before are in <the full path of the old log>` and `The log was merged with <the full path
+  of the old log>`.
+- **A path in a line of the log panel is a link when it is the path of a file of the program's own**: the settings file, the log
+  file, an old log, and the two usage history files, the real one and the one of the fake backend. The link is the whole path,
+  in the blue of the notes and underlined, like the paths of the About view; the rest of the line is as it was.
+- **A click opens the folder the file is in, with the file marked**, in the Explorer on Windows and the Finder on macOS, and the
+  folder alone when the file is no longer there, as for an old log that was merged since: the same as a click on a path of the
+  About view (see The paths of the About view are links). The file itself is not opened.
+- **Nothing else is a link**, whatever a line holds: not a path the program does not know, not a web address. A line of the log
+  can therefore never make the program open another folder than those its own files are in.
+- **The backend says which parts of a line are such paths**, and the page marks them: the page looks for no path itself. For a
+  click the page names the file by what the backend called it, never by a path, and the program opens the path it knows; a
+  name it does not know is refused.
+- **Its tooltip is `Open the folder of this file`.** The text of the log can still not be selected.
+- **When the folder cannot be opened** a red line in the log panel says `The folder could not be opened: <reason>`.
+- **In the log file nothing changes** but the two lines above: the file is text, and the links are the panel's.
+
+### The lines of the usage history are always shown
+
+- **The fault that was** (before version 0.80). With lines hidden, the note above the table said how many lines were shown,
+  `Showing 35 of 48 lines: 12 zero usage and 1 failed hidden.`, and under it was nothing: the lines were not drawn.
+- **Whenever the note says that lines are shown, they are shown**: after the history was opened in the place of another view,
+  the cost control or the settings among them, after the button of the zero usage lines was pressed, and after the settings
+  were left. A view that has no lines of its own, the cost control, leaves the list of the next view as that view needs it.
 
 ## Debug mode
 
@@ -2161,7 +2278,7 @@ These are things the program does that the sections above do not say, written do
   time cannot be read; a change in the amount of less than half a cent counts as zero in the row and the history cell.
 - The newest lines read of the log are those of its last 512 kilobytes (524,288 bytes), at most 1,000. Whenever the file is larger than that, the first line of what was read is dropped, whether or not the cut fell inside it, so that none is ever shown half, and the note says how many lines are shown. A line ends at a line feed, a carriage return, or both; an empty file is a log with no lines.
 - **What a row of the history file is, exactly.** A line is cut at every comma, there being no quoting. It is a row if it has 3 to 7 fields and its first field is not blank and is not the word `datetime`; a line that begins `datetime` is a header wherever it stands. The first field is not checked to be a date and time: a row whose first field is something else is shown with that text as it is, and takes its place in the order as text. Blank lines, and lines with fewer than 3 or more than 7 fields, are left out. The count of lines in the note above the table is the count of rows, not of the lines of the file.
-- **How a row's status is read.** A row is that of a failed query if its status has `failed` in it, and begins a run if its status begins `start`; any other text there is an ordinary row. The first row of a file begins a run even when nothing marks it, so the rows of an old file with no status form one run from the first; such a first row is not a startup line, is not blue and is not hidden with the zero usage lines.
+- **How a row's status is read.** A row is that of a failed query if its status has `failed` in it, and begins a run if its status begins `start`; any other text there is an ordinary row. The first row of a file begins a run even when nothing marks it, so the rows of an old file with no status form one run from the first; such a first row is not a startup line and is not blue; it has the amount used itself as its change, so it is no zero usage line.
 - **The order of the history is that of the text.** The lines are put in order by the `datetime` as it is written, compared as text, which for the form the program writes is the order of time.
 - **The first cell of a history line.** The time of day is what follows the date in the `datetime` as written; a `datetime` that has not the usual form is shown as it stands, with or without the date setting. The amounts are the file's text as written, `1000.00`, without the digit grouping the row has.
 - **The line above the table, exactly.** `Showing <shown> of <all> lines: `, then `<n> zero usage` and `<n> failed`, joined by ` and ` when both are there, followed by ` hidden`; then, after a comma when something came before, `<n> older not shown`; then a full stop. A part whose count is 0 is left out, so with only older lines left out it reads `Showing 1,000 of 1,500 lines: 500 older not shown.` The counts have a comma for thousands whatever the machine's language.
@@ -2229,7 +2346,7 @@ These are things the program does that the sections above do not say, written do
   least 12 characters wide. The red line of the view is at its top, above the groups; it stays until the view is opened again, whatever is typed or pressed meanwhile. When the settings cannot be read it says `The settings could not be read: <reason>` and the groups are not shown at all, not shown empty; Cancel
   still works. A refusal of the backend is shown in its own words. The check of the interval field is: blanks at its ends aside, digits and nothing else, so ` 60 ` and `0060` are taken, the latter as 60, and `-5`, `5.0`, `1e3`, `60s` and an empty field are not. Save sends all sixteen settings in one request.
   The page has no defaults of its own. A setting the backend's answer lacks is shown switched off.
-- **The panels, exactly.** The text is 12 pixels on a line of 15, in a fixed-width font (`ui-monospace, SFMono-Regular, Menlo, monospace`), regular weight, the letters drawn very slightly closer. From the top: the note, the red line of a read that failed, the lines. Opening a panel, or changing to another,
+- **The panels, exactly.** The text is 12 pixels on a line of 15, in a fixed-width font (`ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace` since version 0.80; until then `ui-monospace, SFMono-Regular, Menlo, monospace`), regular weight, the letters drawn very slightly closer. From the top: the note, the red line of a read that failed, the lines. Opening a panel, or changing to another,
   clears the lines, the note and the red line of the one before at once, so nothing of another panel is ever under the new button, and an answer that comes for a panel that is no longer the one shown is dropped. A panel with no lines shows no box of lines, only its note. The red line goes with the next read that
   succeeds, even one that brings nothing new. The log and the error log are read again at every poll, and the history when its stamp is not the one it was last read and shown at; a read that failed is tried again at the next poll, for the history as for the others, whether or not a row was added meanwhile. Only one panel is read at a time: a panel opened while another is still being read is read as soon as that read has ended, without waiting for a poll or a new row. The header of a table stays at the
   top with the page's background behind it; the log has none. The 16 pixels kept clear at the right are kept in the log and the error log as in the history. How far the lines are moved to keep a person's place is worked out from the average height of a line.
@@ -2475,7 +2592,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
   `historyHeight` and `logHeight`. The three files, the settings, the log and the usage history, are in the working directory the program was
   started from; where that is for a version started in its usual way is said in its section.
 - **The settings file as written.** One JSON object, printed over several lines, with the keys always in the order above, the two heights last and always there, as `0` when none is remembered. The keys of the restored window (`lastPanel`, `lastTab`, `windowWidth`, `windowHeight`, `windowX`, `windowY`) come after the heights, and are written only when the program has stored them. Every save writes the whole file

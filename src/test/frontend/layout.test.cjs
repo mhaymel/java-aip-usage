@@ -231,7 +231,8 @@ test('the panel is small, condensed, regular-weight monospace with a tight line 
     assert.ok(Number(font[1]) >= 400, 'never thin');
     assert.ok(Number(font[2]) <= 13 && Number(font[2]) >= 11, 'about 12 px');
     assert.ok(Number(font[3]) <= Number(font[2]) * 1.35, 'tight line height');
-    assert.match(font[4], /monospace/);
+    assert.equal(font[4], 'var(--list-font)', 'the typeface of the lists, named in one place');
+    assert.match(css.match(/--list-font:\s*([^;]+);/)[1], /monospace$/, 'a fixed-width one, the system\'s own last');
     assert.match(ruleOf('.panel'), /letter-spacing:\s*-/, 'condensed');
 });
 
@@ -378,7 +379,7 @@ test('the About view has the logo at 96 pixels, the name and the version, a tabl
 
     assert.match(ruleOf('.about-logo'), /width:\s*96px/);
     assert.match(ruleOf('.about-logo'), /height:\s*96px/);
-    assert.match(ruleOf('.about'), /text-align:\s*center/, 'the logo, the name and the version in the middle');
+    assert.doesNotMatch(ruleOf('.about'), /text-align:\s*center/, 'nothing is in the middle any more');
     assert.match(ruleOf('.about'), /width:\s*0/, 'it never makes the window wider');
     assert.match(ruleOf('.about'), /min-width:\s*100%/);
     assert.match(ruleOf('.about-details'), /grid-template-columns:\s*max-content minmax\(0, 1fr\)/);
@@ -717,8 +718,8 @@ const MAIN_CHECKBOXES = [
     ['set-showTime', 'Time'], ['set-showPercentage', 'Percentage spent'], ['set-showUsed', 'Amount used'], ['set-showLimit', 'Budget'],
     ['set-showRefresh', 'Refresh button'], ['set-showCountdown', 'Countdown'], ['set-showInterval', 'Interval'],
     ['set-showDeltaUsed', 'Change in the amount used'], ['set-showDeltaTime', 'Time since the previous reading'], ['set-showDuration', 'Request duration'],
-    ['set-showLogIcon', 'Log button'], ['set-showHistoryIcon', 'History button'], ['set-showErrorIcon', 'Error log button'],
-    ['set-showCostIcon', 'Cost button'],
+    ['set-showLogIcon', 'Log icon'], ['set-showHistoryIcon', 'History icon'], ['set-showErrorIcon', 'Error log icon'],
+    ['set-showCostIcon', 'Cost icon'],
 ];
 
 test('the Main view group has a checkbox for each of the fourteen elements, named as the requirements name them', () => {
@@ -765,13 +766,18 @@ test('the General tab has the groups Request, Window and Log, with Title bar bef
     assert.match(group, /<label title="[^"]{40,}"><input id="set-stayOnTop" type="checkbox"> Stay on top<\/label>/);
     assert.ok(group.indexOf('set-showTitleBar') < group.indexOf('set-stayOnTop'), 'the title bar first');
 });
-test('the gray box of an element with no value is a thin green frame with square corners and nothing in it, and has a width of its own', () => {
+test('the gray box of an element with no value is a green line at its bottom and nothing else, as thick as the line under the selected tab, and has a width of its own', () => {
     const rule = ruleOf('.skeleton');
     assert.doesNotMatch(rule, /background(-color)?\s*:/, 'nothing fills it: the background of the window is seen in the frame');
     assert.doesNotMatch(css, /rgba\(138, 143, 152/, 'the gray third is gone');
     assert.doesNotMatch(css, /--box\b/, 'and so is the light green it was filled with after that, on both themes');
     assert.doesNotMatch(rule, /opacity/, 'the strength is the colour\'s own, or the frame would be as faint');
-    assert.match(rule, /border:\s*1px solid var\(--ok\)/, 'one pixel, in the green of the figures');
+    assert.match(rule, /border-bottom:\s*2px solid var\(--ok\)/, 'a line at the bottom, in the green of the figures');
+    assert.match(rule, /border:\s*0;/, 'and no frame at the top or at the sides');
+    assert.ok(rule.indexOf('border-bottom:') > rule.indexOf('border: 0'), 'the line comes after, so that it is there');
+    assert.doesNotMatch(rule, /border:\s*\d+px solid/, 'the frame all the way round is gone');
+    assert.equal(rule.match(/border-bottom:\s*(\d+px)/)[1], ruleOf('.settings .tab').match(/border-bottom:\s*(\d+px)/)[1], 'as thick as the line under the selected tab');
+    assert.match(rule, /display:\s*inline-block/, 'the place keeps its width and its height: the tooltip comes anywhere in it');
     assert.match(ruleOf('.delta-used,\n.delta-time,\n.delta-duration,\n.spend'), /color:\s*var\(--ok\)/,
         'which is the very colour the text of the figures has, on both themes');
     assert.match(rule, /box-sizing:\s*border-box/, 'inside the box, which is as wide and as tall as it was');
@@ -947,7 +953,9 @@ test('the two bars of the cost control are equally wide: the rows share the colu
     const rows = ruleOf('.cost-rows');
     assert.match(rows, /display:\s*grid/);
     assert.match(rows, /grid-template-columns:\s*max-content minmax\(120px, 1fr\) max-content/, 'the label, the bar with its least width (COST_BAR_MIN of app.js), the figures');
-    assert.match(rows, /gap:\s*8px/, 'COST_GAP of app.js');
+    assert.match(rows, /gap:\s*4px 6px/, '4 pixels between the two rows, and 6 between the parts of a row: COST_GAP of app.js');
+    assert.match(read('app.js'), /var COST_GAP = 6;/);
+    assert.doesNotMatch(ruleOf('.cost-label'), /min-width/, 'the labels are as wide as the wider of them, and no wider');
     assert.match(ruleOf('.cost-row'), /display:\s*contents/, 'a row is no box of its own: its parts are the cells');
     assert.doesNotMatch(ruleOf('.cost-bar'), /flex/, 'the bar takes the column, not what its own row leaves');
     assert.match(ruleOf('.cost-figures'), /justify-content:\s*flex-end/, 'the figures and the sign are one cell');
@@ -984,7 +992,7 @@ test('the tooltips of the settings are the texts the requirements give, with the
         'set-restoreWindow': 'Opens the window at the next start as it was when the program was stopped: the same panel, the same size and the same place.',
         'set-logResponse': 'Writes the JSON of every usage response to the log. Anything shaped like a credential is masked.',
         'set-showTitleBar': 'Shows the title bar of the window. Off, the window is the row alone; the title bar comes back for as long as a panel that can be resized is open, so open one to close the window.',
-        'set-showCostIcon': 'A button that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.',
+        'set-showCostIcon': 'The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.',
         'set-historyDate': 'Shows the date before the time of each line.',
         'set-historyZeroLines': 'Shows the lines whose amount used is that of the line before, the first line of each run among them. Off, they are left out.',
         'set-historyFailedLines': 'Shows the lines of the usage requests that failed. Off, they are left out.',
@@ -1041,4 +1049,66 @@ test('the log has two buttons in the line of the zoom buttons, after them: icons
     const files = line.slice(line.indexOf('<span id="log-files"'), line.indexOf('<span id="history-choices"'));
     assert.equal(files.replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]*>/g, '').trim(), '', 'no text');
     assert.equal((files.match(/<svg /g) || []).length, 2, 'an icon each');
+});
+
+// ---- version 0.80: the small changes of the page
+
+test('the four checkboxes of the things that show a view say icon, and no other but the refresh one says button', () => {
+    const texts = [...MAIN.matchAll(/<input id="set-show[A-Za-z]+" type="checkbox"> ([^<]+)<\/label>/g)].map(m => m[1]);
+    assert.deepEqual(texts.filter(text => /icon$/.test(text)), ['Log icon', 'History icon', 'Error log icon', 'Cost icon']);
+    assert.deepEqual(texts.filter(text => /button/i.test(text)), ['Refresh button'], 'which does something, and shows no view');
+    for (const id of ['set-showLogIcon', 'set-showHistoryIcon', 'set-showErrorIcon', 'set-showCostIcon']) {
+        const label = html.lastIndexOf('<label', html.indexOf('id="' + id + '"'));
+        assert.match(html.slice(label, html.indexOf('>', label)), /title="The icon that shows /, id);
+    }
+});
+
+test('a blue note is bold: the one that says not everything is shown, and its like', () => {
+    const rule = ruleOf('.panel-note.highlight');
+    assert.match(rule, /color:\s*var\(--info\)/);
+    assert.match(rule, /font-weight:\s*700/);
+    assert.doesNotMatch(ruleOf('.panel-note'), /font-weight/, 'a gray note stays regular');
+});
+
+test('the icons in the line at the top of a list are in the colour of the text and larger than those of the row, and the one that is on stays blue', () => {
+    const button = ruleOf('.log-controls .icon.tiny');
+    assert.match(button, /color:\s*CanvasText/, 'not the muted gray');
+    assert.match(button, /width:\s*22px/);
+    assert.match(button, /height:\s*22px/);
+    const icon = ruleOf('.log-controls .icon.tiny svg');
+    assert.match(icon, /width:\s*16px/);
+    assert.match(icon, /height:\s*16px/);
+    assert.match(icon, /stroke-width:\s*2\b/);
+    assert.match(ruleOf('.log-controls .icon.tiny.on'), /color:\s*var\(--info\)/);
+    assert.ok(css.indexOf('.log-controls .icon.tiny.on {') > css.indexOf('.log-controls .icon.tiny {'), 'the blue comes after, to win');
+    assert.match(ruleOf('.icon.tiny'), /color:\s*var\(--muted\)/, 'the icons of the row are as they were');
+    assert.match(ruleOf('.icon.tiny'), /width:\s*20px/);
+    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
+    assert.doesNotMatch(strip, /log-controls/, 'and none of them is in that line');
+    assert.match(ruleOf('.icon[disabled]'), /opacity:\s*0\.35/, 'one that cannot be pressed is at a third');
+});
+
+test('the About view has its logo at the left and the name, the version and the table at the right of it', () => {
+    const view = html.slice(html.indexOf('<div id="about-view"'), html.indexOf('<p id="settings-buttons"'));
+    const order = ['id="about-logo"', 'id="about-text"', 'id="about-name"', 'id="about-version"', 'id="about-error"', 'id="about-details"'].map(id => view.indexOf(id));
+    assert.ok(order.every(p => p >= 0));
+    assert.deepEqual([...order].sort((a, b) => a - b), order, 'the logo, and then, in one element, the name, the version and the table');
+    assert.match(view, /<img id="about-logo"[^>]*>\s*<div id="about-text" class="about-text">/, 'the logo is alone in its column');
+    const rule = ruleOf('.about');
+    assert.match(rule, /display:\s*grid/);
+    assert.match(rule, /grid-template-columns:\s*max-content minmax\(0, 1fr\)/, 'the logo as wide as it is, the rest taking what is left and breaking its paths');
+    assert.match(rule, /align-items:\s*start/, 'the logo at the top');
+    assert.match(rule, /text-align:\s*left/);
+    assert.doesNotMatch(ruleOf('.about-logo'), /auto/, 'not centred');
+    assert.match(ruleOf('.about-text'), /min-width:\s*0/, 'so that a long path breaks and does not widen the view');
+});
+
+test('the three lists, the copy the table is measured on and the cost control have one typeface, sturdy ones named before the system\'s own', () => {
+    const stack = css.match(/--list-font:\s*([^;]+);/)[1];
+    assert.equal(stack, 'ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace');
+    for (const selector of ['.panel', '.table-probe', '.cost']) {
+        assert.match(ruleOf(selector), /font:\s*400 12px\/[0-9.px]+ var\(--list-font\)/, selector);
+    }
+    assert.equal((css.match(/Menlo/g) || []).length, 1, 'named in one place, so that the copy cannot have another typeface than the table');
+    assert.doesNotMatch(css, /@font-face|url\(/, 'nothing is fetched');
 });

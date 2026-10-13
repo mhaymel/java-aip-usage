@@ -1,55 +1,41 @@
-in settings view, all icon on the right hand side will shown, not matter
-if the are turned off. if they are turned off, there shall be an indication that
-they are turned off but shown to be able to click on it. also the tool
-tip shall mentioned it that the button will disapear, when the settings view is closed.
-
-in history view add feature to colaps lines with no changes, so there are no lines 
-shown with empty delta time.
 
 
-no horizontal scrollbar ![img_4.png](img_4.png)
-
-not java shown but aip-usage 
-![img_5.png](img_5.png)
-exit![img_6.png](img_6.png)
-
-why is there such a big gap ![img_7.png](img_7.png)
+there should be a functionalitty which supports more than one view at the same time, it should be possible eg
+to show cost control and history view at the same time. there should be a checkbox which  thsi behavior
+can be turned on and off. default is off. if it is on, when pressing an icon to show a view, the icon gets blue
+as usual. another view which is already open, stays open and the according icon stays with blue color. is an
+icon with blue is pressed, the view is closed and the icon is no long blue.
 
 
-general tab should be the first tab, about the last tab.
 
-each control in the settings view in each tab should have a  meaningfull
-tooltip with an explanation what it is for and if it makes sense also
-the possible value range.
-
-the barchart should not have rounded corner, instead of This month, only month.
-the barcharts should have the same with
-![img_8.png](img_8.png)
-
-if titlebar is off configured, this setting is ignored for error log view and log view,
-since without the titlebar it cannot be resized. or the otherway round in a view which
-must be resizeable by the user, the title is shown if it is neccessary for resizing.
+start with general
 
 
-add a feature to reset the log file. add a button in log view if you press it
-the current logfile will be renamed with date and time and empty one will be started.
-add also a button to merge the current log file with the "newest" old log file.
-this is a kinda undo. the old one is deleted.
+in history view stronger font as it is heaere ![img_4.png](img_4.png)
+![img_16.png](img_16.png font is not bold enough
 
-automatic is on, but it do not reduce the interval. there are
-no failed requests.
-![img_10.png](img_10.png)
-![img_11.png](img_11.png)
-![img_12.png](img_12.png)
+![img_17.png](img_17.png) there are still lines without value shown
 
-make about tab horizontal resizeable to make the ulrs easier readable. make the filename bold, only the filename.
+![img_18.png](img_18.png) reduce space
 
+ the placeholder instead of the green rectangel the green line only at the bottom, the thickness like
+the blue of the selected tab in settings.
 
-like in main setting page, there should a possiblity to turn all
-checkboxes with one click on and off.
-![img_13.png](img_13.png)
+![img_19.png](img_19.png) replace button by icon text
 
-no titlebar for costcontroll if disabled.
+![img_20.png](img_20.png) make this bold
 
-clicking log view icon and then settings icon the width stays the log view, in settings view
-i must be way smaller ![img_14.png](img_14.png)
+![img_21.png](img_21.png) the icons are hard to see, make them more visible
+
+![img_22.png](img_22.png) add tooltip
+
+![img_23.png](img_23.png) ![img_24.png](img_24.png) hide zero usage line does not work correctly
+
+![img_25.png](img_25.png) log also path make, make the file/path clickable, open finder/explorer
+
+![img_26.png](img_26.png) move the loggo to the lefthand side, the date/files etc shall be right of the logo
+
+if an icon is slected to show eg history, costs, log, ... etc, selecting settings, than the icon which
+curremtly is selected is in main view settings unchecked, when leaving the settings page, the view is not shown.
+
+![img_27.png](img_27.png) the lines are missing, they are not displayed

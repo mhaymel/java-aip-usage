@@ -130,14 +130,14 @@ class TitleBarWindowTest {
 
         // The zoom of the lists: the text of the history is 12 pixels with a line of 15, eight presses make it 20, the largest, with a
         // line of 25, the window is wider for the wider table, and eight presses back give what there was.
-        Matcher usual = Pattern.compile(" size:(\\d+),.* list:\\[12px\\|15\\|true\\|20]").matcher(line(all, "history"));
-        Matcher larger = Pattern.compile(" size:(\\d+),.* list:\\[20px\\|25\\|true\\|20]").matcher(line(all, "history-larger"));
-        Matcher back = Pattern.compile(" size:(\\d+),.* list:\\[12px\\|15\\|true\\|20]").matcher(line(all, "history-usual"));
+        Matcher usual = Pattern.compile(" size:(\\d+),.* list:\\[12px\\|15\\|true\\|22]").matcher(line(all, "history"));
+        Matcher larger = Pattern.compile(" size:(\\d+),.* list:\\[20px\\|25\\|true\\|22]").matcher(line(all, "history-larger"));
+        Matcher back = Pattern.compile(" size:(\\d+),.* list:\\[12px\\|15\\|true\\|22]").matcher(line(all, "history-usual"));
         assertTrue(usual.find() && larger.find() && back.find(), all);
         assertTrue(Integer.parseInt(larger.group(1)) > Integer.parseInt(usual.group(1)), "the window is wider for the larger text:\n" + all);
         assertEquals(usual.group(1), back.group(1), "and as wide as it was again:\n" + all);
         assertTrue(line(all, "start").contains("|false|"), "with no list there is no line of the zoom:\n" + all);
-        assertTrue(line(all, "errors").contains(" list:[12px|") && line(all, "errors").contains("|true|20]"), "the error log has the line too:\n" + all);
+        assertTrue(line(all, "errors").contains(" list:[12px|") && line(all, "errors").contains("|true|22]"), "the error log has the line too:\n" + all);
 
         // The settings: Automatic is off and the field of the interval can be typed in; checked, the field is disabled and
         // shows the interval in force; unchecked again, it has the configured interval and can be typed in.
@@ -154,7 +154,7 @@ class TitleBarWindowTest {
         // version, the line of debug mode, the paths, the window as wide as with the settings and nothing past its edge;
         // and the first tab gives the form again.
         Matcher about = Pattern.compile(" size:(\\d+),(\\d+),4,settings .* about:\\[true\\|96x96\\|256\\|v" + Pattern.quote(AppInfo.VERSION)
-                + "\\|on, the fake backend is in use\\|settings\\.json\\|java-aip-usage\\.fake\\.csv\\|true\\|(\\d+)/(\\d+)\\|0]").matcher(line(all, "about"));
+                + "\\|on, the fake backend is in use\\|settings\\.json\\|java-aip-usage\\.fake\\.csv\\|true\\|(\\d+)/(\\d+)\\|0\\|side:true]").matcher(line(all, "about"));
         assertTrue(about.find(), all);
         Matcher form = Pattern.compile(" size:(\\d+),(\\d+),3,settings ").matcher(line(all, "settings-cost"));
         assertTrue(form.find(), all);
@@ -284,11 +284,11 @@ class TitleBarWindowTest {
         // Nothing listens at the address, so there is no reading at all: gray boxes with a thin green border and their tooltip,
         // and no word in the row.
         String noData = line(all, "fake-off-settled");
-        assertTrue(noData.contains(" usedBox:[used skeleton|1px|rgb(26, 127, 55)|Credits used: no data|")
-                        || noData.contains(" usedBox:[used skeleton|1px|rgb(63, 185, 80)|Credits used: no data|"),
-                "the amount used is a gray box, with a green border of one pixel:\n" + all);
+        assertTrue(noData.contains(" usedBox:[used skeleton|2px|rgb(26, 127, 55)|Credits used: no data|")
+                        || noData.contains(" usedBox:[used skeleton|2px|rgb(63, 185, 80)|Credits used: no data|"),
+                "the amount used is a gray box: a green line of two pixels at its bottom:\n" + all);
         assertTrue(!noData.contains("No data"), "and the row does not say it in words:\n" + all);
-        assertTrue(line(all, "start").contains(" usedBox:[used|0px|"), "a figure has no such border:\n" + all);
+        assertTrue(line(all, "start").contains(" usedBox:[used|0px|"), "a figure has no such line:\n" + all);
         assertTrue(line(all, "fake-off-settled").contains(" debugTab:true "), "the debug button is the one sign of debug mode then:\n" + all);
 
         // The message line of the failed refresh with a row of two buttons. With the settings shown the row's box and the

@@ -1917,7 +1917,7 @@ test('the history note that says lines are left out is blue: it gets the highlig
     assert.match(page.el('panel-note').className, /\bhighlight\b/);
 });
 
-test('the history\'s notes about there being nothing, and the log\'s note, are not blue', async () => {
+test('the history\'s notes about there being nothing are not blue; the log\'s note that not everything is shown is', async () => {
     const none = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: { ...HISTORY, exists: false, total: 0, lines: [],
         note: 'There is no usage history yet.', noteHighlight: false } }) }));
     await none.click('history-button');
@@ -1926,7 +1926,12 @@ test('the history\'s notes about there being nothing, and the log\'s note, are n
     const cut = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, log: () => ({ status: 200, body: { ...LOG, truncated: true } }) }));
     await cut.click('log-button');
     assert.equal(cut.el('panel-note').hidden, false);
-    assert.doesNotMatch(cut.el('panel-note').className, /highlight/);
+    assert.match(cut.el('panel-note').className, /\bhighlight\b/, 'it says that lines are left out, like the history\'s line');
+
+    const whole = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, log: () => ({ status: 200, body: { ...LOG, exists: false, lines: [] } }) }));
+    await whole.click('log-button');
+    assert.equal(whole.el('panel-note').textContent, 'There is no log file yet.');
+    assert.doesNotMatch(whole.el('panel-note').className, /highlight/, 'a note that there is nothing stays gray');
 });
 
 test('the error log\'s empty note is blue', async () => {
@@ -4015,8 +4020,8 @@ test('the width of the cost control follows the widest row and the history\'s ta
 
     const wide = Number(page.window.contentSize().split(',')[0]);
 
-    // The rows share their columns: the wider label, the bar's least width, the wider figures (the sign is in their cell), two gaps, and the padding.
-    assert.equal(wide, 60 + 120 + 320 + 2 * 8 + 16);
+    // The rows share their columns: the wider label, the bar's least width, the wider figures (the sign is in their cell), two gaps of 6, and the padding.
+    assert.equal(wide, 60 + 120 + 320 + 2 * 6 + 16);
 });
 
 test('the checkbox Cost button is in Main view, is posted with the rest and shows or hides the button in the row at once', async () => {

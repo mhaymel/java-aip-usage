@@ -99,6 +99,8 @@
         var ordered = [].concat.apply([], entries.reverse());
         return {
             note: data.truncated ? 'Showing the newest ' + data.lines.length + ' lines of the log.' : null,
+            // It says that not everything is shown, like the history's line: in the blue of such notes.
+            noteHighlight: Boolean(data.truncated),
             header: null,
             rows: ordered.map(function (line) { return [cut && beginsEntry(line) ? line.slice(cut) : line]; }),
             marks: ordered.map(isRunStart),

@@ -6,6 +6,11 @@
     --bad: #cf222e;
     /* A note that tells the person something about what they are looking at. */
     --info: #0969da;
+    /*
+     * The typeface of the three lists and of the cost control: sturdy fixed-width ones by name, and the system's own last, which
+     * on Windows is a thin one. One place for it, so that the copy the history's table is measured on has the typeface of the table.
+     */
+    --list-font: ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -203,7 +208,7 @@ body {
 }
 
 /*
- * Before the first reading an element that is switched on is a gray box, a green frame of about its usual width, with its tooltip:
+ * Before the first reading an element that is switched on is a gray box, a green line of about its usual width, with its tooltip:
  * the row has its shape at once, and what will be where can be seen and asked. The two changes and the request duration
  * are one at any time they have no value, after the start as well.
  */
@@ -213,10 +218,12 @@ body {
     line-height: 1.15;
     color: transparent;
     /*
-     * A thin green frame and nothing else: in the green the text of the figures has, inside the box, with square corners,
-     * and with nothing filling it, so that the window's own background is seen in the frame.
+     * A green line at its bottom and nothing else: as thick as the line under the selected tab of the settings, in the green
+     * the text of the figures has. No frame at the top or the sides and nothing filling it; the place keeps its width and its
+     * height, so that the tooltip comes with the mouse anywhere in it, not on the line alone.
      */
-    border: 1px solid var(--ok);
+    border: 0;
+    border-bottom: 2px solid var(--ok);
     border-radius: 0;
 }
 
@@ -454,21 +461,31 @@ body {
 }
 
 /*
- * The About view, in the place of the settings form: the logo, the name and the version in the middle, and below them a
- * table of two columns. It is as wide as the settings were and never wider: a long path breaks.
+ * The About view, in the place of the settings form: the logo at the left, and at the right of it the name, the version
+ * and a table of two columns. It is as wide as the settings were and never wider: a long path breaks.
  */
 .about {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    column-gap: 14px;
+    align-items: start;
     width: 0;
     min-width: 100%;
     white-space: normal;
-    text-align: center;
+    text-align: left;
 }
 
 .about-logo {
     display: block;
     width: 96px;
     height: 96px;
-    margin: 6px auto 4px;
+    margin: 6px 0 4px;
+}
+
+/* What is at the right of the logo; it may be narrower than its paths, which break. */
+.about-text {
+    min-width: 0;
+    margin-top: 6px;
 }
 
 .about-name {
@@ -642,7 +659,7 @@ body {
     min-width: 100%;
     min-height: 0;
     padding: 0 8px 4px;
-    font: 400 12px/15px ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 400 12px/15px var(--list-font);
     letter-spacing: -0.02em;
 }
 
@@ -682,6 +699,27 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 2px;
+}
+
+/*
+ * The icons in the line at the top of a list, the zoom, the zero usage lines and the two of the log's file: in the colour
+ * of the text and larger than the icons of the row, with a heavier line, so that they are seen. The one that is switched
+ * on stays blue.
+ */
+.log-controls .icon.tiny {
+    width: 22px;
+    height: 22px;
+    color: CanvasText;
+}
+
+.log-controls .icon.tiny svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+}
+
+.log-controls .icon.tiny.on {
+    color: var(--info);
 }
 
 /* At the largest and at the smallest size the button that would go further is not to be pressed. */
@@ -726,9 +764,10 @@ body {
     color: var(--muted);
 }
 
-/* The note that says not everything is shown, and the one that says there are no errors: blue. */
+/* The note that says not everything is shown, and the one that says there are no errors: blue, and bold. */
 .panel-note.highlight {
     color: var(--info);
+    font-weight: 700;
 }
 
 .panel-error {
@@ -856,7 +895,7 @@ body {
     width: max-content;
     overflow: visible;
     visibility: hidden;
-    font: 400 12px/15px ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 400 12px/15px var(--list-font);
     /* The probe is measured at the size the lists have, or the window would be sized for another text. */
     font-size: var(--list-size, 12px);
     line-height: calc(var(--list-size, 12px) * 1.25);
@@ -894,7 +933,7 @@ body {
  * tall as its content, so the window is: the page's own height is the content's.
  */
 .cost {
-    font: 400 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 400 12px/1.45 var(--list-font);
     letter-spacing: normal;
     white-space: nowrap;
     padding: 4px 8px;
@@ -908,15 +947,17 @@ body {
     display: grid;
     grid-template-columns: max-content minmax(120px, 1fr) max-content;
     align-items: center;
-    gap: 8px;
+    /* Little room: 4 pixels between the two rows, 6 between a label, its bar and its figures. */
+    gap: 4px 6px;
 }
 
 .cost-row {
     display: contents;
 }
 
+/* As wide as the wider of the two labels, and no wider. */
 .cost-label {
-    min-width: 5.5em;
+    white-space: nowrap;
 }
 
 .cost-bar {
@@ -947,7 +988,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
+    gap: 6px;
 }
 
 .cost-text {
