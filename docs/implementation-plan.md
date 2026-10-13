@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.79 is being built: 95 phases are built, and phases 96 to 99 are planned for the same version.** One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.79 is being built: 96 phases are built, and phases 97 to 99 are planned for the same version.** One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2091,7 +2091,7 @@ The requirements have no section "specified, not yet built" any more.
 
 ### 96. The tab `About` can be dragged wider
 
-**Status: planned; needs phase 94 first.** Requirements: The tab `About` can be dragged wider; Settings; The window (what may be dragged). This is the one phase that adds to the contract between the page and its host.
+**Status: built (version 0.79); seen in a real window on Windows.** Requirements: The tab `About` can be dragged wider; Settings; The window (what may be dragged). This is the one phase that adds to the contract between the page and its host.
 
 - **The contract.** The third field of `contentSize` says what may be dragged: `0` nothing, `1` the height, `2` both, `3` nothing, with a panel. A fifth value is added, `4`, the width only. The page reports `…,4,settings` while the tab `About` is shown and `…,3,settings` on every other tab. `docs/api.md`, Window host contract.
 - **Host.** `WindowFit.Resize` gets `WIDTH`; `parse` takes the `4`; `resizable()` is true for it. `UsageApp.applySize`: for `WIDTH` the least width is the width asked for (the least width of the settings), there is no most, and the height is held at what was asked. `UsageApp.resize`: `keepWidth` holds today for `BOTH` with the same panel; it must hold for `WIDTH` as well, so that the 150 ms tick does not put the window back, and the height asked for is applied at the kept width. Another tab reports `3`, which is not `WIDTH`, so the width asked for is applied: back to the least width, with nothing more to do. Opening the settings on `About` starts at the least width because the panel before was another, or none.
@@ -2099,6 +2099,11 @@ The requirements have no section "specified, not yet built" any more.
 - **The page.** `contentSize`, the branch of the settings: the flag by the tab; the width is `Math.max(width, settingsWidth())` as before, and `settingsWidth()` must not grow with the window, which phase 94 has put right. The path may break anywhere, as today, and takes one line when there is room.
 - **Not remembered.** Nothing is stored; `rememberedPanel` stays null for the settings. The window restored at start stores and restores a size as for any panel.
 - **Tests.** `WindowFitTest` (the `4`, and `5` refused), `app.test.cjs` (the flag by the tab; the width asked for is the least width also when the fake display is wider; the height asked for is less in a wider display), `PanelWindowTest` (the real window: on `About` the stage has a least width and no most, and its height is held; on another tab both are held).
+- **As built.** `WindowFit.Resize.WIDTH`, the flag `4`, and `Size.widthIsThePersons()` (true for `BOTH` and `WIDTH`). `UsageApp.resize` keeps the window's width for a size whose width is the person's while the panel and the flag stay the same, where it did so for `BOTH` alone; `applySize` holds the height and gives the width a least, the width asked for, and no most. The page reports `4` while `currentTab` is `about`. Nothing else was needed in the page: the height it reports for the settings was already that of the app as it lies, and the app is as wide as the window.
+- **Where it is tested.** In `TitleBarWindowTest`, not `PanelWindowTest` as planned: the dragging is the host's, and that is the test that runs the application itself. Its probe now says at each step what the limits of the window let be dragged (`drag:w.`, `drag:h.`, `drag:wh.`, `drag:.`), and on `About` makes the window 300 pixels wider and then far too narrow.
+- **In the real window.** `About` opens at the least width, 454 pixels of content here, and 441 tall; made 300 wider it stays so, the page still asks for 454, and it is 390 tall, since the long paths of the probe need fewer lines; made 200 wide it is back at the least width and as tall as before; with another tab chosen it is back at the least width and cannot be dragged. The other steps are as they were: nothing for the row and the other tabs, the height for the history, both for the log.
+- **How it was checked.** The frontend suite, 400 tests; `./gradlew test`; `TitleBarWindowTest` in the real window. Two rules were broken on purpose and each was caught: the page reporting `About` as fixed (three tests of the page), and the host keeping a dragged width for the log alone (the window test: `dragged wider, it stays as wide as it was dragged`). A size of mine was a pixel off in the test at first: the window is rounded up to whole pixels of its frame, so its content can be a pixel more than was asked for.
+- **Seen again, not of this phase.** Two more tests of `UsageServiceTest` failed once in a run of the whole suite and passed in the three runs after it. That is now four different tests of that class in some dozen runs since phase 93, never the same twice, never when the class runs alone.
 
 ### 97. The refused interval is forgotten by time
 

@@ -562,19 +562,19 @@ window.contentSize()   // "400,42,0"
 
 It returns `"<width>,<height>,<resizable>"`: the size in CSS pixels the page needs to show all
 of itself, as whole numbers, and what the person may drag: `0` nothing, `1` the height, `2` the height
-and the width, and `3` nothing either, but not the window with nothing open (the last may be left out,
-meaning `0`). While the log or the usage history is shown the page asks for more: a height of ten times
+and the width, `3` nothing either, but not the window with nothing open, and `4` the width only, from the width
+asked for up, the height being the content's (the last field may be left out, meaning `0`). While the log or the usage history is shown the page asks for more: a height of ten times
 the row's *as it was when the panel opened*, which it keeps reporting whatever the row does after, so a
 message line coming or going does not move the window; and a width of the row's plus the width of the
 panel's vertical scrollbar, which the page measures and always reserves (three rows plus it for the log).
 Those are the starting point, not the size the window was dragged to. While the settings are shown it
 reports flag `3`, the name `settings` (`520,658,3,settings`) and the height of the whole page, the row and its message lines and the settings, so the
-window is exactly as tall as they need, and follows them. The last field names the panel that is open, and is left out when none is: `415,420,1,history`,
+window is exactly as tall as they need, and follows them. While the tab `About` of the settings is shown the flag is `4` (`520,441,4,settings`): the window may be made wider, so that the paths can be read in a line each, and never narrower than the width reported, which is the same least width as on the other tabs whatever the window has; the height reported is that of the page at the width the window has, so it gets less as the window gets wider. That height is the one thing the page reports that follows from the window, and it is not the person's to drag. The last field names the panel that is open, and is left out when none is: `415,420,1,history`,
 `1215,420,2,log` or `615,420,2,errors` (the error log is half as wide as the log, rounded up). The cost control panel reports flag `3`, with the width of the history's table and the height its two bars need: `415,160,3,cost`. For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
 is whole. The host remembers the height of the history and of the log, in the settings
-file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. For as long as a panel is named the host gives the window its title bar, whatever the setting `showTitleBar` says, and with none named it follows the setting. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
-resize only what it is told may be: nothing for `0` and `3`, the height for `1`, the height and the width for `2`, and never
-below the size last reported with `0`. The page measures its own content, never the window, so resizing the
+file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. For as long as a panel is named that can be resized, which is every panel but `cost`, the host gives the window its title bar, whatever the setting `showTitleBar` says; with none named, and with `cost`, it follows the setting. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
+resize only what it is told may be: nothing for `0` and `3`, the height for `1`, the height and the width for `2`, the width for `4`, and never
+below the size last reported with `0`. A width the person has given the window with `2` or `4` is kept for as long as the same panel is named with the same flag: a new answer then changes the height only. The page measures its own content, never the window, so resizing the
 window to match does not change the answer. The host ignores anything that is not that
 shape (a width or a height of 0 or of more than five digits, a panel name other than `history`, `log`, `errors`, `cost`, `settings` and `debug`, the last of which the page no longer reports: the Debug tab is a tab of the settings), keeps the size it sets
 between 160 x 32 and 2400 x 1600, and does not apply a size twice; a change of the flag or of the panel alone counts as a new size. A different host,

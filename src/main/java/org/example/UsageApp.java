@@ -347,8 +347,9 @@ public class UsageApp extends Application {
         appliedSize = Optional.of(size);
         // A panel that stays open keeps the width the person gave the window: a new line, or any other change of what the page
         // asks for, applies the page's own width only when the panel was opened or replaced.
-        boolean keepWidth = size.resize() == WindowFit.Resize.BOTH && before.isPresent() && size.panel() != null
-                && size.panel().equals(before.get().panel()) && before.get().resize() == WindowFit.Resize.BOTH;
+        // The same holds for the tab of the settings that can be dragged wider: its height follows its content at the width it has.
+        boolean keepWidth = size.widthIsThePersons() && before.isPresent() && size.panel() != null
+                && size.panel().equals(before.get().panel()) && before.get().resize() == size.resize();
         int contentHeight = size.height();
         boolean remembered = "history".equals(size.panel()) || "log".equals(size.panel());
         if (remembered) {
@@ -418,6 +419,12 @@ public class UsageApp extends Application {
             case BOTH -> {
                 stage.setMinWidth(Math.min(closedWidth + decorationWidth, width));
                 stage.setMinHeight(Math.min(closedHeight + decorationHeight, height));
+            }
+            case WIDTH -> {
+                // Wider than the page asked for, never narrower; the height is the content's, and not the person's.
+                stage.setMinWidth(Math.min(Math.ceil(size.width() + decorationWidth), width));
+                stage.setMinHeight(height);
+                stage.setMaxHeight(height);
             }
         }
     }

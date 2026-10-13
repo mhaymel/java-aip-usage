@@ -1437,7 +1437,11 @@
             // As tall as the row, its message lines and the settings need, whole, and never narrower than the settings need
             // for every text to be on one line and the buttons in one row; the flag says it is not resizable, and the name that a panel is open.
             // The window does not change its width from tab to tab: the width is that of the widest of them.
-            return Math.max(width, settingsWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,settings';
+            // The tab About can be dragged wider, so that its paths can be read in a line each: flag 4, the width only. The
+            // width asked for is the same least width, whatever the window has. The height is that of the page as it lies,
+            // which with About follows the width of the window, since a wider window breaks the paths over fewer lines: the
+            // one place where what is asked for follows from the window, and only in the height, which is not the person's.
+            return Math.max(width, settingsWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',' + (currentTab === 'about' ? 4 : 3) + ',settings';
         }
         if (openPanel === 'cost') {
             // As tall as the two bars and the note need, and as wide as the history's table, or as the bars need: not resizable.

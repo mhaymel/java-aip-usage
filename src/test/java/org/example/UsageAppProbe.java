@@ -80,6 +80,11 @@ public final class UsageAppProbe {
             step("cost-none", null);
             // The About tab, in the place of the others, and the first tab again.
             step("about", "tabbtn-about");
+            // About can be dragged wider: the window is made 300 pixels wider, as by its edge, and narrower than it may be.
+            onFx(() -> window().setWidth(window().getWidth() + 300));
+            step("about-wide", null);
+            onFx(() -> window().setWidth(200));
+            step("about-narrow", null);
             copyPath("about-copy");
             step("about-back", "tabbtn-main");
             step("settings-left", "settings-cancel");
@@ -207,6 +212,8 @@ public final class UsageAppProbe {
             System.out.println("PROBE " + name + "=titleBar:" + StageSwap.hasTitleBar(window())
                     + " windows:" + showing.size()
                     + " size:" + page().getEngine().executeScript("window.contentSize()")
+                    // What the limits of the window let the person drag.
+                    + " drag:" + (window().getMaxWidth() > window().getMinWidth() + 1 ? "w" : "") + (window().getMaxHeight() > window().getMinHeight() + 1 ? "h" : "") + "."
                     + " content:" + Math.round(window().getScene().getWidth()) + "x" + Math.round(window().getScene().getHeight())
                     + " app:[" + page().getEngine().executeScript("document.getElementById('app').className.trim()") + "]"
                     + " border:" + page().getEngine().executeScript("getComputedStyle(document.getElementById('app')).borderTopWidth")

@@ -149,15 +149,37 @@ class TitleBarWindowTest {
         // The About view: in the place of the settings form, with the logo drawn at 96 pixels from its file of 256, the
         // version, the line of debug mode, the paths, the window as wide as with the settings and nothing past its edge;
         // and the first tab gives the form again.
-        Matcher about = Pattern.compile(" size:(\\d+),(\\d+),3,settings .* about:\\[true\\|96x96\\|256\\|v" + Pattern.quote(AppInfo.VERSION)
+        Matcher about = Pattern.compile(" size:(\\d+),(\\d+),4,settings .* about:\\[true\\|96x96\\|256\\|v" + Pattern.quote(AppInfo.VERSION)
                 + "\\|on, the fake backend is in use\\|settings\\.json\\|java-aip-usage\\.fake\\.csv\\|true\\|(\\d+)/(\\d+)\\|0]").matcher(line(all, "about"));
         assertTrue(about.find(), all);
         Matcher form = Pattern.compile(" size:(\\d+),(\\d+),3,settings ").matcher(line(all, "settings-cost"));
         assertTrue(form.find(), all);
         assertEquals(form.group(1), about.group(1), "as wide as the settings were:\n" + all);
         assertTrue(line(all, "about").contains("titleBar:true"), all);
+        // About can be dragged wider, and only wider: the other tabs, the history and the log are as they were.
+        assertTrue(line(all, "about").contains(",4,settings drag:w. "), "the width only:\n" + all);
+        assertTrue(line(all, "settings-general").contains(",3,settings drag:. "), "another tab cannot be dragged:\n" + all);
+        assertTrue(line(all, "history").contains(",1,history drag:h. "), all);
+        assertTrue(line(all, "log").contains(",2,log drag:wh. "), all);
+        assertTrue(line(all, "start").contains(",0 drag:. "), all);
+        Matcher least = Pattern.compile(" size:(\\d+),(\\d+),4,settings drag:w\\. content:(\\d+)x(\\d+) ").matcher(line(all, "about"));
+        Matcher wide = Pattern.compile(" size:(\\d+),(\\d+),4,settings drag:w\\. content:(\\d+)x(\\d+) ").matcher(line(all, "about-wide"));
+        Matcher narrow = Pattern.compile(" size:(\\d+),(\\d+),4,settings drag:w\\. content:(\\d+)x(\\d+) ").matcher(line(all, "about-narrow"));
+        assertTrue(least.find() && wide.find() && narrow.find(), all);
+        // The window's content is the size asked for, or a pixel more: the frame is not a whole number of pixels, and the window is rounded up.
+        int asked = Integer.parseInt(least.group(1));
+        assertTrue(Integer.parseInt(least.group(3)) - asked >= 0 && Integer.parseInt(least.group(3)) - asked <= 1, "it opens at the least width:\n" + all);
+        assertEquals(Integer.parseInt(least.group(3)) + 300, Integer.parseInt(wide.group(3)), "dragged wider, it stays as wide as it was dragged:\n" + all);
+        assertEquals(least.group(1), wide.group(1), "and the page asks for the least width still, whatever the window has:\n" + all);
+        assertTrue(Integer.parseInt(wide.group(2)) <= Integer.parseInt(least.group(2)), "with more room the paths need no more lines:\n" + all);
+        assertTrue(Integer.parseInt(wide.group(2)) < Integer.parseInt(least.group(2)), "the paths of this probe are long: the wider window is lower:\n" + all);
+        assertTrue(Integer.parseInt(wide.group(4)) - Integer.parseInt(wide.group(2)) <= 1 && Integer.parseInt(wide.group(4)) >= Integer.parseInt(wide.group(2)),
+                "the window is as tall as the page at that width:\n" + all);
+        assertEquals(least.group(3), narrow.group(3), "it cannot be made narrower than the least width:\n" + all);
+        assertEquals(least.group(4), narrow.group(4), "where it is as tall as it was:\n" + all);
         assertTrue(line(all, "about-back").contains(" about:[false|") && line(all, "about-back").contains("|true|0/"), "Back: the form again:\n" + all);
         assertTrue(line(all, "about-back").contains(" size:" + form.group(1) + ","), "as wide as it was:\n" + all);
+        assertTrue(line(all, "about-back").contains(",3,settings drag:. content:" + least.group(3) + "x"), "and the window is back at the least width, not to be dragged:\n" + all);
 
         // The history's columns: the first at the left edge, the last at the right, and the same room between each two
         // neighbours; the header's second column ends where the row's does, so the two are in line.

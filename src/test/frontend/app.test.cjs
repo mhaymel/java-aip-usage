@@ -3300,7 +3300,7 @@ test('About is the last tab and shows what the backend says of the program', asy
     assert.equal(page.el('about-toolkit').textContent, '25.0.4');
     assert.equal(page.el('about-system').textContent, 'Windows 11 10.0');
     assert.equal(page.el('about-debug').textContent, 'off');
-    assert.match(page.window.contentSize(), /,3,settings$/, 'for the window it is the settings still: the title bar, and no resizing');
+    assert.match(page.window.contentSize(), /,4,settings$/, 'for the window it is the settings still, with the title bar; its width alone may be dragged');
 });
 test('the line of debug mode says off, on, or on with the fake backend in use', async () => {
     for (const [about, text] of [[{ debug: false, fake: false }, 'off'], [{ debug: true, fake: false }, 'on'], [{ debug: true, fake: true }, 'on, the fake backend is in use']]) {
@@ -4359,4 +4359,47 @@ test('with the title bar on, and with the fake backend in use, the cost control 
     await fake.click('cost-button');
     assert.doesNotMatch(fake.el('app').className, /\bbare\b/, 'the red border is round the window then');
     assert.match(fake.el('app').className, /\bfake\b/);
+});
+
+// ---- version 0.79: the tab About can be dragged wider
+
+test('the settings say that their width may be dragged while About is shown, and on no other tab', async () => {
+    const page = await load(backendOf({ config: { ...CONFIG, debug: true }, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    const flagOf = () => page.window.contentSize().split(',').slice(2).join(',');
+
+    for (const tab of ['general', 'main', 'history', 'cost', 'debug']) {
+        await page.click('tabbtn-' + tab);
+        assert.equal(flagOf(), '3,settings', tab + ' cannot be dragged');
+    }
+    await page.click('tabbtn-about');
+    assert.equal(flagOf(), '4,settings', 'About: the width only');
+    await page.click('tabbtn-main');
+    assert.equal(flagOf(), '3,settings', 'and not any more when another tab is chosen');
+
+    await page.click('tabbtn-about');
+    await page.click('settings-cancel');
+    await page.click('settings-button');
+    assert.equal(flagOf(), '4,settings', 'the settings open on the tab they were left on, which may be About');
+    await page.click('settings-cancel');
+    assert.equal(page.window.contentSize().split(',')[2], '0', 'with the settings left, nothing');
+});
+
+test('with About shown the width asked for is the least width whatever the window has, and the height is that of the page as it lies', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    await page.click('tabbtn-about');
+    page.el('settings-form').rect = { left: 8, width: 200, height: 200 };
+    page.el('settings-buttons').rect = { left: 8, width: 150, height: 20 };
+    const strip = page.el('tab-strip');
+    // The window was dragged to 900 pixels: the app and the strip are as wide, and the paths need fewer lines.
+    const app = { left: 0, width: 400, height: 380 };
+    page.el('app').getBoundingClientRect = () => app;
+    strip.getBoundingClientRect = () => ({ left: 8, width: strip.style.width === 'max-content' ? 380 : app.width - 16, height: 24 });
+
+    assert.equal(page.window.contentSize(), '400,380,4,settings');
+
+    app.width = 900;
+    app.height = 344;
+    assert.equal(page.window.contentSize(), '400,344,4,settings', 'the least width still, and the lower height the wider window gives the page');
 });

@@ -9,8 +9,9 @@ import java.util.regex.Pattern;
  *
  * <p>The page reports {@code "<width>,<height>"}, optionally followed by {@code ,1} when the window
  * may be resized in height, {@code ,2} when it may be resized in width too, {@code ,0} when it
- * may not be resized (the window with nothing open), and {@code ,3} when it may not be resized and is
- * not the window with nothing open either (the settings, which are as tall as their content), and
+ * may not be resized (the window with nothing open), {@code ,3} when it may not be resized and is
+ * not the window with nothing open either (the settings, which are as tall as their content),
+ * {@code ,4} when it may be made wider and its height is the content's (the tab About of the settings), and
  * optionally {@code ,history}, {@code ,log}, {@code ,errors}, {@code ,cost}, {@code ,settings} or {@code ,debug} after that, naming the panel that is open, in CSS pixels, taken from its own
  * content and not from the window, so resizing the window to match never changes
  * the answer. Everything else is defence: a reading that is not that shape is
@@ -38,7 +39,15 @@ final class WindowFit {
         }
 
         boolean resizable() {
-            return resize == Resize.HEIGHT || resize == Resize.BOTH;
+            return resize == Resize.HEIGHT || resize == Resize.BOTH || resize == Resize.WIDTH;
+        }
+
+        /**
+         * Whether the person may give the window a width of their own, which is then kept for as long as the same panel
+         * stays open with the same flag: a size the page asks for after that changes the height only.
+         */
+        boolean widthIsThePersons() {
+            return resize == Resize.BOTH || resize == Resize.WIDTH;
         }
 
         /**
@@ -51,16 +60,19 @@ final class WindowFit {
         }
     }
 
-    /** What of the window the person may drag. */
+    /**
+     * What of the window the person may drag, in the order of the numbers the page says: nothing, the height, both, nothing
+     * with a panel open, and the width only, from the width asked for up, the height being the content's.
+     */
     enum Resize {
-        NONE, HEIGHT, BOTH, FIXED
+        NONE, HEIGHT, BOTH, FIXED, WIDTH
     }
 
     static final Size MIN = new Size(160, 32);
 
     static final Size MAX = new Size(2400, 1600);
 
-    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([0123])(?:,(history|log|errors|cost|settings|debug))?)?");
+    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(history|log|errors|cost|settings|debug))?)?");
 
     private WindowFit() {
     }

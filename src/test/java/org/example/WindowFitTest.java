@@ -62,7 +62,7 @@ class WindowFitTest {
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {
-            "", "undefined", "null", "NaN,NaN", "400", "400,", ",42", "400;42", "400,42,4", "400,42,", "415,420,1,other", "415,420,1,", "415,420,1,History", "415,420,,history", "400,42,1,1", "400, 42",
+            "", "undefined", "null", "NaN,NaN", "400", "400,", ",42", "400;42", "400,42,5", "400,42,", "415,420,1,other", "415,420,1,", "415,420,1,History", "415,420,,history", "400,42,1,1", "400, 42",
             "-5,10", "10,-5", "4.5,10", "0,0", "0,50", "50,0", "abc", "400x42", "999999,5", "5,999999",
             "99999999999999999999,5"})
     void ignoresAnythingThatIsNotASize(String reported) {
@@ -84,6 +84,24 @@ class WindowFitTest {
         assertEquals(false, WindowFit.parse("400,120,3,cost").orElseThrow().keepsTitleBar(), "the cost control has none, like the row alone");
         assertEquals(false, WindowFit.parse("400,42,0").orElseThrow().keepsTitleBar(), "no panel");
         assertEquals(false, WindowFit.parse("400,42").orElseThrow().keepsTitleBar());
+    }
+
+    @Test
+    void theWidthAloneMayBeThePersonsToDrag() {
+        Size about = WindowFit.parse("400,320,4,settings").orElseThrow();
+
+        assertEquals(WindowFit.Resize.WIDTH, about.resize());
+        assertEquals("settings", about.panel());
+        assertEquals(true, about.resizable());
+        assertEquals(true, about.widthIsThePersons());
+        assertEquals(true, about.keepsTitleBar(), "there is an edge to drag");
+        assertEquals(true, WindowFit.parse("400,320,2,log").orElseThrow().widthIsThePersons());
+        assertEquals(false, WindowFit.parse("400,320,1,history").orElseThrow().widthIsThePersons());
+        assertEquals(false, WindowFit.parse("400,320,3,settings").orElseThrow().widthIsThePersons(), "the other tabs are fixed");
+        assertEquals(false, WindowFit.parse("400,320,3,settings").orElseThrow().resizable());
+        assertEquals(Optional.empty(), WindowFit.parse("400,320,5,settings"), "there is no fifth");
+        assertEquals(Optional.of(about), WindowFit.next("400,320,4,settings", WindowFit.parse("400,320,3,settings")),
+                "the flag alone is a new size: going to About and from it is applied");
     }
 
     @Test
