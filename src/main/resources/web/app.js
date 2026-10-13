@@ -914,6 +914,9 @@
             }
             if (name === 'log') {
                 takeLogChoices(body);
+                if (name === openPanel) {
+                    takeOldLog(Boolean(body.oldLog));
+                }
                 // The date is the page's to cut: the lines come as the file has them.
                 body = Object.assign({}, body, { date: logDate });
             }
@@ -1019,6 +1022,43 @@
         $('log-level').value = logLevel;
         $('log-date').checked = logDate;
         show('log-choices', true);
+        show('log-files', true);
+    }
+
+    // What the button that takes a reset of the log back says, with an old log to put back and with none.
+    var MERGE_TITLE = 'Undo the reset: put the newest old log back in front of this one';
+    var NO_OLD_LOG = 'There is no old log';
+
+    /** The button that takes a reset back can be pressed while there is an old log, which each answer of the log says. */
+    function takeOldLog(oldLog) {
+        var label = oldLog ? MERGE_TITLE : NO_OLD_LOG;
+        setDisabled('log-merge', !oldLog);
+        $('log-merge').title = label;
+        $('log-merge').setAttribute('aria-label', label);
+    }
+
+    /**
+     * One of the two buttons of the log was pressed. Reset: the program keeps the log file under a name with the date and
+     * time and begins a new one. Merge: it puts the newest of the files so kept back in front of the log. The page names no
+     * file; it asks, shows the log as it then is, at its newest line, and says in red when it could not be done.
+     */
+    async function logFileAction(action) {
+        if (openPanel !== 'log') {
+            return;
+        }
+        var failed = action === 'reset' ? 'The log could not be reset: ' : 'The log could not be merged: ';
+        try {
+            var answer = await postJson('/api/log/' + action, {});
+            takeOldLog(Boolean(answer && answer.oldLog));
+            setNote('log-error', '');
+        } catch (e) {
+            setNote('log-error', e.message.indexOf(failed) === 0 ? e.message : failed + e.message);
+        }
+        if (openPanel === 'log') {
+            logToTop = true;
+            panelKey = null;
+            await loadPanel();
+        }
     }
 
     /** Gives the lists the size of text chosen, and takes from the two buttons the step that would lead out of the range. */
@@ -1312,6 +1352,7 @@
         // the log are in it for the log alone.
         show('log-controls', Boolean(openPanel) && !FORMS[openPanel] && openPanel !== 'cost');
         show('log-choices', false);
+        show('log-files', false);
         // The history panel comes up with what is saved as well: its button is shown when the first answer has said what that is.
         // A choice that could not be saved holds for the run, so it is kept from one opening of the history to the next.
         if (!historyUnsaved) {
@@ -1580,6 +1621,8 @@
         $('zoom-in').addEventListener('click', function () { zoomLists(1); });
         $('zoom-out').addEventListener('click', function () { zoomLists(-1); });
         $('zero-lines').addEventListener('click', toggleZeroLines);
+        $('log-reset').addEventListener('click', function () { return logFileAction('reset'); });
+        $('log-merge').addEventListener('click', function () { return logFileAction('merge'); });
         // The Debug tab is there in debug mode, and never otherwise.
         show('tabbtn-debug', Boolean(config.debug));
         TABS.forEach(function (tab) {

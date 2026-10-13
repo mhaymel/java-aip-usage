@@ -2034,6 +2034,61 @@ class ApiTest {
         assertTrue(json(get(app, "/api/history")).get("zeroLines").asBoolean());
     }
 
+    // ---- the two buttons of the log panel: reset, and the undo of it
+
+    @Test
+    void theLogIsResetAndTheResetTakenBackThroughTheApiWhichNamesNoFileAndGivesNoPath() throws Exception {
+        writeLog("2026-10-11 13:24:01 INFO    [A] of before");
+        try (Logging logging = Logging.install(AppFiles.in(dir).log())) {
+            AppRuntime app = start(new FakeFetch());
+            assertFalse(json(get(app, "/api/log")).get("oldLog").asBoolean(), "no old log yet");
+
+            HttpResponse<String> reset = post(app, "/api/log/reset", "{}");
+
+            assertEquals(200, reset.statusCode(), reset.body());
+            assertTrue(json(reset).get("oldLog").asBoolean());
+            assertFalse(reset.body().contains(dir.toString()), "no path in the answer");
+            Json log = json(get(app, "/api/log?level=debug"));
+            assertTrue(log.get("oldLog").asBoolean(), "the log says that there is one to put back");
+            assertTrue(linesOf(log).get(0).contains("[Logging] The log was reset: the lines before are in java-aip-usage."), linesOf(log).toString());
+            assertFalse(linesOf(log).stream().anyMatch(line -> line.contains("of before")), "the lines of before are in the old log");
+            try (java.util.stream.Stream<Path> files = Files.list(dir)) {
+                assertEquals(1, files.filter(file -> file.getFileName().toString().matches("java-aip-usage\\.\\d{4}-\\d\\d-\\d\\d_\\d\\d-\\d\\d-\\d\\d\\.log")).count());
+            }
+
+            HttpResponse<String> merged = post(app, "/api/log/merge", "{}");
+
+            assertEquals(200, merged.statusCode(), merged.body());
+            assertFalse(json(merged).get("oldLog").asBoolean(), "the one old log is put back and deleted");
+            List<String> lines = linesOf(json(get(app, "/api/log?level=debug")));
+            assertEquals("2026-10-11 13:24:01 INFO    [A] of before", lines.get(0), "the lines of before are first again");
+            assertTrue(lines.get(lines.size() - 1).contains("[Logging] The log was merged with java-aip-usage."), lines.toString());
+
+            HttpResponse<String> none = post(app, "/api/log/merge", "{}");
+            assertEquals(409, none.statusCode());
+            assertEquals("There is no old log.", json(none).get("error").asText());
+        }
+    }
+
+    @Test
+    void theTwoButtonsOfTheLogTakeAPostAndNothingElseAndSayWhenTheLogHasNoFile() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+
+        for (String path : new String[] {"/api/log/reset", "/api/log/merge"}) {
+            HttpResponse<String> got = get(app, path);
+            assertEquals(405, got.statusCode(), path);
+            assertEquals("POST", got.headers().firstValue("Allow").orElse(""));
+        }
+        // No log is open on the file here, as in a run that logs to the console alone.
+        HttpResponse<String> reset = post(app, "/api/log/reset", "{}");
+        assertEquals(500, reset.statusCode());
+        assertEquals("The log could not be reset: the log is not written to a file", json(reset).get("error").asText());
+        HttpResponse<String> merge = post(app, "/api/log/merge", "{}");
+        assertEquals(500, merge.statusCode());
+        assertEquals("The log could not be merged: the log is not written to a file", json(merge).get("error").asText());
+        assertFalse(json(get(app, "/api/log")).get("oldLog").asBoolean());
+    }
+
     private static final String[] LEVELS = {
         "2026-10-11 13:24:01 INFO    [A] one",
         "2026-10-11 13:24:02 WARNING [A] two",

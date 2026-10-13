@@ -259,4 +259,168 @@ class LoggingTest {
         assertEquals(801, lines.size());
         assertTrue(lines.stream().skip(1).allMatch(line -> line.matches(".* INFO    \\[LoggingTest] thread-\\d line \\d+ x{200}")), "every line whole");
     }
+
+    // ---- the log can be reset, and the reset undone
+
+    private static final java.time.LocalDateTime AT = java.time.LocalDateTime.of(2026, 10, 13, 14, 30, 5);
+
+    private static List<String> messages(Path file) throws Exception {
+        return Files.readAllLines(file).stream().map(line -> line.replaceFirst("^\\S+ \\S+ \\S+ +", "")).toList();
+    }
+
+    @Test
+    void aResetKeepsTheFileUnderANameWithTheDateAndTimeAndBeginsANewOneThatSaysWhereTheLinesAre() throws Exception {
+        Path file = dir.resolve("java-aip-usage.log");
+        try (Logging logging = Logging.install(file)) {
+            LOG.info("before the reset");
+            String before = Files.readString(file);
+
+            String name = logging.reset(AT);
+            LOG.info("after the reset");
+
+            assertEquals("java-aip-usage.2026-10-13_14-30-05.log", name, "the date and time between the name and its ending");
+            assertEquals(before, Files.readString(dir.resolve(name)), "the old log is the file as it was, to the last byte");
+            assertEquals(List.of("[Logging] The log was reset: the lines before are in java-aip-usage.2026-10-13_14-30-05.log", "[LoggingTest] after the reset"),
+                    messages(file), "the new file begins with the line that says where the others are, and goes on from there");
+            assertTrue(logging.hasOldLog());
+        }
+    }
+
+    @Test
+    void aResetThatCannotBeDoneChangesNothingAndTheLogGoesOnInItsFile() throws Exception {
+        Path file = dir.resolve("java-aip-usage.log");
+        try (Logging logging = Logging.install(file)) {
+            LOG.info("first");
+            Files.writeString(dir.resolve("java-aip-usage.2026-10-13_14-30-05.log"), "an old log of that very second\n");
+
+            java.io.IOException refused = org.junit.jupiter.api.Assertions.assertThrows(java.io.IOException.class, () -> logging.reset(AT));
+            LOG.info("second");
+
+            assertEquals("an old log of this second is there already", Failure.of(refused));
+            assertEquals("an old log of that very second\n", Files.readString(dir.resolve("java-aip-usage.2026-10-13_14-30-05.log")), "which is not overwritten");
+            List<String> lines = messages(file);
+            assertEquals(List.of("[LoggingTest] first", "[LoggingTest] second"), lines.subList(1, lines.size()), "nothing was renamed, and the log goes on");
+        }
+    }
+
+    @Test
+    void aMergePutsTheOldLogInFrontOfTheCurrentOneAgainAndDeletesItAsIfTheResetHadNotBeen() throws Exception {
+        Path file = dir.resolve("java-aip-usage.log");
+        try (Logging logging = Logging.install(file)) {
+            LOG.info("before the reset");
+            String before = Files.readString(file);
+            logging.reset(AT);
+            LOG.info("after the reset");
+            String after = Files.readString(file);
+
+            String name = logging.merge();
+
+            assertEquals("java-aip-usage.2026-10-13_14-30-05.log", name);
+            assertFalse(Files.exists(dir.resolve(name)), "the old log is deleted");
+            String merged = Files.readString(file);
+            assertTrue(merged.startsWith(before + after), "the lines of the old log, then those of the current one, byte for byte");
+            assertEquals(List.of("[Logging] The log was merged with java-aip-usage.2026-10-13_14-30-05.log"), messages(file).subList(messages(file).size() - 1, messages(file).size()));
+            assertFalse(Files.exists(dir.resolve("java-aip-usage.log.tmp")), "and nothing is left of the joining");
+            assertFalse(logging.hasOldLog());
+
+            LOG.info("and on");
+            assertTrue(Files.readString(file).endsWith("and on" + System.lineSeparator()), "the log goes on at the end of the joined file");
+        }
+    }
+
+    @Test
+    void withSeveralOldLogsAMergeTakesTheNewestAndTheNextOneTheNextOlder() throws Exception {
+        Path file = dir.resolve("java-aip-usage.log");
+        try (Logging logging = Logging.install(file)) {
+            LOG.info("one");
+            logging.reset(AT);
+            LOG.info("two");
+            logging.reset(AT.plusDays(1));
+            LOG.info("three");
+
+            assertEquals("java-aip-usage.2026-10-14_14-30-05.log", logging.merge(), "the one with the latest date and time");
+            assertTrue(logging.hasOldLog());
+            assertEquals("java-aip-usage.2026-10-13_14-30-05.log", logging.merge());
+            assertFalse(logging.hasOldLog());
+
+            List<String> said = messages(file).stream().filter(line -> line.startsWith("[LoggingTest]")).toList();
+            assertEquals(List.of("[LoggingTest] one", "[LoggingTest] two", "[LoggingTest] three"), said, "all the lines, in the order they were logged");
+            assertEquals(Logging.NoOldLog.class, org.junit.jupiter.api.Assertions.assertThrows(java.io.IOException.class, logging::merge).getClass(), "and then there is none");
+        }
+    }
+
+    @Test
+    void aFileThatOnlyLooksLikeAnOldLogIsNeverTakenForOne() throws Exception {
+        Path file = dir.resolve("java-aip-usage.log");
+        for (String name : List.of("java-aip-usage.notes.log", "java-aip-usage.2026-10-13.log", "java-aip-usage.2026-10-13_14-30-05.log.bak",
+                "other.2026-10-13_14-30-05.log", "java-aip-usage.2026-10-13_14-30-05x.log", "java-aip-usagex2026-10-13_14-30-05.log")) {
+            Files.writeString(dir.resolve(name), "not an old log\n");
+        }
+        Files.createDirectory(dir.resolve("java-aip-usage.2026-10-12_00-00-00.log"));
+        try (Logging logging = Logging.install(file)) {
+            assertFalse(logging.hasOldLog());
+            org.junit.jupiter.api.Assertions.assertThrows(Logging.NoOldLog.class, logging::merge);
+        }
+        try (java.util.stream.Stream<Path> left = Files.list(dir)) {
+            assertEquals(8, left.count(), "the six files, the folder and the log: nothing was joined or deleted");
+        }
+    }
+
+    @Test
+    void aLineLoggedWhileTheLogIsResetOrMergedIsInOneOfTheFilesWholeAndNeverInNeither() throws Exception {
+        Path file = dir.resolve("java-aip-usage.log");
+        int count = 3000;
+        try (Logging logging = Logging.install(file)) {
+            Thread writer = new Thread(() -> {
+                for (int i = 0; i < count; i++) {
+                    LOG.info("line " + i + " of the writer");
+                }
+            });
+            writer.start();
+            for (int round = 0; round < 6 && writer.isAlive(); round++) {
+                logging.reset(AT.plusSeconds(round));
+                if (round % 2 == 1) {
+                    logging.merge();
+                }
+            }
+            writer.join();
+            while (logging.hasOldLog()) {
+                logging.merge();
+            }
+        }
+        List<String> said = messages(file).stream().filter(line -> line.startsWith("[LoggingTest] line ")).toList();
+        List<String> wanted = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            wanted.add("[LoggingTest] line " + i + " of the writer");
+        }
+        assertEquals(wanted, said, "every line once, whole, and in its order, with all the old logs put back");
+    }
+
+    @Test
+    void theLogThatIsOpenIsFoundByItsFileAndNoneAfterItIsClosedOrForAnotherFile() throws Exception {
+        Path file = dir.resolve("java-aip-usage.log");
+        assertTrue(Logging.of(file).isEmpty(), "none is open");
+        try (Logging logging = Logging.install(file)) {
+            assertTrue(Logging.of(file).filter(open -> open == logging).isPresent());
+            assertTrue(Logging.of(dir.resolve("another.log")).isEmpty());
+        }
+        assertTrue(Logging.of(file).isEmpty(), "closed");
+    }
+
+    @Test
+    void theLogTheProgramOpensIsTheFileTheLogPanelReadsSoTheTwoButtonsFindIt() {
+        // Main opens the log at this path, and the handler looks for the log that is open on the file of AppFiles.
+        assertEquals(Path.of(Logging.LOG_FILE_NAME).toAbsolutePath(), AppFiles.inWorkingDirectory().log());
+    }
+
+    @Test
+    void aLogThatIsOnTheConsoleAloneCanBeNeitherResetNorMerged() throws Exception {
+        System.setErr(new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8));
+        Path file = dir.resolve("no-such-dir").resolve("java-aip-usage.log");
+        try (Logging logging = Logging.install(file)) {
+            assertTrue(Logging.of(file).isEmpty(), "it is not found as a log with a file");
+            assertEquals("the log is not written to a file", Failure.of(org.junit.jupiter.api.Assertions.assertThrows(java.io.IOException.class, () -> logging.reset(AT))));
+            assertEquals("the log is not written to a file", Failure.of(org.junit.jupiter.api.Assertions.assertThrows(java.io.IOException.class, logging::merge)));
+        }
+    }
 }

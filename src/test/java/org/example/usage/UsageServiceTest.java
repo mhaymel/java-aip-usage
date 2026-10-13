@@ -649,11 +649,16 @@ class UsageServiceTest {
     void aRateLimitedRefreshIsFollowedAfterExactlyTheIntervalEveryTime() {
         Scripted fetch = new Scripted(true, true, true, true);
 
-        UsageService service = start(fetch, Duration.ofMillis(60));
+        // A fifth of a second, so that what a busy machine adds to a wait is little beside it: a wait that doubled, as the
+        // back-off of earlier versions did, would be 400 milliseconds and more, and one that is late by less than the
+        // interval is still told from it. With 60 milliseconds and a bound of 150 the test failed now and then under load.
+        UsageService service = start(fetch, Duration.ofMillis(200));
         await(() -> fetch.callTimesMillis.size() >= 4);
 
         for (int n = 1; n < 4; n++) {
-            assertTrue(fetch.gapBefore(n) >= 55 && fetch.gapBefore(n) < 150, "gap " + n + ": " + fetch.gapBefore(n));
+            // The interval is counted from when a request is triggered, and what is measured here is when its call began, which
+            // on a busy machine is some milliseconds later: so a gap can be that much shorter or longer than the interval.
+            assertTrue(fetch.gapBefore(n) >= 140 && fetch.gapBefore(n) < 400, "gap " + n + ": " + fetch.gapBefore(n));
         }
         assertEquals(1, service.effectiveIntervalSeconds(), "and the interval in force is the configured one, never a longer wait");
     }

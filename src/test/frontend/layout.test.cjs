@@ -1030,3 +1030,15 @@ test('the history has a button in the line of the zoom buttons, after them, for 
     assert.match(rule, /color:\s*var\(--info\)/, 'the blue of the notes');
     assert.doesNotMatch(rule, /width|height|margin/, 'at the size of the zoom buttons, not the bigger one of an open panel');
 });
+
+test('the log has two buttons in the line of the zoom buttons, after them: icons with no text, the second not to be pressed until there is an old log', () => {
+    const line = html.slice(html.indexOf('id="log-controls"'), html.indexOf('id="log-error"'));
+    assert.ok(line.indexOf('id="zoom-out"') < line.indexOf('id="log-files"'), 'after the two zoom buttons');
+    assert.match(line, /<span id="log-files" class="zoom" hidden>/, 'hidden until the log is shown');
+    assert.ok(line.indexOf('id="log-reset"') < line.indexOf('id="log-merge"'), 'the reset, then its undo');
+    assert.match(line, /<button id="log-reset" class="icon tiny" type="button" aria-label="Reset the log: [^"]+"\s+title="Reset the log: the file is kept under a name with the date and time, and a new one is started">/);
+    assert.match(line, /<button id="log-merge" class="icon tiny" type="button" aria-label="There is no old log" title="There is no old log" disabled>/);
+    const files = line.slice(line.indexOf('<span id="log-files"'), line.indexOf('<span id="history-choices"'));
+    assert.equal(files.replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]*>/g, '').trim(), '', 'no text');
+    assert.equal((files.match(/<svg /g) || []).length, 2, 'an icon each');
+});

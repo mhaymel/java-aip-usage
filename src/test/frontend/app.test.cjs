@@ -143,6 +143,9 @@ function backendOf(state) {
         }
         if (call.url === '/api/status') return { status: 200, body: withDisplay(state.status) };
         if (call.url === '/api/refresh') return { status: 202, body: { started: true } };
+        if (call.url === '/api/log/reset' || call.url === '/api/log/merge') {
+            return state.logFiles ? state.logFiles(call) : { status: 200, body: { oldLog: call.url === '/api/log/reset' } };
+        }
         if (call.url.split('?')[0] === '/api/log' && call.method === 'POST') {
             return state.postLog ? state.postLog(JSON.parse(call.body)) : { status: 200, body: JSON.parse(call.body) };
         }
@@ -4402,4 +4405,123 @@ test('with About shown the width asked for is the least width whatever the windo
     app.width = 900;
     app.height = 344;
     assert.equal(page.window.contentSize(), '400,344,4,settings', 'the least width still, and the lower height the wider window gives the page');
+});
+
+// ---- version 0.79: the log can be reset, and the reset undone
+
+const logFilePosts = page => page.calls.filter(c => c.url === '/api/log/reset' || c.url === '/api/log/merge').map(c => c.method + ' ' + c.url + ' ' + c.body);
+// A backend that keeps old logs as the program does: a reset keeps the lines under another name, a merge puts them back.
+function logFilesBackend(extra = {}) {
+    const state = { config: CONFIG, status: SPEND_STATUS, lines: [...LOG.lines], old: [], ...extra };
+    state.log = () => ({ status: 200, body: { ...LOG, lines: state.lines, oldLog: state.old.length > 0 } });
+    state.logFiles = state.logFiles || (call => {
+        if (call.url === '/api/log/reset') {
+            state.old.push(state.lines);
+            state.lines = ['2026-10-08 19:05:00 INFO    [Logging] The log was reset: the lines before are in java-aip-usage.2026-10-08_19-05-00.log'];
+        } else if (state.old.length === 0) {
+            return { status: 409, body: { error: 'There is no old log.' } };
+        } else {
+            state.lines = [...state.old.pop(), ...state.lines, '2026-10-08 19:06:00 INFO    [Logging] The log was merged with java-aip-usage.2026-10-08_19-05-00.log'];
+        }
+        return { status: 200, body: { oldLog: state.old.length > 0 } };
+    });
+    return state;
+}
+
+test('the log has two buttons after the zoom buttons, shown with the log alone: one that resets it, and one that takes the reset back', async () => {
+    const page = await load(backendOf(logFilesBackend()));
+    assert.equal(page.el('log-files').hidden, true, 'nothing before a panel is shown');
+
+    await page.click('log-button');
+    assert.equal(page.el('log-files').hidden, false);
+    assert.equal(page.el('log-merge').title, 'There is no old log', 'nothing to put back');
+    assert.equal(page.el('log-merge').attrs['aria-label'], 'There is no old log');
+    assert.ok('disabled' in page.el('log-merge').attrs, 'so the button cannot be pressed');
+
+    for (const other of ['history-button', 'errors-button', 'cost-button', 'settings-button']) {
+        await page.click(other);
+        assert.equal(page.el('log-files').hidden, true, 'not with ' + other);
+        if (other === 'settings-button') {
+            await page.click('settings-cancel');
+        }
+    }
+});
+
+test('a press on the reset asks the program to reset the log, naming no file, and shows the new log at its newest line; the other button can then be pressed', async () => {
+    const state = logFilesBackend();
+    const page = await load(backendOf(state));
+    await page.click('log-button');
+    assert.equal(page.el('panel-lines').children.length, 2);
+    page.el('panel-lines').scrollTop = 30;
+
+    await page.click('log-reset');
+
+    assert.deepEqual(logFilePosts(page), ['POST /api/log/reset {}'], 'no file and no path in the request');
+    assert.equal(lines(page).length, 1, 'the new file has the one line that says where the others are');
+    assert.match(lines(page)[0], /The log was reset: the lines before are in /);
+    assert.equal(page.el('panel-lines').scrollTop, 0);
+    assert.ok(!('disabled' in page.el('log-merge').attrs), 'there is an old log now');
+    assert.equal(page.el('log-merge').title, 'Undo the reset: put the newest old log back in front of this one');
+    assert.equal(page.el('log-error').hidden, true);
+});
+
+test('a press on the other button takes the reset back: the lines are there again, and with no old log left it cannot be pressed', async () => {
+    const state = logFilesBackend();
+    const page = await load(backendOf(state));
+    await page.click('log-button');
+    await page.click('log-reset');
+
+    await page.click('log-merge');
+
+    assert.deepEqual(logFilePosts(page), ['POST /api/log/reset {}', 'POST /api/log/merge {}']);
+    assert.equal(page.el('panel-lines').children.length, 4, 'the two lines of before, the line of the reset and the line of the merge');
+    assert.ok('disabled' in page.el('log-merge').attrs, 'the one old log is gone');
+    assert.equal(page.el('log-merge').title, 'There is no old log');
+
+    await page.click('log-reset');
+    await page.click('log-reset');
+    await page.click('log-merge');
+    assert.ok(!('disabled' in page.el('log-merge').attrs), 'two resets, one taken back: one old log is left');
+});
+
+test('the button of the merge follows what each answer of the log says of an old log, also one that is there from an earlier run', async () => {
+    const state = logFilesBackend({ old: [['2026-10-07 10:00:00 INFO    [A] of yesterday']] });
+    const page = await load(backendOf(state));
+
+    await page.click('log-button');
+    assert.ok(!('disabled' in page.el('log-merge').attrs), 'an old log was there when the log was opened');
+
+    state.old = [];
+    await page.firePoll();
+    assert.ok('disabled' in page.el('log-merge').attrs, 'and is gone at the next read');
+});
+
+test('a reset or a merge that cannot be done says so in red, once, and leaves the log as it is shown', async () => {
+    const state = logFilesBackend({ logFiles: call => ({ status: 500, body: { error: (call.url === '/api/log/reset' ? 'The log could not be reset: ' : 'The log could not be merged: ') + 'access is denied' } }) });
+    const page = await load(backendOf(state));
+    await page.click('log-button');
+
+    await page.click('log-reset');
+    assert.equal(page.el('log-error').hidden, false);
+    assert.equal(page.el('log-error').textContent, 'The log could not be reset: access is denied', 'the reason, said once');
+    assert.equal(page.el('panel-lines').children.length, 2, 'the lines are as they were');
+
+    state.old = [[]];
+    await page.firePoll();
+    await page.click('log-merge');
+    assert.equal(page.el('log-error').textContent, 'The log could not be merged: access is denied');
+
+    state.logFiles = () => ({ status: 409, body: { error: 'There is no old log.' } });
+    await page.click('log-merge');
+    assert.equal(page.el('log-error').textContent, 'The log could not be merged: There is no old log.', 'an old log that went meanwhile');
+});
+
+test('the two buttons of the log do nothing with another panel', async () => {
+    const page = await load(backendOf(logFilesBackend()));
+    await page.click('history-button');
+
+    await page.click('log-reset');
+    await page.click('log-merge');
+
+    assert.deepEqual(logFilePosts(page), []);
 });

@@ -101,6 +101,23 @@ public final class Log {
         SINKS.add(sink);
     }
 
+    /** Something that is done while nothing is written, and may fail as a file does. */
+    public interface Quiet<T> {
+
+        T run() throws java.io.IOException;
+    }
+
+    /**
+     * Does something while no entry is handed to any sink: whatever is being written is finished first, and what is logged
+     * meanwhile by another thread waits and is written after. For a sink that has to change the place it writes to, so
+     * that no entry falls between the old place and the new. What is done here must not log.
+     */
+    public static <T> T whileNothingIsWritten(Quiet<T> action) throws java.io.IOException {
+        synchronized (WRITING) {
+            return action.run();
+        }
+    }
+
     /** From now on nothing goes to this place; whatever is being written to it is finished first. */
     public static void removeSink(Sink sink) {
         synchronized (WRITING) {

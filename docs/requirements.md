@@ -1834,6 +1834,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   merged: <reason>`.
 - **The start of a run** is marked in the panel wherever its line is: after a reset the line of the run is in the old log, so
   the new file has no start line until the next start, and after a merge it is shown again.
+- **An old log that cannot be deleted after a merge** is said in the log as a warning, with its name, since its lines are in the log by then and the next merge would put them there a second time. The merge itself has been done.
+- **Only a file of exactly the form of the name is an old log**, `java-aip-usage.` followed by a date and time in that form and `.log`: no other file beside the log is ever joined or deleted, whatever it is called.
+- **A run that logs to the console alone**, because the log file could not be opened, has nothing to reset: the reset button says `The log could not be reset: the log is not written to a file`, and the merge is disabled.
 - **Only the log.** The usage history has no reset; its file is still never rotated or deleted by the program. The old logs
   are kept out of version control like the log, and the program never deletes one but by a merge.
 - **The About view** names the path of the current log, as before, and nothing of the old ones.

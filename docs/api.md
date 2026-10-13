@@ -20,6 +20,8 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `POST` | `/api/refresh` | Start a usage fetch now |
 | `GET` | `/api/log` | The end of the log file, at the level the log panel shows |
 | `POST` | `/api/log` | Save the two choices of the log panel, the level and the date |
+| `POST` | `/api/log/reset` | Reset the log: keep the file under a name with the date and time, and begin a new one |
+| `POST` | `/api/log/merge` | Take the last reset back: put the newest old log in front of the log again |
 | `GET` | `/api/history` | The usage history, as finished lines |
 | `POST` | `/api/history` | Save the one choice of the history panel, whether its zero usage lines are shown |
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
@@ -352,7 +354,8 @@ do (for example log in with Claude Code).
   "lines": ["2026-10-08 16:24:53 INFO    [UsageApp] Starting java-aip-usage v0.63", "..."],
   "hidden": false,
   "level": "info",
-  "date": false
+  "date": false,
+  "oldLog": false
 }
 ```
 
@@ -370,6 +373,7 @@ and time, and a run with the line that has `] Starting java-aip-usage`.
 - `level` and `date`: the two choices saved for the panel, `info` and `false` by default; `level` is the saved
   one also when the query asked for another. Whether the date is shown is the page's to do: with `date` false it
   cuts the first 11 characters of each line that begins an entry.
+- `oldLog`: `true` when there is an old log, a file a reset has kept, that `POST /api/log/merge` would put back; the button of the log panel that does it can be pressed only then. It is `false` as well when the program does not write its log to the file, as in a run that logs to the console alone.
 - `truncated`: `true` when earlier lines were left out. When the file is larger than the 512 kilobytes the
   first line of what was read is dropped, so that none is ever shown half.
 - `exists`: `false`, with no lines, when there is no log yet, or what is there is not an ordinary file.
@@ -380,6 +384,22 @@ be given: `{"level": "warning", "date": true}`. A level that is none of the four
 `false`, or one of them missing is `400`, and nothing is saved; a file that cannot be written is `500` with
 `The log settings could not be saved: <reason>`. The settings of `/api/settings` do not have the two, and saving
 them leaves the two as they are.
+
+## `POST /api/log/reset` and `POST /api/log/merge`
+
+The two buttons of the log panel. Neither reads its body, names a file or gives a path away: the program uses the names it knows.
+
+- `POST /api/log/reset`: the log file is renamed to `java-aip-usage.<yyyy-MM-dd_HH-mm-ss>.log`, with the local date and time, in the same directory, which makes it an **old log**, and the program goes on logging to a new
+  `java-aip-usage.log`, whose first line is `The log was reset: the lines before are in <the name of the old log>`.
+- `POST /api/log/merge`: the newest old log, the one whose name has the latest date and time, is put in front of the log again: its lines first, then those of the current log, written beside the log as `java-aip-usage.log.tmp` and put in its place
+  in one step; the old log is deleted, and the line `The log was merged with <the name of the old log>` is written at the end. Only a file whose name has exactly that form is an old log.
+
+Both answer `200` with `{"oldLog": true}` or `{"oldLog": false}`: whether there is an old log now. Nothing is logged between the old file and the new: a line another part of the program logs meanwhile is in one of them, whole.
+
+- `409` with `{"error": "There is no old log."}` for a merge with none.
+- `500` with `The log could not be reset: <reason>` or `The log could not be merged: <reason>`, in the program's words for what went wrong, when the file cannot be renamed, an old log of that second is there already
+  (`an old log of this second is there already`), the two cannot be joined, or the program does not write its log to the file (`the log is not written to a file`). Nothing is changed then.
+- Any other method is `405` with `Allow: POST`; the `Content-Type` must be `application/json`, as for every `POST`.
 
 ## `GET /api/cost`
 

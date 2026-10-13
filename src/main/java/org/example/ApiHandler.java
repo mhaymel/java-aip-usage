@@ -145,6 +145,13 @@ final class ApiHandler implements HttpHandler {
                     throw new ApiException(405, "Use GET or POST.", "GET, POST");
                 }
             }
+            case "/api/log/reset", "/api/log/merge" -> {
+                if (!method.equals("POST")) {
+                    throw new ApiException(405, "Use POST.", "POST");
+                }
+                requireJson(exchange);
+                logAction(exchange, exchange.getRequestURI().getPath().endsWith("/reset"));
+            }
             case "/api/text-size" -> {
                 if (!method.equals("POST")) {
                     throw new ApiException(405, "Use POST.", "POST");
@@ -523,11 +530,34 @@ final class ApiHandler implements HttpHandler {
         try {
             LogTail.Tail tail = LogTail.read(files.log(), LOG_LINES, LOG_BYTES, asked != null ? asked : now.logLevel());
             return new LogBody(files.log().getFileName().toString(), tail.exists(), tail.truncated(), tail.lines(), tail.hidden(),
-                    now.logLevel().json(), now.logDate());
+                    now.logLevel().json(), now.logDate(), Logging.of(files.log()).map(Logging::hasOldLog).orElse(false));
         } catch (IOException e) {
             LOG.warning("Could not read the log", e);
             throw new ApiException(500, "The log could not be read.", null);
         }
+    }
+
+    /**
+     * The two buttons of the log panel. Reset: the log file is kept under a name with the date and time, and a new one is
+     * begun. Merge, the undo: the newest of the files so kept is put in front of the log again, and deleted. The page
+     * names no file and is told no path; the body of the request is not read.
+     */
+    private void logAction(HttpExchange exchange, boolean reset) throws IOException {
+        String failed = reset ? "The log could not be reset: " : "The log could not be merged: ";
+        Logging logging = Logging.of(files.log()).orElseThrow(() -> new ApiException(500, failed + "the log is not written to a file", null));
+        try {
+            if (reset) {
+                logging.reset(java.time.LocalDateTime.now());
+            } else {
+                logging.merge();
+            }
+        } catch (Logging.NoOldLog e) {
+            throw new ApiException(409, "There is no old log.", null);
+        } catch (IOException e) {
+            LOG.warning(reset ? "Could not reset the log" : "Could not merge the log", e);
+            throw new ApiException(500, failed + Failure.of(e), null);
+        }
+        send(exchange, 200, new LogFilesBody(logging.hasOldLog()).toJson());
     }
 
     /**
@@ -1179,7 +1209,16 @@ final class ApiHandler implements HttpHandler {
      * @param level the level saved for the panel, whatever level was asked for
      * @param date whether the panel shows the date of each line, as saved
      */
-    record LogBody(String file, boolean exists, boolean truncated, List<String> lines, boolean hidden, String level, boolean date) {
+    /** After a reset or a merge of the log: whether there is an old log to put back. */
+    record LogFilesBody(boolean oldLog) {
+
+        Json toJson() {
+            return Json.object().put("oldLog", oldLog);
+        }
+    }
+
+    /** @param oldLog whether there is an old log, kept by a reset, that a merge would put back */
+    record LogBody(String file, boolean exists, boolean truncated, List<String> lines, boolean hidden, String level, boolean date, boolean oldLog) {
 
         Json toJson() {
             return Json.object()
@@ -1189,7 +1228,8 @@ final class ApiHandler implements HttpHandler {
                     .put("lines", Json.texts(lines))
                     .put("hidden", hidden)
                     .put("level", level)
-                    .put("date", date);
+                    .put("date", date)
+                    .put("oldLog", oldLog);
         }
     }
 

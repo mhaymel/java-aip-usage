@@ -1,6 +1,9 @@
 ### Application runtime files ###
 # Written into the project root at run time; see docs/requirements.md.
 /java-aip-usage.log
+# The old logs a reset of the log keeps, with the date and time in their names, and the file a merge writes for a moment.
+/java-aip-usage.*.log
+/java-aip-usage.log.tmp
 # The usage history: one row per reading, never rotated.
 /java-aip-usage.csv
 # The history of the fake backend's invented readings, in debug mode.
