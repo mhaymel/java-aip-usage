@@ -4728,3 +4728,266 @@ test('the links of the log are not built again while the log says the same', asy
 
     assert.equal(page.el('panel-lines').children[2].children[0].children[1], link, 'the same link is under the mouse after a poll');
 });
+
+// ---- version 0.80: several views at once
+
+const SEVERAL = withShow(WITH_CHANGE, { historyIcon: true, logIcon: true, errorIcon: true, costIcon: true, severalViews: true });
+const BOX_OF = { log: 'view-log', history: 'view-history', errors: 'view-errors', cost: 'cost-view' };
+const shownViews = page => Object.keys(BOX_OF).filter(name => !page.el(BOX_OF[name]).hidden);
+const blueIcons = page => ['log', 'history', 'errors', 'cost'].filter(name => /\bactive\b/.test(page.el(name + '-button').className));
+const withHeights = (status, heights) => ({ ...status, display: { ...status.display, heights } });
+
+test('with several views at once an icon opens its view and leaves the others open, and a blue icon closes its own view alone', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL }));
+
+    await page.click('cost-button');
+    await page.click('history-button');
+    assert.deepEqual(shownViews(page), ['history', 'cost'], 'the history is added, the cost control stays');
+    assert.deepEqual(blueIcons(page), ['history', 'cost'], 'both icons are blue');
+    assert.equal(page.el('history-button').title, 'Hide the usage history');
+    assert.equal(page.el('cost-button').title, 'Hide the cost control');
+    assert.equal(page.el('history-button').attrs['aria-expanded'], 'true');
+    assert.equal(page.el('panel-lines-history').children.length, 3, 'the history has its lines');
+    assert.equal(page.el('cost-rows').children.length, 2, 'and the cost control its bars');
+
+    await page.click('cost-button');
+    assert.deepEqual(shownViews(page), ['history'], 'a press on a blue icon closes that view, and that view alone');
+    assert.deepEqual(blueIcons(page), ['history']);
+    assert.equal(page.el('cost-button').title, 'Show the cost control');
+    assert.equal(page.el('cost-rows').children.length, 0, 'the view that is closed is emptied');
+    assert.equal(page.el('panel-lines-history').children.length, 3, 'the one that stays is left as it is');
+
+    await page.click('history-button');
+    assert.deepEqual(shownViews(page), []);
+    assert.equal(page.el('panel').hidden, true);
+});
+
+test('the views are stacked in the order of their icons, whatever order they were opened in', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL }));
+
+    for (const icon of ['cost-button', 'errors-button', 'log-button', 'history-button']) {
+        await page.click(icon);
+    }
+
+    assert.deepEqual(shownViews(page), ['log', 'history', 'errors', 'cost']);
+    assert.equal(page.window.currentView(), 'log+history+errors+cost,', 'and are named in that order to the host');
+    const boxes = INDEX_HTML.indexOf('id="view-log"') < INDEX_HTML.indexOf('id="view-history"') && INDEX_HTML.indexOf('id="view-history"') < INDEX_HTML.indexOf('id="view-errors"')
+        && INDEX_HTML.indexOf('id="view-errors"') < INDEX_HTML.indexOf('id="cost-view"');
+    assert.ok(boxes, 'which is the order their boxes have in the page');
+});
+
+test('with several views at once switched off, an icon closes the view that is shown and opens its own, as before', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: true, severalViews: false }) }));
+    await page.click('cost-button');
+    await page.click('history-button');
+    assert.deepEqual(shownViews(page), ['history']);
+    assert.deepEqual(blueIcons(page), ['history'], 'no more than one icon is blue');
+});
+
+test('a view that stays open while another is opened beside it is not read or drawn again, and keeps what was scrolled to', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL }));
+    await page.click('history-button');
+    const first = page.el('panel-lines-history').children[1];
+    page.el('panel-lines-history').scrollTop = 30;
+    const reads = page.calls.filter(c => c.url === '/api/history').length;
+
+    await page.click('log-button');
+
+    assert.equal(page.el('panel-lines-history').children[1], first, 'the same lines');
+    assert.equal(page.el('panel-lines-history').scrollTop, 30);
+    assert.equal(page.calls.filter(c => c.url === '/api/history').length, reads, 'it was not read again for it');
+    assert.equal(page.el('log-choices').hidden, false, 'the log has its own controls');
+    assert.equal(page.el('history-choices').hidden, false, 'and the history keeps its own');
+});
+
+test('each of several views keeps up by itself, and has its own note and its own red line', async () => {
+    const state = { config: CONFIG, status: { ...SEVERAL, historyStamp: 'a' }, errors: () => ({ status: 200, body: { entries: [] } }) };
+    const page = await load(backendOf(state));
+    await page.click('log-button');
+    await page.click('history-button');
+    await page.click('errors-button');
+    await page.click('cost-button');
+    const reads = url => page.calls.filter(c => c.url.split('?')[0] === url).length;
+    const before = { log: reads('/api/log'), history: reads('/api/history'), errors: reads('/api/errors'), cost: reads('/api/cost') };
+
+    await page.firePoll();
+    assert.deepEqual({ log: reads('/api/log'), history: reads('/api/history'), errors: reads('/api/errors'), cost: reads('/api/cost') },
+        { log: before.log + 1, history: before.history, errors: before.errors + 1, cost: before.cost + 1 }, 'the log, the error log and the cost control with every poll; the history only for a new row');
+
+    state.status = { ...SEVERAL, historyStamp: 'b' };
+    state.history = () => ({ status: 500, body: { error: 'The usage history could not be read.' } });
+    await page.firePoll();
+    assert.equal(reads('/api/history'), before.history + 1, 'a row was added: the history is read again');
+    assert.equal(page.el('panel-error-history').hidden, false, 'a read that failed says so in the history');
+    assert.match(page.el('panel-error-history').textContent, /^The usage history could not be read: /);
+    for (const other of ['log', 'errors', 'cost']) {
+        assert.equal(page.el('panel-error-' + other).hidden, true, 'and not in ' + other);
+    }
+    assert.equal(page.el('panel-note-errors').textContent, 'There are no errors in this run.', 'the note of the error log is its own');
+    assert.equal(page.el('panel-note-history').hidden, true);
+});
+
+test('the zoom is in the line of every list and changes the one size of all three', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL }));
+    await page.click('log-button');
+    await page.click('errors-button');
+
+    await page.el('zoom-in-errors').listeners.click();
+    await settle();
+    assert.equal(global.document.documentElement.style.properties['--list-size'], '13px', 'one size for the page');
+    await page.el('zoom-out-log').listeners.click();
+    await page.el('zoom-out-log').listeners.click();
+    await page.el('zoom-out-log').listeners.click();
+    await settle();
+    assert.equal(global.document.documentElement.style.properties['--list-size'], '10px');
+    for (const name of ['log', 'history', 'errors']) {
+        assert.ok('disabled' in page.el('zoom-out-' + name).attrs, 'at the smallest size the minus of ' + name + ' cannot be pressed');
+        assert.ok(!('disabled' in page.el('zoom-in-' + name).attrs));
+    }
+});
+
+test('the settings are shown alone, and leaving them gives back every view that was open', async () => {
+    for (const leave of ['settings-cancel', 'settings-save', 'settings-button']) {
+        const page = await load(backendOf({ config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: { ...SETTINGS.settings, severalViews: true } } }) }));
+        await page.click('log-button');
+        await page.click('cost-button');
+
+        await page.click('settings-button');
+        assert.deepEqual(shownViews(page), [], 'the settings take the place of every view');
+        assert.equal(page.el('settings-view').hidden, false);
+        assert.deepEqual(blueIcons(page), [], 'and no icon of a view is blue');
+        assert.equal(page.window.currentView().split(',')[0], 'settings');
+
+        await page.click(leave);
+        assert.deepEqual(shownViews(page), ['log', 'cost'], 'both are back after ' + leave);
+        assert.deepEqual(blueIcons(page), ['log', 'cost']);
+        assert.equal(page.el('panel-lines-log').children.length, 2, 'read afresh');
+    }
+});
+
+test('leaving the settings gives back the views that were open, less those whose icons the saved settings switch off', async () => {
+    const saved = { ...SETTINGS.settings, severalViews: true };
+    const state = { config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: saved } }) };
+    const page = await load(backendOf(state));
+    await page.click('log-button');
+    await page.click('history-button');
+    await page.click('cost-button');
+    await page.click('settings-button');
+    await change(page, 'set-showHistoryIcon', false);
+
+    state.status = withShow(WITH_CHANGE, { historyIcon: false, logIcon: true, errorIcon: true, costIcon: true, severalViews: true });
+    await page.click('settings-save');
+
+    assert.deepEqual(shownViews(page), ['log', 'cost'], 'the history, whose icon was unchecked, is not given back; the other two are');
+});
+
+test('with the settings shown, a press on the icon of a view leaves them and shows that view with those that were open before', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: { ...SETTINGS.settings, severalViews: true } } }) }));
+    await page.click('cost-button');
+    await page.click('settings-button');
+
+    await page.click('history-button');
+
+    assert.equal(page.el('settings-view').hidden, true);
+    assert.deepEqual(shownViews(page), ['history', 'cost']);
+});
+
+test('several views at once switched off in the settings: the first of the views that were open is given back, and no other', async () => {
+    const off = { ...SETTINGS.settings, severalViews: true };
+    const state = { config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: off } }) };
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+    await page.click('cost-button');
+    await page.click('settings-button');
+    page.el('set-severalViews') && (page.el('set-severalViews').checked = false);
+    state.postSettings = body => ({ status: 200, body: { ...SETTINGS, settings: { ...body, severalViews: false } } });
+    state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: true, severalViews: false });
+    page.el('set-showDeltaUsed').checked = !page.el('set-showDeltaUsed').checked;
+
+    await page.click('settings-save');
+
+    assert.deepEqual(shownViews(page), ['history'], 'the first in the order of the icons');
+});
+
+test('several views at once switched off from elsewhere while several are shown: the first stays and the others are closed', async () => {
+    const state = { config: CONFIG, status: SEVERAL };
+    const page = await load(backendOf(state));
+    await page.click('errors-button');
+    await page.click('log-button');
+    await page.click('cost-button');
+
+    state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: true, severalViews: false });
+    await page.firePoll();
+
+    assert.deepEqual(shownViews(page), ['log'], 'the first in the order of the icons, not the first that was opened');
+    assert.deepEqual(blueIcons(page), ['log']);
+});
+
+test('the size asked for with several views: as wide as the widest needs, as tall as all of them, and what may be dragged', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL }));
+    await page.click('history-button');
+    assert.equal(page.window.contentSize(), '400,420,1,history', 'one view: as ever');
+
+    await page.click('cost-button');
+    // The row is 42 tall; the history alone is ten rows, of which nine are its own; the cost control is as tall as it is, 42 here.
+    // The cost control asks for the width of its bars, 948 here, which is more than the history needs.
+    assert.equal(page.window.contentSize(), '948,462,1,history+cost,420', 'the height may be dragged, for the history; after the names, the height the history has alone');
+
+    await page.click('log-button');
+    assert.equal(page.window.contentSize(), '1200,840,2,log+history+cost,420', 'with the log the width may be dragged too, and the window is three rows wide');
+
+    await page.click('history-button');
+    await page.click('log-button');
+    assert.equal(page.window.contentSize().split(',').slice(2).join(','), '3,cost', 'the cost control alone: nothing to drag, as before');
+});
+
+test('a list that has another view below it keeps the height it has alone, and the lowest list takes what the window has', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withHeights(SEVERAL, { history: 640, log: 500 }) }));
+    await page.click('log-button');
+    await page.click('history-button');
+    await page.click('errors-button');
+
+    assert.equal(page.el('view-log').className, 'view fixed');
+    assert.equal(page.el('view-log').style.height, '458px', 'the height the log was last given, 500, less the row');
+    assert.equal(page.el('view-history').className, 'view fixed');
+    assert.equal(page.el('view-history').style.height, '598px');
+    assert.equal(page.el('view-errors').className, 'view', 'the lowest list has no height of its own');
+    assert.equal(page.el('view-errors').style.height, '');
+    assert.equal(page.window.contentSize(), '1200,' + (42 + 458 + 598 + 378) + ',2,log+history+errors,420', 'the error log is ten rows alone: its height is not remembered');
+
+    await page.click('errors-button');
+    assert.equal(page.el('view-history').className, 'view', 'with the error log closed the history is the lowest');
+    assert.equal(page.el('view-history').style.height, '');
+    assert.equal(page.window.contentSize(), '1200,' + (42 + 458 + 598) + ',2,log+history,640', 'and the height it has alone is the one it was last given');
+
+    await page.click('log-button');
+    assert.equal(page.el('view-log').className, 'view');
+    assert.equal(page.window.contentSize(), '400,420,1,history', 'one view asks for ten rows, and the host gives it the height it remembers');
+});
+
+test('the host is given back every view that was open, and opens them again; with several views at once off, the first', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL }));
+    assert.equal(page.window.restoreView('history+cost', ''), true);
+    await settle();
+    assert.deepEqual(shownViews(page), ['history', 'cost']);
+    assert.equal(page.window.currentView(), 'history+cost,');
+
+    const one = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: true }) }));
+    one.window.restoreView('cost,history', '');
+    await settle();
+    assert.deepEqual(shownViews(one), ['history'], 'the first in the order of the icons');
+    assert.equal(one.window.restoreView('calendar+nothing', ''), true, 'names that are no views open nothing');
+    assert.deepEqual(shownViews(one), ['history']);
+});
+
+test('with a list among several views the window has its title bar, and with the cost control alone it has none', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(bareStatus(WITH_CHANGE), { ...ALL_ICONS, costIcon: true, severalViews: true }) }));
+    await page.click('cost-button');
+    assert.match(page.el('app').className, /\bbare\b/);
+    await page.click('history-button');
+    assert.doesNotMatch(page.el('app').className, /\bbare\b/, 'a list can be dragged, so the title bar is there');
+    assert.match(page.el('app').className, /\bopen\b/, 'and the page fills the window');
+    await page.click('history-button');
+    assert.match(page.el('app').className, /\bbare\b/);
+    assert.match(page.el('app').className, /\bfit\b/);
+});

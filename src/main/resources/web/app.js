@@ -58,9 +58,18 @@
         return $(name === 'cost' ? 'cost-view' : 'view-' + name);
     }
 
-    /** Whether more than one view may be shown at the same time, which is a setting; off, opening a view closes the one shown. */
+    /**
+     * Whether more than one view may be shown at the same time, which is a setting; off, opening a view closes the one shown.
+     * The backend says it with the status, like everything the row is drawn by. While the settings are shown it is as the
+     * settings have it saved, which the form was last told, so that leaving them gives back what the saved setting allows
+     * and does not wait for the next status.
+     */
     function several() {
-        return false;
+        if (settingsOpen && settingsShown && typeof settingsShown.severalViews === 'boolean') {
+            return settingsShown.severalViews;
+        }
+        var show = lastStatus && lastStatus.display && lastStatus.display.show;
+        return Boolean(show && show.severalViews === true);
     }
     // The two choices of the log panel: the least severe level shown and whether the lines have their date. They are the
     // backend's, saved in the settings file; the page has them from the first answer after the panel was opened.
@@ -160,6 +169,12 @@
                 preview = null;
             }
             showConnection(false);
+            // Several views at once was switched off while several are shown: the first of them, in the order of the icons, stays.
+            if (!settingsOpen && openViews.length > 1 && !several()) {
+                showViews([openViews[0]], false);
+            }
+            // A list that has another view below it has the height it has alone, which the status says for the history and the log.
+            layoutViews();
             render();
             refreshPanel();
         } catch (e) {
@@ -657,6 +672,9 @@
         if (name) {
             // The icon of a view was pressed: that view, and with several views at once the ones the settings replaced as well.
             back = several() ? back.concat([name]) : [name];
+        } else if (!several() && back.length > 1) {
+            // Several views at once was switched off in the settings: the first of them, in the order of the icons, is given back.
+            back = [back[0]];
         }
         returnTo = [];
         showViews(back, false);
