@@ -84,13 +84,13 @@ public final class PanelProbe {
 
     private static String lines(WebEngine page) {
         return String.valueOf(page.executeScript(
-                "Array.from(document.querySelectorAll('#panel-lines .row:not(.head)')).map(function (row) {"
+                "Array.from(document.querySelectorAll('.view:not([hidden]) .panel-lines .row:not(.head)')).map(function (row) {"
                         + " return Array.from(row.children).map(function (cell) { return cell.textContent; }).join(' '); }).join('|')"));
     }
 
     /** The text of the row at the top edge of the panel's box, as the person sees it. */
     private static String topRow() {
-        return "(function () { var box = document.getElementById('panel-lines').getBoundingClientRect();"
+        return "(function () { var box = (document.querySelector('.view:not([hidden]) .panel-lines') || document.getElementById('panel-lines-history')).getBoundingClientRect();"
                 + " var at = document.elementFromPoint(box.left + 20, box.top + 3);"
                 + " return at ? at.textContent : 'nothing'; })()";
     }
@@ -131,7 +131,7 @@ public final class PanelProbe {
                 // The first lines only: the test reads the output when the probe has ended, and a pipe holds little.
                 String shown = lines(page);
                 System.out.println("PROBE log-lines=" + shown.substring(0, Math.min(200, shown.length())));
-                System.out.println("PROBE log-scroll=" + page.executeScript("document.getElementById('panel-lines').scrollTop"));
+                System.out.println("PROBE log-scroll=" + page.executeScript("(document.querySelector('.view:not([hidden]) .panel-lines') || document.getElementById('panel-lines-history')).scrollTop"));
                 System.out.println("PROBE log-top=" + page.executeScript(topRow()));
                 click(page, "log-button");
                 after(0.5, () -> {
@@ -230,25 +230,25 @@ public final class PanelProbe {
                 after(0.7, () -> {
                     // What each column is, as its cells are marked: the titles have a letter the console may not have.
                     System.out.println("PROBE history-kinds=" + page.executeScript(
-                            "Array.from(document.querySelectorAll('#panel-lines .head > *')).map(function (cell) { return cell.className; }).join('|')"));
+                            "Array.from(document.querySelectorAll('.view:not([hidden]) .panel-lines .head > *')).map(function (cell) { return cell.className; }).join('|')"));
                     System.out.println("PROBE history-overflow=" + page.executeScript(
-                            "(function () { var box = document.getElementById('panel-lines'); return Math.max(0, box.scrollWidth - box.clientWidth); })()"));
+                            "(function () { var box = (document.querySelector('.view:not([hidden]) .panel-lines') || document.getElementById('panel-lines-history')); return Math.max(0, box.scrollWidth - box.clientWidth); })()"));
                     System.out.println("PROBE history-cell-overflow=" + page.executeScript(
-                            "Math.max.apply(null, Array.from(document.querySelectorAll('#panel-lines .row > *')).map(function (cell) {"
+                            "Math.max.apply(null, Array.from(document.querySelectorAll('.view:not([hidden]) .panel-lines .row > *')).map(function (cell) {"
                                     + " return Math.max(0, cell.scrollWidth - cell.clientWidth); }))"));
                     // A list that lacks room at the width the page asked for, as where its scrollbar is wider than the one
                     // that was measured: here its lines are pushed 24 pixels to the right. The page is to ask for that much more.
-                    page.executeScript("document.getElementById('panel-lines').style.paddingLeft = '24px'");
+                    page.executeScript("(document.querySelector('.view:not([hidden]) .panel-lines') || document.getElementById('panel-lines-history')).style.paddingLeft = '24px'");
                     after(0.3, () -> {
                         System.out.println("PROBE history-lacking=" + page.executeScript(
-                                "(function () { var box = document.getElementById('panel-lines'); return Math.max(0, box.scrollWidth - box.clientWidth); })()"));
+                                "(function () { var box = (document.querySelector('.view:not([hidden]) .panel-lines') || document.getElementById('panel-lines-history')); return Math.max(0, box.scrollWidth - box.clientWidth); })()"));
                         String wider = size(page);
                         System.out.println("PROBE history-wider=" + wider);
                         fitWidth(main, Integer.parseInt(wider.split(",")[0]));
                         after(0.7, () -> {
                             System.out.println("PROBE history-settled=" + size(page));
                             System.out.println("PROBE history-overflow-after=" + page.executeScript(
-                                    "(function () { var box = document.getElementById('panel-lines'); return Math.max(0, box.scrollWidth - box.clientWidth); })()"));
+                                    "(function () { var box = (document.querySelector('.view:not([hidden]) .panel-lines') || document.getElementById('panel-lines-history')); return Math.max(0, box.scrollWidth - box.clientWidth); })()"));
                             click(page, "history-button");
                             after(0.5, () -> report(main));
                         });

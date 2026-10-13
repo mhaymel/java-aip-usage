@@ -96,9 +96,9 @@ public final class UsageAppProbe {
             step("settings-left", "settings-cancel");
             step("history", "history-button");
             // The zoom: eight presses make the text of the list as large as it gets, and the window as wide as the table needs then.
-            onFx(() -> page().getEngine().executeScript("for (var i = 0; i < 8; i++) { document.getElementById('zoom-in').click(); }"));
+            onFx(() -> page().getEngine().executeScript("for (var i = 0; i < 8; i++) { document.querySelector('.view:not([hidden]) [id^=zoom-in]').click(); }"));
             step("history-larger", null);
-            onFx(() -> page().getEngine().executeScript("for (var i = 0; i < 8; i++) { document.getElementById('zoom-out').click(); }"));
+            onFx(() -> page().getEngine().executeScript("for (var i = 0; i < 8; i++) { document.querySelector('.view:not([hidden]) [id^=zoom-out]').click(); }"));
             step("history-usual", null);
             // A panel is shown, so the title bar is there: a drag inside the window moves nothing.
             drag("drag-with-title-bar", "time");
@@ -244,7 +244,7 @@ public final class UsageAppProbe {
                     // information, and how the newest begins.
                     + " logControls:" + page().getEngine().executeScript("!document.getElementById('log-choices').hidden")
                     + " logLines:" + page().getEngine().executeScript(
-                            "(function () { var rows = document.querySelectorAll('#panel-lines .row'), info = 0;"
+                            "(function () { var rows = document.querySelectorAll('.view:not([hidden]) .panel-lines .row'), info = 0;"
                                     + " Array.prototype.forEach.call(rows, function (r) { if (/ INFO /.test(r.textContent)) { info++; } });"
                                     + " return rows.length + '/' + info + '/' + (rows.length ? rows[0].textContent.slice(0, 11) : ''); })()")
                     // The amount used: its classes, the width of its border and its colour, its tooltip, and what the row has as text.
@@ -271,9 +271,9 @@ public final class UsageAppProbe {
                     + " icons:" + window().getIcons().stream().map(icon -> String.valueOf((int) icon.getWidth())).collect(java.util.stream.Collectors.joining("/"))
                     // The lists: the size of their text, the height of a line, and whether the line of the zoom is shown.
                     + " list:[" + page().getEngine().executeScript(
-                            "(function () { var row = document.querySelector('#panel-lines .row'), c = getComputedStyle(document.getElementById('panel-lines'));"
-                                    + " return c.fontSize + '|' + (row ? Math.round(row.getBoundingClientRect().height) : 0) + '|' + !document.getElementById('log-controls').hidden"
-                                    + " + '|' + Math.round(document.getElementById('zoom-in').getBoundingClientRect().width); })()") + "]"
+                            "(function () { var row = document.querySelector('.view:not([hidden]) .panel-lines .row'), c = getComputedStyle((document.querySelector('.view:not([hidden]) .panel-lines') || document.getElementById('panel-lines-history')));"
+                                    + " return c.fontSize + '|' + (row ? Math.round(row.getBoundingClientRect().height) : 0) + '|' + (document.querySelector('.view:not([hidden]) .log-controls') !== null)"
+                                    + " + '|' + Math.round((document.querySelector('.view:not([hidden]) [id^=zoom-in]') || document.getElementById('zoom-in-history')).getBoundingClientRect().width); })()") + "]"
                     // The automatic interval in the settings: whether it is checked, whether the field is disabled, and what the field shows.
                     + " auto:[" + page().getEngine().executeScript(
                             "(function () { var f = document.getElementById('set-usageIntervalSeconds'), a = document.getElementById('set-autoInterval');"
@@ -292,10 +292,10 @@ public final class UsageAppProbe {
                     // The history's table: the left edge of each cell of the first row beside the list's own edges, so that the
                     // room between the columns can be worked out.
                     + " columns:[" + page().getEngine().executeScript(
-                            "(function () { var row = document.querySelector('#panel-lines .row:not(.head)'); if (!row || row.children.length < 4) { return ''; }"
+                            "(function () { var row = document.querySelector('.view:not([hidden]) .panel-lines .row:not(.head)'); if (!row || row.children.length < 4) { return ''; }"
                                     + " var box = row.getBoundingClientRect(), out = [Math.round(box.width)];"
                                     + " Array.prototype.forEach.call(row.children, function (c) { var b = c.getBoundingClientRect(); out.push(Math.round(b.left - box.left) + '-' + Math.round(b.right - box.left)); });"
-                                    + " var head = document.querySelector('#panel-lines .head'); out.push(head ? Math.round(head.children[1].getBoundingClientRect().right - box.left) : 0);"
+                                    + " var head = document.querySelector('.view:not([hidden]) .panel-lines .head'); out.push(head ? Math.round(head.children[1].getBoundingClientRect().right - box.left) : 0);"
                                     + " return out.join(' '); })()") + "]"
                     // The fake backend's fields in the debug view, and whether the countdown says that requests are refused.
                     + " fake:[" + page().getEngine().executeScript(
@@ -416,7 +416,7 @@ public final class UsageAppProbe {
             Object all = page().getEngine().executeScript(
                     "(function () { document.execCommand('selectAll'); var n = String(window.getSelection()).length; window.getSelection().removeAllRanges(); return n; })()");
             Object styles = page().getEngine().executeScript(
-                    "(function () { var row = document.querySelector('#panel-lines .row');"
+                    "(function () { var row = document.querySelector('.view:not([hidden]) .panel-lines .row');"
                             + " return getComputedStyle(document.getElementById('time')).webkitUserSelect + '/' + (row ? getComputedStyle(row).webkitUserSelect : '-')"
                             + " + '/' + getComputedStyle(document.getElementById('set-usageIntervalSeconds')).webkitUserSelect; })()");
             System.out.println("PROBE " + name + "=dragged:" + dragged[0] + " all:" + all + " styles:" + styles);

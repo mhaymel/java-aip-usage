@@ -78,7 +78,9 @@
 </div>
 
     <div id="panel" class="panel" hidden>
-        <div id="log-controls" class="log-controls" hidden>
+        <!-- A box for each view, in the order of the icons: each has its own controls, notes and lines. -->
+        <section id="view-log" class="view" aria-label="The log" hidden>
+        <div id="log-controls-log" class="log-controls">
             <span id="log-choices" class="log-choices" hidden>
             <label title="The least severe level that is shown; the more severe ones are shown with it. It changes what is shown, not what is written to the log.">Level
                 <select id="log-level" aria-label="The level of the log lines that are shown">
@@ -90,14 +92,14 @@
             <label title="Shows the date before the time of each line."><input id="log-date" type="checkbox"> Date</label>
             </span>
             <span class="zoom">
-                <button id="zoom-in" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">
+                <button id="zoom-in-log" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">
                     <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
                          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="6.8" cy="6.8" r="4.6"/>
                         <path d="M10.2 10.2L14 14M4.6 6.8h4.4M6.8 4.6v4.4"/>
                     </svg>
                 </button>
-                <button id="zoom-out" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">
+                <button id="zoom-out-log" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">
                     <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
                          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="6.8" cy="6.8" r="4.6"/>
@@ -120,6 +122,30 @@
                     </svg>
                 </button>
             </span>
+        </div>
+        <p id="log-error-log" class="panel-error" role="alert" hidden></p>
+        <p id="panel-note-log" class="panel-note" hidden></p>
+        <p id="panel-error-log" class="panel-error" role="alert" hidden></p>
+        <div id="panel-lines-log" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
+        </section>
+        <section id="view-history" class="view" aria-label="The usage history" hidden>
+        <div id="log-controls-history" class="log-controls">
+            <span class="zoom">
+                <button id="zoom-in-history" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6.8" cy="6.8" r="4.6"/>
+                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4M6.8 4.6v4.4"/>
+                    </svg>
+                </button>
+                <button id="zoom-out-history" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6.8" cy="6.8" r="4.6"/>
+                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4"/>
+                    </svg>
+                </button>
+            </span>
             <span id="history-choices" class="zoom" hidden>
                 <button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines" title="Hide the zero usage lines" aria-pressed="false">
                     <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -129,14 +155,40 @@
                 </button>
             </span>
         </div>
-        <p id="log-error" class="panel-error" role="alert" hidden></p>
-        <p id="panel-note" class="panel-note" hidden></p>
-        <p id="panel-error" class="panel-error" role="alert" hidden></p>
-        <div id="panel-lines" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
+        <p id="log-error-history" class="panel-error" role="alert" hidden></p>
+        <p id="panel-note-history" class="panel-note" hidden></p>
+        <p id="panel-error-history" class="panel-error" role="alert" hidden></p>
+        <div id="panel-lines-history" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
+        </section>
+        <section id="view-errors" class="view" aria-label="The error log" hidden>
+        <div id="log-controls-errors" class="log-controls">
+            <span class="zoom">
+                <button id="zoom-in-errors" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6.8" cy="6.8" r="4.6"/>
+                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4M6.8 4.6v4.4"/>
+                    </svg>
+                </button>
+                <button id="zoom-out-errors" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6.8" cy="6.8" r="4.6"/>
+                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4"/>
+                    </svg>
+                </button>
+            </span>
+        </div>
+        <p id="log-error-errors" class="panel-error" role="alert" hidden></p>
+        <p id="panel-note-errors" class="panel-note" hidden></p>
+        <p id="panel-error-errors" class="panel-error" role="alert" hidden></p>
+        <div id="panel-lines-errors" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
+        </section>
         <div id="cost-view" class="cost" hidden>
             <div id="cost-rows" class="cost-rows"></div>
             <p id="cost-note" class="panel-note" hidden></p>
             <p id="cost-error" class="panel-error" role="alert" hidden></p>
+            <p id="panel-error-cost" class="panel-error" role="alert" hidden></p>
         </div>
         <div id="settings-view" class="settings" hidden>
             <p id="settings-error" class="panel-error" role="alert" hidden></p>

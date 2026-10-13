@@ -14,9 +14,54 @@
     var pollTimer = null;
     var polling = false;
     var lastStale = false;
-    // Which panel is shown below the strip: 'history', 'log', or none.
-    var openPanel = null;
-    var panelLoading = false;
+    // The views there are, in the order of their icons, which is the order they are stacked in; and those of them that are lists.
+    var VIEWS = ['log', 'history', 'errors', 'cost'];
+    var LISTS = ['log', 'history', 'errors'];
+    // Which of them are shown below the strip, in that order: none, one, or, with several views at once, more. The settings
+    // are no view among them: they are shown alone, in the place of whatever was shown, and are a state of their own.
+    var openViews = [];
+    var settingsOpen = false;
+    // What the page knows of each view while it is shown: whether it is being read, which reading the history is shown up to
+    // (a new one means it is read again), what is drawn (to leave it alone when a read finds nothing new), and the rows on
+    // show, to tell how many came in above what the person was reading. Each view has its own, so that each keeps up by itself.
+    var views = {};
+    VIEWS.forEach(function (name) {
+        views[name] = { loading: false, again: false, mark: null, key: null, rows: [], hasHeader: false };
+    });
+
+    function isList(name) {
+        return LISTS.indexOf(name) >= 0;
+    }
+
+    /** Whether a view is shown; for 'settings', whether the settings are. */
+    function isOpen(name) {
+        return name === 'settings' ? settingsOpen : openViews.indexOf(name) >= 0;
+    }
+
+    function anyOpen() {
+        return settingsOpen || openViews.length > 0;
+    }
+
+    /** Whether a list is among the views shown: then the window is taller than its content and can be dragged. */
+    function listOpen() {
+        return openViews.some(isList);
+    }
+
+    /** The lowest of the lists that are shown, which is the one a taller window makes taller; null with none. */
+    function lowestList() {
+        var lists = openViews.filter(isList);
+        return lists.length > 0 ? lists[lists.length - 1] : null;
+    }
+
+    /** The box of a view in the page. */
+    function sectionOf(name) {
+        return $(name === 'cost' ? 'cost-view' : 'view-' + name);
+    }
+
+    /** Whether more than one view may be shown at the same time, which is a setting; off, opening a view closes the one shown. */
+    function several() {
+        return false;
+    }
     // The two choices of the log panel: the least severe level shown and whether the lines have their date. They are the
     // backend's, saved in the settings file; the page has them from the first answer after the panel was opened.
     var logLevel = null;
@@ -39,20 +84,13 @@
     var LIST_SIZE_MIN = 10;
     var LIST_SIZE_MAX = 20;
     var listSize = 12;
-    // Which reading the history panel shows up to: a new one means it is read again.
-    var panelMark = null;
-    // What the panel shows, to leave it alone when a read finds nothing new.
-    var panelKey = null;
-    // The rows on show, to tell how many came in above what the person was reading.
-    var panelRows = [];
-    var panelHasHeader = false;
     // Whether the pointer is over the countdown, which then shows the message of an HTTP 429 under the row.
     var hoveringCountdown = false;
     // Which of the gray boxes of the row the mouse is on, by its id, or null: the line of a reading with no spend is
     // shown for as long as it is on one.
     var hoveringBox = null;
-    // The panel that was shown when the settings were opened, which they give back when they are left; null if none.
-    var returnTo = null;
+    // The views that were shown when the settings were opened, which they give back when they are left; none if none was.
+    var returnTo = [];
     // The height the window has while a log or history is shown, and the width the vertical scrollbar of their panel takes.
     var panelHeight = 0;
     var scrollbarWidth = 0;
@@ -118,7 +156,7 @@
         try {
             lastStatus = await request('/api/status');
             // What was applied is in this status; a preview is for the open settings only.
-            if (openPanel !== 'settings') {
+            if (!settingsOpen) {
                 preview = null;
             }
             showConnection(false);
@@ -198,7 +236,7 @@
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
         markNoted();
         // With the settings shown and Automatic checked, the field of the interval follows the search.
-        if (openPanel === 'settings' && settingsShown !== null && $('set-autoInterval').checked) {
+        if (settingsOpen && settingsShown !== null && $('set-autoInterval').checked) {
             syncIntervalField();
         }
     }
@@ -253,10 +291,9 @@
      */
     function renderButtons(show) {
         var flags = { history: show.historyIcon, log: show.logIcon, errors: show.errorIcon, cost: show.costIcon };
-        var settingsOpen = openPanel === 'settings';
         Object.keys(flags).forEach(function (name) {
             var on = flags[name] !== false;
-            $(PANELS[name].button).hidden = !(on || openPanel === name || settingsOpen);
+            $(PANELS[name].button).hidden = !(on || isOpen(name) || settingsOpen);
             offButtons[name] = settingsOpen && !on;
         });
         labelButtons();
@@ -283,11 +320,11 @@
     }
 
     function applyAppClass() {
-        // The log and the history fill the window; the settings do not, so that the page's own height is the content's.
+        // The lists fill the window; the settings and the cost control alone do not, so that the page's own height is the content's.
         $('app').className = (lastStale ? 'stale' : '')
-            + (openPanel === 'log' || openPanel === 'history' || openPanel === 'errors' ? ' open' : '')
+            + (!settingsOpen && listOpen() ? ' open' : '')
             // The settings and the cost control are as tall as their content, which is the page's own height.
-            + (FORMS[openPanel] || openPanel === 'cost' ? ' fit' : '')
+            + (settingsOpen || (openViews.length > 0 && !listOpen()) ? ' fit' : '')
             // The readings are invented while the fake backend is in use: the red border says so.
             + (fakeInUse() ? ' fake' : '')
             // A window with no title bar has no frame of the system to show where it ends: the page draws one.
@@ -300,7 +337,7 @@
      * the window.
      */
     function bare() {
-        return Boolean(lastStatus && lastStatus.display && lastStatus.display.titleBar === false) && (!openPanel || openPanel === 'cost') && !fakeInUse();
+        return Boolean(lastStatus && lastStatus.display && lastStatus.display.titleBar === false) && !settingsOpen && !listOpen() && !fakeInUse();
     }
 
     // ---- the settings view: a form the backend fills in each time it is opened
@@ -341,7 +378,7 @@
      * checkbox belongs to. Nothing is sent: leaving the settings without Save gives the row back as the backend has it.
      */
     function previewNow() {
-        if (openPanel !== 'settings' || settingsShown === null) {
+        if (!settingsOpen || settingsShown === null) {
             return;
         }
         var checked = function (key) { return Boolean($('set-' + key).checked); };
@@ -366,7 +403,7 @@
      * a checkbox. History view has no preview. Either is saved when the view is.
      */
     function selectAllOrNone(flags) {
-        if (openPanel !== 'settings' || settingsShown === null) {
+        if (!settingsOpen || settingsShown === null) {
             return;
         }
         var allOn = flags.every(function (key) { return Boolean($('set-' + key).checked); });
@@ -595,8 +632,8 @@
      * them or found nothing to save. Cancel does not ask: it changes nothing, and gives back what was shown.
      */
     function dropWhatIsSwitchedOff() {
-        if (returnTo && settingsShown && settingsShown[ICON_SETTINGS[returnTo]] === false) {
-            returnTo = null;
+        if (settingsShown) {
+            returnTo = returnTo.filter(function (name) { return settingsShown[ICON_SETTINGS[name]] !== false; });
         }
     }
 
@@ -616,9 +653,13 @@
      */
     function leaveForm(name, saved) {
         var applied = saved ? preview : null;
-        var back = name || returnTo;
-        returnTo = null;
-        showPanelNamed(back);
+        var back = returnTo.slice();
+        if (name) {
+            // The icon of a view was pressed: that view, and with several views at once the ones the settings replaced as well.
+            back = several() ? back.concat([name]) : [name];
+        }
+        returnTo = [];
+        showViews(back, false);
         if (saved) {
             preview = applied;
             render();
@@ -731,7 +772,7 @@
 
     /** Cancel: closes the view and changes nothing; it asks nothing, since nothing was sent. It is the one way to leave without saving. */
     function cancelSettings() {
-        if (openPanel === 'settings') {
+        if (settingsOpen) {
             leaveForm(null, false);
         }
     }
@@ -887,23 +928,23 @@
     }
 
     function panelIsOpen() {
-        return openPanel !== null;
+        return anyOpen();
     }
 
     /**
      * Reads what the open panel shows and puts it on the page. The lines are replaced only when they
      * changed, and what the person has scrolled to stays where it is, though lines come in above it.
      */
-    async function loadPanel() {
-        if (panelLoading || !openPanel || FORMS[openPanel]) {
+    async function loadPanel(name) {
+        var view = views[name];
+        if (!view || !isOpen(name) || view.loading) {
             return;
         }
-        var name = openPanel;
         var spec = PANELS[name];
         var stamp = historyStamp();
         var level = logLevel;
         var presses = historyPresses;
-        panelLoading = true;
+        view.loading = true;
         try {
             var body = await request(spec.path + (name === 'log' && logUnsaved ? '?level=' + level : '')
                 + (name === 'history' && historyUnsaved ? '?zeroLines=' + historyZero : ''));
@@ -915,7 +956,7 @@
             }
             if (name === 'log') {
                 takeLogChoices(body);
-                if (name === openPanel) {
+                if (isOpen(name)) {
                     takeOldLog(Boolean(body.oldLog));
                 }
                 // The date is the page's to cut: the lines come as the file has them.
@@ -923,38 +964,40 @@
             }
             var shown = spec.describe(body);
             if (name === 'cost') {
-                // The cost control has its bars and no lines. What follows the reading is not left out for it: a view that was
-                // opened while this read was under way starts its own below, at once, and does not wait for the next poll.
-                if (name === openPanel) {
+                // The cost control has its bars and no lines.
+                if (isOpen(name)) {
+                    setNote('panel-error-cost', '');
                     showCost(shown);
                 }
-            } else if (name === openPanel && !overtaken && !(name === 'log' && level !== null && level !== logLevel)) {
+            } else if (isOpen(name) && !overtaken && !(name === 'log' && level !== null && level !== logLevel)) {
                 // A read that was begun for another level than the one chosen meanwhile is not shown: the one that follows is.
-                showPanel(shown);
+                showPanel(name, shown);
                 if (name === 'log' && logToTop) {
-                    $('panel-lines').scrollTop = 0;
+                    $('panel-lines-log').scrollTop = 0;
                     logToTop = false;
                 }
                 if (name === 'history' && historyToTop) {
-                    $('panel-lines').scrollTop = 0;
+                    $('panel-lines-history').scrollTop = 0;
                     historyToTop = false;
                 }
-                // Noted only now that the read has been shown: a read that failed, or was for a panel that
+                // Noted only now that the read has been shown: a read that failed, or was for a view that
                 // has gone, leaves the mark as it was, so the history is read again at the next poll.
-                panelMark = stamp;
+                view.mark = stamp;
             }
         } catch (e) {
             // What was shown stays; only the error is added.
-            if (name === openPanel) {
-                setNote('panel-error', spec.failure + e.message);
+            if (isOpen(name)) {
+                setNote('panel-error-' + name, spec.failure + e.message);
             }
         } finally {
-            panelLoading = false;
+            view.loading = false;
         }
-        // Another panel was opened while this read was under way and could not start its own: it starts now. So does the
-        // read for a level that was chosen while this one was under way.
-        if (name !== openPanel || (name === 'log' && level !== null && level !== logLevel) || (name === 'history' && presses !== historyPresses)) {
-            loadPanel();
+        // The view was closed and shown again while this read was under way, and could not start its own: it starts now. So
+        // does the read for a level that was chosen, or for a press of the history's button, while this one was under way.
+        var again = view.again;
+        view.again = false;
+        if (isOpen(name) && (again || (name === 'log' && level !== null && level !== logLevel) || (name === 'history' && presses !== historyPresses))) {
+            loadPanel(name);
         }
     }
 
@@ -963,7 +1006,7 @@
      * that switches it. A press that could not be saved is not overruled by what is saved.
      */
     function takeHistoryChoice(body) {
-        if (openPanel !== 'history') {
+        if (!isOpen('history')) {
             return;
         }
         if (!historyUnsaved) {
@@ -989,7 +1032,7 @@
      * newest line, and the choice is saved as the setting of that name. If it cannot be saved it holds all the same, for the run.
      */
     async function toggleZeroLines() {
-        if (openPanel !== 'history' || historyZero === null) {
+        if (!isOpen('history') || historyZero === null) {
             return;
         }
         historyZero = !historyZero;
@@ -999,22 +1042,22 @@
         try {
             await postJson('/api/history', { zeroLines: historyZero });
             historyUnsaved = false;
-            setNote('log-error', '');
+            setNote('log-error-history', '');
         } catch (e) {
             historyUnsaved = true;
-            setNote('log-error', /^The history settings could not be saved: /.test(e.message) ? e.message : 'The history settings could not be saved: ' + e.message);
+            setNote('log-error-history', /^The history settings could not be saved: /.test(e.message) ? e.message : 'The history settings could not be saved: ' + e.message);
         }
-        if (openPanel === 'history') {
+        if (isOpen('history')) {
             // Read again whatever was read last: the lines are other ones.
-            panelKey = null;
-            panelMark = null;
-            await loadPanel();
+            views.history.key = null;
+            views.history.mark = null;
+            await loadPanel('history');
         }
     }
 
     /** Takes the two choices of the log panel from the first answer after it was opened, and shows them in its controls. */
     function takeLogChoices(body) {
-        if (logKnown || openPanel !== 'log') {
+        if (logKnown || !isOpen('log')) {
             return;
         }
         logKnown = true;
@@ -1044,21 +1087,21 @@
      * file; it asks, shows the log as it then is, at its newest line, and says in red when it could not be done.
      */
     async function logFileAction(action) {
-        if (openPanel !== 'log') {
+        if (!isOpen('log')) {
             return;
         }
         var failed = action === 'reset' ? 'The log could not be reset: ' : 'The log could not be merged: ';
         try {
             var answer = await postJson('/api/log/' + action, {});
             takeOldLog(Boolean(answer && answer.oldLog));
-            setNote('log-error', '');
+            setNote('log-error-log', '');
         } catch (e) {
-            setNote('log-error', e.message.indexOf(failed) === 0 ? e.message : failed + e.message);
+            setNote('log-error-log', e.message.indexOf(failed) === 0 ? e.message : failed + e.message);
         }
-        if (openPanel === 'log') {
+        if (isOpen('log')) {
             logToTop = true;
-            panelKey = null;
-            await loadPanel();
+            views.log.key = null;
+            await loadPanel('log');
         }
     }
 
@@ -1068,8 +1111,11 @@
         if (root && root.style && root.style.setProperty) {
             root.style.setProperty('--list-size', listSize + 'px');
         }
-        setDisabled('zoom-in', listSize >= LIST_SIZE_MAX);
-        setDisabled('zoom-out', listSize <= LIST_SIZE_MIN);
+        // The two buttons are in the line of every list, and the size is one for all three.
+        LISTS.forEach(function (name) {
+            setDisabled('zoom-in-' + name, listSize >= LIST_SIZE_MAX);
+            setDisabled('zoom-out-' + name, listSize <= LIST_SIZE_MIN);
+        });
     }
 
     function setDisabled(id, disabled) {
@@ -1084,7 +1130,7 @@
      * One of the two buttons was pressed: the text of the lists is a pixel larger or smaller, at once and for all three,
      * and the size is saved. If it cannot be saved it holds all the same, for the run.
      */
-    async function zoomLists(step) {
+    async function zoomLists(step, name) {
         var wanted = Math.min(LIST_SIZE_MAX, Math.max(LIST_SIZE_MIN, listSize + step));
         if (wanted === listSize) {
             return;
@@ -1093,9 +1139,9 @@
         applyListSize();
         try {
             await postJson('/api/text-size', { size: listSize });
-            setNote('log-error', '');
+            setNote('log-error-' + name, '');
         } catch (e) {
-            setNote('log-error', /^The text size could not be saved: /.test(e.message) ? e.message : 'The text size could not be saved: ' + e.message);
+            setNote('log-error-' + name, /^The text size could not be saved: /.test(e.message) ? e.message : 'The text size could not be saved: ' + e.message);
         }
     }
 
@@ -1110,15 +1156,15 @@
         try {
             await postJson('/api/log', { level: logLevel, date: logDate });
             logUnsaved = false;
-            setNote('log-error', '');
+            setNote('log-error-log', '');
         } catch (e) {
             logUnsaved = true;
-            setNote('log-error', /^The log settings could not be saved: /.test(e.message) ? e.message : 'The log settings could not be saved: ' + e.message);
+            setNote('log-error-log', /^The log settings could not be saved: /.test(e.message) ? e.message : 'The log settings could not be saved: ' + e.message);
         }
-        if (openPanel === 'log') {
+        if (isOpen('log')) {
             // Read again whatever was read last: the lines are other ones, or are drawn another way.
-            panelKey = null;
-            await loadPanel();
+            views.log.key = null;
+            await loadPanel('log');
         }
     }
 
@@ -1188,22 +1234,23 @@
     async function openLogFile(file) {
         try {
             await postJson('/api/log/open', { file: file });
-            setNote('log-error', '');
+            setNote('log-error-log', '');
         } catch (e) {
-            setNote('log-error', e.message.indexOf('The folder could not be opened: ') === 0 ? e.message : 'The folder could not be opened: ' + e.message);
+            setNote('log-error-log', e.message.indexOf('The folder could not be opened: ') === 0 ? e.message : 'The folder could not be opened: ' + e.message);
         }
     }
 
-    function showPanel(shown) {
+    function showPanel(name, shown) {
+        var view = views[name];
         var key = JSON.stringify(shown);
-        setNote('panel-error', '');
-        if (key === panelKey) {
+        setNote('panel-error-' + name, '');
+        if (key === view.key) {
             return;
         }
-        panelKey = key;
-        var box = $('panel-lines');
+        view.key = key;
+        var box = $('panel-lines-' + name);
         var scrolled = box.scrollTop;
-        var perRow = box.scrollHeight && panelRows.length ? box.scrollHeight / (panelRows.length + (panelHasHeader ? 1 : 0)) : 0;
+        var perRow = box.scrollHeight && view.rows.length ? box.scrollHeight / (view.rows.length + (view.hasHeader ? 1 : 0)) : 0;
         var rowKeys = shown.rows.map(function (row) { return row.join('\u0000'); });
         box.replaceChildren();
         if (shown.header) {
@@ -1218,16 +1265,17 @@
             box.append(line);
         });
         // Rows that came in above what the person was reading push it down; follow it.
-        var added = panelRows.length ? rowKeys.indexOf(panelRows[0]) : 0;
+        var added = view.rows.length ? rowKeys.indexOf(view.rows[0]) : 0;
         box.scrollTop = scrolled > 0 && added > 0 ? scrolled + added * perRow : scrolled;
-        panelRows = rowKeys;
-        panelHasHeader = Boolean(shown.header);
-        if (openPanel === 'history') {
+        view.rows = rowKeys;
+        view.hasHeader = Boolean(shown.header);
+        if (name === 'history') {
             measureTable(shown);
         }
-        show('panel-lines', shown.rows.length > 0);
+        // Whether the list is shown follows from this alone: it is the list of its own view, and it has lines or has none.
+        show('panel-lines-' + name, shown.rows.length > 0);
         // A note that says something is left out, or that there is nothing to see, is in the info colour.
-        setNote('panel-note', shown.note, 'panel-note' + (shown.noteHighlight ? ' highlight' : ''));
+        setNote('panel-note-' + name, shown.note, 'panel-note' + (shown.noteHighlight ? ' highlight' : ''));
     }
 
     // What the cost control shows now, as JSON, so that it is drawn again only when it changed.
@@ -1335,9 +1383,11 @@
 
     /** Reads the open panel again when there may be more to show: a new reading, or any time for the log. */
     function refreshPanel() {
-        if (openPanel === 'log' || openPanel === 'errors' || openPanel === 'cost' || (openPanel === 'history' && historyStamp() !== panelMark)) {
-            loadPanel();
-        }
+        openViews.forEach(function (name) {
+            if (name !== 'history' || historyStamp() !== views.history.mark) {
+                loadPanel(name);
+            }
+        });
     }
 
     // The second line of the tooltip of a panel button that is switched off and shown all the same, while the settings are open.
@@ -1346,15 +1396,15 @@
     function labelButtons() {
         Object.keys(PANELS).forEach(function (name) {
             var spec = PANELS[name];
-            var label = openPanel === name ? spec.hide : spec.show;
-            var off = Boolean(offButtons[name]) && openPanel === 'settings';
+            var open = isOpen(name);
+            var label = open ? spec.hide : spec.show;
+            var off = Boolean(offButtons[name]) && settingsOpen;
             var button = $(spec.button);
             button.title = off ? label + '\n' + OFF_NOTE : label;
             button.setAttribute('aria-label', label);
-            button.setAttribute('aria-expanded', String(openPanel === name));
-            // The button of the panel that is shown is blue; closing it, or showing another, gives it back its colour. One that is
-            // switched off is dimmed.
-            button.className = 'icon tiny' + (openPanel === name ? ' active' : '') + (off ? ' off' : '');
+            button.setAttribute('aria-expanded', String(open));
+            // The icon of a view that is shown is blue; closing it gives it back its colour. One that is switched off is dimmed.
+            button.className = 'icon tiny' + (open ? ' active' : '') + (off ? ' off' : '');
         });
     }
 
@@ -1367,71 +1417,118 @@
      * Save does, when anything in them was changed. If that fails they stay, with the reason, and the other panel is not shown.
      */
     async function togglePanel(name) {
-        var form = FORMS[openPanel];
-        if (form) {
+        if (settingsOpen) {
+            var form = FORMS.settings;
             var changed = form.changed();
             if (changed && !(await form.save())) {
                 return;
             }
             dropWhatIsSwitchedOff();
-            leaveForm(name === openPanel ? null : name, changed);
+            leaveForm(name === 'settings' ? null : name, changed);
             return;
         }
-        if (FORMS[name]) {
-            returnTo = openPanel;
-            showPanelNamed(name);
+        if (name === 'settings') {
+            returnTo = openViews.slice();
+            showViews([], true);
             return;
         }
-        returnTo = null;
-        showPanelNamed(openPanel === name ? null : name);
+        returnTo = [];
+        if (isOpen(name)) {
+            // A press on the icon of a view that is shown closes that view, and that view alone.
+            showViews(openViews.filter(function (open) { return open !== name; }), false);
+        } else {
+            // With several views at once the others stay; without, the view takes the place of the one that is shown.
+            showViews(several() ? openViews.concat([name]) : [name], false);
+        }
     }
 
     /** Shows the named panel, or none for null, in the one panel area, loading what it shows afresh. */
-    function showPanelNamed(name) {
-        openPanel = name;
+    /** What a view shows is taken away, in the page and in what the page knows of it: it is read afresh when it is shown again. */
+    function resetView(name) {
+        var view = views[name];
+        // A read that is under way is still under way; whether another is to follow it is said by whoever shows the view.
+        view.again = false;
+        view.mark = null;
+        view.key = null;
+        view.rows = [];
+        view.hasHeader = false;
+        setNote('panel-error-' + name, '');
+        if (name === 'cost') {
+            costKey = null;
+            $('cost-rows').replaceChildren();
+            setNote('cost-note', '');
+            setNote('cost-error', '');
+            return;
+        }
+        $('panel-lines-' + name).replaceChildren();
+        setNote('panel-note-' + name, '');
+        setNote('log-error-' + name, '');
+        if (name === 'log') {
+            // The log comes up with what is saved: its controls are shown when the first answer has said what that is.
+            logKnown = false;
+            logUnsaved = false;
+            logToTop = false;
+            logLevel = null;
+            show('log-choices', false);
+            show('log-files', false);
+        }
+        if (name === 'history') {
+            // The history comes up with what is saved as well: its button is shown when the first answer has said what that is.
+            // A choice that could not be saved holds for the run, so it is kept from one opening of the history to the next.
+            if (!historyUnsaved) {
+                historyZero = null;
+            }
+            historyToTop = false;
+            show('history-choices', false);
+        }
+    }
+
+    /**
+     * How tall a list is while another view is shown below it: the height it has alone, which is ten times the row's or the
+     * one the person last gave it, less the row. The last of the lists has no height of its own: it takes what the window has.
+     */
+    function aloneHeight(name) {
+        var kept = lastStatus && lastStatus.display && lastStatus.display.heights ? lastStatus.display.heights[name] : 0;
+        return Math.max(panelHeight, typeof kept === 'number' ? kept : 0);
+    }
+
+    function sectionHeight(name) {
+        return name === 'cost' ? Math.ceil(sectionOf('cost').getBoundingClientRect().height) : aloneHeight(name) - panelHeight / 10;
+    }
+
+    /** Gives each list that has another view below it its height, and lets the lowest list take what is left. */
+    function layoutViews() {
+        var lowest = lowestList();
+        LISTS.forEach(function (name) {
+            var section = sectionOf(name);
+            var fixed = isOpen(name) && name !== lowest;
+            section.className = 'view' + (fixed ? ' fixed' : '');
+            section.style.height = fixed ? sectionHeight(name) + 'px' : '';
+        });
+    }
+
+    /**
+     * Shows these views, in the order of their icons, or the settings alone, and nothing else. A view that was not shown is
+     * read afresh; one that stays is left as it is, with what the person has scrolled to; one that goes is emptied. The
+     * settings take the place of every view, so the views they give back are read afresh as well, and have the new settings.
+     */
+    function showViews(names, settings) {
+        var before = openViews;
+        var next = settings ? [] : VIEWS.filter(function (name) { return names.indexOf(name) >= 0; });
+        var fresh = next.filter(function (name) { return before.indexOf(name) < 0; });
+        var gone = before.filter(function (name) { return next.indexOf(name) < 0; });
+        openViews = next;
+        settingsOpen = Boolean(settings);
         // A preview belongs to the settings as they were opened: it ends when they are left, and a new one begins with the first click.
         preview = null;
-        panelKey = null;
-        // Nothing of this panel has been read yet, whatever stamp the one before was read at.
-        panelMark = null;
-        panelRows = [];
-        panelHasHeader = false;
-        $('panel-lines').replaceChildren();
-        setNote('panel-note', '');
-        setNote('panel-error', '');
-        // The log panel comes up with what is saved: its controls are shown when the first answer has said what that is.
-        logKnown = false;
-        logUnsaved = false;
-        logToTop = false;
-        logLevel = null;
-        // The line at the top of a list has the two buttons of the zoom, for each of the three lists; the two choices of
-        // the log are in it for the log alone.
-        show('log-controls', Boolean(openPanel) && !FORMS[openPanel] && openPanel !== 'cost');
-        show('log-choices', false);
-        show('log-files', false);
-        // The history panel comes up with what is saved as well: its button is shown when the first answer has said what that is.
-        // A choice that could not be saved holds for the run, so it is kept from one opening of the history to the next.
-        if (!historyUnsaved) {
-            historyZero = null;
-        }
-        historyToTop = false;
-        show('history-choices', false);
-        setNote('log-error', '');
+        gone.concat(fresh).forEach(resetView);
+        VIEWS.forEach(function (name) { show(sectionOf(name).id, isOpen(name)); });
         labelButtons();
-        show('panel', panelIsOpen());
-        // The settings are a form in the same place, not lines; the others are lines.
-        show('settings-view', openPanel === 'settings');
-        show('cost-view', openPanel === 'cost');
-        costKey = null;
-        $('cost-rows').replaceChildren();
-        setNote('cost-note', '');
-        setNote('cost-error', '');
+        show('panel', anyOpen());
+        // The settings are a form in the same place, not lines.
+        show('settings-view', settingsOpen);
         // The settings open on the tab they were left on (see currentTab).
-        if (openPanel === 'cost') {
-            show('panel-lines', false);
-        }
-        if (openPanel === 'settings') {
-            show('panel-lines', false);
+        if (settingsOpen) {
             showTab(currentTab);
             loadSettings();
         } else {
@@ -1439,13 +1536,21 @@
             settingsDefaults = null;
             debugShown = null;
         }
-        // The window's height while a log or history is shown is fixed at what it was when it opened (ten rows),
-        // so that a message line coming or going does not move it; the panel takes up the difference.
+        // The window's height while a list is shown is fixed at what it was when it opened (ten rows),
+        // so that a message line coming or going does not move it; the list takes up the difference.
         panelHeight = 10 * Math.ceil($('top').getBoundingClientRect().height);
+        layoutViews();
         applyAppClass();
-        // The row changes with the panel (the buttons that are switched off come and go), at once and not at the next poll.
+        // The row changes with the views (the icons that are switched off come and go), at once and not at the next poll.
         render();
-        loadPanel();
+        fresh.forEach(function (name) {
+            // A read of this view from before it was closed may still be under way: another follows it, for what is shown now.
+            if (views[name].loading) {
+                views[name].again = true;
+            } else {
+                loadPanel(name);
+            }
+        });
     }
 
     // ---- the window host
@@ -1456,10 +1561,11 @@
      * other panel. It is the empty text when nothing is open, and when the page is not ready yet: it is safe to ask at any time.
      */
     window.currentView = function () {
-        if (!config || !openPanel) {
+        if (!config || !anyOpen()) {
             return '';
         }
-        return openPanel + ',' + (openPanel === 'settings' ? currentTab : '');
+        // Several views are named together, in the order of their icons: history+cost.
+        return settingsOpen ? 'settings,' + currentTab : openViews.join('+') + ',';
     };
 
     /**
@@ -1474,19 +1580,22 @@
         if (!config) {
             return false;
         }
-        if (['log', 'history', 'errors', 'cost', 'settings'].indexOf(panel) < 0) {
-            return true;
-        }
-        returnTo = null;
-        if (panel === 'settings') {
-            returnTo = openPanel;
-            showPanelNamed('settings');
+        var names = String(panel || '').split(/[+,]/);
+        if (names.indexOf('settings') >= 0) {
+            returnTo = openViews.slice();
+            showViews([], true);
             if (visibleTabs().indexOf(tab) >= 0) {
                 showTab(tab);
             }
             return true;
         }
-        showPanelNamed(panel);
+        var known = VIEWS.filter(function (name) { return names.indexOf(name) >= 0; });
+        if (known.length === 0) {
+            return true;
+        }
+        returnTo = [];
+        // Every view that was open, with several views at once; else the first of them.
+        showViews(several() ? known : [known[0]], false);
         return true;
     };
 
@@ -1513,7 +1622,7 @@
         // While a panel is shown the row is stretched to the window, so its own width is measured with the stretch let go
         // of for the moment: the size asked for must never follow from the size the window has.
         var top = $('top');
-        var stretched = openPanel !== null;
+        var stretched = anyOpen();
         if (stretched) {
             top.style.width = 'max-content';
             top.style.maxWidth = '900px';
@@ -1529,7 +1638,7 @@
         var edge = fakeInUse() ? 6 : bare() ? 2 : 0;
         var width = Math.ceil(box.width) + edge;
         var height = Math.ceil(box.height) + edge;
-        if (openPanel === 'settings') {
+        if (settingsOpen) {
             // As tall as the row, its message lines and the settings need, whole, and never narrower than the settings need
             // for every text to be on one line and the buttons in one row; the flag says it is not resizable, and the name that a panel is open.
             // The window does not change its width from tab to tab: the width is that of the widest of them.
@@ -1539,25 +1648,56 @@
             // one place where what is asked for follows from the window, and only in the height, which is not the person's.
             return Math.max(width, settingsWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',' + (currentTab === 'about' ? 4 : 3) + ',settings';
         }
-        if (openPanel === 'cost') {
+        if (openViews.length > 1) {
+            return severalSize(width);
+        }
+        var only = openViews.length === 1 ? openViews[0] : null;
+        if (only === 'cost') {
             // As tall as the two bars and the note need, and as wide as the history's table, or as the bars need: not resizable.
             return Math.max(width, currentTableWidth() + 16, costWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,cost';
         }
         // The last field names the panel, so that the host remembers the height of the history and of the log.
-        if (openPanel === 'log') {
+        if (only === 'log') {
             return (3 * width + scrollbarWidth) + ',' + panelHeight + ',2,log';
         }
-        if (openPanel === 'history') {
+        if (only === 'history') {
             // As wide as the table needs (16 px is the panel's padding), never narrower than the row, and wider by what the
             // list was seen to lack at that width.
             return (Math.max(width, currentTableWidth() + 16) + scrollbarWidth + historyLack(width)) + ',' + panelHeight + ',1,history';
         }
-        if (openPanel === 'errors') {
+        if (only === 'errors') {
             // Half as wide as the log; a long message scrolls sideways.
             return (Math.ceil(1.5 * width) + scrollbarWidth) + ',' + panelHeight + ',2,errors';
         }
         return width + ',' + height + ',0';
     };
+
+    /**
+     * The size the window needs for several views at once, and what of it may be dragged. It is as wide as the widest of
+     * them needs, each by its own rule, and as tall as the row and all of them together, each at the height it has alone.
+     * The height may be dragged when a list is among them, and the width when the log or the error log is. The views are
+     * named together, in the order of their icons, and after them stands the height the lowest list has alone, row included:
+     * the host, which remembers the heights of the history and of the log, works out from it what a dragged height is for that list.
+     */
+    function severalSize(width) {
+        var wide = width;
+        var total = panelHeight / 10;
+        openViews.forEach(function (name) {
+            if (name === 'log') {
+                wide = Math.max(wide, 3 * width + scrollbarWidth);
+            } else if (name === 'history') {
+                wide = Math.max(wide, Math.max(width, currentTableWidth() + 16) + scrollbarWidth + historyLack(width));
+            } else if (name === 'errors') {
+                wide = Math.max(wide, Math.ceil(1.5 * width) + scrollbarWidth);
+            } else {
+                wide = Math.max(wide, currentTableWidth() + 16, costWidth());
+            }
+            total += sectionHeight(name);
+        });
+        var lowest = lowestList();
+        var flag = lowest === null ? 3 : (isOpen('log') || isOpen('errors') ? 2 : 1);
+        return wide + ',' + Math.ceil(total) + ',' + flag + ',' + openViews.join('+') + (lowest === null ? '' : ',' + aloneHeight(lowest));
+    }
 
     // What the list of the history was seen to lack in width, in pixels, and for which table that was: see historyLack.
     var historyLacking = 0;
@@ -1575,7 +1715,7 @@
      * and it is not the window's width that is reported: only what the list lacks at the width the page itself asked for.
      */
     function historyLack(rowWidth) {
-        var box = $('panel-lines');
+        var box = $('panel-lines-history');
         var key = currentTableWidth() + ',' + rowWidth + ',' + listSize + ',' + scrollbarWidth;
         if (key !== historyLackFor) {
             historyLackFor = key;
@@ -1673,8 +1813,10 @@
             listSize = config.listFontSize;
         }
         applyListSize();
-        $('zoom-in').addEventListener('click', function () { zoomLists(1); });
-        $('zoom-out').addEventListener('click', function () { zoomLists(-1); });
+        LISTS.forEach(function (name) {
+            $('zoom-in-' + name).addEventListener('click', function () { zoomLists(1, name); });
+            $('zoom-out-' + name).addEventListener('click', function () { zoomLists(-1, name); });
+        });
         $('zero-lines').addEventListener('click', toggleZeroLines);
         $('log-reset').addEventListener('click', function () { return logFileAction('reset'); });
         $('log-merge').addEventListener('click', function () { return logFileAction('merge'); });

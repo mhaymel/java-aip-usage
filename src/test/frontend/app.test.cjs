@@ -98,8 +98,38 @@ async function load(backend, options = {}) {
     delete require.cache[require.resolve(path.join(WEB, 'app.js'))];
     require(path.join(WEB, 'app.js'));
     await settle();
+    // Each view has a box of its own in the page, and what a list has of its own carries the name of its view: panel-lines-log,
+    // panel-note-history. The tests that show one view at a time ask for these by the names they had when there was one list:
+    // the name stands for the part of the view that is shown, or of the one that was shown last. A part is hidden when its box is.
+    const SHARED = ['log-controls', 'zoom-in', 'zoom-out', 'log-error', 'panel-note', 'panel-error', 'panel-lines'];
+    const BOXES = { log: 'view-log', history: 'view-history', errors: 'view-errors', cost: 'cost-view' };
+    let lastView = 'history';
+    const partOf = id => {
+        if (!SHARED.includes(id)) {
+            return elements.get(id);
+        }
+        const shown = Object.keys(BOXES).filter(name => !elements.get(BOXES[name]).hidden && elements.has(id + '-' + name));
+        if (shown.length > 0) {
+            lastView = shown[0];
+        }
+        const name = elements.has(id + '-' + lastView) ? lastView : 'history';
+        const box = elements.get(BOXES[name]);
+        return new Proxy(elements.get(id + '-' + name), {
+            get(target, key) {
+                if (key === 'hidden') {
+                    return target.hidden || box.hidden;
+                }
+                const value = target[key];
+                return typeof value === 'function' ? value.bind(target) : value;
+            },
+            set(target, key, value) {
+                target[key] = value;
+                return true;
+            },
+        });
+    };
     const page = {
-        el: id => elements.get(id), calls, timers, opened, window: global.window,
+        el: partOf, calls, timers, opened, window: global.window,
         posts: () => calls.filter(c => c.method === 'POST' && c.url === '/api/config'),
         firePoll: async () => {
             const next = timers.filter(t => t.live).pop();
@@ -115,7 +145,7 @@ async function load(backend, options = {}) {
             await settle();
             return prevented;
         },
-        click: async id => { await elements.get(id).listeners.click(); await settle(); },
+        click: async id => { await partOf(id).listeners.click(); await settle(); },
     };
     return page;
 }
@@ -234,9 +264,21 @@ test('every id the page script looks up is declared in index.html', () => {
     const used = new Set([...script.matchAll(/\$\('([^']+)'\)/g)].map(m => m[1]));
     for (const m of script.matchAll(/(?:input|id): '([^']+)'/g)) used.add(m[1]);
     for (const m of script.matchAll(/(?:show|setNote)\('([^']+)'/g)) used.add(m[1]);
+    // What a list has of its own is looked up with the name of its view after it: 'panel-lines-' + name.
+    const VIEW_NAMES = ['log', 'history', 'errors', 'cost'];
     for (const id of used) {
+        if (id.endsWith('-')) {
+            assert.ok(VIEW_NAMES.some(name => INDEX_IDS.includes(id + name)), 'no view has an id that begins ' + id);
+            continue;
+        }
         assert.ok(INDEX_IDS.includes(id), 'missing id in index.html: ' + id);
     }
+    for (const part of ['log-controls-', 'zoom-in-', 'zoom-out-', 'log-error-', 'panel-note-', 'panel-error-', 'panel-lines-']) {
+        for (const name of ['log', 'history', 'errors']) {
+            assert.ok(INDEX_IDS.includes(part + name), 'every list has its own ' + part + name);
+        }
+    }
+    assert.ok(INDEX_IDS.includes('panel-error-cost'), 'and the cost control its own red line');
 });
 
 test('at startup it asks for the intervals first, then polls the status, and fetches nothing', async () => {
@@ -1279,7 +1321,7 @@ test('a history read that failed is tried again at the next poll, though no row 
     assert.equal(page.calls.filter(c => c.url === '/api/history').length, 2);
 });
 
-test('a panel opened while another is still being read is read as soon as that read ends', async () => {
+test('a view opened while another is still being read is read at once, by itself, and the late answer of the other is dropped', async () => {
     const state = { config: CONFIG, status: { ...SPEND_STATUS, historyStamp: 'a' } };
     const page = await load(backendOf(state));
     let answerLog;
@@ -1288,12 +1330,14 @@ test('a panel opened while another is still being read is read as soon as that r
 
     // The log has not answered yet, and the person goes on to the history.
     await page.click('history-button');
-    assert.equal(page.calls.filter(c => c.url === '/api/history').length, 0, 'one read at a time');
+    assert.equal(page.calls.filter(c => c.url === '/api/history').length, 1, 'each view is read by itself: it does not wait for the log');
+    assert.equal(page.el('panel-lines').children.length, 3, 'and is drawn');
 
     answerLog();
     await settle();
 
-    assert.equal(page.calls.filter(c => c.url === '/api/history').length, 1, 'read without waiting for a new row');
+    assert.equal(page.calls.filter(c => c.url === '/api/history').length, 1, 'and is not read a second time for it');
+    assert.equal(page.el('panel-lines-log').children.length, 0, 'the log that answered late is not drawn: it is not shown');
     assert.equal(page.el('panel-lines').children.length, 3, 'the history, not the log that answered late');
     assert.equal(page.el('panel-lines').children[1].children[0].textContent, '20:46:11');
 });

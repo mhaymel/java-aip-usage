@@ -664,6 +664,27 @@ body {
 }
 
 /*
+ * The box of a view, of which the panel has one for each list. Alone, a view takes all the height the panel has, as the one
+ * list did. With several shown, each but the last has the height the page gives it, and the last takes what is left, so
+ * that it is the one a taller window makes taller.
+ */
+.view {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.view[hidden] {
+    display: none;
+}
+
+/* A view above another keeps its height; the page says how tall it is. */
+.view.fixed {
+    flex: none;
+}
+
+/*
  * The line of the log panel with its two choices, the level and the date: at the left, above the lines, in the type of the
  * settings. It is not part of what scrolls, so it stays where it is.
  */

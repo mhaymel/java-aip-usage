@@ -214,7 +214,9 @@ test('the panel is below the strip and below every message line, and closed at t
     assert.match(html, /<div id="panel"[^>]*\shidden/);
     assert.match(html, /id="history-button"[^>]*aria-expanded="false"/);
     assert.match(html, /id="log-button"[^>]*aria-expanded="false"/);
-    assert.match(html, /id="panel-error"[^>]*role="alert"/);
+    for (const name of ['log', 'history', 'errors', 'cost']) {
+        assert.match(html, new RegExp('id="panel-error-' + name + '"[^>]*role="alert"'), 'each view has its own red line: ' + name);
+    }
 });
 
 /** The declarations of the rule for one selector in app.css. */
@@ -263,16 +265,16 @@ test('the panels, the line of the log\'s two choices and the settings view are t
 });
 
 test('the log panel has a line at its top with the level and the date, at the left, in that order', () => {
-    const line = html.slice(html.indexOf('<div id="log-controls"'), html.indexOf('<p id="panel-note"'));
-    assert.match(line, /^<div id="log-controls" class="log-controls" hidden>\s*<span id="log-choices" class="log-choices" hidden>/, 'hidden until a list is shown, and the two choices in it until it is the log');
-    assert.ok(html.indexOf('id="log-controls"') > html.indexOf('<div id="panel"'), 'in the panel');
-    assert.ok(html.indexOf('id="log-controls"') < html.indexOf('id="panel-lines"'), 'above the lines');
+    const line = html.slice(html.indexOf('<div id="log-controls-log"'), html.indexOf('<p id="panel-note-log"'));
+    assert.match(line, /^<div id="log-controls-log" class="log-controls">\s*<span id="log-choices" class="log-choices" hidden>/, 'shown with its view, and the two choices in it when the log has said what is saved');
+    assert.ok(html.indexOf('id="log-controls-log"') > html.indexOf('<div id="panel"'), 'in the panel');
+    assert.ok(html.indexOf('id="log-controls-log"') < html.indexOf('id="panel-lines-log"'), 'above the lines');
     assert.match(line, /<label[^>]*>Level\s*<select id="log-level"/, 'the label, then the dropdown');
     assert.deepEqual([...line.matchAll(/<option value="([a-z]+)">([A-Za-z]+)<\/option>/g)].map(m => m[1] + ':' + m[2]),
         ['error:Error', 'warning:Warning', 'info:Info', 'debug:Debug'], 'four levels, the most severe first');
     assert.match(line, /<input id="log-date" type="checkbox"> Date<\/label>/);
     assert.ok(line.indexOf('log-level') < line.indexOf('log-date'), 'the level first');
-    assert.match(line, /<p id="log-error" class="panel-error" role="alert" hidden><\/p>/, 'and a red line for a save that failed');
+    assert.match(line, /<p id="log-error-log" class="panel-error" role="alert" hidden><\/p>/, 'and a red line for a save that failed');
     assert.doesNotMatch(html.slice(html.indexOf('id="settings-view"')), /log-level|log-date/, 'the settings view does not have the two');
 
     const rule = ruleOf('.log-controls');
@@ -321,13 +323,19 @@ test('while a panel is shown the row is as wide as the window, and with none a m
 });
 
 test('the line at the top of a list has two buttons that make its text larger and smaller, after the log\'s two choices', () => {
-    const line = html.slice(html.indexOf('<div id="log-controls"'), html.indexOf('<p id="log-error"'));
-    assert.ok(line.indexOf('id="log-choices"') < line.indexOf('id="zoom-in"'), 'after the level and the date');
-    assert.ok(line.indexOf('</span>') < line.indexOf('id="zoom-in"'), 'and outside them, so that the history and the error log have the buttons too');
-    assert.match(line, /<button id="zoom-in" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">/);
-    assert.match(line, /<button id="zoom-out" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">/);
-    assert.ok(line.indexOf('id="zoom-in"') < line.indexOf('id="zoom-out"'));
-    const icons = [...line.matchAll(/<button id="zoom-(in|out)"[\s\S]*?<\/button>/g)].map(m => m[0]);
+    const line = html.slice(html.indexOf('<div id="log-controls-log"'), html.indexOf('<p id="log-error-log"'));
+    assert.ok(line.indexOf('id="log-choices"') < line.indexOf('id="zoom-in-log"'), 'after the level and the date');
+    assert.ok(line.indexOf('</span>') < line.indexOf('id="zoom-in-log"'), 'and outside them');
+    assert.match(line, /<button id="zoom-in-log" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">/);
+    assert.match(line, /<button id="zoom-out-log" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">/);
+    assert.ok(line.indexOf('id="zoom-in-log"') < line.indexOf('id="zoom-out-log"'));
+    // The history and the error log have the two buttons too, each in its own line, drawn the same.
+    for (const name of ['history', 'errors']) {
+        const own = html.slice(html.indexOf('<div id="log-controls-' + name + '"'), html.indexOf('<p id="log-error-' + name + '"'));
+        assert.equal(own.slice(own.indexOf('<span class="zoom">'), own.indexOf('</span>')).split('-' + name).join('-log'),
+            line.slice(line.indexOf('<span class="zoom">'), line.indexOf('</span>', line.indexOf('<span class="zoom">'))), 'the zoom of ' + name);
+    }
+    const icons = [...line.matchAll(/<button id="zoom-(in|out)-log"[\s\S]*?<\/button>/g)].map(m => m[0]);
     assert.equal(icons.length, 2);
     for (const icon of icons) {
         assert.match(icon, /<circle cx="6\.8" cy="6\.8" r="4\.6"\/>/, 'a magnifying glass');
@@ -1027,8 +1035,8 @@ test('a panel button that is switched off and shown while the settings are open 
 });
 
 test('the history has a button in the line of the zoom buttons, after them, for its zero usage lines: an icon with no text, blue while they are hidden', () => {
-    const line = html.slice(html.indexOf('id="log-controls"'), html.indexOf('id="log-error"'));
-    assert.ok(line.indexOf('id="zoom-out"') < line.indexOf('id="history-choices"'), 'after the two zoom buttons');
+    const line = html.slice(html.indexOf('id="log-controls-history"'), html.indexOf('id="log-error-history"'));
+    assert.ok(line.indexOf('id="zoom-out-history"') >= 0 && line.indexOf('id="zoom-out-history"') < line.indexOf('id="history-choices"'), 'after the two zoom buttons, in the line of the history');
     assert.match(line, /<span id="history-choices" class="zoom" hidden>\s*<button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines" title="Hide the zero usage lines" aria-pressed="false">/,
         'hidden until the history says what is saved');
     const button = line.slice(line.indexOf('id="zero-lines"'));
@@ -1040,13 +1048,14 @@ test('the history has a button in the line of the zoom buttons, after them, for 
 });
 
 test('the log has two buttons in the line of the zoom buttons, after them: icons with no text, the second not to be pressed until there is an old log', () => {
-    const line = html.slice(html.indexOf('id="log-controls"'), html.indexOf('id="log-error"'));
-    assert.ok(line.indexOf('id="zoom-out"') < line.indexOf('id="log-files"'), 'after the two zoom buttons');
+    const line = html.slice(html.indexOf('id="log-controls-log"'), html.indexOf('id="log-error-log"'));
+    assert.ok(line.indexOf('id="zoom-out-log"') >= 0 && line.indexOf('id="zoom-out-log"') < line.indexOf('id="log-files"'), 'after the two zoom buttons, in the line of the log');
     assert.match(line, /<span id="log-files" class="zoom" hidden>/, 'hidden until the log is shown');
     assert.ok(line.indexOf('id="log-reset"') < line.indexOf('id="log-merge"'), 'the reset, then its undo');
     assert.match(line, /<button id="log-reset" class="icon tiny" type="button" aria-label="Reset the log: [^"]+"\s+title="Reset the log: the file is kept under a name with the date and time, and a new one is started">/);
     assert.match(line, /<button id="log-merge" class="icon tiny" type="button" aria-label="There is no old log" title="There is no old log" disabled>/);
-    const files = line.slice(line.indexOf('<span id="log-files"'), line.indexOf('<span id="history-choices"'));
+    const files = line.slice(line.indexOf('<span id="log-files"'), line.lastIndexOf('</span>') + '</span>'.length);
+    assert.doesNotMatch(line, /history-choices|zero-lines/, 'the button of the history is in the history\'s line, not here');
     assert.equal(files.replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]*>/g, '').trim(), '', 'no text');
     assert.equal((files.match(/<svg /g) || []).length, 2, 'an icon each');
 });
@@ -1111,4 +1120,34 @@ test('the three lists, the copy the table is measured on and the cost control ha
     }
     assert.equal((css.match(/Menlo/g) || []).length, 1, 'named in one place, so that the copy cannot have another typeface than the table');
     assert.doesNotMatch(css, /@font-face|url\(/, 'nothing is fetched');
+});
+
+// ---- version 0.80: a box for each view
+
+test('the panel has a box for each view, in the order of the icons, and each list has its own controls, notes and lines', () => {
+    const boxes = ['<section id="view-log"', '<section id="view-history"', '<section id="view-errors"', '<div id="cost-view"', '<div id="settings-view"'].map(tag => html.indexOf(tag));
+    assert.ok(boxes.every(at => at > html.indexOf('<div id="panel"')), 'all in the panel');
+    assert.deepEqual([...boxes].sort((a, b) => a - b), boxes, 'the log, the history, the error log, the cost control, and the settings after them');
+    for (const name of ['log', 'history', 'errors']) {
+        const box = html.slice(html.indexOf('<section id="view-' + name + '"'), html.indexOf('</section>', html.indexOf('<section id="view-' + name + '"')));
+        assert.match(box, new RegExp('^<section id="view-' + name + '" class="view" aria-label="[^"]+" hidden>'), name + ' is hidden until it is shown');
+        const parts = ['log-controls-', 'log-error-', 'panel-note-', 'panel-error-', 'panel-lines-'].map(part => box.indexOf('id="' + part + name + '"'));
+        assert.ok(parts.every(at => at >= 0), name + ' has every part');
+        assert.deepEqual([...parts].sort((a, b) => a - b), parts, name + ': the controls, the red line, the note, the second red line, the lines');
+        assert.equal((box.match(/class="panel-lines"/g) || []).length, 1);
+    }
+    for (const once of ['log-level', 'log-date', 'log-reset', 'log-merge', 'zero-lines', 'cost-rows']) {
+        assert.equal((html.match(new RegExp('id="' + once + '"', 'g')) || []).length, 1, once + ' belongs to one view and is there once');
+    }
+    assert.doesNotMatch(html, /id="(panel-lines|panel-note|panel-error|log-error|log-controls|zoom-in|zoom-out)"/, 'nothing of a list is there once for all');
+});
+
+test('a view fills what the panel leaves it, and one that has another below it keeps its height', () => {
+    const view = ruleOf('.view');
+    assert.match(view, /display:\s*flex/);
+    assert.match(view, /flex-direction:\s*column/);
+    assert.match(view, /flex:\s*1 1 auto/, 'alone, it takes the height the one list took');
+    assert.match(view, /min-height:\s*0/, 'so that its lines scroll and the window is not pushed taller');
+    assert.match(css, /\.view\[hidden\]\s*{\s*display:\s*none/, 'hidden wins over the flex');
+    assert.match(ruleOf('.view.fixed'), /flex:\s*none/, 'the page says how tall it is');
 });
