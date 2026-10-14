@@ -57,7 +57,7 @@ public final class UsageHistory {
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
 
-    private final Path file;
+    private volatile Path file;
 
     private final ZoneId zone;
 
@@ -77,6 +77,27 @@ public final class UsageHistory {
 
     public Path file() {
         return file;
+    }
+
+    /**
+     * Keeps the history in this folder from now on: the file is moved there, under its name, unless a file of that name is
+     * there already, which is then the history and is not overwritten; the one in the old folder is left as it is. Nothing is
+     * written meanwhile.
+     *
+     * @return whether the file was moved; false when there was none to move or one was there already
+     * @throws IOException if the file cannot be moved; the history is then where it was
+     */
+    public synchronized boolean moveTo(Path folder) throws IOException {
+        Path target = folder.resolve(file.getFileName());
+        if (target.toAbsolutePath().normalize().equals(file.toAbsolutePath().normalize())) {
+            return false;
+        }
+        boolean moved = !Files.exists(target) && Files.exists(file);
+        if (moved) {
+            Files.move(file, target);
+        }
+        file = target;
+        return moved;
     }
 
     /**

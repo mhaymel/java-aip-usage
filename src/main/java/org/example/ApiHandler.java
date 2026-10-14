@@ -67,7 +67,8 @@ final class ApiHandler implements HttpHandler {
 
     private final IntervalSettings settings;
 
-    private final AppFiles files;
+    /** Where the settings, the log and the history are kept now: the folders can change while the program runs. */
+    private final FileFolders files;
 
     private final UsageSources sources;
 
@@ -75,7 +76,7 @@ final class ApiHandler implements HttpHandler {
     private final LatestChangeCache latestChangeCache = new LatestChangeCache();
 
     /** @param sources where usage comes from at the moment, which in debug mode the debug settings change */
-    ApiHandler(UsageService service, IntervalSettings settings, AppFiles files, UsageSources sources) {
+    ApiHandler(UsageService service, IntervalSettings settings, FileFolders files, UsageSources sources) {
         this.service = service;
         this.settings = settings;
         this.files = files;
@@ -421,7 +422,7 @@ final class ApiHandler implements HttpHandler {
                 s.cost().monthlyCents() == null ? null : CostControl.text(s.cost().monthlyCents()),
                 s.cost().dailyCents() == null ? null : CostControl.text(s.cost().dailyCents()),
                 s.cost().dailyAutomatic(),
-                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews());
+                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -468,7 +469,12 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "historyCurrent", current.historyCurrent()),
                     flag(body, "restoreWindow", current.restoreWindow()),
                     flag(body, "showCostIcon", current.showCostIcon()),
-                    flag(body, "severalViews", current.severalViews()));
+                    flag(body, "severalViews", current.severalViews()),
+                    folderText(body, "logFolder", current.logFolder()),
+                    folderText(body, "historyFolder", current.historyFolder()));
+            // A folder that is changed is used at once: its files are moved there before the settings are saved, and a folder
+            // that cannot be written refuses the whole of it, with nothing changed.
+            moveFolders(given);
             // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone. Nor are
             // the two choices of the log panel, which POST /api/log changes, and the size of the lists' text, which POST /api/text-size changes.
             Settings kept = settings.current();
@@ -480,6 +486,38 @@ final class ApiHandler implements HttpHandler {
             throw new ApiException(500, Failure.of(e), null);
         }
         send(exchange, 200, settingsBody().toJson());
+    }
+
+    /** A folder that may be left out, which keeps what the settings have: a full path, or the empty text for the program's folder. */
+    private static String folderText(Json body, String key, String current) {
+        Json value = body.get(key);
+        if (value == null || value.isNull()) {
+            return current;
+        }
+        if (!value.isText()) {
+            throw new InvalidSettingException("The setting " + key + " must be a text.");
+        }
+        String folder = value.text().strip();
+        if (!folder.isEmpty() && !java.nio.file.Path.of(folder).isAbsolute()) {
+            throw new InvalidSettingException("The folder cannot be written: it is not a full path.");
+        }
+        return folder;
+    }
+
+    /** Moves the log and the history to the folders these settings name, when those are not the ones in use. */
+    private void moveFolders(Settings given) {
+        java.nio.file.Path program = files.programFolder();
+        java.nio.file.Path log = FileFolders.folderOf(given.logFolder(), program);
+        java.nio.file.Path history = FileFolders.folderOf(given.historyFolder(), program);
+        if (log.equals(files.logFolder()) && history.equals(files.historyFolder())) {
+            return;
+        }
+        try {
+            sources.moveFolders(log, history);
+        } catch (IOException | RuntimeException e) {
+            LOG.warning("Could not change the folders of the log and the history", e);
+            throw new InvalidSettingException("The folder cannot be written: " + Failure.of(e) + ".");
+        }
     }
 
     /** A flag that may be left out, which keeps what the settings have. */
@@ -1213,7 +1251,9 @@ final class ApiHandler implements HttpHandler {
             boolean historyCurrent,
             boolean restoreWindow,
             boolean showCostIcon,
-            boolean severalViews) {
+            boolean severalViews,
+            String logFolder,
+            String historyFolder) {
 
         Json toJson() {
             return Json.object()
@@ -1251,7 +1291,9 @@ final class ApiHandler implements HttpHandler {
                     .put("historyCurrent", historyCurrent)
                     .put("restoreWindow", restoreWindow)
                     .put("showCostIcon", showCostIcon)
-                    .put("severalViews", severalViews);
+                    .put("severalViews", severalViews)
+                    .put("logFolder", logFolder)
+                    .put("historyFolder", historyFolder);
         }
     }
 

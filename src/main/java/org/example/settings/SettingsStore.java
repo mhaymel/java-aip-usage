@@ -111,6 +111,10 @@ public final class SettingsStore {
 
     static final String SEVERAL_VIEWS_KEY = "severalViews";
 
+    static final String LOG_FOLDER_KEY = "logFolder";
+
+    static final String HISTORY_FOLDER_KEY = "historyFolder";
+
     static final String LAST_PANEL_KEY = "lastPanel";
 
     static final String LAST_TAB_KEY = "lastTab";
@@ -225,7 +229,9 @@ public final class SettingsStore {
                 flag(root, HISTORY_CURRENT_KEY, defaults.historyCurrent()),
                 flag(root, RESTORE_WINDOW_KEY, defaults.restoreWindow()),
                 flag(root, SHOW_COST_ICON_KEY, defaults.showCostIcon()),
-                flag(root, SEVERAL_VIEWS_KEY, defaults.severalViews()));
+                flag(root, SEVERAL_VIEWS_KEY, defaults.severalViews()),
+                folder(root, LOG_FOLDER_KEY),
+                folder(root, HISTORY_FOLDER_KEY));
     }
 
     /**
@@ -596,6 +602,12 @@ public final class SettingsStore {
         return name != null && TABS.contains(name);
     }
 
+    /** A folder as the file names it, a full path; anything but a text is the program's folder, the empty text. */
+    private static String folder(Json root, String key) {
+        Json node = root.get(key);
+        return node != null && node.isText() ? node.text().strip() : "";
+    }
+
     private static String name(Json root, String key, java.util.Set<String> known) {
         Json node = root.get(key);
         return node != null && node.isText() && known.contains(node.text()) ? node.text() : null;
@@ -698,6 +710,8 @@ public final class SettingsStore {
         root.put(SHOW_COST_ICON_KEY, settings.showCostIcon());
         root.put(RESTORE_WINDOW_KEY, settings.restoreWindow());
         root.put(SEVERAL_VIEWS_KEY, settings.severalViews());
+        root.put(LOG_FOLDER_KEY, settings.logFolder());
+        root.put(HISTORY_FOLDER_KEY, settings.historyFolder());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
         // What the window showed when the program last stopped; only what was stored is written.

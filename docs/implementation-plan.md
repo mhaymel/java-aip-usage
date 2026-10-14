@@ -2439,7 +2439,7 @@ restored at start.
 
 ### 112. The folders of the log and of the history, in the backend
 
-**Status: planned.** Requirements: The folders of the log and of the usage history; the settings file.
+**Status: built (version 0.81).** As built: `Settings.logFolder` and `historyFolder`, texts, empty for the program's folder, saved after `severalViews`; `FileFolders` holds the folders in use, made by `AppRuntime.start` from the settings (`atStart`, which passes over a folder that cannot be used, with a warning) and handed to `ApiHandler` in the place of `AppFiles`, with the same names (`log()`, `history()`, `fakeHistory()`, `settings()`); `Main` begins the log in the folder the settings name. `UsageHistory.moveTo`, `Logging.moveTo` (inside `Log.whileNothingIsWritten`, like a reset) and `Logging.moveFiles`, which puts back what it moved when a move fails; `AppRuntime.moveFolders` checks both folders first, moves the log and then the history, and moves the log back when the history cannot be moved. `ApiHandler` takes the two optional in a `POST`, refuses a folder that is no full path, and moves before it saves. Tests: `FileFoldersTest`, three of `ApiTest`, one of `SettingsStoreTest`. Requirements: The folders of the log and of the usage history; the settings file.
 
 - **The settings.** `Settings`: `logFolder` and `historyFolder`, texts, empty for the program's folder; `SettingsStore`: the keys
   after `severalViews`, a value that is not text read as empty. `ApiHandler`: both in `GET /api/settings` and optional in

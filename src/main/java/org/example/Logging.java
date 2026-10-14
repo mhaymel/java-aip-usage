@@ -263,6 +263,68 @@ final class Logging implements AutoCloseable {
         return name;
     }
 
+    /**
+     * Writes the log in this folder from now on: the log file and its old logs are moved there, a file of the same name that is
+     * there already is used and left as it is, with the one of the old folder, and the lines that follow go to the moved file.
+     * If a file cannot be moved, what was moved is put back and the log stays where it was.
+     *
+     * @return the files that were moved, where they are now
+     */
+    java.util.List<Path> moveTo(Path folder) throws IOException {
+        java.util.List<Path> moved = new java.util.ArrayList<>();
+        Log.whileNothingIsWritten(() -> {
+            requireFile();
+            fileWriter.close();
+            try {
+                moved.addAll(moveFiles(logFile, folder));
+                logFile = folder.resolve(logFile.getFileName());
+            } finally {
+                reopen();
+            }
+            return null;
+        });
+        return moved;
+    }
+
+    /**
+     * Moves the log file and its old logs into the folder, each unless a file of its name is there already; on a failure what
+     * was moved is put back, and the failure is thrown. For a log that is open the caller has closed it.
+     *
+     * @return the files that were moved, where they are now
+     */
+    static java.util.List<Path> moveFiles(Path logFile, Path folder) throws IOException {
+        java.util.List<Path> files = new java.util.ArrayList<>();
+        if (Files.exists(logFile)) {
+            files.add(logFile);
+        }
+        Pattern form = oldLogName(logFile);
+        try (Stream<Path> listed = Files.list(logFile.toAbsolutePath().getParent())) {
+            listed.filter(file -> form.matcher(file.getFileName().toString()).matches() && Files.isRegularFile(file)).sorted().forEach(files::add);
+        }
+        java.util.List<Path[]> done = new java.util.ArrayList<>();
+        try {
+            for (Path file : files) {
+                Path target = folder.resolve(file.getFileName());
+                if (Files.exists(target)) {
+                    LOG.info("A file of that name is in the new folder already, and is used; the one in the old folder stays: " + target);
+                    continue;
+                }
+                Files.move(file, target);
+                done.add(new Path[] {file, target});
+            }
+        } catch (IOException | RuntimeException e) {
+            for (int i = done.size() - 1; i >= 0; i--) {
+                try {
+                    Files.move(done.get(i)[1], done.get(i)[0]);
+                } catch (IOException back) {
+                    e.addSuppressed(back);
+                }
+            }
+            throw e;
+        }
+        return done.stream().map(pair -> pair[1]).toList();
+    }
+
     /** Closing twice is harmless: the shutdown hook may close what the normal exit already has. */
     @Override
     public synchronized void close() {

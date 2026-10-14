@@ -4,6 +4,7 @@ import org.example.fake.Scenario;
 import org.example.usage.UsageFetch;
 
 import java.net.URI;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -22,6 +23,15 @@ interface UsageSources {
 
     /** The history file of the source in use: invented readings have one of their own. */
     Path history();
+
+    /**
+     * Keeps the log and the usage history in these folders from now on, moving their files there (since 0.81).
+     *
+     * @throws IOException if a folder cannot be written or a file cannot be moved; nothing is then changed
+     */
+    default void moveFolders(Path logFolder, Path historyFolder) throws IOException {
+        throw new IOException("the folders cannot be changed here");
+    }
 
     /** How long the latest usage request that has ended took, or a negative number when none has. */
     long latestDurationMillis();

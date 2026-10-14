@@ -186,7 +186,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "historyHeight", "logHeight"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -671,5 +671,19 @@ class SettingsStoreTest {
         assertTrue(SettingsStore.LastWindow.shows("settings,cost,history", List.of("settings")), "several views at once are switched off");
         assertFalse(SettingsStore.LastWindow.shows("log", List.of()), "nothing is open yet");
         assertFalse(SettingsStore.LastWindow.shows(null, List.of("log")));
+    }
+
+    @Test
+    void theFoldersAreTextsEmptyForTheProgramsFolder() throws IOException {
+        assertEquals("", Settings.defaults().logFolder());
+        assertEquals("", Settings.defaults().historyFolder());
+        SettingsStore store = new SettingsStore(file());
+        store.save(Settings.defaults().withFolders("C:\\logs", "/home/me/history"));
+        assertEquals("C:\\logs", new SettingsStore(file()).load().logFolder());
+        assertEquals("/home/me/history", new SettingsStore(file()).load().historyFolder());
+
+        Files.writeString(file(), "{\"logFolder\": 12, \"historyFolder\": null}");
+        assertEquals("", new SettingsStore(file()).load().logFolder(), "not a text: the program's folder");
+        assertEquals("", new SettingsStore(file()).load().historyFolder());
     }
 }

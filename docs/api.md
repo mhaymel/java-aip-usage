@@ -85,7 +85,9 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "stayOnTop": false,
     "showTitleBar": true,
     "restoreWindow": false,
-    "severalViews": false
+    "severalViews": false,
+    "logFolder": "",
+    "historyFolder": ""
   },
   "defaults": { "...": "the same keys, with the defaults" },
   "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } }
@@ -102,6 +104,12 @@ only the columns that are on, in `columns` and in each line's `cells`.
 `restoreWindow` (off by default) says whether the window is opened at a start as it was when the program stopped, and
 `severalViews` (since version 0.80, off by default) whether more than one view can be shown at the same time: an icon
 then opens its view and leaves the others open. A `POST` may leave either out, which keeps what the settings have; so may it `showCostIcon`.
+`logFolder` and `historyFolder` (since version 0.81) are the folders the log (with its old logs) and the usage history (with
+the history of invented readings) are kept in, as full paths, and the empty text for the program's folder, which is the
+default. A `POST` may leave them out. One that names another folder than the one in use moves the files there at once, before
+the settings are saved; a file of the same name that is there already is used and not overwritten. A folder that is not a
+full path, is not there, or cannot be written in is refused with `400` and `The folder cannot be written: <reason>.`, and
+nothing is moved or saved. The settings file itself stays in the program's folder.
 The same keys are in `settings.json`, which
 is created with the defaults if it is missing.
 

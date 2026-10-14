@@ -46,6 +46,9 @@ final class AppRuntime implements AutoCloseable, UsageSources {
 
     private final UsageHistory fakeHistory;
 
+    /** Where the log and the history are kept now. */
+    private final FileFolders folders;
+
     /** How long the latest request that has ended took, for the row; negative until one has. */
     private final AtomicLong latestDuration = new AtomicLong(-1);
 
@@ -55,12 +58,69 @@ final class AppRuntime implements AutoCloseable, UsageSources {
 
     private LocalWebServer server;
 
-    private AppRuntime(AppFiles files, IntervalSettings settings, boolean debug, UsageSources.Factory factory) {
+    private AppRuntime(FileFolders folders, IntervalSettings settings, boolean debug, UsageSources.Factory factory) {
         this.settings = settings;
         this.debug = debug;
         this.factory = factory;
-        this.realHistory = new UsageHistory(files.history());
-        this.fakeHistory = new UsageHistory(files.fakeHistory());
+        this.folders = folders;
+        this.realHistory = new UsageHistory(folders.history());
+        this.fakeHistory = new UsageHistory(folders.fakeHistory());
+    }
+
+    FileFolders folders() {
+        return folders;
+    }
+
+    @Override
+    public synchronized void moveFolders(Path logFolder, Path historyFolder) throws IOException {
+        Path oldLog = folders.logFolder();
+        boolean log = !logFolder.equals(oldLog);
+        boolean history = !historyFolder.equals(folders.historyFolder());
+        for (Path folder : new Path[] {log ? logFolder : null, history ? historyFolder : null}) {
+            String fault = folder == null ? null : FileFolders.fault(folder);
+            if (fault != null) {
+                throw new Fault(fault);
+            }
+        }
+        if (log) {
+            java.util.List<Path> moved;
+            java.util.Optional<Logging> open = Logging.of(folders.log());
+            moved = open.isPresent() ? open.get().moveTo(logFolder) : Logging.moveFiles(folders.log(), logFolder);
+            folders.logFolder(logFolder);
+            LOG.info("The log is now kept in " + logFolder);
+            moved.forEach(file -> LOG.info("Moved " + file));
+        }
+        if (history) {
+            try {
+                Path real = realHistory.file();
+                if (realHistory.moveTo(historyFolder)) {
+                    LOG.info("Moved " + realHistory.file() + " from " + real.getParent());
+                }
+                Path fake = fakeHistory.file();
+                try {
+                    if (fakeHistory.moveTo(historyFolder)) {
+                        LOG.info("Moved " + fakeHistory.file() + " from " + fake.getParent());
+                    }
+                } catch (IOException e) {
+                    realHistory.moveTo(real.getParent());
+                    throw e;
+                }
+            } catch (IOException e) {
+                if (log) {
+                    // The history could not be moved: the log goes back, so that nothing is changed.
+                    java.util.Optional<Logging> open = Logging.of(folders.log());
+                    if (open.isPresent()) {
+                        open.get().moveTo(oldLog);
+                    } else {
+                        Logging.moveFiles(folders.log(), oldLog);
+                    }
+                    folders.logFolder(oldLog);
+                }
+                throw e;
+            }
+            folders.historyFolder(historyFolder);
+            LOG.info("The usage history is now kept in " + historyFolder);
+        }
     }
 
     /**
@@ -130,7 +190,8 @@ final class AppRuntime implements AutoCloseable, UsageSources {
             throws IOException {
         LOG.info("Settings are stored in " + files.settings());
         IntervalSettings settings = IntervalSettings.load(new SettingsStore(files.settings()), OptionalInt.empty(), OptionalInt.empty());
-        AppRuntime runtime = new AppRuntime(files, settings, options.debug(), factory);
+        FileFolders folders = FileFolders.atStart(files, settings.current().logFolder(), settings.current().historyFolder());
+        AppRuntime runtime = new AppRuntime(folders, settings, options.debug(), factory);
         Settings saved = settings.current();
         // Without --debug the debug settings count for nothing: usage is real, with a real token, whatever the file says.
         runtime.source = options.debug()
@@ -161,7 +222,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
             }
         });
 
-        runtime.server = LocalWebServer.start(new ApiHandler(service, settings, files, runtime));
+        runtime.server = LocalWebServer.start(new ApiHandler(service, settings, folders, runtime));
         service.start();
         return runtime;
     }
