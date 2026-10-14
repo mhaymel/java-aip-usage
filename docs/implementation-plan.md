@@ -2534,7 +2534,7 @@ colours, over the limit, the currency symbol); Cost control (`Currency symbol`).
 
 ### 115. Views that do not fit on the screen
 
-**Status: planned.** Requirements: Views that do not fit on the screen; Several views at once.
+**Status: built (version 0.82); seen in the real window on Windows by `SeveralViewsWindowTest`.** As built: `UsageApp.screenRoom()` (the visual height of the screen the window is on, less the frame), told to the page at each tick it changes and kept to by `resize`; `window.screenRoom`, `listLeast()` (seven lines and 24 pixels: five lines, the header and the note, and the controls), `sharedHeight()`; `layoutViews` and `severalSize` use it, and while the lists share the report has no fifth field, which the host takes for "remember nothing". `WindowFit` did not need the room: `UsageApp` clamps. In the real window, on a screen of 1,392: the four views fit (1,114), the error log 296 tall; told a room of 600, the three lists are 174 each and the window 598; the history is 446 again once two are closed, its remembered height untouched. Requirements: Views that do not fit on the screen; Several views at once.
 
 - **The host knows the screen**, the page does not. `UsageApp` tells the page the height its window may have, the visual bounds of
   the screen it is on less the frame, through a function of the page, `window.screenRoom(pixels)`, when it changes (at the start,

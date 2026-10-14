@@ -647,6 +647,12 @@ of the order of their icons, or the settings anywhere but first is ignored like 
 view named when `severalViews` is on and the first of them when it is off (the settings alone, when they are named), leaves out a name it does not know, and
 answers `false` while it cannot yet tell, so that the host asks again.
 
+**The room of the screen** (since version 0.82). The host tells the page how tall its window may be on the screen it is on, in
+CSS pixels of content, by `window.screenRoom(pixels)`, at the start and whenever that changes; the page answers `true`. When
+several views need more than that, the page shares it among the lists, each at least five of its lines, asks for no more
+than the room, and leaves out the fifth field, the height the lowest list has alone: the host then remembers nothing of the
+height. The host itself never makes the window taller than the room.
+
 The page exposes nothing else to its host, and the host exposes nothing to the page.
 
 The host also asks the page where a move of the window may begin. While the window has no title bar, a press of the

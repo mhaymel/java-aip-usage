@@ -369,7 +369,8 @@ public class UsageApp extends Application {
         int contentHeight = size.height();
         // With several views the height that is the person's is that of the lowest list: the views above it keep theirs.
         String list = size.lowestList();
-        boolean remembered = "history".equals(list) || "log".equals(list);
+        // With several views that share the screen the page says no height alone: nothing is remembered of a shared height.
+        boolean remembered = ("history".equals(list) || "log".equals(list)) && !(size.several() && size.alone() == 0);
         // What of the height is not the list's own: nothing with a list alone, whose height is the window's, row included.
         int above = RememberedHeights.above(size.height(), size.several() ? size.alone() : size.height());
         if (remembered) {
@@ -381,6 +382,8 @@ public class UsageApp extends Application {
                 runtime.settings().storeHeight(list, size.height() - above);
             }
         }
+        // Never taller than the screen the window is on (since 0.82).
+        contentHeight = Math.min(contentHeight, screenRoom());
         rememberedPanel = remembered ? list : null;
         rememberedAbove = above;
         // A list that has views above it can be dragged down to one line of its own, and no further.
@@ -452,8 +455,26 @@ public class UsageApp extends Application {
         }
     }
 
+    /** How tall the content of the window may be on the screen it is on: the screen's visual height less the frame. */
+    private int screenRoom() {
+        Rectangle2D screen = Screen.getScreensForRectangle(stage.getX(), stage.getY(), Math.max(1, stage.getWidth()), 1).stream().findFirst()
+                .orElse(Screen.getPrimary()).getVisualBounds();
+        double frame = Double.isNaN(decorationHeight) ? 0 : decorationHeight;
+        return (int) Math.max(WindowFit.MIN.height(), Math.floor(screen.getHeight() - frame));
+    }
+
+    /** The room last told to the page, so that it is told only when it changes. */
+    private int roomTold = -1;
+
     private void fit(WebView webView, Stage stage) {
         try {
+            int room = screenRoom();
+            if (room != roomTold) {
+                Object told = webView.getEngine().executeScript("typeof window.screenRoom === 'function' ? window.screenRoom(" + room + ") : false");
+                if (Boolean.TRUE.equals(told)) {
+                    roomTold = room;
+                }
+            }
             Object reported = webView.getEngine().executeScript(ASK_CONTENT_SIZE);
             WindowFit.parse(reported).ifPresent(size -> panelKeepsTitleBar = size.keepsTitleBar());
             WindowFit.next(reported, appliedSize).ifPresent(size -> resize(stage, size));

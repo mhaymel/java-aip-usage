@@ -1604,14 +1604,59 @@
         return Math.ceil(panel.top - app.top) + PANEL_PADDING_BOTTOM + edge;
     }
 
+    // How tall the window may be on the screen it is on, in CSS pixels, as the host says; 0 while it has not said.
+    var screenRoomPx = 0;
+
+    /** The host says how tall the window may be on its screen (since 0.82): the views share that height when they need more. */
+    window.screenRoom = function (pixels) {
+        var room = Math.max(0, Math.floor(Number(pixels) || 0));
+        if (room !== screenRoomPx) {
+            screenRoomPx = room;
+            layoutViews();
+        }
+        return true;
+    };
+
+    /** The least height a list is given when the views share the screen: five of its lines, its header and note, and its line of controls. */
+    function listLeast() {
+        return Math.ceil(7 * listSize * 1.25) + 24;
+    }
+
+    /**
+     * The heights of the lists when the views shown need more than the screen has (since 0.82), or null when they fit. The views
+     * that are no list keep their heights, and each list is given an equal part of what is left, never less than listLeast(). The
+     * lowest list takes what the window has, so its part is the one it is given by the window.
+     */
+    function sharedHeight() {
+        var lists = openViews.filter(isList);
+        if (screenRoomPx <= 0 || lists.length === 0 || (openViews.length < 2 && !settingsOpen)) {
+            return null;
+        }
+        var others = settingsOpen ? Math.ceil($('settings-view').getBoundingClientRect().height) : 0;
+        var natural = chromeHeight() + others;
+        openViews.forEach(function (name) {
+            if (isList(name)) {
+                natural += sectionHeight(name);
+            } else {
+                others += sectionHeight(name);
+                natural += sectionHeight(name);
+            }
+        });
+        if (natural <= screenRoomPx) {
+            return null;
+        }
+        return Math.max(listLeast(), Math.floor((screenRoomPx - chromeHeight() - others) / lists.length));
+    }
+
     /** Gives each list that has another view below it its height, and lets the lowest list take what is left. */
     function layoutViews() {
         var lowest = lowestList();
+        var shared = sharedHeight();
         LISTS.forEach(function (name) {
             var section = sectionOf(name);
             var fixed = isOpen(name) && name !== lowest;
             section.className = 'view' + (fixed ? ' fixed' : '');
-            section.style.height = fixed ? sectionHeight(name) + 'px' : '';
+            section.style.height = fixed ? (shared !== null ? shared : sectionHeight(name)) + 'px' : '';
         });
     }
 
@@ -1826,11 +1871,19 @@
             total += sectionHeight(name);
         });
         var lowest = lowestList();
+        var shared = sharedHeight();
+        if (shared !== null) {
+            // The views share the screen: no more than it has is asked for, and the lowest list's height alone is not said, so
+            // that the host remembers nothing of a height that is only what the screen leaves.
+            var lists = openViews.filter(isList).length;
+            total = total - openViews.filter(isList).reduce(function (sum, name) { return sum + sectionHeight(name); }, 0) + lists * shared;
+            total = Math.min(total, screenRoomPx);
+        }
         // The tab About may be dragged wider: with a list among the views the width is free, and without one the width alone.
         var about = settingsOpen && currentTab === 'about';
         var flag = lowest === null ? (about ? 4 : 3) : (isOpen('log') || isOpen('errors') || about ? 2 : 1);
         var named = (settingsOpen ? ['settings'] : []).concat(openViews);
-        return wide + ',' + Math.ceil(total) + ',' + flag + ',' + named.join('+') + (lowest === null ? '' : ',' + aloneHeight(lowest));
+        return wide + ',' + Math.ceil(total) + ',' + flag + ',' + named.join('+') + (lowest === null || shared !== null ? '' : ',' + aloneHeight(lowest));
     }
 
     // What the list of the history was seen to lack in width, in pixels, and for which table that was: see historyLack.

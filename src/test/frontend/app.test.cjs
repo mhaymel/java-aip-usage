@@ -5168,3 +5168,35 @@ test('the cost control has its own currency symbol, a checkbox in its tab, off b
     await page.click('settings-save');
     assert.equal(JSON.parse(settingsPosts(page)[0].body).costCurrency, true);
 });
+
+// ---- version 0.82: views that do not fit on the screen
+
+test('views that need more than the screen has share it: each list an equal part, the lowest the rest, and no height alone is said', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL }));
+    for (const icon of ['cost-button', 'history-button', 'log-button', 'errors-button']) {
+        await page.click(icon);
+    }
+    // The row is 42, the cost control 42, each list 378 alone: 1218 in all.
+    assert.equal(page.window.contentSize(), '1200,1218,2,cost+history+log+errors,420', 'no room said yet: as before');
+
+    assert.equal(page.window.screenRoom(800), true);
+    assert.equal(page.el('view-history').style.height, '238px', 'what the row and the cost control leave of 800, in three');
+    assert.equal(page.el('view-log').style.height, '238px');
+    assert.equal(page.el('view-errors').style.height, '', 'the lowest takes what the window has');
+    assert.equal(page.window.contentSize(), '1200,798,2,cost+history+log+errors', 'no more than the screen, and no height alone');
+
+    page.window.screenRoom(300);
+    assert.equal(page.el('view-history').style.height, '129px', 'never less than five lines, its header, note and controls');
+    assert.equal(page.window.contentSize(), '1200,300,2,cost+history+log+errors', 'the window is the screen; the lowest list is cut');
+
+    page.window.screenRoom(3000);
+    assert.equal(page.el('view-history').style.height, '378px', 'room enough: each its height alone again');
+    assert.equal(page.window.contentSize(), '1200,1218,2,cost+history+log+errors,420');
+});
+
+test('one view does not share: it asks for its ten rows, and the host keeps the window on the screen', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL }));
+    await page.click('history-button');
+    page.window.screenRoom(200);
+    assert.equal(page.window.contentSize(), '400,420,1,history');
+});

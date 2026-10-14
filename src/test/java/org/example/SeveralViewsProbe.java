@@ -57,6 +57,14 @@ public final class SeveralViewsProbe {
             step("history-cost", "log-button");
             step("cost-alone", "history-button");
             step("history-again", "history-button");
+            // All four, and then a screen of 600 pixels, as the host would say for a small one: the lists share it.
+            onFx(() -> page().getEngine().executeScript("document.getElementById('log-button').click()"));
+            step("four", "errors-button");
+            onFx(() -> page().getEngine().executeScript("window.screenRoom(600)"));
+            step("four-small", null);
+            onFx(() -> page().getEngine().executeScript("window.screenRoom(100000)"));
+            onFx(() -> page().getEngine().executeScript("document.getElementById('log-button').click()"));
+            step("four-closed", "errors-button");
             // The settings beside the two, above them; the program stops with all three shown.
             step("settings-beside", "settings-button");
             onFx(() -> window().close());
@@ -101,6 +109,7 @@ public final class SeveralViewsProbe {
                                     + " out.sort(function (a, b) { return a[0] - b[0]; }); return out.map(function (v) { return v[1]; }).join('/'); })()")
                     + " below:" + view.getEngine().executeScript(
                             "Math.round(window.innerHeight - document.getElementById('app').getBoundingClientRect().bottom)")
+                    + " screen:" + Math.round(javafx.stage.Screen.getPrimary().getVisualBounds().getHeight())
                     + " end");
             System.out.flush();
         });
