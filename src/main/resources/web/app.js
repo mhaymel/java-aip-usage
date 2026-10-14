@@ -319,15 +319,16 @@
 
     /**
      * Whether the row may go while the pointer is outside the window (since 0.85): the title bar is switched off, a view or the
-     * settings are shown, and of the row only icons are switched on, the status circle, the refresh button and the icons of the
-     * views, and none of its figures. The settings as they are saved count, not what the open settings preview.
+     * settings are shown, and of the row only icons are switched on, the refresh button and the icons of the views, and none of
+     * its figures nor the status circle (since 0.86; the circle counted as an icon in 0.85). The settings as they are saved count,
+     * not what the open settings preview.
      */
     function rowMayHide(s) {
         if (!lastStatus || !lastStatus.display || lastStatus.display.titleBar !== false || !anyOpen()) {
             return false;
         }
         var figures = [on(s.time), s.percentage, on(s.used), on(s.limit), on(s.countdown), s.interval, s.deltaUsed, s.deltaTime, s.duration,
-            s.dayPercentage, s.dayUsed, s.dayLimit];
+            s.dayPercentage, s.dayUsed, s.dayLimit, s.status !== false];
         return !figures.some(Boolean);
     }
 
@@ -1862,6 +1863,8 @@
         VIEWS.forEach(function (name) { show(sectionOf(name).id, isOpen(name)); });
         labelButtons();
         show('panel', anyOpen());
+        // One view alone, or the settings alone, has no line between it and the row (since 0.86).
+        $('panel').className = 'panel' + (openViews.length + (settingsOpen ? 1 : 0) === 1 ? ' single' : '');
         // The settings are a form in the same place, not lines.
         show('settings-view', settingsOpen);
         // The settings open on the tab they were left on (see currentTab). A view opened or closed beside them leaves the form as it is.

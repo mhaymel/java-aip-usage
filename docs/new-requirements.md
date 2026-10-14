@@ -1,7 +1,11 @@
-instead yellow use orange,
+there should be more space at between chart and boarder
+![img_55.png](img_55.png)
 
-when main row only icons and hide title is configured, when
-any other view is open, main row disapears when moveing th cursor
-out of the app. miving the mouse cursor in side the window, the main
-row is shown.
+![img_54.png](img_54.png) main row disappears also the status is shown.
 
+in main row for numbers the same orange should be used as for the indicator
+
+separator if there is only one view there is no need for seperator line.
+
+the cost control view will always beshown after the main row, no matter
+which other views are shown inlcuding settings view

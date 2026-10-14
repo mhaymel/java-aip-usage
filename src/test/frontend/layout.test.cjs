@@ -1330,8 +1330,8 @@ test('the grid of the cost control has the label, the bar and four columns of fi
     assert.match(ruleOf('.cost-text'), /grid-column:\s*span 4/);
 });
 
-test('an orange figure of the row is the darker orange', () => {
-    assert.match(ruleOf('.spend .warn'), /color:\s*var\(--warn-text\)/);
+test('an orange figure of the row is the orange of the circle', () => {
+    assert.match(ruleOf('.spend .warn'), /color:\s*var\(--warn\)/, 'since 0.86; the darker --warn-text in 0.85');
 });
 
 // ---- version 0.85
@@ -1343,4 +1343,13 @@ test('the row that is away takes no height and keeps its width', () => {
     assert.match(rule, /padding-bottom:\s*0/);
     assert.match(rule, /overflow:\s*hidden/);
     assert.doesNotMatch(rule, /width|display/, 'its width is still the window\'s');
+});
+
+// ---- version 0.86
+
+test('one view alone has no line below the row, the cost control is first, and has room above it while the row is away', () => {
+    assert.match(css, /\.panel\.single > \.view,\s*\.panel\.single > \.cost,\s*\.panel\.single > \.settings\s*{\s*border-top:\s*none/);
+    assert.match(css, /\.panel > \.cost\s*{\s*order:\s*-2/, 'before the settings, whose order is -1');
+    assert.match(css, /\.panel > \.settings\s*{\s*order:\s*-1/);
+    assert.match(ruleOf('.top.away ~ .panel > .cost'), /padding-top:\s*8px/, '6 pixels more than its own 2');
 });

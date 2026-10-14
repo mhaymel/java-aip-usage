@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.85 is built: 127 phases are built, the last four (124 to 127) not pushed yet and not looked at by a person; the fault of `img_50` was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.86 is built: 128 phases are built, the last five (124 to 128) not pushed yet and not looked at by a person, and phase 128 run against a few tests only; the fault of `img_50` was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2777,6 +2777,27 @@ pointer is outside the window. The exchange is in `docs/api.md` (The pointer out
 
 **By eye**: the orange of the dot, the bars and a figure; the row going and coming in the real window with the cost control, a
 list and several views, on Windows and on macOS, and a list dragged taller and the row going after it.
+
+### 128. Version 0.86: the circle keeps the row, one orange, one view without a line, the cost control first
+
+**Status: built (version 0.86); only the tests of what changed were run, not the whole of them.** The notes of `new-requirements.md`
+(the eighth round, `img_54`, `img_55`), decided in one round of questions. `AppInfo.VERSION = "0.86"`. Requirements: The row goes
+while the pointer is outside the window; One green, and the colours of the bars; A line between the row and the views; Several views
+at once (the order).
+
+- **The circle.** `rowMayHide`: `s.status !== false` among the figures, so the row stays while the circle is shown; the refresh
+  button is still an icon.
+- **The orange.** `.spend .warn` in `--warn`; `--warn-text` is the ring's alone.
+- **The line.** `showViews` gives `#panel` the class `single` with one view or the settings alone; `.panel.single > …` has no
+  `border-top`.
+- **The order.** `.panel > .cost { order: -2 }`, before the settings' `-1`; the names the page says to the host are unchanged
+  (`settings+cost+history`), as nothing there depends on the order on the screen.
+- **The room.** `.top.away ~ .panel > .cost { padding-top: 8px }`, 6 more than its own 2; the page measures it, so the size asked
+  for has it.
+- **Tests.** `app.test.cjs`: the circle keeps the row, the refresh does not, the class `single`; `layout.test.cjs`: the rules.
+  Run: those and the tests of 0.85's row, eleven in all.
+
+**By eye**: `img_54` and `img_55` again, the cost control above the settings, and one view without its line.
 
 ## Implementation notes, as built
 

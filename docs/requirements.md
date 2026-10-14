@@ -291,8 +291,8 @@ what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is
 red of errors) while the amount used is more than the limit the row shows, and today's spend and today's percentage while
 today's spend is more than the daily limit (see Limits, projections and the status of spending). **Since version 0.84 they take
 the colour of their bar** in the cost control, whatever it is: today's spend and percentage that of `Today`, the amount used and
-the percentage that of `Month`, green, orange or red; the orange of a figure is a darker one, `#c26a00` (since version 0.85; the
-yellow `#b8a000` in 0.84), so that it can be read on the background. The limits stay green. The rest of this paragraph holds otherwise. The percentage spent, the amount used, the budget, the change in the amount used, the time since
+the percentage that of `Month`, green, orange or red; the orange of a figure is that of the status circle and the bars,
+`#ff9900` (since version 0.86; a darker `#c26a00` in 0.85, and the yellow `#b8a000` in 0.84). The limits stay green. The rest of this paragraph holds otherwise. The percentage spent, the amount used, the budget, the change in the amount used, the time since
 the previous reading and the request duration are all in one green, `#1a7f37` on the light theme and `#3fb950` on the dark one. The green is
 fixed: it does not follow the severity, so nothing in the row turns amber or red as the budget is spent, and it is the
 same whether a severity was sent or not, whether a change is up or down, and whatever the settings are. A missing
@@ -1230,9 +1230,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   of it; the row comes back the moment the pointer is inside again. It does so only when all of these hold:
   - the setting `Title bar` is off, as it is saved;
   - a view is shown: the cost control, a list, several views, or the settings;
-  - of the row only icons are switched on: the status circle, the refresh button and the icons of the views may be on, and every
-    figure is off, the time, the percentage, the amount used, the limit, the countdown, the interval, the two changes, the request
-    duration and the three figures of the day. As the settings are saved: what the open settings preview does not count.
+  - of the row only icons are switched on: the refresh button and the icons of the views may be on, and every figure is off, the
+    time, the percentage, the amount used, the limit, the countdown, the interval, the two changes, the request duration and the
+    three figures of the day; **and the status circle is off** (since version 0.86, `docs/img_54.png`: in 0.85 the circle counted
+    as an icon, and the row went with the circle shown). As the settings are saved: what the open settings preview does not count.
 - **Outside is outside the whole window**, its title bar and its frame included: the pointer on them is still in the program, so
   that the row stays while the window is moved by its title bar or dragged larger by its frame.
 - **The pointer is outside for half a second** before the row goes, so that a pointer that brushes past the edge moves nothing.
@@ -1241,8 +1242,11 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   the top of the window stays where it is. A list keeps its height of its own, so that the height the person gave it is remembered
   as it would be with the row there, and the window is as tall again when the row comes back. What is stored for the next start
   is the size with the row.
+- **The cost control has room above it while the row is away** (since version 0.86, `docs/img_55.png`): 6 pixels more at its top,
+  so that its bars do not touch the border of the window; the window is taller by them. With the row there nothing changes, and
+  the sides and the bottom are as they were.
 - **The row comes back when the conditions no longer hold**: the last view is closed, or the settings are saved with the title bar
-  on or a figure of the row on.
+  on, a figure of the row or the status circle on.
 - Asked for in `new-requirements.md` with the orange of 0.85; the choices, the conditions, a shorter window and half a second,
   were the person's.
 
@@ -2021,7 +2025,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   is shown and give it back when they are left, as before.
 - **The views are stacked below the row in the order of their icons**, whatever order they were opened in: the cost control,
   the usage history, the log, the error log, from the top down (since version 0.81; in version 0.80 the log, the usage history,
-  the error log and the cost control). **The settings are at the top**, right below the row, above the other views. A view that is opened takes its place among those that are
+  the error log and the cost control). **The cost control is always first**, right below the row, whatever other views are shown,
+  the settings among them (since version 0.86). **The settings follow it**, above the other views: right below the row when the cost
+  control is not shown (until version 0.85 the settings were at the top, above the cost control). With `Several views at once` off
+  nothing changes: the settings still take the place of the view that is shown. A view that is opened takes its place among those that are
   shown, and the others move to make room; a view that is closed leaves no gap.
 - **Each view has the height it has alone.** The usage history and the log open at their remembered heights (see Remembered
   heights), the error log at ten times the row's height, the cost control is as tall as its two bars need, and the settings as
@@ -2136,9 +2143,12 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **A line separates the row from the view below it, and each view from the next** (since version 0.81; `docs/img_28.png`):
   1 pixel, solid, in a middle gray on the light theme and a dark gray on the dark one, as wide as the window. It is there with
-  one view as with several, and with the settings among them; there is none below the lowest view, and none with no view shown.
+  several views, the settings counted among them; there is none below the lowest view, and none with no view shown.
+- **With one view there is no line** (since version 0.86; `docs/img_54.png`): one view alone, or the settings alone, stands right
+  below the row with nothing between. Until version 0.85 the line was there with one view as with several. With two views or more
+  every line is as before, the one below the row included.
 - **It is the top edge of the view below it**, which is a pixel lower for it: the sizes the page asks for, the heights the views
-  have alone and the remembered heights are as they were.
+  have alone and the remembered heights are as they were. With one view the pixel of the line is the view's own.
 
 ### The folders of the log and of the usage history
 

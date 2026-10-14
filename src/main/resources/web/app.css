@@ -29,7 +29,7 @@
      * golden yellow of 0.83 and the bright one of 0.84, where the amber of 0.82 looked light brown; it is the dot's and the bars' alone.
      */
     --warn: #ff9900;
-    /* The orange of a figure of the row, which the bright one would leave hard to read on the background (since 0.84; orange since 0.85). */
+    /* The darker orange of the ring round the circle (since 0.84; orange since 0.85; the figures' too in 0.85). */
     --warn-text: #c26a00;
 }
 
@@ -296,9 +296,9 @@ body {
     color: var(--bad);
 }
 
-/* About to pass the limit: the darker orange, which can be read on the background (since 0.84). */
+/* About to pass the limit: the orange of the circle and the bars (since 0.86; the darker one in 0.85). */
 .spend .warn {
-    color: var(--warn-text);
+    color: var(--warn);
 }
 
 #day-percent.skeleton { min-width: 3ch; }
@@ -786,7 +786,21 @@ body {
     border-top: 1px solid var(--view-line);
 }
 
-/* The settings beside other views are above them, right below the row, and as tall as their tab: the lists take the rest. */
+/* One view alone, or the settings alone, stands right below the row with no line between (since 0.86). */
+.panel.single > .view,
+.panel.single > .cost,
+.panel.single > .settings {
+    border-top: none;
+}
+
+/*
+ * The cost control is always right below the row, whatever else is shown (since 0.86). The settings beside other views follow it,
+ * above the lists, and are as tall as their tab: the lists take the rest.
+ */
+.panel > .cost {
+    order: -2;
+}
+
 .panel > .settings {
     order: -1;
     flex: none;
@@ -1097,6 +1111,11 @@ body {
     letter-spacing: normal;
     white-space: nowrap;
     padding: 2px 8px;
+}
+
+/* While the row is away the cost control is at the top of the window: room above it, so that its bars do not touch the border (since 0.86). */
+.top.away ~ .panel > .cost {
+    padding-top: 8px;
 }
 
 /*

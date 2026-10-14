@@ -5459,9 +5459,9 @@ test('the amount used and the percentage take the colour of the month\'s bar, to
 
 // ---- version 0.85: the row goes while the pointer is outside the window
 
-// Of the row only icons: every figure switched off, the status circle, the refresh button and the icons of the views on.
+// Of the row only icons: every figure and the status circle switched off (the circle since 0.86), the icons of the views on.
 const ICONS_ONLY = {
-    time: false, percentage: false, used: false, limit: false, countdown: false, interval: false, deltaUsed: false, deltaTime: false,
+    status: false, time: false, percentage: false, used: false, limit: false, countdown: false, interval: false, deltaUsed: false, deltaTime: false,
     duration: false, dayPercentage: false, dayUsed: false, dayLimit: false, costIcon: true, historyIcon: true, logIcon: true, errorIcon: true,
 };
 const awayStatus = (show = {}, titleBar = false) => {
@@ -5512,10 +5512,27 @@ test('the row stays with nothing open, with the title bar on, and with any figur
         assert.ok(!isAway(page), figure + ' on');
     }
 
-    const circle = await load(backendOf({ config: CONFIG, status: awayStatus({ status: true, refresh: true }) }));
+    const refresh = await load(backendOf({ config: CONFIG, status: awayStatus({ status: false, refresh: true }) }));
+    await refresh.click('cost-button');
+    refresh.window.pointerAway(true);
+    assert.ok(isAway(refresh), 'the refresh button is an icon');
+
+    const circle = await load(backendOf({ config: CONFIG, status: awayStatus({ status: true }) }));
     await circle.click('cost-button');
     circle.window.pointerAway(true);
-    assert.ok(isAway(circle), 'the status circle and the refresh button are icons');
+    assert.ok(!isAway(circle), 'the status circle keeps the row, since 0.86 (img_54)');
+});
+
+// ---- version 0.86
+
+test('one view alone, or the settings alone, has no line below the row; two views have it', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(SPEND_STATUS, { severalViews: true }) }));
+    await page.click('cost-button');
+    assert.match(page.el('panel').className, /\bsingle\b/);
+    await page.click('history-button');
+    assert.doesNotMatch(page.el('panel').className, /\bsingle\b/, 'two views');
+    await page.click('settings-button');
+    assert.doesNotMatch(page.el('panel').className, /\bsingle\b/, 'the settings beside them');
 });
 
 test('the row goes with the settings open, and comes back when the saved settings no longer let it go', async () => {
