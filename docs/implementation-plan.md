@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.82 is built and pushed (120 phases); version 0.83, phases 121 to 123, is planned and not built.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.83 is built: 123 phases are built, the last three (121 to 123) not pushed yet and not looked at by a person.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2626,7 +2626,7 @@ everything on, the dot in each colour with its tooltip, the icons of the lists a
 
 ### 121 to 123. Version 0.83: the fifth round of notes
 
-**Status: planned, not built.** The requirements are written (every rule marked "since version 0.83"); these three phases build
+**Status: built, all three, as planned (the pulse of the circle left out, as decided); what each lists "by eye" is still to be looked at.** The requirements are written (every rule marked "since version 0.83"); these three phases build
 them, in this order, and `AppInfo.VERSION` becomes `0.83` with the first. Each is committed by itself with its tests green, as
 `Phase 12x built: <what> (0.83)`; the first commit has the notes and the pictures `img_38` to `img_44`, the requirements and this
 plan. No push until it is asked for.
@@ -2674,7 +2674,7 @@ right edge, the severity); Limits, projections and the status of spending (the t
 
 ### 123. The figures of the cost control in four columns
 
-**Status: planned.** Requirements: The cost control panel (the figures in four columns).
+**Status: built (version 0.83); seen in the real window on Windows by `SeveralViewsWindowTest`.** As built: `CostPanel.Row` has `used`, `limit` and `percent` (`withParts`); `view.js` passes them on; `showCost` draws `cost-used`, `cost-of`, `cost-limit` and `cost-percent`, `cost-used` and `cost-rest` over three columns with no limit, and the text in one `cost-text` over four when a backend sends no parts. `costWidth` counts a row of four cells by the columns and their gaps, and a row of fewer by its own cells. In the real window the amounts of the two rows end at one pixel (257) and the limits at another (334). `SeveralViewsWindowTest` compares the history's height with the height the drag gave, not with the height before and 150, since a frame rounds a pixel or two each time. Requirements: The cost control panel (the figures in four columns).
 
 - **The backend.** `CostPanel.Row` gets the parts of its figures, `used`, `limit` and `percent` as finished texts (`limit` and
   `percent` null with no limit), besides `text`, which stays for the tooltip and for an older page; `GET /api/cost` has them.

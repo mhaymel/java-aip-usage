@@ -36,12 +36,21 @@ final class CostPanel {
      * @param noLimit whether there is no limit to compare with: the bar is gray and empty
      * @param state the colour of the bar (since 0.82): {@code green}, {@code amber} when the projection or the pace says the
      *     limit will be passed, {@code red} over the limit, {@code gray} with no limit
+     * @param used the amount spent, as written, for its own column (since 0.83)
+     * @param limit the limit, as written, or null with none
+     * @param percent the percentage, {@code 86%}, or null with no limit
      */
-    record Row(String label, String text, String tooltip, double fraction, boolean over, boolean noLimit, String state) {
+    record Row(String label, String text, String tooltip, double fraction, boolean over, boolean noLimit, String state,
+            String used, String limit, String percent) {
 
         /** A row whose colour follows from its limit alone: red over it, gray with none, green otherwise. */
         Row(String label, String text, String tooltip, double fraction, boolean over, boolean noLimit) {
-            this(label, text, tooltip, fraction, over, noLimit, noLimit ? Spending.GRAY : over ? Spending.RED : Spending.GREEN);
+            this(label, text, tooltip, fraction, over, noLimit, noLimit ? Spending.GRAY : over ? Spending.RED : Spending.GREEN, null, null, null);
+        }
+
+        /** This row with the parts of its figures, each in a column of its own. */
+        Row withParts(String usedText, String limitText, String percentText) {
+            return new Row(label, text, tooltip, fraction, over, noLimit, state, usedText, limitText, percentText);
         }
 
         /** This row amber, with what the projection or the pace says added to its tooltip, when the part says so. */
@@ -49,7 +58,7 @@ final class CostPanel {
             if (part == null || !Spending.AMBER.equals(part.state()) || over || noLimit) {
                 return this;
             }
-            return new Row(label, text, tooltip + "\n" + part.line(), fraction, over, noLimit, Spending.AMBER);
+            return new Row(label, text, tooltip + "\n" + part.line(), fraction, over, noLimit, Spending.AMBER, used, limit, percent);
         }
 
         Json toJson() {
@@ -60,7 +69,10 @@ final class CostPanel {
                     .put("fraction", fraction)
                     .put("over", over)
                     .put("noLimit", noLimit)
-                    .put("state", state);
+                    .put("state", state)
+                    .put("used", used)
+                    .put("limit", limit)
+                    .put("percent", percent);
         }
     }
 
@@ -154,7 +166,7 @@ final class CostPanel {
     private static Row row(String label, Amount used, Long limitCents, String currency, boolean withSymbol) {
         String usedText = money(used, currency, withSymbol);
         if (limitCents == null || limitCents <= 0) {
-            return new Row(label, usedText + " · no limit set", label + ": " + usedText + ", no limit set", 0, false, true);
+            return new Row(label, usedText + " · no limit set", label + ": " + usedText + ", no limit set", 0, false, true).withParts(usedText, null, null);
         }
         Amount limit = Amount.ofCents(limitCents);
         long millionths = used.shareOf(limit, 6);
@@ -166,7 +178,7 @@ final class CostPanel {
                 label + ": " + usedText + " of " + limitText + " (" + percent + "%)",
                 Math.min(1.0, millionths / 1_000_000.0),
                 used.compareTo(limit) > 0,
-                false);
+                false).withParts(usedText, limitText, percent + "%");
     }
 
     private static String money(Amount amount, String currency, boolean withSymbol) {

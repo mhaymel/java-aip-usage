@@ -44,6 +44,15 @@ public final class SeveralViewsProbe {
             Thread.sleep(5000);
             step("start", null);
             step("cost", "cost-button");
+            // The figures of the cost control in their columns (since 0.83): the right edges of the amounts and of the limits of
+            // the two rows, which are to be under one another, and the classes of the cells.
+            onFx(() -> {
+                System.out.println("PROBE cost-columns=" + page().getEngine().executeScript(
+                        "(function () { var out = []; Array.prototype.forEach.call(document.querySelectorAll('#cost-rows .cost-row'), function (row) {"
+                                + " var cells = Array.prototype.slice.call(row.children, 2); out.push(cells.map(function (c) {"
+                                + " return c.className + ':' + Math.round(c.getBoundingClientRect().right); }).join(',')); }); return out.join('/'); })()"));
+                System.out.flush();
+            });
             step("cost-history", "history-button");
             // The window is dragged 150 pixels taller, as by its lower edge, and left there a while.
             onFx(() -> window().setHeight(window().getHeight() + 150));

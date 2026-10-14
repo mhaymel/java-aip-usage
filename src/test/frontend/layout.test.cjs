@@ -1319,3 +1319,11 @@ test('the yellow is #e3b341 on both themes, and the status circle stands still',
     assert.doesNotMatch(ruleOf('.status-dot'), /animation/, 'no pulse: it would have the window repaint all the time');
     assert.doesNotMatch(css, /.status-dot[^{]*{[^}]*animation/, 'nor any of its colours');
 });
+
+test('the grid of the cost control has the label, the bar and four columns of figures; the amounts at the right, of in the middle', () => {
+    assert.match(ruleOf('.cost-rows'), /grid-template-columns:\s*max-content minmax\(120px, 1fr\) max-content max-content max-content max-content/);
+    assert.match(css, /\.cost-used,\s*\.cost-limit,\s*\.cost-percent\s*{\s*text-align:\s*right/);
+    assert.match(ruleOf('.cost-of'), /text-align:\s*center/);
+    assert.match(ruleOf('.cost-rest'), /grid-column:\s*span 3/);
+    assert.match(ruleOf('.cost-text'), /grid-column:\s*span 4/);
+});

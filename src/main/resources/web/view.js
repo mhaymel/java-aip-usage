@@ -183,7 +183,11 @@
                 over: Boolean(row.over),
                 noLimit: Boolean(row.noLimit),
                 // The colour of the bar (since 0.82): one of the four, and green for anything else.
-                state: ['green', 'amber', 'red', 'gray'].indexOf(row.state) >= 0 ? row.state : 'green'
+                state: ['green', 'amber', 'red', 'gray'].indexOf(row.state) >= 0 ? row.state : 'green',
+                // The parts of the figures, each in a column of its own (since 0.83); without them the text is one cell.
+                used: typeof row.used === 'string' ? row.used : null,
+                limit: typeof row.limit === 'string' ? row.limit : null,
+                percent: typeof row.percent === 'string' ? row.percent : null
             };
         });
         return { rows: rows, note: data.note || null };

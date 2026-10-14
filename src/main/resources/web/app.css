@@ -1086,7 +1086,8 @@ body {
  */
 .cost-rows {
     display: grid;
-    grid-template-columns: max-content minmax(120px, 1fr) max-content;
+    /* The label, the bar, and the four columns of the figures (since 0.83): the amount, of, the limit and the percentage. */
+    grid-template-columns: max-content minmax(120px, 1fr) max-content max-content max-content max-content;
     align-items: center;
     /* Little room: 1 pixel between the two rows, 6 between a label, its bar and its figures. */
     gap: 1px 6px;
@@ -1169,7 +1170,26 @@ body {
     gap: 6px;
 }
 
+/* The text of a backend that sends no parts: over the four columns of the figures, at the right. */
 .cost-text {
+    grid-column: span 4;
     text-align: right;
+}
+
+/* The amount and the limit at the right of their columns, so that the decimal points are under one another; of in the middle. */
+.cost-used,
+.cost-limit,
+.cost-percent {
+    text-align: right;
+}
+
+.cost-of {
+    text-align: center;
+    color: var(--muted);
+}
+
+/* A row with no limit: `· no limit set` over the columns of of, the limit and the percentage. */
+.cost-rest {
+    grid-column: span 3;
 }
 

@@ -41,6 +41,15 @@ class SeveralViewsWindowTest {
         System.out.println(all.lines().filter(l -> l.startsWith("PROBE")).reduce("", (a, b) -> a + b + "\n"));
 
         // The cost control alone: nothing can be dragged, no title bar.
+        // The figures of the cost control in four columns (since 0.83): the amounts end at one place, and so do the limits.
+        String columns = all.lines().filter(l -> l.startsWith("PROBE cost-columns=")).findFirst().orElseThrow().substring("PROBE cost-columns=".length());
+        String[] rows = columns.split("/");
+        assertEquals(2, rows.length, columns);
+        assertTrue(rows[0].matches("cost-used:\\d+,cost-of:\\d+,cost-limit:\\d+,cost-percent:\\d+"), "the day in four cells: " + columns);
+        assertTrue(rows[1].matches("cost-used:\\d+,cost-of:\\d+,cost-limit:\\d+,cost-percent:\\d+"), "the month in four cells: " + columns);
+        java.util.function.Function<String, String[]> rights = row -> java.util.Arrays.stream(row.split(",")).map(c -> c.split(":")[1]).toArray(String[]::new);
+        assertEquals(rights.apply(rows[0])[0], rights.apply(rows[1])[0], "the amounts end under one another: " + columns);
+        assertEquals(rights.apply(rows[0])[2], rights.apply(rows[1])[2], "and so do the limits: " + columns);
         Matcher cost = step(all, "cost");
         assertEquals("cost,", cost.group(1), all);
         assertEquals("false", cost.group(7), "the cost control alone has no title bar");
@@ -80,7 +89,7 @@ class SeveralViewsWindowTest {
         assertEquals("wh", three.group(8));
         assertTrue(Integer.parseInt(three.group(9)) > Integer.parseInt(both.group(9)), "wider for the log:\n" + all);
         assertTrue(three.group(11).matches("cost-view:\\d+:\\d+/view-history:\\d+:\\d+/view-log:\\d+:\\d+"), all);
-        near(historyHeight + 150, Integer.parseInt(three.group(11).split("/")[1].split(":")[2]), "the history above the log keeps its dragged height:\n" + all);
+        near(Integer.parseInt(draggedViews[1].split(":")[2]), Integer.parseInt(three.group(11).split("/")[1].split(":")[2]), "the history above the log keeps its dragged height:\n" + all);
 
         // The settings stand above the views, which stay (since 0.81), and leaving them closes them alone.
         Matcher settings = step(all, "settings");
@@ -122,7 +131,7 @@ class SeveralViewsWindowTest {
         assertEquals("h", beside.group(8), "the history's height may be dragged");
         String[] withSettings = beside.group(11).split("/");
         assertTrue(withSettings[0].startsWith("settings-view:37:") && withSettings[1].startsWith("cost-view:") && withSettings[2].startsWith("view-history:"), all);
-        near(historyHeight + 150, Integer.parseInt(withSettings[2].split(":")[2]), "the history as tall as it was:\n" + all);
+        near(Integer.parseInt(draggedViews[1].split(":")[2]), Integer.parseInt(withSettings[2].split(":")[2]), "the history as tall as it was:\n" + all);
         assertTrue(all.contains("PROBE stored=settings,cost,history|"), "all three are stored, the settings first, with commas:\n" + all);
 
         // The second start: both come back, at the same height.

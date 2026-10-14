@@ -3946,9 +3946,11 @@ test('the checkbox that restores the window at start is in the General tab, in t
 
 // ---- the cost control: two bars
 
+// The figures are the cells after the bar since 0.83: four columns, or fewer cells over them; their text is read together.
 const rowsOf = page => page.el('cost-rows').children.map(line => ({
-    label: line.children[0].textContent, bar: line.children[1], fill: line.children[1].children[0], text: line.children[2].children[0].textContent,
-    figures: line.children[2].children, tooltip: line.title, cells: line.children,
+    label: line.children[0].textContent, bar: line.children[1], fill: line.children[1].children[0],
+    text: line.children.slice(2).map(cell => cell.textContent).join(' '),
+    figures: line.children.slice(2), tooltip: line.title, cells: line.children,
 }));
 
 test('the cost button is there unless the backend says otherwise, and opens and closes the panel with the blue, bigger button', async () => {
@@ -3983,10 +3985,10 @@ test('the two bars are drawn from the backend\'s texts: the label, the share, th
     assert.equal(day.fill.style.width, '50%');
     assert.doesNotMatch(day.bar.className, /\bover\b/, 'under the limit');
     assert.equal(day.tooltip, 'Today: 12.40 of 25.00 (50%)');
-    assert.equal(day.cells.length, 3, 'three cells, as in every row: the label, the bar, and the figures');
+    assert.equal(day.cells.length, 3, 'a backend that sends no parts: the label, the bar, and its text in one cell');
     assert.equal(day.figures.length, 1, 'the figures alone: there is no warning sign since 0.82');
-    assert.equal(day.cells[2].className, 'cost-figures');
-    for (const cell of [day.cells[0], day.cells[1], day.cells[2].children[0]]) {
+    assert.equal(day.cells[2].className, 'cost-text', 'over the four columns of the figures (since 0.83)');
+    for (const cell of [day.cells[0], day.cells[1], day.cells[2]]) {
         assert.equal(cell.title, day.tooltip, 'each part of the row says the tooltip of the row');
     }
     assert.equal(month.label, 'Month');
@@ -5343,4 +5345,23 @@ test('measured with a message line and nothing open, the row keeps its least wid
     top.getBoundingClientRect = function () { seen.push(this.style.minWidth); return rect(); };
     page.window.contentSize();
     assert.deepEqual(seen, ['300px']);
+});
+
+// ---- version 0.83: the figures of the cost control in four columns
+
+test('the figures of the cost control are four columns: the amount, of, the limit and the percentage; with no limit the rest spans three', async () => {
+    const cost = { rows: [
+        { label: 'Today', text: '38.89 of 45.45 \u00b7 86%', tooltip: 'Today: 38.89 of 45.45 (86%)', fraction: 0.86, over: false, noLimit: false, state: 'green',
+            used: '38.89', limit: '45.45', percent: '86%' },
+        { label: 'Month', text: '236.56 \u00b7 no limit set', tooltip: 'Month: 236.56, no limit set', fraction: 0, over: false, noLimit: true, state: 'gray',
+            used: '236.56', limit: null, percent: null },
+    ], note: null };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, cost: () => ({ status: 200, body: cost }) }));
+    await page.click('cost-button');
+    const [day, month] = rowsOf(page);
+    assert.deepEqual(day.figures.map(cell => cell.className), ['cost-used', 'cost-of', 'cost-limit', 'cost-percent']);
+    assert.deepEqual(day.figures.map(cell => cell.textContent), ['38.89', 'of', '45.45', '\u00b7 86%']);
+    assert.ok(day.figures.every(cell => cell.title === day.tooltip), 'each cell says the tooltip of its row');
+    assert.deepEqual(month.figures.map(cell => cell.className), ['cost-used', 'cost-rest']);
+    assert.deepEqual(month.figures.map(cell => cell.textContent), ['236.56', '\u00b7 no limit set']);
 });

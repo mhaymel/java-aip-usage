@@ -169,4 +169,19 @@ class CostPanelTest {
         assertTrue(colored.rows().get(0).tooltip().endsWith("\nToday: on course to pass the daily limit"));
         assertEquals(Spending.GREEN, colored.rows().get(1).state(), "the month on pace stays green");
     }
+
+    @Test
+    void eachRowHasThePartsOfItsFiguresForTheirOwnColumns() {
+        CostPanel.View view = build(LIMITS, false, row("2026-10-12 10:00:00", "262.50"), row("2026-10-11 23:00:00", "250.00"));
+        CostPanel.Row day = view.rows().get(0);
+        assertEquals("12.50", day.used());
+        assertEquals("50.00", day.limit());
+        assertEquals("25%", day.percent());
+        assertEquals("12.50 of 50.00 · 25%", day.text(), "the text stays, for the tooltip and an older page");
+
+        CostPanel.Row none = build(CostControl.NONE, false, noServerLimit(row("2026-10-12 10:00:00", "262.50"))).rows().get(1);
+        assertEquals("262.50", none.used());
+        assertEquals(null, none.limit());
+        assertEquals(null, none.percent());
+    }
 }

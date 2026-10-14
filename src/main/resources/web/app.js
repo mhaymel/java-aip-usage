@@ -1483,18 +1483,33 @@
             fill.className = 'cost-fill';
             fill.style.width = (row.noLimit ? 0 : Math.round(row.fraction * 1000) / 10) + '%';
             bar.append(fill);
-            var text = document.createElement('span');
-            text.className = 'cost-text';
-            text.textContent = row.text;
-            // Over the limit the bar is red (since 0.82): there is no warning sign any more.
-            var figures = document.createElement('span');
-            figures.className = 'cost-figures';
-            figures.append(text);
+            // The figures in four columns shared by the rows (since 0.83): the amount and the limit right-aligned, so that their
+            // decimal points are under one another, `of` centred, and the percentage. A row with no limit has its amount in the
+            // first, and the rest of its text over the other three; a backend that sends no parts, its text in one cell over all four.
+            var cells = [];
+            var cell = function (className, content) {
+                var part = document.createElement('span');
+                part.className = className;
+                part.textContent = content;
+                part.title = row.tooltip;
+                cells.push(part);
+                return part;
+            };
+            if (row.used !== null && row.used !== undefined && row.limit !== null && row.limit !== undefined) {
+                cell('cost-used', row.used);
+                cell('cost-of', 'of');
+                cell('cost-limit', row.limit);
+                cell('cost-percent', '\u00b7 ' + row.percent);
+            } else if (row.used !== null && row.used !== undefined) {
+                cell('cost-used', row.used);
+                cell('cost-rest', '\u00b7 no limit set');
+            } else {
+                cell('cost-text', row.text);
+            }
             // A row is no box of its own in the grid, so each of its cells says the tooltip of the row.
             label.title = row.tooltip;
             bar.title = row.tooltip;
-            text.title = row.tooltip;
-            line.append(label, bar, figures);
+            line.append.apply(line, [label, bar].concat(cells));
             box.append(line);
         });
         setNote('cost-note', shown.note, 'panel-note');
@@ -1515,8 +1530,20 @@
                 return Math.max(most, part ? Math.ceil(part.getBoundingClientRect().width) : 0);
             }, 0);
         };
+        // The figures (since 0.83): a row of four cells has four columns, each as wide as the widest of such rows, with their
+        // gaps; a row of fewer has cells over several columns, and needs its own cells and the gaps between them.
+        var cellWidth = function (part) { return Math.ceil(part.getBoundingClientRect().width); };
+        var four = lines.filter(function (line) { return line.children.length === 6; });
+        var columns = [2, 3, 4, 5].map(function (i) {
+            return four.reduce(function (most, line) { return Math.max(most, cellWidth(line.children[i])); }, 0);
+        });
+        var figures = four.length > 0 ? columns.reduce(function (sum, w) { return sum + w; }, 0) + 3 * COST_GAP : 0;
+        lines.filter(function (line) { return line.children.length < 6; }).forEach(function (line) {
+            var cells = Array.prototype.slice.call(line.children, 2);
+            figures = Math.max(figures, cells.reduce(function (sum, part) { return sum + cellWidth(part); }, 0) + (cells.length - 1) * COST_GAP);
+        });
         // 16 px is the panel's own padding, as for the history.
-        return widest(0) + COST_BAR_MIN + widest(2) + 2 * COST_GAP + 16;
+        return widest(0) + COST_BAR_MIN + figures + 2 * COST_GAP + 16;
     }
 
     /**
