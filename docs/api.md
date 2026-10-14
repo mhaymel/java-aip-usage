@@ -279,11 +279,11 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
     "timeTooltip": "Last update: 8 Oct 2026, 14:00:00",
     "spend": {
       "percentText": "19%",
-      "percentTooltip": "19% of the budget spent. Severity: normal",
+      "percentTooltip": "19% of the monthly limit spent",
       "used": "186.02",
       "limit": "1,000.00",
       "usedTooltip": "Credits used, in USD",
-      "limitTooltip": "Credit budget, in USD",
+      "limitTooltip": "Monthly limit sent by the server, in USD",
       "severityText": "normal"
     },
     "placeholder": null,
@@ -312,7 +312,8 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
 }
 ```
 
-Every member of `display` is always there, as `null` when it has nothing to say. `severityText` is the
+Since version 0.83 the tooltips of the percentage and the limit say `monthly limit`, and the severity is in no tooltip (it
+is still sent, as `severityText`, for other clients). Every member of `display` is always there, as `null` when it has nothing to say. `severityText` is the
 severity as the response sent it, `null` when it sent none; the window colours nothing by it. `message.kind` is
 `stale` when a reading is still on show and `error` when there is none, and `message.text` is
 `Refresh failed at <time>: <message>`. `interval` is always sent, whatever its switch says; `show.interval`

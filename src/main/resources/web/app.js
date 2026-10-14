@@ -233,9 +233,9 @@
         show('spend', percentShown || usedShown || limitShown);
         // Boxes are not dimmed with the old figures, and the dimming is the whole group's.
         $('spend').className = 'spend' + (spendBoxes ? ' boxes' : '');
-        figure('percent', 'percent', percentShown, spend && spend.percentText, spend ? spend.percentTooltip : 'Share of the budget spent' + why, spendBoxes);
+        figure('percent', 'percent', percentShown, spend && spend.percentText, spend ? spend.percentTooltip : 'Share of the monthly limit spent' + why, spendBoxes);
         figure('used', 'used', usedShown, spend && amount(spend.used, variants, 'used', s.currency), spend ? spend.usedTooltip : 'Credits used' + why, spendBoxes);
-        figure('limit', 'limit', limitShown, spend && amount(spend.limit, variants, 'limit', s.currency), spend ? spend.limitTooltip : 'Credit budget' + why, spendBoxes);
+        figure('limit', 'limit', limitShown, spend && amount(spend.limit, variants, 'limit', s.currency), spend ? spend.limitTooltip : 'Monthly limit' + why, spendBoxes);
         show('of', usedShown && limitShown);
         renderSpending(s, boxes);
 
@@ -1886,8 +1886,12 @@
             top.style.width = 'max-content';
             top.style.maxWidth = '900px';
         }
+        // The row reaches to the window's edge, so that its icons stand there (since 0.83): measured, it is its own width, which
+        // with a message line and nothing open is 300 pixels at least, as the style sheet has it (.top.noted).
+        top.style.minWidth = !stretched && /\bnoted\b/.test(top.className) ? '300px' : '0';
         var box = top.getBoundingClientRect();
         box = { width: box.width, height: box.height };
+        top.style.minWidth = '';
         if (stretched) {
             top.style.width = '';
             top.style.maxWidth = '';

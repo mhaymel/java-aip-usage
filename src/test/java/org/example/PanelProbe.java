@@ -158,8 +158,8 @@ public final class PanelProbe {
                             + " box.checked = false; box.dispatchEvent(new Event('change')); })");
             // The row's own width: while a panel is open the row is stretched to the window, so it is let go of for the measuring.
             System.out.println("PROBE settings-row=" + page.executeScript(
-                    "(function () { var t = document.getElementById('top'); t.style.width = 'max-content';"
-                            + " var w = Math.ceil(t.getBoundingClientRect().width); t.style.width = ''; return w; })()"));
+                    "(function () { var t = document.getElementById('top'); t.style.width = 'max-content'; t.style.minWidth = '0';"
+                            + " var w = Math.ceil(t.getBoundingClientRect().width); t.style.width = ''; t.style.minWidth = ''; return w; })()"));
             String size = size(page);
             System.out.println("PROBE settings=" + size);
             main.setWidth(main.getWidth() - main.getScene().getWidth() + Integer.parseInt(size.split(",")[0]));

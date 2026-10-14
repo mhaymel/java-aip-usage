@@ -3095,7 +3095,8 @@ class ApiTest {
         Json spend = json(get(app, "/api/status")).at("/display/spend");
         assertEquals("500.00", spend.get("limit").asText(), "the monthly limit typed is counted");
         assertEquals("37%", spend.get("percentText").asText(), "186.02 of 500.00");
-        assertTrue(spend.get("limitTooltip").asText().startsWith("Monthly limit of cost control"));
+        assertEquals("Monthly limit, in USD", spend.get("limitTooltip").asText());
+        assertEquals("37% of the monthly limit spent", spend.get("percentTooltip").asText(), "and no severity (since 0.83)");
 
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costLimitSource\": \"server\"}"));
         assertEquals("1,000.00", json(get(app, "/api/status")).at("/display/spend/limit").asText(), "the server's, the typed one kept");

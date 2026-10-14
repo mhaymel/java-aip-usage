@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.82 is built: 120 phases are built, the last seven (114 to 120) not pushed yet and not looked at by a person.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.82 is built and pushed (120 phases); version 0.83, phases 121 to 123, is planned and not built.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2623,6 +2623,69 @@ status of spending (the circle).
 
 **By eye, when 114 to 120 are built**, on Windows and on macOS, on both themes: the bars against `img_35` and `img_37`, the row with
 everything on, the dot in each colour with its tooltip, the icons of the lists at the right, and four views on a small screen.
+
+### 121 to 123. Version 0.83: the fifth round of notes
+
+**Status: planned, not built.** The requirements are written (every rule marked "since version 0.83"); these three phases build
+them, in this order, and `AppInfo.VERSION` becomes `0.83` with the first. Each is committed by itself with its tests green, as
+`Phase 12x built: <what> (0.83)`; the first commit has the notes and the pictures `img_38` to `img_44`, the requirements and this
+plan. No push until it is asked for.
+
+| Phase | What | Where most of it is |
+| --- | --- | --- |
+| 121 | The row: the day first, the icons and the gear at the right edge, `Monthly limit` in the place of `Budget`, no severity | `index.html`, `app.css`, `app.js`, `StatusDisplay` |
+| 122 | The amber is a golden yellow | `app.css` |
+| 123 | The figures of the cost control in four columns | `CostPanel`, `app.js`, `app.css` |
+
+**Decided before building**, in one round of questions: the circle does not pulse after all (asked once more: a dot that fades in and out has the window repaint all the time); the yellow
+`#e3b341` on both themes; the day first in the row only, the cost control keeping Today above Month; the icons and the gear
+together at the right edge; `Monthly limit` for the row's limit everywhere but the history's column `limit`; the severity shown
+nowhere; four aligned columns for the figures of the cost control; the room between the figures and the icons moves a window
+that has no title bar, as the rest of the row does.
+
+### 121. The row: the day first, the icons at the right, `Monthly limit`, no severity
+
+**Status: built (version 0.83); seen in the real window on Windows by the three window tests.** As built: the icons go right by `.tools { margin-left: auto }` and `.top { min-width: 100% }`, the row reaching the window's edge; `contentSize` lets go of that while it measures, but keeps the 300 pixels a row with a message line and nothing open has (a window test found the page asking for 38 pixels there when the first fix let go of everything). The thin line is the month's, `#day:not([hidden]) + #spend:not([hidden])`. The tooltip `Today's spend` became `What was spent today, counted from the last reading before today.`: a layout test wants every tooltip of Main view a sentence of forty characters. `TitleBarWindowTest` now holds the icons at the right edge of the row with the settings open, where it held the row as wide as its five buttons; `PanelProbe` lets go of the least width when it measures the row. One run of the seat-based step lost the hover of a synthetic mouse event, and passed again. Requirements: The elements of the row (the day first, `Monthly limit`); Compact window (the icons at the
+right edge, the severity); Limits, projections and the status of spending (the tooltips).
+
+- **The day first.** `index.html`: the `span#day` before `span#spend`, and the thin line on the left of the month's group, not the
+  day's (`.day + .spend` gets the line, so that it is there only when both are shown); the four checkboxes of the day before
+  `Percentage spent` in `Main view`, and `MAIN_FLAGS` in that order.
+- **The icons at the right edge.** `app.css`: `.tools { margin-left: auto }` in the strip, which is a flex box: the icons and the gear
+  go to its right end when the window is wider than the row; the strip is as wide as the window while a view is open or a
+  message line is wider (it is stretched then already). The width the page asks for is measured with the row at its own width,
+  as now, so it does not change.
+- **`Monthly limit`.** `index.html`: the text and the tooltip of the checkbox `set-showLimit`. `StatusDisplay`: the percentage's
+  tooltip `<p>% of the monthly limit spent` and no severity; the limit's `Monthly limit, in USD`, or `Monthly limit sent by the
+  server, in USD` when the server's is counted; `app.js`: the tooltips of the gray boxes, `Share of the monthly limit spent` and
+  `Monthly limit`.
+- `AppInfo.VERSION = "0.83"`.
+- **Tests.** `layout.test.cjs`: the order of the row and of `Main view`, the line, `.tools`. `app.test.cjs`: the gray boxes'
+  tooltips. `StatusDisplayTest`, `ApiTest`: the tooltips. The window tests, whose row changes; a probe step that measures the
+  icons' place at the right edge with a list open.
+
+### 122. The yellow
+
+**Status: planned.** Requirements: Limits, projections and the status of spending (amber).
+
+- `app.css`: `--warn: #e3b341` on both themes. Nothing else draws with `--warn` but the dot and the amber bars. No animation: the
+  circle stands still.
+- **Tests.** `layout.test.cjs`: the yellow on both themes, and no `@keyframes` for the dot.
+
+### 123. The figures of the cost control in four columns
+
+**Status: planned.** Requirements: The cost control panel (the figures in four columns).
+
+- **The backend.** `CostPanel.Row` gets the parts of its figures, `used`, `limit` and `percent` as finished texts (`limit` and
+  `percent` null with no limit), besides `text`, which stays for the tooltip and for an older page; `GET /api/cost` has them.
+- **The page.** `.cost-rows` gets three more columns: the grid is the label, the bar, then the amount (right), `of` (centred),
+  the limit (right) and `· <p>%` (right); a row with no limit spans its amount and `· no limit set` over the four. `costWidth()`
+  measures the four columns.
+- **Tests.** `CostPanelTest`: the parts. `app.test.cjs`: the cells, the row with no limit. `layout.test.cjs`: the grid. The window
+  tests: `TitleBarWindowTest`'s cost control, the decimal points of the two rows at one place (a probe step).
+
+**By eye, when 121 to 123 are built**: the row with a list open and with the row alone (the icons at the right), the dot in
+each colour, the yellow against `img_42`, the figures of the cost control against `img_41`.
 
 ## Implementation notes, as built
 

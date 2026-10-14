@@ -725,7 +725,8 @@ test('the History view tab has the date, the two lines, and a checkbox for every
 });
 const MAIN = html.slice(html.indexOf('<legend>Main view'), html.indexOf('<legend>History view<'));
 const MAIN_CHECKBOXES = [
-    ['set-showTime', 'Time'], ['set-showPercentage', 'Percentage spent'], ['set-showUsed', 'Amount used'], ['set-showLimit', 'Budget'],
+    ['set-showTime', 'Time'], ['set-showDayPercentage', 'Today\'s percentage'], ['set-showDayUsed', 'Today\'s spend'], ['set-showDayLimit', 'Daily limit'],
+    ['set-showPercentage', 'Percentage spent'], ['set-showUsed', 'Amount used'], ['set-showLimit', 'Monthly limit'],
     ['set-showRefresh', 'Refresh button'], ['set-showCountdown', 'Countdown'], ['set-showInterval', 'Interval'],
     ['set-showDeltaUsed', 'Change in the amount used'], ['set-showDeltaTime', 'Time since the previous reading'], ['set-showDuration', 'Request duration'],
     ['set-showCostIcon', 'Cost icon'], ['set-showHistoryIcon', 'History icon'], ['set-showLogIcon', 'Log icon'],
@@ -1269,13 +1270,13 @@ test('the Cost control tab has Limit counted, the hours of a working day and the
     assert.match(tab, /title="The working days of this month, Monday to Friday unless a number is typed; a typed number holds for this\s+month only\.">Working days|title="The working days of this month, Monday to Friday unless a number is typed; a typed number holds for this month only\.">Working days/);
 });
 
-test('the row has the status circle first and the figures of the day after the budget, and Main view their checkboxes in that order', () => {
+test('the row has the status circle first, the figures of the day after the time and before those of the month, and Main view their checkboxes in that order', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
-    const order = ['id="status-dot"', 'id="time"', 'id="limit"', 'id="day"', 'id="day-percent"', 'id="day-used"', 'id="day-of"', 'id="day-limit"', 'id="refresh"'].map(id => strip.indexOf(id));
+    const order = ['id="status-dot"', 'id="time"', 'id="day"', 'id="day-percent"', 'id="day-used"', 'id="day-of"', 'id="day-limit"', 'id="spend"', 'id="limit"', 'id="refresh"'].map(id => strip.indexOf(id));
     assert.ok(order.every(at => at >= 0));
     assert.deepEqual([...order].sort((a, b) => a - b), order);
     const main = html.slice(html.indexOf('id="tab-main"'), html.indexOf('id="tab-history"'));
-    const boxes = ['set-showStatus', 'set-showTime', 'set-showLimit', 'set-showDayPercentage', 'set-showDayUsed', 'set-showDayLimit', 'set-showRefresh'].map(id => main.indexOf('id="' + id + '"'));
+    const boxes = ['set-showStatus', 'set-showTime', 'set-showDayPercentage', 'set-showDayUsed', 'set-showDayLimit', 'set-showPercentage', 'set-showLimit', 'set-showRefresh'].map(id => main.indexOf('id="' + id + '"'));
     assert.ok(boxes.every(at => at >= 0));
     assert.deepEqual([...boxes].sort((a, b) => a - b), boxes);
     assert.match(ruleOf('.status-dot'), /width:\s*10px/);
@@ -1298,4 +1299,17 @@ test('History view has the three columns of the limits after limit, and the tabl
     assert.deepEqual([...order].sort((a, b) => a - b), order);
     assert.match(css, /\.panel-lines \.columns > \.c-monthly,\s*\.panel-lines \.columns > \.c-daily\s*{\s*width:\s*10ch/);
     assert.match(ruleOf('.panel-lines .columns > .c-dailyBy'), /width:\s*4ch/);
+});
+
+// ---- version 0.83: the row
+
+test('the icons and the gear stand at the right edge of a window wider than the row, and the thin line is the month\'s', () => {
+    assert.match(ruleOf('.tools'), /margin-left:\s*auto/);
+    assert.match(ruleOf('.top'), /min-width:\s*100%/, 'the row reaches the window\'s edge');
+    assert.match(css, /#day:not\(\[hidden\]\) \+ #spend:not\(\[hidden\]\)\s*{\s*border-left:\s*1px solid var\(--muted\)/, 'only when both are shown');
+    assert.doesNotMatch(css, /\.day\s*{\s*border-left/);
+});
+
+test('the checkbox of the row\'s limit is Monthly limit, with its tooltip', () => {
+    assert.match(html, /<label title="The monthly limit counted: the one the server sends, or the one typed under Cost control\."><input id="set-showLimit" type="checkbox"> Monthly limit<\/label>/);
 });

@@ -295,14 +295,14 @@ final class StatusDisplay {
         String unit = spend.currency() != null && !spend.currency().isEmpty() ? ", in " + spend.currency() : "";
         String percentText = spend.percent() != null ? spend.percent() + "%" : null;
         String severity = spend.severity() == null || spend.severity().isEmpty() ? null : spend.severity();
+        // The severity is named nowhere since 0.83: it is kept for other clients, and the tooltip says the share alone.
         return new SpendView(
                 percentText,
-                (percentText != null ? percentText + " of the budget spent" : "Share of the budget spent")
-                        + (severity != null ? ". Severity: " + severity : ""),
+                percentText != null ? percentText + " of the monthly limit spent" : "Share of the monthly limit spent",
                 amountText(spend.used(), spend.currency(), withSymbol),
                 amountText(spend.limit(), spend.currency(), withSymbol),
                 "Credits used" + unit,
-                (monthly ? "Monthly limit of cost control" : "Credit budget") + unit,
+                (monthly ? "Monthly limit" : "Monthly limit sent by the server") + unit,
                 severity);
     }
 }

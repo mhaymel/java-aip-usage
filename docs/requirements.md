@@ -275,6 +275,11 @@ button that is switched off is therefore never taken away from a panel that is o
 The four icon buttons sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
 
+**The icons and the gear stand at the right edge of the window** (since version 0.83; `docs/img_38.png`, `docs/img_43.png`):
+whenever the window is wider than the row needs, with a list open, a long message line, or a row of few elements in a
+window of its least width, the four icons and the gear move together to the right edge, and the room left over is between
+the last figure and the first icon. The figures stay at the left. A row as wide as the window is as before.
+
 **The button of the open panel is blue, and bigger.** Of the log, history, error log and settings buttons, the one whose panel is
 shown stands out so that it is seen at a glance: it is **blue, the blue of the notes and of the selected tab** (`#0969da` on the light theme and `#58a6ff` on the dark one; since version 0.66, before it was green: a vivid green until 0.64 and the green of the figures in 0.65), its button is 24 pixels instead of 20 and its icon 16 pixels
 instead of 12, and its lines are heavier (about 2.2 instead of 1.6; the gear, which is 13 pixels and drawn on a finer grid, is made to look the same). Twenty-four pixels is
@@ -291,8 +296,9 @@ fixed: it does not follow the severity, so nothing in the row turns amber or red
 same whether a severity was sent or not, whether a change is up or down, and whatever the settings are. A missing
 amount, the dash, is green like one that is there. The time of the reading, the countdown and the time between usage
 requests are in the colour of the text, and the countdown is red after an HTTP 429, until a request is answered without one (see Countdown).
-The severity is named in the tooltip of the percentage and nowhere else: the tooltips of the amounts say what the
-number is and its unit, and nothing about the severity.
+**The severity is named nowhere** (since version 0.83; `docs/img_39.png`; until then in the tooltip of the percentage, as
+`Severity: normal`): the tooltip of the percentage says `<percent>% of the monthly limit spent`, and the tooltips of the amounts
+say what the number is and its unit, and nothing about the severity.
 
 **Countdown**
 
@@ -334,9 +340,10 @@ names, shown as its code, here `USD`.
   refresh, for example `Last update: 8 Oct 2026, 14:24:53`. This is the one place a
   date appears.
 - The used amount (the first number): `Credits used, in USD`.
-- The budget (the second number): `Credit budget, in USD`.
+- The budget (the second number): `Credit budget, in USD`; since version 0.83 `Monthly limit, in USD` or `Monthly limit sent by the server, in USD` (see Limits, projections and the status of spending).
 - The percentage: how much of the budget is spent, and the severity, for example
-  `19% of the budget spent. Severity: normal`, which is the only place the severity shows.
+  `19% of the budget spent. Severity: normal`, which is the only place the severity shows. Since version 0.83 it is
+  `19% of the monthly limit spent`, and the severity shows nowhere.
 - The countdown: that it is the seconds until the next refresh, and negative when
   overdue.
 - The refresh button says `Refresh now`, and the settings button says `Show the settings`, and
@@ -351,7 +358,8 @@ names, shown as its code, here `USD`.
   reading, `Time since the previous reading`; the interval item, `Time between usage requests`. When the response named
   no currency the amounts say `Credits used` and `Credit budget`, and the change `Change in the amount used since the
   previous reading`, with no `, in ...` after them. A percentage that the response did not send has no text, and its
-  tooltip is `Share of the budget spent`; `. Severity: <word>` follows only when a severity was sent.
+  tooltip is `Share of the budget spent`; `. Severity: <word>` follows only when a severity was sent. (Since version 0.83:
+  `Share of the monthly limit spent`, and no severity.)
 
 **How the figures are written**
 
@@ -469,7 +477,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Show the currency symbol in the row, before the amounts | on, off | off |
   | Show the time in the row | on, off | on |
   | Show the amount used in the row | on, off | on |
-  | Show the budget in the row | on, off | on |
+  | Show the monthly limit in the row (`Monthly limit`, `Budget` until 0.82) | on, off | on |
   | Show the status circle in the row (`Status`, since version 0.82) | on, off | on |
   | Show today's percentage, today's spend and the daily limit in the row (three checkboxes, since version 0.82) | on, off | off |
   | Show the refresh button in the row | on, off | on |
@@ -982,7 +990,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 | 1 | `Time` | when the usage was last read | `20:28` | yes | `showTime` |
 | 2 | `Percentage spent` | the share of the limit counted that is spent | `26%` | no | `showPercentage` |
 | 3 | `Amount used` | what has been spent | `262.74` | yes | `showUsed` |
-| 4 | `Budget` | the limit counted: the server's, or the configured monthly limit (since version 0.82, see Limits, projections and the status of spending) | `1,000.00` | yes | `showLimit` |
+| 4 | `Monthly limit` | the limit counted: the server's, or the configured monthly limit (since version 0.82, see Limits, projections and the status of spending); called `Budget` until 0.82 | `1,000.00` | yes | `showLimit` |
 | 4a | `Today's percentage` | the share of the daily limit spent today (since version 0.82) | `64%` | no | `showDayPercentage` |
 | 4b | `Today's spend` | what was spent today (since version 0.82) | `4.37` | no | `showDayUsed` |
 | 4c | `Daily limit` | the daily limit in force (since version 0.82) | `6.81` | no | `showDayLimit` |
@@ -998,7 +1006,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 | 14 | `Error log icon` | shows and hides the error log | the triangle | yes | `showErrorIcon` |
 
 - **The four new elements of version 0.82** keep the numbers of the others: `Status` is the first of the row, before the time,
-  and the three of the day follow the budget, after a thin gray line, `64% 4.37 of 6.81`, the word `of` between the two
+  and the three of the day follow the budget, after a thin gray line, `64% 4.37 of 6.81`. **Since version 0.83 the day comes
+  first** (`docs/img_44.png`): after the time the three of the day, then the thin gray line, then the month's percentage,
+  amount used and monthly limit, and their checkboxes in `Main view` in that order; the line stands between the two groups
+  only when both have something shown. The rest of this paragraph holds: the word `of` between the two
   amounts as for the month and only when both are shown. They are in the green of the figures, and red as One green says. Their
   checkboxes in `Main view` are in the order of the row. With no daily limit, today's percentage and the daily limit are gray
   boxes whose tooltip says `No daily limit is set`.
@@ -1050,9 +1061,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   | `Time` | `The time of day at which the usage shown was last read from Anthropic.` |
   | `Percentage spent` | `How much of the budget is spent, as a percentage, as Anthropic reports it.` |
   | `Amount used` | `What the account has spent in the current period, in the currency of the account.` |
-  | `Budget` | `The spend limit of the account: the most that can be spent in the current period.` |
+  | `Monthly limit` | `The monthly limit counted: the one the server sends, or the one typed under Cost control.` (since version 0.83; `Budget` and `The spend limit of the account: the most that can be spent in the current period.` until then) |
   | `Today's percentage` | `The share of the daily limit spent today.` (since version 0.82) |
-  | `Today's spend` | `What was spent today.` (since version 0.82) |
+  | `Today's spend` | `What was spent today, counted from the last reading before today.` (since version 0.82; `What was spent today.` until 0.83, too short to say what it counts) |
   | `Daily limit` | `The daily limit in force: the one typed, or the monthly limit divided by the working days.` (since version 0.82) |
   | `Refresh button` | `A button that reads the usage now, without waiting for the next refresh.` |
   | `Countdown` | `The seconds until the usage is read again. It is negative when a refresh is overdue, and red while Anthropic asks the program to slow down.` |
@@ -1108,7 +1119,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   to 0.79 it was a rectangle with a frame of one pixel all the way round; until version 0.76 the box was filled, first with gray
   and then with a light green, and its corners were rounded by 3 pixels.
 - The placeholder has **the tooltip of its element**, in the form that needs no value: `Last update`,
-  `Share of the budget spent`, `Credits used`, `Credit budget`, `Seconds until the next refresh`,
+  `Share of the budget spent`, `Credits used`, `Credit budget` (since version 0.83 `Share of the monthly limit spent` and `Monthly limit`), `Seconds until the next refresh`,
   `Change in the amount used since the previous reading`, `Time since the previous reading` and `How long the latest usage request took`.
 - **Which elements have one.** The time, the percentage, the amount used, the budget, the countdown, the two changes and the
   request duration. The
@@ -1725,9 +1736,12 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   twentieth, nineteen gaps, through both parts. **The part used is green, and the rest a light green** (the green of the figures
   at a quarter of its strength), where the rest was gray. The used part ends where the share ends, inside a block if it does.
 - **The colour of the used part says the state** (since version 0.82): **green** while the bar is within its limit and on
-  pace; **amber** (`#bf8700` / `#d29922`) when the projection says the limit will be passed (see Limits, projections and the
+  pace; **amber**, a golden yellow since version 0.83 (`#e3b341` on both themes; `#bf8700` / `#d29922`, which looked light brown, until then; `docs/img_42.png`), when the projection says the limit will be passed (see Limits, projections and the
   status of spending); **red** (`#cf222e` / `#f85149`) when the limit is passed, and then the bar is full, every block red. Its
   rest takes the light form of the same colour. A bar with no limit stays gray and empty, as before.
+- **The figures are four columns** (since version 0.83; `docs/img_41.png`), shared by the two rows: the amount spent, right-aligned;
+  `of`, centred; the limit, right-aligned; and `· <percent>%`, right-aligned; so that the decimal points of each column are under
+  one another. A row with no limit has its amount in the first column and `· no limit set` in the rest of the line.
 - **The figures** are written `<used> of <limit> · <percent>%`, for example `12.40 of 25.00 · 50%`: the amount used, the limit, both in the form of the amounts of the row (two decimals, the currency symbol when `Currency symbol` is on), and the percentage, a
   whole number, rounded to the nearer and upwards at half. The amount is the one of the figures, so it is `$` for US dollars with the symbol on and the plain number with it off, as the row writes it.
 - **The monthly bar**: the amount used of the newest reading, against the monthly limit of the cost control. **The daily bar**: the amount spent today against the daily limit in force this month (the typed one, or the one worked out from the monthly limit, see Cost control).
@@ -2121,7 +2135,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   stands in three places: the colour of the bars of the cost control, the red of the row's figures, and the status circle.
 - **The limit counted** for the month is the server's limit or the typed monthly limit, by `Limit counted` (see Cost control);
   the daily limit is the typed one, or the one worked out from the monthly limit counted and the working days. The row's
-  `Budget` and percentage show the limit counted, where they showed the server's until 0.81.
+  `Budget` and percentage show the limit counted, where they showed the server's until 0.81. **Their tooltips say `monthly limit`**
+  (since version 0.83): the percentage `<percent>% of the monthly limit spent`, the limit `Monthly limit, in USD` when the typed
+  one is counted and `Monthly limit sent by the server, in USD` when the server's is.
 - **What is spent today, and in the month**, is as The cost control panel says.
 - **The day's projection.** The working day begins at **the first reading of today whose amount used rose** over the one
   before it. From then, what is spent today is projected over the hours of a working day (8 by default): spent today ÷ hours
@@ -2134,6 +2150,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The state of each**, the day and the month: **red** when what is spent is more than its limit; **amber** when not, but
   the day's projection is more than the daily limit, or the month is ahead of its pace; **green** otherwise; **gray** when it
   has no limit.
+- **The status circle does not pulse** (decided in version 0.83, against the note of `docs/img_40.png`): a dot that fades in and
+  out would have the window repaint all the time, which costs the computer more than it is worth. It stands still in its colour.
 - **The status circle** (the element `Status`, the first of the row, shown by default) is a filled dot, 10 pixels: red when
   either is red, amber when either is amber and none red, green when both are green, gray when neither has a limit (one
   without a limit counts as green beside the other). Its tooltip says each, in two lines, then the figures:

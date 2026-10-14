@@ -298,7 +298,8 @@ class TitleBarWindowTest {
         Matcher narrow = Pattern.compile(" note:\\[(\\d+)x(\\d+)\\|top:(\\d+)\\|elements:(\\d+)\\|window:(\\d+)]").matcher(line(all, "message-narrow-settings"));
         assertTrue(narrow.find(), all);
         // While the settings are shown the four panel buttons are in the row, dimmed when they are switched off, beside the gear.
-        assertTrue(Integer.parseInt(narrow.group(4)) < 120, "the row is its five buttons and nothing else:\n" + all);
+        // The five buttons stand at the right edge of the row since 0.83: the elements reach to it, less the room at its sides.
+        assertEquals(Integer.parseInt(narrow.group(3)) - 16, Integer.parseInt(narrow.group(4)), "the icons at the right edge:\n" + all);
         assertEquals(narrow.group(5), narrow.group(3), "its box is as wide as the window:\n" + all);
         assertTrue(Integer.parseInt(narrow.group(1)) > 200, "and so is the message, less the room at its sides:\n" + all);
         assertTrue(Integer.parseInt(narrow.group(2)) < 100, "which is a few lines tall:\n" + all);

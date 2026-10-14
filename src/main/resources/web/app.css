@@ -90,6 +90,8 @@ body {
  */
 .top {
     width: max-content;
+    /* As wide as the window, when that is wider than the row: the icons then stand at its right edge (since 0.83). */
+    min-width: 100%;
     max-width: 900px;
     padding: 5px 8px;
 }
@@ -264,8 +266,11 @@ body {
 .status-dot.amber { background: var(--warn); }
 .status-dot.red { background: var(--bad); }
 
-/* The figures of the day follow those of the month, after a thin gray line (since 0.82). */
-.day {
+/*
+ * The figures of the day come first, then those of the month after a thin gray line (since 0.83; the other way round in 0.82):
+ * the line is there only when both are shown.
+ */
+#day:not([hidden]) + #spend:not([hidden]) {
     border-left: 1px solid var(--muted);
     padding-left: 8px;
 }
@@ -993,7 +998,9 @@ body {
 }
 
 /* The four icon buttons sit close together, not a strip gap apart. */
+/* The icons and the gear at the right end of the row, the room left over before them (since 0.83). */
 .tools {
+    margin-left: auto;
     display: inline-flex;
     align-items: center;
     gap: 2px;

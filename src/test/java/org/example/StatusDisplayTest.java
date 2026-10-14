@@ -73,9 +73,9 @@ class StatusDisplayTest {
     void theTooltipsNameWhatTheNumbersAreAndTheUnitTheResponseGives() {
         StatusDisplay.View v = build(state(spend(SPEND), null, null));
 
-        assertEquals("19% of the budget spent. Severity: normal", v.spend().percentTooltip(), "the percentage names the severity");
+        assertEquals("19% of the monthly limit spent", v.spend().percentTooltip(), "the severity is named nowhere (since 0.83)");
         assertEquals("Credits used, in USD", v.spend().usedTooltip());
-        assertEquals("Credit budget, in USD", v.spend().limitTooltip());
+        assertEquals("Monthly limit sent by the server, in USD", v.spend().limitTooltip());
     }
 
     @Test
@@ -131,7 +131,7 @@ class StatusDisplayTest {
             StatusDisplay.View v = build(state(spend(SPEND), null, null), OptionalLong.empty(), null, settings);
 
             assertEquals("Credits used, in USD", v.spend().usedTooltip(), "percentage " + percentage);
-            assertEquals("Credit budget, in USD", v.spend().limitTooltip(), "percentage " + percentage);
+            assertEquals("Monthly limit sent by the server, in USD", v.spend().limitTooltip(), "percentage " + percentage);
             assertEquals(percentage, v.show().percentage());
         }
     }
@@ -141,8 +141,8 @@ class StatusDisplayTest {
         StatusDisplay.View v = build(state(spend(new Spend(Amount.parse("1.0"), Amount.parse("2.0"), null, null, null)), null, null));
 
         assertEquals("Credits used", v.spend().usedTooltip());
-        assertEquals("Credit budget", v.spend().limitTooltip());
-        assertEquals("Share of the budget spent", v.spend().percentTooltip());
+        assertEquals("Monthly limit sent by the server", v.spend().limitTooltip());
+        assertEquals("Share of the monthly limit spent", v.spend().percentTooltip());
         assertNull(v.spend().percentText());
     }
 

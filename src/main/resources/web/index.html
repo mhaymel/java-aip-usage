@@ -11,13 +11,13 @@
     <div class="strip">
         <span id="status-dot" class="status-dot gray" role="img" aria-label="Status" hidden></span>
         <span id="time" class="time" title="Last update" hidden></span>
-        <span id="spend" class="spend" hidden>
-            <span id="percent" class="percent"></span>
-            <span class="amounts"><span id="used"></span><span id="of" class="of"> of </span><span id="limit"></span></span>
-        </span>
         <span id="day" class="spend day" hidden>
             <span id="day-percent" class="percent"></span>
             <span class="amounts"><span id="day-used"></span><span id="day-of" class="of"> of </span><span id="day-limit"></span></span>
+        </span>
+        <span id="spend" class="spend" hidden>
+            <span id="percent" class="percent"></span>
+            <span class="amounts"><span id="used"></span><span id="of" class="of"> of </span><span id="limit"></span></span>
         </span>
 
         <button id="refresh" class="icon" type="button" aria-label="Refresh now" title="Refresh now">
@@ -262,15 +262,15 @@
                             <option value="hh:mm:ss">hh:mm:ss</option>
                         </select>
                     </span>
+                    <label title="The share of the daily limit spent today."><input id="set-showDayPercentage" type="checkbox"> Today's percentage</label>
+                    <label title="What was spent today, counted from the last reading before today."><input id="set-showDayUsed" type="checkbox"> Today's spend</label>
+                    <label title="The daily limit in force: the one typed, or the monthly limit divided by the working days."><input id="set-showDayLimit" type="checkbox"> Daily limit</label>
                     <label title="How much of the budget is spent, as a percentage, as Anthropic reports it."><input id="set-showPercentage" type="checkbox"> Percentage spent</label>
                     <span class="line">
                         <label title="What the account has spent in the current period, in the currency of the account."><input id="set-showUsed" type="checkbox"> Amount used</label>
                         <label title="Puts the currency symbol before the amount used and the budget: the dollar sign for US dollars, the code for any other currency."><input id="set-showCurrency" type="checkbox"> Currency symbol</label>
                     </span>
-                    <label title="The spend limit of the account: the most that can be spent in the current period."><input id="set-showLimit" type="checkbox"> Budget</label>
-                    <label title="The share of the daily limit spent today."><input id="set-showDayPercentage" type="checkbox"> Today's percentage</label>
-                    <label title="What was spent today."><input id="set-showDayUsed" type="checkbox"> Today's spend</label>
-                    <label title="The daily limit in force: the one typed, or the monthly limit divided by the working days."><input id="set-showDayLimit" type="checkbox"> Daily limit</label>
+                    <label title="The monthly limit counted: the one the server sends, or the one typed under Cost control."><input id="set-showLimit" type="checkbox"> Monthly limit</label>
                     <label title="A button that reads the usage now, without waiting for the next refresh."><input id="set-showRefresh" type="checkbox"> Refresh button</label>
                     <label title="The seconds until the usage is read again. It is negative when a refresh is overdue, and red while Anthropic asks the program to slow down."><input id="set-showCountdown" type="checkbox"> Countdown</label>
                     <label title="The time between two usage requests, in seconds, as set under Request, or the longer wait in force after Anthropic asked the program to slow down."><input id="set-showInterval" type="checkbox"> Interval</label>

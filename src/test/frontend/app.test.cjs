@@ -415,7 +415,7 @@ test('a reading with no usage shows the countdown and its time, and gray boxes f
     assert.doesNotMatch(page.el('time').className, /skeleton/);
     assert.equal(page.el('spend').hidden, false);
     assert.match(page.el('spend').className, /\bboxes\b/, 'so that the group is not dimmed with old figures');
-    const tooltips = { percent: 'Share of the budget spent', used: 'Credits used', limit: 'Credit budget' };
+    const tooltips = { percent: 'Share of the monthly limit spent', used: 'Credits used', limit: 'Monthly limit' };
     for (const [id, tooltip] of Object.entries(tooltips)) {
         assert.equal(page.el(id).hidden, false, id);
         assert.match(page.el(id).className, /\bskeleton\b/, id + ' is a gray box');
@@ -461,7 +461,7 @@ test('an error before any reading is shown, such as Claude Code not being found'
     const page = await load(backendOf({ config: CONFIG, status }));
 
     // No word in the row: gray boxes, the time among them, and the message line says what went wrong.
-    for (const [id, tooltip] of Object.entries({ time: 'Last update', used: 'Credits used', limit: 'Credit budget' })) {
+    for (const [id, tooltip] of Object.entries({ time: 'Last update', used: 'Credits used', limit: 'Monthly limit' })) {
         assert.equal(page.el(id).hidden, false, id);
         assert.match(page.el(id).className, /\bskeleton\b/, id);
         assert.equal(page.el(id).title, tooltip + ': no data', id);
@@ -2447,7 +2447,7 @@ test('before the first reading each element that is switched on is a gray box wi
     const page = await load(backendOf({ config: CONFIG, status: withShow(withDisplay(waiting), everything) }));
 
     const tooltips = {
-        'time': 'Last update', 'percent': 'Share of the budget spent', 'used': 'Credits used', 'limit': 'Credit budget',
+        'time': 'Last update', 'percent': 'Share of the monthly limit spent', 'used': 'Credits used', 'limit': 'Monthly limit',
         'countdown': 'Seconds until the next refresh',
         'delta-used': 'Change in the amount used since the previous reading', 'delta-time': 'Time since the previous reading',
         'duration': 'How long the latest usage request took',
@@ -5320,4 +5320,27 @@ test('a bar is amber when the backend says the limit is about to be passed, red 
     assert.match(day.bar.className, /\bamber\b/);
     assert.doesNotMatch(month.bar.className, /\bamber\b|\bover\b/);
     assert.match(day.tooltip, /on course to pass/);
+});
+
+test('the size the page asks for is the row\'s own, though the row reaches the window\'s edge', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    const seen = [];
+    const top = page.el('top');
+    const rect = top.getBoundingClientRect.bind(top);
+    top.getBoundingClientRect = function () { seen.push(this.style.minWidth); return rect(); };
+    page.window.contentSize();
+    assert.deepEqual(seen, ['0'], 'measured with its least width let go of');
+    assert.equal(top.style.minWidth, '', 'and given back');
+});
+
+test('measured with a message line and nothing open, the row keeps its least width of 300 pixels', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    const top = page.el('top');
+    // A message line is shown: the row is marked noted when the size is asked.
+    page.el('note').hidden = false;
+    const seen = [];
+    const rect = top.getBoundingClientRect.bind(top);
+    top.getBoundingClientRect = function () { seen.push(this.style.minWidth); return rect(); };
+    page.window.contentSize();
+    assert.deepEqual(seen, ['300px']);
 });
