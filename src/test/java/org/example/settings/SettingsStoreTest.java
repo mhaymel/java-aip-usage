@@ -186,7 +186,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "historyHeight", "logHeight"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -618,5 +618,50 @@ class SettingsStoreTest {
 
         Files.writeString(file(), "{\"costMonthlyLimit\": 100, \"costDailyLimit\": 150, \"costDailyAutomatic\": false}");
         assertEquals(new CostControl(10_000L, null, false), new SettingsStore(file()).load().cost());
+    }
+
+    @Test
+    void severalViewsAtOnceIsASettingOffByDefaultAndKept() throws IOException {
+        assertFalse(Settings.defaults().severalViews(), "off by default");
+        SettingsStore store = new SettingsStore(file());
+        assertFalse(store.load().severalViews(), "and off with no file");
+
+        store.save(Settings.defaults().withSeveralViews(true));
+
+        assertTrue(new SettingsStore(file()).load().severalViews());
+        assertTrue(JsonReader.read(Files.readString(file())).get("severalViews").asBoolean());
+        assertFalse(Settings.defaults().withSeveralViews(true).withSeveralViews(false).severalViews());
+    }
+
+    @Test
+    void theViewsThatWereOpenAtOnceAreStoredWithCommasAndReadInTheOrderOfTheIcons() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        store.save(Settings.defaults());
+        store.saveLast(new SettingsStore.LastWindow("history,cost", null, 520, 640, 10, 20));
+
+        assertEquals("history,cost", JsonReader.read(Files.readString(file())).get("lastPanel").asText());
+        assertEquals("history,cost", new SettingsStore(file()).loadLast().panel());
+
+        Files.writeString(file(), "{\"lastPanel\": \"cost,calendar,log,cost\", \"lastTab\": \"general\"}");
+        assertEquals("log,cost", new SettingsStore(file()).loadLast().panel(), "an unknown name is left out, each view once, in the order of the icons");
+
+        Files.writeString(file(), "{\"lastPanel\": \"history,settings\", \"lastTab\": \"about\"}");
+        assertEquals(new SettingsStore.LastWindow("settings", "about", null, null, null, null), new SettingsStore(file()).loadLast(),
+                "the settings are shown alone");
+
+        Files.writeString(file(), "{\"lastPanel\": \"calendar,\"}");
+        assertEquals(SettingsStore.LastWindow.NONE, new SettingsStore(file()).loadLast());
+    }
+
+    @Test
+    void aWindowShowsWhatWasStoredWhenItShowsAllOfItOrTheFirstOfItAlone() {
+        assertTrue(SettingsStore.LastWindow.shows("history,cost", List.of("history", "cost")));
+        assertTrue(SettingsStore.LastWindow.shows("history,cost", List.of("history")), "several views at once are switched off");
+        assertFalse(SettingsStore.LastWindow.shows("history,cost", List.of("cost")));
+        assertFalse(SettingsStore.LastWindow.shows("history,cost", List.of("log", "history", "cost")));
+        assertTrue(SettingsStore.LastWindow.shows("log", List.of("log")));
+        assertTrue(SettingsStore.LastWindow.shows("settings", List.of("settings")));
+        assertFalse(SettingsStore.LastWindow.shows("log", List.of()), "nothing is open yet");
+        assertFalse(SettingsStore.LastWindow.shows(null, List.of("log")));
     }
 }

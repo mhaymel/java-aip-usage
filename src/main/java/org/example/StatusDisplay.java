@@ -51,11 +51,15 @@ final class StatusDisplay {
         }
     }
 
-    /** Which elements of the row are switched on; all twelve can be hidden, and {@code currency} is the symbol of the amounts. */
+    /**
+     * Which elements of the row are switched on; all twelve can be hidden, and {@code currency} is the symbol of the amounts.
+     * {@code severalViews} is no element of the row: it says whether an icon leaves the other views open.
+     */
     record Show(
             boolean percentage, boolean currency, boolean interval, boolean deltaUsed, boolean deltaTime,
             boolean historyIcon, boolean logIcon, boolean errorIcon, boolean costIcon,
-            boolean time, boolean used, boolean limit, boolean refresh, boolean countdown, boolean duration) {
+            boolean time, boolean used, boolean limit, boolean refresh, boolean countdown, boolean duration,
+            boolean severalViews) {
 
         Json toJson() {
             return Json.object()
@@ -73,7 +77,8 @@ final class StatusDisplay {
                     .put("limit", limit)
                     .put("refresh", refresh)
                     .put("countdown", countdown)
-                    .put("duration", duration);
+                    .put("duration", duration)
+                    .put("severalViews", severalViews);
         }
     }
 
@@ -209,7 +214,7 @@ final class StatusDisplay {
                         settings.showPercentage(), settings.showCurrency(), settings.showInterval(), settings.showDeltaUsed(),
                         settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon(), settings.showCostIcon(),
                         settings.showTime(), settings.showUsed(), settings.showLimit(), settings.showRefresh(), settings.showCountdown(),
-                        settings.showDuration()),
+                        settings.showDuration(), settings.severalViews()),
                 // Whether the setting gives the window its title bar. The page draws a border round a window that has none,
                 // which is one with this off and no panel open.
                 settings.showTitleBar(),

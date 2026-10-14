@@ -129,4 +129,57 @@ class WindowFitTest {
 
         assertEquals(Optional.empty(), WindowFit.next("5000,9000", applied));
     }
+
+    @Test
+    void severalViewsAreNamedTogetherAndTheHeightTheLowestListHasAloneFollows() {
+        Size both = WindowFit.parse("520,640,1,history+cost,420").orElseThrow();
+
+        assertEquals("history+cost", both.panel());
+        assertEquals(java.util.List.of("history", "cost"), both.panels());
+        assertEquals(true, both.several());
+        assertEquals("history", both.lowestList(), "the cost control below it is no list");
+        assertEquals(420, both.alone());
+        assertEquals(WindowFit.Resize.HEIGHT, both.resize());
+
+        Size all = WindowFit.parse("1300,1500,2,log+history+errors+cost,420").orElseThrow();
+        assertEquals(java.util.List.of("log", "history", "errors", "cost"), all.panels());
+        assertEquals("errors", all.lowestList());
+        assertEquals(true, all.widthIsThePersons(), "the log is among them");
+
+        Size one = WindowFit.parse("400,420,1,history").orElseThrow();
+        assertEquals(java.util.List.of("history"), one.panels());
+        assertEquals(false, one.several());
+        assertEquals("history", one.lowestList());
+        assertEquals(0, one.alone(), "one view says no height: the whole of it is the list's");
+        assertEquals(java.util.List.of(), WindowFit.parse("400,42,0").orElseThrow().panels());
+        assertEquals(null, WindowFit.parse("400,120,3,cost").orElseThrow().lowestList());
+    }
+
+    @Test
+    void aReportThatNamesWhatIsNoViewIsNoSize() {
+        assertEquals(Optional.empty(), WindowFit.parse("400,420,1,history+settings"), "the settings replace the views");
+        assertEquals(Optional.empty(), WindowFit.parse("400,420,1,history+calendar"));
+        assertEquals(Optional.empty(), WindowFit.parse("400,420,1,history+"));
+        assertEquals(Optional.empty(), WindowFit.parse("400,420,1,log+history+errors+cost+log"), "there are four views");
+        assertEquals(Optional.empty(), WindowFit.parse("400,420,1,history+cost,tall"));
+        assertEquals(Optional.empty(), WindowFit.parse("400,420,1,history+history,420"), "a view twice");
+        assertEquals(Optional.empty(), WindowFit.parse("400,420,1,cost+history,420"), "not in the order of the icons");
+        assertEquals(WindowFit.MAX.height(), WindowFit.parse("400,420,1,history+cost,99999").orElseThrow().alone(), "kept within the limits");
+    }
+
+    @Test
+    void withSeveralViewsTheWindowHasItsTitleBarWheneverOneOfThemCanBeDragged() {
+        assertEquals(true, WindowFit.parse("520,640,1,history+cost,420").orElseThrow().keepsTitleBar(), "the history can be dragged taller");
+        assertEquals(true, WindowFit.parse("1300,900,2,log+errors,420").orElseThrow().keepsTitleBar());
+        assertEquals(false, WindowFit.parse("400,120,3,cost").orElseThrow().keepsTitleBar(), "the cost control alone has none, as before");
+    }
+
+    @Test
+    void anotherHeightOfTheLowestListIsANewSize() {
+        Optional<Size> applied = WindowFit.parse("520,640,1,history+cost,420");
+
+        assertEquals(Optional.empty(), WindowFit.next("520,640,1,history+cost,420", applied));
+        assertEquals(true, WindowFit.next("520,720,1,history+cost,500", applied).isPresent());
+        assertEquals(true, WindowFit.next("520,640,1,history,420", applied).isPresent(), "a view fewer is a new size");
+    }
 }

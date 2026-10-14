@@ -44,6 +44,7 @@ import org.example.fake.Scenario;
  * @param historyCurrent whether it has the column of the currency, titled {@code Cur.}
  * @param restoreWindow whether the program stores which panel was open and the size and place of the window when it stops, and starts as it was
  * @param showCostIcon whether the row has the button that shows the cost control panel
+ * @param severalViews whether more than one view can be shown at the same time: an icon then opens its view and leaves the others open
  * @param listFontSize a choice made in the lists, not in the settings view: the size of the text of the log, the usage
  *     history and the error log, in pixels
  */
@@ -85,7 +86,8 @@ public record Settings(
         boolean historyLimit,
         boolean historyCurrent,
         boolean restoreWindow,
-        boolean showCostIcon) {
+        boolean showCostIcon,
+        boolean severalViews) {
 
     /** The size of the text of the lists, in pixels, when nobody has chosen one: what it always was. */
     public static final int DEFAULT_LIST_FONT_SIZE = 12;
@@ -110,7 +112,7 @@ public record Settings(
         this(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines,
                 historyFailedLines, true, true, true, true, true, false, false, true, false, Scenario.NORMAL, false, LogLevel.INFO, false, DEFAULT_LIST_FONT_SIZE, false, CostControl.NONE,
-                true, true, true, true, false, true);
+                true, true, true, true, false, true, false);
     }
 
     public static Settings defaults() {
@@ -121,82 +123,82 @@ public record Settings(
     public Settings withShowPercentage(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, on, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withShowCurrency(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, on, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withShowHistoryIcon(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, on, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withShowLogIcon(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, on, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withShowErrorIcon(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, on, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withLogResponse(boolean on) {
         return new Settings(usageIntervalSeconds, on, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withUsageIntervalSeconds(int seconds) {
         return new Settings(seconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval, showDeltaUsed, showDeltaTime, timeFormat,
                 historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     /** These settings with the five elements of the row that are shown by default switched as given. */
     public Settings withRowElements(boolean time, boolean used, boolean limit, boolean refresh, boolean countdown) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                time, used, limit, refresh, countdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                time, used, limit, refresh, countdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withShowDuration(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, on, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, on, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withStayOnTop(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, on, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, on, showTitleBar, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withShowTitleBar(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, on, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, on, fakeBackend, fakeScenario, fakeToken, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     /** These settings with the three debug settings as given; they count only in a run that is in debug mode. */
     public Settings withDebug(boolean backend, Scenario scenario, boolean token) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, backend, scenario, token, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, backend, scenario, token, logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     /** These settings with the two choices of the log panel as given; the settings view does not have them and leaves them as they are. */
     public Settings withLog(LogLevel level, boolean date) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
-                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, level, date, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken, level, date, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     /** These settings with the zero usage lines of the history shown or hidden, as the button of the history panel switches them. */
@@ -204,7 +206,7 @@ public record Settings(
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, on, historyFailedLines,
                 showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken,
-                logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     /** These settings with the text of the lists at the size given; the settings view does not have it and leaves it as it is. */
@@ -212,21 +214,21 @@ public record Settings(
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
                 showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken,
-                logLevel, logDate, pixels, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                logLevel, logDate, pixels, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withAutoInterval(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
                 showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken,
-                logLevel, logDate, listFontSize, on, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                logLevel, logDate, listFontSize, on, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withCost(CostControl limits) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
                 showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken,
-                logLevel, logDate, listFontSize, autoInterval, limits, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon);
+                logLevel, logDate, listFontSize, autoInterval, limits, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, severalViews);
     }
 
     /** These settings with the columns of the history as given: time, used, limit and currency. */
@@ -234,20 +236,27 @@ public record Settings(
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
                 showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken,
-                logLevel, logDate, listFontSize, autoInterval, cost, time, used, limit, currency, restoreWindow, showCostIcon);
+                logLevel, logDate, listFontSize, autoInterval, cost, time, used, limit, currency, restoreWindow, showCostIcon, severalViews);
     }
 
     public Settings withRestoreWindow(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
                 showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken,
-                logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, on, showCostIcon);
+                logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, on, showCostIcon, severalViews);
     }
 
     public Settings withShowCostIcon(boolean on) {
         return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
                 showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
                 showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken,
-                logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, on);
+                logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, on, severalViews);
+    }
+
+    public Settings withSeveralViews(boolean on) {
+        return new Settings(usageIntervalSeconds, logResponse, showPercentage, showCurrency, showHistoryIcon, showLogIcon, showErrorIcon, showInterval,
+                showDeltaUsed, showDeltaTime, timeFormat, historyDeltaUsed, historyDeltaTime, historyDate, historyZeroLines, historyFailedLines,
+                showTime, showUsed, showLimit, showRefresh, showCountdown, showDuration, stayOnTop, showTitleBar, fakeBackend, fakeScenario, fakeToken,
+                logLevel, logDate, listFontSize, autoInterval, cost, historyTime, historyUsed, historyLimit, historyCurrent, restoreWindow, showCostIcon, on);
     }
 }

@@ -421,7 +421,7 @@ final class ApiHandler implements HttpHandler {
                 s.cost().monthlyCents() == null ? null : CostControl.text(s.cost().monthlyCents()),
                 s.cost().dailyCents() == null ? null : CostControl.text(s.cost().dailyCents()),
                 s.cost().dailyAutomatic(),
-                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon());
+                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -467,7 +467,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "historyLimit", current.historyLimit()),
                     flag(body, "historyCurrent", current.historyCurrent()),
                     flag(body, "restoreWindow", current.restoreWindow()),
-                    flag(body, "showCostIcon", current.showCostIcon()));
+                    flag(body, "showCostIcon", current.showCostIcon()),
+                    flag(body, "severalViews", current.severalViews()));
             // The debug settings are not among these: they are kept as they are, and changed by /api/debug alone. Nor are
             // the two choices of the log panel, which POST /api/log changes, and the size of the lists' text, which POST /api/text-size changes.
             Settings kept = settings.current();
@@ -975,7 +976,8 @@ final class ApiHandler implements HttpHandler {
                 change,
                 StatusDisplay.build(state, countdown, change, duration(), shown(), Instant.now(), ZoneId.systemDefault()),
                 historyStamp(),
-                sources.fake());
+                sources.fake(),
+                new HeightsBody(settings.storedHeight("history"), settings.storedHeight("log")));
     }
 
     /**
@@ -1209,7 +1211,8 @@ final class ApiHandler implements HttpHandler {
             boolean historyLimit,
             boolean historyCurrent,
             boolean restoreWindow,
-            boolean showCostIcon) {
+            boolean showCostIcon,
+            boolean severalViews) {
 
         Json toJson() {
             return Json.object()
@@ -1246,7 +1249,8 @@ final class ApiHandler implements HttpHandler {
                     .put("historyLimit", historyLimit)
                     .put("historyCurrent", historyCurrent)
                     .put("restoreWindow", restoreWindow)
-                    .put("showCostIcon", showCostIcon);
+                    .put("showCostIcon", showCostIcon)
+                    .put("severalViews", severalViews);
         }
     }
 
@@ -1465,7 +1469,7 @@ final class ApiHandler implements HttpHandler {
 
     record StatusBody(
             boolean refreshing, boolean stale, Long nextRefreshInSeconds, ErrorBody error, UsageBody usage, DeltaBody change,
-            StatusDisplay.View display, String historyStamp, boolean fake) {
+            StatusDisplay.View display, String historyStamp, boolean fake, HeightsBody heights) {
 
         Json toJson() {
             return Json.object()
@@ -1477,7 +1481,19 @@ final class ApiHandler implements HttpHandler {
                     .put("change", change == null ? null : change.toJson())
                     .put("display", display.toJson())
                     .put("historyStamp", historyStamp)
-                    .put("fake", fake);
+                    .put("fake", fake)
+                    .put("heights", heights.toJson());
+        }
+    }
+
+    /**
+     * The heights the window was last left at with the history and with the log open, row included, in pixels, 0 for none. The
+     * page gives a list that has another view below it the height it has alone, and that is this one where it is the larger.
+     */
+    record HeightsBody(int history, int log) {
+
+        Json toJson() {
+            return Json.object().put("history", history).put("log", log);
         }
     }
 }

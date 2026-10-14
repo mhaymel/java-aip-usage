@@ -386,7 +386,7 @@
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
     var HISTORY_FLAGS = ['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent'];
-    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
+    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'severalViews', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
 
     /**
      * Shows in the row what the main-view part of the form says, at once and before Save, so that it can be seen which element a
@@ -1506,7 +1506,7 @@
      * one the person last gave it, less the row. The last of the lists has no height of its own: it takes what the window has.
      */
     function aloneHeight(name) {
-        var kept = lastStatus && lastStatus.display && lastStatus.display.heights ? lastStatus.display.heights[name] : 0;
+        var kept = lastStatus && lastStatus.heights ? lastStatus.heights[name] : 0;
         return Math.max(panelHeight, typeof kept === 'number' ? kept : 0);
     }
 
@@ -1610,6 +1610,10 @@
         var known = VIEWS.filter(function (name) { return names.indexOf(name) >= 0; });
         if (known.length === 0) {
             return true;
+        }
+        if (known.length > 1 && !lastStatus) {
+            // Whether several views can be shown is said by the status, which has not come yet: the host asks again.
+            return false;
         }
         returnTo = [];
         // Every view that was open, with several views at once; else the first of them.

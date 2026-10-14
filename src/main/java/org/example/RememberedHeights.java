@@ -29,6 +29,18 @@ final class RememberedHeights {
     }
 
     /**
+     * What of the height the page asked for belongs to the views above the lowest list, with several views at once: the
+     * whole of it less the height that list has alone. It is never less than nothing, and nothing when the page did not
+     * say what the list has alone: the whole height is then the list's, as it is with one view.
+     *
+     * @param total the height the page asked for
+     * @param alone the height the lowest list has alone, row included, or 0 when the page did not say
+     */
+    static int above(int total, int alone) {
+        return alone <= 0 ? 0 : Math.max(0, total - alone);
+    }
+
+    /**
      * Whether a height the person gave the window is to be remembered: it must be a real height and differ from the one
      * already remembered.
      */

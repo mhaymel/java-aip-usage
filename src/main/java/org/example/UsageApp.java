@@ -88,6 +88,12 @@ public class UsageApp extends Application {
     /** Which panel's height is remembered while it is open ({@code history} or {@code log}), or null. */
     private String rememberedPanel;
 
+    /** What of the height the window was fitted to belongs to the views above the list whose height is remembered. */
+    private int rememberedAbove;
+
+    /** The least height of the content the person may drag the window to while its height can be dragged. */
+    private double leastHeight = Double.MAX_VALUE;
+
     /** True while this class sets the window's size, so that its own changes are not taken for the person's drag. */
     private boolean applying;
 
@@ -361,17 +367,24 @@ public class UsageApp extends Application {
         boolean keepWidth = size.widthIsThePersons() && before.isPresent() && size.panel() != null
                 && size.panel().equals(before.get().panel()) && before.get().resize() == size.resize();
         int contentHeight = size.height();
-        boolean remembered = "history".equals(size.panel()) || "log".equals(size.panel());
+        // With several views the height that is the person's is that of the lowest list: the views above it keep theirs.
+        String list = size.lowestList();
+        boolean remembered = "history".equals(list) || "log".equals(list);
+        // What of the height is not the list's own: nothing with a list alone, whose height is the window's, row included.
+        int above = RememberedHeights.above(size.height(), size.several() ? size.alone() : size.height());
         if (remembered) {
             // The history and the log open at the height they were last left at, never less than the page's own.
             RememberedHeights.Opening opening =
-                    RememberedHeights.open(size.height(), runtime.settings().storedHeight(size.panel()));
-            contentHeight = Math.min(opening.height(), WindowFit.MAX.height());
+                    RememberedHeights.open(size.height() - above, runtime.settings().storedHeight(list));
+            contentHeight = Math.min(above + opening.height(), WindowFit.MAX.height());
             if (opening.store()) {
-                runtime.settings().storeHeight(size.panel(), size.height());
+                runtime.settings().storeHeight(list, size.height() - above);
             }
         }
-        rememberedPanel = remembered ? size.panel() : null;
+        rememberedPanel = remembered ? list : null;
+        rememberedAbove = above;
+        // A list that has views above it can be dragged down to one line of its own, and no further.
+        leastHeight = size.several() && list != null ? above + closedHeight : closedHeight;
         heightSettled.stop();
         // Rounded up: a frame is not always a whole number of pixels wide, and a window a fraction too narrow shows a pixel
         // less of the page than it asked for, which is a pixel of the red border when there is one.
@@ -397,7 +410,7 @@ public class UsageApp extends Application {
         if (rememberedPanel == null || Double.isNaN(decorationHeight)) {
             return;
         }
-        int pixels = (int) Math.round(stage.getHeight() - decorationHeight);
+        int pixels = (int) Math.round(stage.getHeight() - decorationHeight) - rememberedAbove;
         if (RememberedHeights.shouldStore(pixels, runtime.settings().storedHeight(rememberedPanel))) {
             runtime.settings().storeHeight(rememberedPanel, pixels);
         }
@@ -424,11 +437,11 @@ public class UsageApp extends Application {
                 // The width is fixed; the height may be anything from the closed window's up.
                 stage.setMinWidth(width);
                 stage.setMaxWidth(width);
-                stage.setMinHeight(Math.min(closedHeight + decorationHeight, height));
+                stage.setMinHeight(Math.min(leastHeight + decorationHeight, height));
             }
             case BOTH -> {
                 stage.setMinWidth(Math.min(closedWidth + decorationWidth, width));
-                stage.setMinHeight(Math.min(closedHeight + decorationHeight, height));
+                stage.setMinHeight(Math.min(leastHeight + decorationHeight, height));
             }
             case WIDTH -> {
                 // Wider than the page asked for, never narrower; the height is the content's, and not the person's.
@@ -500,13 +513,15 @@ public class UsageApp extends Application {
             return;
         }
         if (!restoredViewOpen) {
+            // The names are known names and commas, and nothing else: see SettingsStore.loadLast.
             Object done = webView.getEngine().executeScript("typeof window.restoreView === 'function' ? window.restoreView('"
                     + restoring.panel() + "', '" + (restoring.tab() == null ? "" : restoring.tab()) + "') : false");
             restoredViewOpen = Boolean.TRUE.equals(done);
             return;
         }
         Optional<WindowFit.Size> size = WindowFit.parse(reported);
-        if (size.isPresent() && restoring.panel().equals(size.get().panel()) && appliedSize.isPresent() && !Double.isNaN(decorationWidth)) {
+        if (size.isPresent() && SettingsStore.LastWindow.shows(restoring.panel(), size.get().panels()) && appliedSize.isPresent()
+                && !Double.isNaN(decorationWidth)) {
             applyRestoredSize(size.get());
             LOG.debug("The window is restored: " + restoring.panel() + ", " + restoring.width() + " x " + restoring.height()
                     + " at " + restoring.x() + ", " + restoring.y());
@@ -542,7 +557,8 @@ public class UsageApp extends Application {
             return;
         }
         String[] parts = lastView.split(",", -1);
-        String panel = parts[0].isEmpty() ? null : parts[0];
+        // Several views are stored with commas between them, as the settings file names them: history,cost.
+        String panel = parts[0].isEmpty() ? null : parts[0].replace('+', ',');
         String tab = parts.length > 1 && !parts[1].isEmpty() && panel != null ? parts[1] : null;
         runtime.settings().storeLastWindow(new SettingsStore.LastWindow(panel, tab,
                 whole(lastContentWidth), whole(lastContentHeight), whole(lastX), whole(lastY)));

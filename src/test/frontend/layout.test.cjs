@@ -998,6 +998,7 @@ test('the tooltips of the settings are the texts the requirements give, with the
     const texts = {
         'set-usageIntervalSeconds': 'The time between two usage requests: a whole number of seconds from 5 to 3600. The default is 60.',
         'set-restoreWindow': 'Opens the window at the next start as it was when the program was stopped: the same panel, the same size and the same place.',
+        'set-severalViews': 'Lets more than one view be shown at the same time: an icon opens its view and leaves the others open. Off, opening a view closes the one that is shown.',
         'set-logResponse': 'Writes the JSON of every usage response to the log. Anything shaped like a credential is masked.',
         'set-showTitleBar': 'Shows the title bar of the window. Off, the window is the row alone; the title bar comes back for as long as a panel that can be resized is open, so open one to close the window.',
         'set-showCostIcon': 'The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.',
@@ -1150,4 +1151,11 @@ test('a view fills what the panel leaves it, and one that has another below it k
     assert.match(view, /min-height:\s*0/, 'so that its lines scroll and the window is not pushed taller');
     assert.match(css, /\.view\[hidden\]\s*{\s*display:\s*none/, 'hidden wins over the flex');
     assert.match(ruleOf('.view.fixed'), /flex:\s*none/, 'the page says how tall it is');
+});
+
+test('the checkbox Several views at once is the last of the group Window, after the one that restores the window', () => {
+    const group = html.slice(html.indexOf('<legend>Window</legend>'), html.indexOf('</fieldset>', html.indexOf('<legend>Window</legend>')));
+    const ids = [...group.matchAll(/<input id="(set-[A-Za-z]+)"/g)].map(m => m[1]);
+    assert.deepEqual(ids, ['set-showTitleBar', 'set-stayOnTop', 'set-restoreWindow', 'set-severalViews']);
+    assert.match(group, /<input id="set-severalViews" type="checkbox"> Several views at once<\/label>/);
 });

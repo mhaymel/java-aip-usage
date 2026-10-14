@@ -294,7 +294,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(34, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(35, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -2906,5 +2906,35 @@ class ApiTest {
         assertEquals(400, get(app, "/api/cost/daily?monthly=abc").statusCode());
         assertEquals(400, get(app, "/api/cost/daily?monthly=0").statusCode());
         assertEquals(405, post(app, "/api/cost/daily", "{}").statusCode());
+    }
+
+    @Test
+    void severalViewsAtOnceIsASettingOffByDefaultOptionalInAPostAndSaidByTheStatus() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        assertFalse(json(get(app, "/api/settings")).at("/settings/severalViews").asBoolean());
+        assertFalse(json(get(app, "/api/settings")).at("/defaults/severalViews").asBoolean());
+        assertFalse(json(get(app, "/api/status")).at("/display/show/severalViews").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"severalViews\": true}"));
+        assertTrue(json(get(app, "/api/settings")).at("/settings/severalViews").asBoolean());
+        assertTrue(json(get(app, "/api/status")).at("/display/show/severalViews").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm"));
+        assertTrue(json(get(app, "/api/settings")).at("/settings/severalViews").asBoolean(), "left out: it stays as it is");
+    }
+
+    @Test
+    void theStatusSaysTheHeightsTheHistoryAndTheLogWereLastLeftAt() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        assertEquals(0, json(get(app, "/api/status")).at("/heights/history").asInt(), "none yet");
+        assertEquals(0, json(get(app, "/api/status")).at("/heights/log").asInt());
+
+        app.settings().storeHeight("history", 610);
+        app.settings().storeHeight("log", 480);
+
+        Json heights = json(get(app, "/api/status")).get("heights");
+        assertEquals(610, heights.get("history").asInt());
+        assertEquals(480, heights.get("log").asInt());
+        assertEquals(2, heights.size(), "the error log has no height that is kept");
     }
 }

@@ -83,7 +83,9 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "showCountdown": true,
     "showDuration": false,
     "stayOnTop": false,
-    "showTitleBar": true
+    "showTitleBar": true,
+    "restoreWindow": false,
+    "severalViews": false
   },
   "defaults": { "...": "the same keys, with the defaults" },
   "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } }
@@ -97,6 +99,9 @@ changes no delay with `autoInterval` off.
 `historyTime`, `historyUsed`, `historyLimit`, `historyDeltaUsed`, `historyDeltaTime` and `historyCurrent` say which columns the history has, in the order of the table (`time`, `used`, `limit`, `Δ used`, `Δ time`, `Cur.`); the four first
 named are on by default, and `POST /api/settings` may leave `historyTime`, `historyUsed`, `historyLimit` and `historyCurrent` out, which keeps what the settings have (the other keys must all be given). `GET /api/history` has
 only the columns that are on, in `columns` and in each line's `cells`.
+`restoreWindow` (off by default) says whether the window is opened at a start as it was when the program stopped, and
+`severalViews` (since version 0.80, off by default) whether more than one view can be shown at the same time: an icon
+then opens its view and leaves the others open. A `POST` may leave either out, which keeps what the settings have; so may it `showCostIcon`.
 The same keys are in `settings.json`, which
 is created with the defaults if it is missing.
 
@@ -277,10 +282,12 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
     "show": {
       "percentage": false, "currency": false, "interval": false, "deltaUsed": false, "deltaTime": false,
       "historyIcon": true, "logIcon": true, "errorIcon": true, "costIcon": true,
-      "time": true, "used": true, "limit": true, "refresh": true, "countdown": true, "duration": false
+      "time": true, "used": true, "limit": true, "refresh": true, "countdown": true, "duration": false,
+      "severalViews": false
     }
   },
-  "historyStamp": "48211-1791468293000"
+  "historyStamp": "48211-1791468293000",
+  "heights": { "history": 612, "log": 0 }
 }
 ```
 
@@ -299,9 +306,10 @@ texts are in the requirements (How the figures are written).
   `countdown` (with `countdownAlert`, the message of an HTTP 429, which makes the countdown red and is shown when it is hovered; the 429
   has no `message`; with the countdown switched off there is no `countdownAlert` and the 429 has a `message` like any other failure), `interval` (the time between usage requests in force, `60s`), `deltaUsed` and `deltaTime` as
   `{text, tooltip}` or `null` (the seconds of `countdown`, `interval` and `deltaTime` have no space before the `s`, and `deltaUsed` never has a currency symbol; an unchanged amount is `0.00`, with no sign, and `deltaUsed` is `null` only when the change is not known, which the row shows as a gray box, as it does a `deltaTime` and a `duration` of `null`); `duration` (how long the latest usage request that has ended took, a failed one included, as the history file has it: `87ms`, and `1s034ms` from a second on; `null` until one has ended); `message` as `{kind, text}` or `null` (`kind` is `stale` or `error`, for a failed refresh); `noSpend` (what is to be said of a reading that came and has no spend, or `null` for any other reading: the page shows it below the row, muted, while the mouse is on one of the gray boxes of the amounts, and not otherwise); `titleBar` (whether the setting gives the window its title bar; with it `false` and no panel shown the page draws a border of one pixel round the window, unless the red border of the fake backend is there); and `show`, which of `percentage`, `currency`, `interval`, `deltaUsed` and
-  `deltaTime`, `time`, `used`, `limit`, `refresh`, `countdown` and `duration` the settings switch on, and which of the buttons `historyIcon`, `logIcon`, `errorIcon` and `costIcon` there are (the settings button is always there). With `currency` on, `spend.used` and `spend.limit` have
+  `deltaTime`, `time`, `used`, `limit`, `refresh`, `countdown` and `duration` the settings switch on, and which of the buttons `historyIcon`, `logIcon`, `errorIcon` and `costIcon` there are (the settings button is always there), and `severalViews`, the setting of that name, which is no element of the row: the page reads from it whether an icon leaves the other views open. With `currency` on, `spend.used` and `spend.limit` have
   the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language (the cells of the history are the exception: they are the file's own text, `1000.00`).
+- `heights` (since version 0.80): the heights the window was last left at with the history and with the log shown, `history` and `log`, in pixels of its content with the row, `0` for none. The page gives a list that has another view below it the larger of this and its own ten rows; see the window host contract.
 - `historyStamp`: a text that changes whenever a row is added to the history file in use (invented readings have a file of their own, `java-aip-usage.fake.csv`), a row of a failed refresh as well as a reading: the file's size in bytes, a `-`, and its time of last change in milliseconds.
   It is empty when there is no file, when what is there is not an ordinary file, and when the size or the time cannot be read. A client that
   shows the history reads it again when the stamp is not the one it read, and should treat the text as opaque.
@@ -598,6 +606,26 @@ window to match does not change the answer. The host ignores anything that is no
 shape (a width or a height of 0 or of more than five digits, a panel name other than `history`, `log`, `errors`, `cost`, `settings` and `debug`, the last of which the page no longer reports: the Debug tab is a tab of the settings), keeps the size it sets
 between 160 x 32 and 2400 x 1600, and does not apply a size twice; a change of the flag or of the panel alone counts as a new size. A different host,
 in a version written in another language, needs only to call the function and resize.
+
+**Several views at once** (since version 0.80, with the setting `severalViews`). The views shown are named together, in
+the order of their icons (`log`, `history`, `errors`, `cost`) and joined by `+`, and a fifth field follows when a list
+is among them: the height the lowest list has alone, the row included. `371,538,1,history+cost,492` is the history above
+the cost control, the history at 492 with the row, and the two together 538. The width is that of the widest view by its
+own rule, the height the row and every view at the height it has alone; a list that has another view below it is given
+the larger of the height the status says under `heights` and its own ten rows. The flag is `1` when a list is among them,
+`2` when the log or the error log is, and `3` when none is. The settings are never named with a view: they replace the
+views. The host gives the window its title bar when any view named is one but `cost`. What of the height is not the
+lowest list's, the total less the fifth field, stays as the page asked; the lowest list takes what the person drags the
+window to, and when it is the history or the log that height, less the views above it, is what the host remembers for
+it, and gives it when the same list is next the lowest or alone. It never lets the window be dragged lower than the views
+above that list and a row of it. A report that names a view twice, more than four, a name that is no view, or the
+settings with a view is ignored like any other that is not this shape.
+
+`window.currentView()` says what is shown, for the host to store when the program stops: `history+cost,` for views, and
+`settings,general` for the settings and their tab. The host stores the views in `lastPanel` of `settings.json` with commas,
+`history,cost`, and at the next start hands them to `window.restoreView(panel, tab)`, which takes either; it opens every
+view named when `severalViews` is on and the first of them when it is off, leaves out a name it does not know, and
+answers `false` while it cannot yet tell, so that the host asks again.
 
 The page exposes nothing else to its host, and the host exposes nothing to the page.
 

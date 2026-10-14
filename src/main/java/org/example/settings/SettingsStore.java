@@ -109,6 +109,8 @@ public final class SettingsStore {
 
     static final String RESTORE_WINDOW_KEY = "restoreWindow";
 
+    static final String SEVERAL_VIEWS_KEY = "severalViews";
+
     static final String LAST_PANEL_KEY = "lastPanel";
 
     static final String LAST_TAB_KEY = "lastTab";
@@ -222,7 +224,8 @@ public final class SettingsStore {
                 flag(root, HISTORY_LIMIT_KEY, defaults.historyLimit()),
                 flag(root, HISTORY_CURRENT_KEY, defaults.historyCurrent()),
                 flag(root, RESTORE_WINDOW_KEY, defaults.restoreWindow()),
-                flag(root, SHOW_COST_ICON_KEY, defaults.showCostIcon()));
+                flag(root, SHOW_COST_ICON_KEY, defaults.showCostIcon()),
+                flag(root, SEVERAL_VIEWS_KEY, defaults.severalViews()));
     }
 
     /**
@@ -527,16 +530,47 @@ public final class SettingsStore {
     }
 
     /**
-     * What the window showed when the program last stopped: the panel that was open ({@code log}, {@code history}, {@code errors} or
-     * {@code settings}) and for the settings the tab, the size of the window's content and the place of the window. Each is
+     * What the window showed when the program last stopped: the panel that was open ({@code log}, {@code history}, {@code errors},
+     * {@code cost} or {@code settings}), or the views that were open at once, with commas between them and in the order of
+     * their icons, as in {@code history,cost}, and for the settings the tab, the size of the window's content and the place of the window. Each is
      * {@code null} when it was not stored or cannot be. They are in the settings file but are no settings of the settings view.
      */
     public record LastWindow(String panel, String tab, Integer width, Integer height, Integer x, Integer y) {
 
         public static final LastWindow NONE = new LastWindow(null, null, null, null, null, null);
+
+        /**
+         * Whether a window that shows these views shows what was stored as {@code panel}: all of it, or, where the window
+         * shows one view only because several at once are switched off, the first of them.
+         */
+        public static boolean shows(String panel, java.util.List<String> views) {
+            if (panel == null || views.isEmpty()) {
+                return false;
+            }
+            java.util.List<String> stored = java.util.List.of(panel.split(","));
+            return stored.equals(views) || (views.size() == 1 && stored.get(0).equals(views.get(0)));
+        }
     }
 
-    private static final java.util.Set<String> PANELS = java.util.Set.of("log", "history", "errors", "cost", "settings");
+    /** The views, in the order of their icons, which is the order they are stored in. */
+    private static final java.util.List<String> VIEWS = java.util.List.of("log", "history", "errors", "cost");
+
+    /**
+     * The panel that was open as the file names it: {@code settings}, or one view, or several with commas between them.
+     * A name that is not known is left out, each view is there once, and they are put in the order of their icons.
+     */
+    static String panels(Json root) {
+        Json node = root.get(LAST_PANEL_KEY);
+        if (node == null || !node.isText()) {
+            return null;
+        }
+        java.util.List<String> named = java.util.List.of(node.text().split(","));
+        if (named.contains("settings")) {
+            return "settings";
+        }
+        String views = String.join(",", VIEWS.stream().filter(named::contains).toList());
+        return views.isEmpty() ? null : views;
+    }
 
     private static final java.util.Set<String> TABS = java.util.Set.of("main", "history", "cost", "debug", "general", "about");
 
@@ -547,7 +581,7 @@ public final class SettingsStore {
             if (root == null || !root.isObject()) {
                 return LastWindow.NONE;
             }
-            String panel = name(root, LAST_PANEL_KEY, PANELS);
+            String panel = panels(root);
             return new LastWindow(panel, panel == null ? null : name(root, LAST_TAB_KEY, TABS),
                     pixels(root, WINDOW_WIDTH_KEY, 1, MAX_HEIGHT), pixels(root, WINDOW_HEIGHT_KEY, 1, MAX_HEIGHT),
                     pixels(root, WINDOW_X_KEY, -MAX_HEIGHT, MAX_HEIGHT), pixels(root, WINDOW_Y_KEY, -MAX_HEIGHT, MAX_HEIGHT));
@@ -662,6 +696,7 @@ public final class SettingsStore {
         root.put(HISTORY_CURRENT_KEY, settings.historyCurrent());
         root.put(SHOW_COST_ICON_KEY, settings.showCostIcon());
         root.put(RESTORE_WINDOW_KEY, settings.restoreWindow());
+        root.put(SEVERAL_VIEWS_KEY, settings.severalViews());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
         // What the window showed when the program last stopped; only what was stored is written.

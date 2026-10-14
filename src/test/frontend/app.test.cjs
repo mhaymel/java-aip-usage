@@ -211,7 +211,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, showTitleBar: true, autoInterval: false,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, showTitleBar: true, autoInterval: false,
     costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
     historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
 };
@@ -985,7 +985,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, showTitleBar: true, autoInterval: false,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
         historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
     });
@@ -4735,7 +4735,7 @@ const SEVERAL = withShow(WITH_CHANGE, { historyIcon: true, logIcon: true, errorI
 const BOX_OF = { log: 'view-log', history: 'view-history', errors: 'view-errors', cost: 'cost-view' };
 const shownViews = page => Object.keys(BOX_OF).filter(name => !page.el(BOX_OF[name]).hidden);
 const blueIcons = page => ['log', 'history', 'errors', 'cost'].filter(name => /\bactive\b/.test(page.el(name + '-button').className));
-const withHeights = (status, heights) => ({ ...status, display: { ...status.display, heights } });
+const withHeights = (status, heights) => ({ ...status, heights });
 
 test('with several views at once an icon opens its view and leaves the others open, and a blue icon closes its own view alone', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SEVERAL }));
@@ -4899,7 +4899,7 @@ test('several views at once switched off in the settings: the first of the views
     await page.click('history-button');
     await page.click('cost-button');
     await page.click('settings-button');
-    page.el('set-severalViews') && (page.el('set-severalViews').checked = false);
+    page.el('set-severalViews').checked = false;
     state.postSettings = body => ({ status: 200, body: { ...SETTINGS, settings: { ...body, severalViews: false } } });
     state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: true, severalViews: false });
     page.el('set-showDeltaUsed').checked = !page.el('set-showDeltaUsed').checked;
@@ -4990,4 +4990,37 @@ test('with a list among several views the window has its title bar, and with the
     await page.click('history-button');
     assert.match(page.el('app').className, /\bbare\b/);
     assert.match(page.el('app').className, /\bfit\b/);
+});
+
+test('the checkbox for several views at once is in the General tab, in the group Window, off by default, and sent with the rest', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.el('set-severalViews').checked, false, 'off by default');
+
+    page.el('set-severalViews').checked = true;
+    await page.click('settings-save');
+
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).severalViews, true);
+});
+
+test('the views that were open at once are restored together, named with commas or with plus signs, once the status has said they may be', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL, history: () => ({ status: 200, body: HISTORY }) }));
+
+    assert.equal(page.window.restoreView('history,cost', ''), true);
+    await settle();
+    assert.equal(page.window.currentView(), 'history+cost,', 'both, in the order of the icons');
+
+    assert.equal(page.window.restoreView('cost+log+calendar', ''), true, 'a name that is not known is left out');
+    await settle();
+    assert.equal(page.window.currentView(), 'log+cost,');
+});
+
+test('with several views at once switched off, only the first of the views that were stored is restored', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: true, severalViews: false }),
+        history: () => ({ status: 200, body: HISTORY }) }));
+
+    assert.equal(page.window.restoreView('history,cost', ''), true);
+    await settle();
+
+    assert.equal(page.window.currentView(), 'history,');
 });

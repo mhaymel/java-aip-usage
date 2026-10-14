@@ -1,5 +1,6 @@
 package org.example;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,7 +15,9 @@ import java.util.regex.Pattern;
  * {@code ,4} when it may be made wider and its height is the content's (the tab About of the settings), and
  * optionally {@code ,history}, {@code ,log}, {@code ,errors}, {@code ,cost}, {@code ,settings} or {@code ,debug} after that, naming the panel that is open, in CSS pixels, taken from its own
  * content and not from the window, so resizing the window to match never changes
- * the answer. Everything else is defence: a reading that is not that shape is
+ * the answer. With several views shown at once they are named together, in the order of their icons and joined by
+ * {@code +}, as in {@code ,history+cost}, and a number may follow: the height the lowest list of them has when it is
+ * shown alone, row included, from which the host works out what a dragged height is for that list. Everything else is defence: a reading that is not that shape is
  * ignored, a size is kept within sane limits, and a size equal to the one already
  * applied is not applied again.
  */
@@ -25,17 +28,44 @@ final class WindowFit {
      *
      * @param resize what of the window the person may drag
      * @param panel which panel the page has open, if it said ({@code history}, {@code log}, {@code errors}, {@code settings}
-     *     {@code cost} or {@code debug}); the host remembers the height of the history and the log, and gives the window its
-     *     title bar for as long as a panel is open that keeps it
+     *     {@code cost} or {@code debug}), or several of the views joined by {@code +}; the host remembers the height of the
+     *     history and the log, and gives the window its title bar for as long as a panel is open that keeps it
+     * @param alone with several views, the height the lowest list has when it is shown alone, row included; 0 when the
+     *     page did not say
      */
-    record Size(int width, int height, Resize resize, String panel) {
+    record Size(int width, int height, Resize resize, String panel, int alone) {
 
         Size(int width, int height) {
-            this(width, height, Resize.NONE, null);
+            this(width, height, Resize.NONE, null, 0);
         }
 
         Size(int width, int height, Resize resize) {
-            this(width, height, resize, null);
+            this(width, height, resize, null, 0);
+        }
+
+        Size(int width, int height, Resize resize, String panel) {
+            this(width, height, resize, panel, 0);
+        }
+
+        /** The views that are open, in the order the page named them; one name for a panel alone, none when it named none. */
+        List<String> panels() {
+            return panel == null ? List.of() : List.of(panel.split("\\+"));
+        }
+
+        /** Whether more than one view is shown. */
+        boolean several() {
+            return panels().size() > 1;
+        }
+
+        /** The lowest of the lists that are shown, which takes the height the person drags the window to, or null when no list is. */
+        String lowestList() {
+            String lowest = null;
+            for (String name : panels()) {
+                if (name.equals("log") || name.equals("history") || name.equals("errors")) {
+                    lowest = name;
+                }
+            }
+            return lowest;
         }
 
         boolean resizable() {
@@ -53,10 +83,11 @@ final class WindowFit {
         /**
          * Whether the window has its title bar for this, whatever the setting says. A panel that the person can resize has
          * it, since a window with no frame cannot be dragged larger: the log, the error log, the history, and the settings,
-         * one tab of which can be dragged wider. The cost control cannot be resized and has none, like the row alone.
+         * one tab of which can be dragged wider. The cost control cannot be resized and has none, like the row alone. With
+         * several views it has it when any of them does: cost control and the history together can be dragged.
          */
         boolean keepsTitleBar() {
-            return panel != null && !panel.equals("cost");
+            return panels().stream().anyMatch(name -> !name.equals("cost"));
         }
     }
 
@@ -72,9 +103,28 @@ final class WindowFit {
 
     static final Size MAX = new Size(2400, 1600);
 
-    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(history|log|errors|cost|settings|debug))?)?");
+    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(settings|debug|(?:log|history|errors|cost)(?:\\+(?:log|history|errors|cost)){0,3})(?:,(\\d{1,5}))?)?)?");
+
+    /** The views in the order of their icons, which is the order the page names them in. */
+    private static final List<String> VIEWS = List.of("log", "history", "errors", "cost");
 
     private WindowFit() {
+    }
+
+    /** Whether the views named are each there once and in the order of their icons; a name alone always is. */
+    private static boolean inIconOrder(String panel) {
+        if (panel == null || !panel.contains("+")) {
+            return true;
+        }
+        int last = -1;
+        for (String name : panel.split("\\+")) {
+            int at = VIEWS.indexOf(name);
+            if (at <= last) {
+                return false;
+            }
+            last = at;
+        }
+        return true;
     }
 
     /**
@@ -97,13 +147,14 @@ final class WindowFit {
         }
         int width = Integer.parseInt(match.group(1));
         int height = Integer.parseInt(match.group(2));
-        if (width == 0 || height == 0) {
+        if (width == 0 || height == 0 || !inIconOrder(match.group(4))) {
             return Optional.empty();
         }
         return Optional.of(new Size(
                 Math.clamp(width, MIN.width(), MAX.width()),
                 Math.clamp(height, MIN.height(), MAX.height()),
                 match.group(3) == null ? Resize.NONE : Resize.values()[Integer.parseInt(match.group(3))],
-                match.group(4)));
+                match.group(4),
+                match.group(5) == null ? 0 : Math.min(Integer.parseInt(match.group(5)), MAX.height())));
     }
 }
