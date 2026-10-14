@@ -2666,7 +2666,7 @@ right edge, the severity); Limits, projections and the status of spending (the t
 
 ### 122. The yellow
 
-**Status: planned.** Requirements: Limits, projections and the status of spending (amber).
+**Status: built (version 0.83).** As built: one `--warn: #e3b341` on `:root`, none in the dark theme's block; the tests hold one yellow, and no animation on the dot in any of its colours. Requirements: Limits, projections and the status of spending (amber).
 
 - `app.css`: `--warn: #e3b341` on both themes. Nothing else draws with `--warn` but the dot and the amber bars. No animation: the
   circle stands still.

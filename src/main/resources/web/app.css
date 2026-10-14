@@ -24,8 +24,11 @@
     --list-font: "Cascadia Mono Bundled", ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
     /* The line between the row and a view, and between two views: a middle gray. */
     --view-line: #8c959f;
-    /* What is about to pass a limit: the projection or the pace (since 0.82). */
-    --warn: #bf8700;
+    /*
+     * What is about to pass a limit: the projection or the pace (since 0.82). A golden yellow on both themes since 0.83, where
+     * the amber of 0.82 looked light brown; it is the dot's and the bars' alone.
+     */
+    --warn: #e3b341;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,7 +37,6 @@
         --bad: #f85149;
         --info: #58a6ff;
         --view-line: #484f58;
-        --warn: #d29922;
     }
 }
 
