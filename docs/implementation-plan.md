@@ -2387,7 +2387,7 @@ needed: the page measures the table again when it is seen to lack room, as for a
 
 ### 109. The funnel hides the failed lines too
 
-**Status: planned.** Requirements: A button in the history that hides and shows the zero usage lines; Hiding lines.
+**Status: built (version 0.81).** As built: the note already counted both kinds; what changed is one line of `ApiHandler.history`, the failed lines shown only when the zero usage lines are too (by the setting or the query), the two tooltips of the button, and the tooltip of the checkbox. Three tests of `ApiTest` that held the failed lines shown with the zero usage lines hidden now hold the other way. Requirements: A button in the history that hides and shows the zero usage lines; Hiding lines.
 
 - **The backend.** `HistoryReader`: a failed line is left out when `historyFailedLines` is off **or** `historyZeroLines` is off;
   the count of what is left out is kept by kind, zero usage and failed. `ApiHandler`: the note of `GET /api/history` says both

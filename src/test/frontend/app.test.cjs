@@ -4146,8 +4146,8 @@ test('the history has a button for its zero usage lines, shown with the history 
 
     await page.click('history-button');
     assert.equal(page.el('history-choices').hidden, false);
-    assert.equal(page.el('zero-lines').title, 'Hide the zero usage lines', 'they are shown, so a press hides them');
-    assert.equal(page.el('zero-lines').attrs['aria-label'], 'Hide the zero usage lines');
+    assert.equal(page.el('zero-lines').title, 'Hide the zero usage lines and the failed lines', 'they are shown, so a press hides them');
+    assert.equal(page.el('zero-lines').attrs['aria-label'], 'Hide the zero usage lines and the failed lines');
     assert.equal(page.el('zero-lines').attrs['aria-pressed'], 'false');
     assert.doesNotMatch(page.el('zero-lines').className, /\bon\b/, 'gray, like the zoom buttons');
 
@@ -4165,7 +4165,7 @@ test('the button comes up as the setting is saved: blue, and offering to show th
 
     await page.click('history-button');
 
-    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines');
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines and the failed lines');
     assert.equal(page.el('zero-lines').attrs['aria-pressed'], 'true');
     assert.match(page.el('zero-lines').className, /^icon tiny on$/, 'blue, at the size it has: not the bigger button of an open panel');
     assert.equal(page.el('panel-lines').children.length, 2, 'the header and the one line that changed');
@@ -4187,7 +4187,7 @@ test('a press hides the zero usage lines at once, saves the setting, reads the h
     assert.equal(historyGets(page).pop(), '/api/history', 'as the setting now says: nothing is named in the request');
     assert.equal(page.el('panel-lines').children.length, 2, 'the lines with no change are gone');
     assert.equal(page.el('panel-lines').scrollTop, 0, 'at its newest line');
-    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines');
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines and the failed lines');
     assert.match(page.el('zero-lines').className, /\bon\b/);
     assert.equal(page.el('log-error').hidden, true);
 
@@ -4195,7 +4195,7 @@ test('a press hides the zero usage lines at once, saves the setting, reads the h
 
     assert.deepEqual(historyPosts(page), [{ zeroLines: false }, { zeroLines: true }]);
     assert.equal(page.el('panel-lines').children.length, 4, 'and back');
-    assert.equal(page.el('zero-lines').title, 'Hide the zero usage lines');
+    assert.equal(page.el('zero-lines').title, 'Hide the zero usage lines and the failed lines');
     assert.doesNotMatch(page.el('zero-lines').className, /\bon\b/);
 });
 
@@ -4203,14 +4203,14 @@ test('the checkbox of History view and the button are the one setting: a change 
     const state = historyBackend();
     const page = await load(backendOf(state));
     await page.click('history-button');
-    assert.equal(page.el('zero-lines').title, 'Hide the zero usage lines');
+    assert.equal(page.el('zero-lines').title, 'Hide the zero usage lines and the failed lines');
 
     // Saved in the settings view, which gives the history back.
     await page.click('settings-button');
     state.zeroLines = false;
     await page.click('settings-cancel');
 
-    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines', 'the history comes up with what is saved');
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines and the failed lines', 'the history comes up with what is saved');
 });
 
 test('a choice that cannot be saved holds all the same, says so in red, and is asked for by name from then on', async () => {
@@ -4222,13 +4222,13 @@ test('a choice that cannot be saved holds all the same, says so in red, and is a
 
     assert.equal(page.el('log-error').hidden, false);
     assert.equal(page.el('log-error').textContent, 'The history settings could not be saved: access is denied', 'the reason, said once');
-    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines', 'it holds, though the backend still has the old value');
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines and the failed lines', 'it holds, though the backend still has the old value');
     assert.equal(historyGets(page).pop(), '/api/history?zeroLines=false', 'asked for by what was chosen, not by what is saved');
     assert.equal(page.el('panel-lines').children.length, 2);
 
     await page.click('history-button');
     await page.click('history-button');
-    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines', 'for the run: also when the history is shown again');
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines and the failed lines', 'for the run: also when the history is shown again');
     assert.equal(historyGets(page).pop(), '/api/history?zeroLines=false');
 
     state.postHistory = body => { state.zeroLines = body.zeroLines; return { status: 200, body }; };
@@ -4266,7 +4266,7 @@ test('an answer of the history that was asked for before a press is not shown, a
     await settle();
 
     assert.equal(reads, 2, 'the read that was overtaken is followed by one of its own');
-    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines', 'the old answer does not put the button back');
+    assert.equal(page.el('zero-lines').title, 'Show the zero usage lines and the failed lines', 'the old answer does not put the button back');
     assert.equal(page.el('panel-lines').children.length, 4, 'and its lines are not drawn: what was shown stays');
 });
 

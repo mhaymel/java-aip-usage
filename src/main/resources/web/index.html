@@ -147,7 +147,7 @@
                 </button>
             </span>
             <span id="history-choices" class="zoom" hidden>
-                <button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines" title="Hide the zero usage lines" aria-pressed="false">
+                <button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines and the failed lines" title="Hide the zero usage lines and the failed lines" aria-pressed="false">
                     <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
                          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M2 3h12l-4.5 5.5v4.5l-3 1.5v-6z"/>
@@ -267,7 +267,7 @@
                             <path d="M5 8.2l2.2 2.3L11 5.6"/>
                         </svg></button></legend>
                     <label title="Shows the date before the time of each line."><input id="set-historyDate" type="checkbox"> Date</label>
-                    <label title="Shows the lines whose amount used is that of the reading before. Off, they are left out."><input id="set-historyZeroLines" type="checkbox"> Zero usage lines</label>
+                    <label title="Shows the lines whose amount used is that of the reading before. Off, they are left out, and the lines of failed requests with them."><input id="set-historyZeroLines" type="checkbox"> Zero usage lines</label>
                     <label title="Shows the lines of the usage requests that failed. Off, they are left out."><input id="set-historyFailedLines" type="checkbox"> Failed lines</label>
                     <label title="The column with the time of the reading."><input id="set-historyTime" type="checkbox"> time</label>
                     <label title="The column with the amount used."><input id="set-historyUsed" type="checkbox"> used</label>

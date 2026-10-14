@@ -1003,7 +1003,7 @@ test('the tooltips of the settings are the texts the requirements give, with the
         'set-showTitleBar': 'Shows the title bar of the window. Off, the window is the row alone; the title bar comes back for as long as a panel that can be resized is open, so open one to close the window.',
         'set-showCostIcon': 'The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.',
         'set-historyDate': 'Shows the date before the time of each line.',
-        'set-historyZeroLines': 'Shows the lines whose amount used is that of the reading before. Off, they are left out.',
+        'set-historyZeroLines': 'Shows the lines whose amount used is that of the reading before. Off, they are left out, and the lines of failed requests with them.',
         'set-historyFailedLines': 'Shows the lines of the usage requests that failed. Off, they are left out.',
         'set-historyTime': 'The column with the time of the reading.',
         'set-historyUsed': 'The column with the amount used.',
@@ -1038,7 +1038,7 @@ test('a panel button that is switched off and shown while the settings are open 
 test('the history has a button in the line of the zoom buttons, after them, for its zero usage lines: an icon with no text, blue while they are hidden', () => {
     const line = html.slice(html.indexOf('id="log-controls-history"'), html.indexOf('id="log-error-history"'));
     assert.ok(line.indexOf('id="zoom-out-history"') >= 0 && line.indexOf('id="zoom-out-history"') < line.indexOf('id="history-choices"'), 'after the two zoom buttons, in the line of the history');
-    assert.match(line, /<span id="history-choices" class="zoom" hidden>\s*<button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines" title="Hide the zero usage lines" aria-pressed="false">/,
+    assert.match(line, /<span id="history-choices" class="zoom" hidden>\s*<button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines and the failed lines" title="Hide the zero usage lines and the failed lines" aria-pressed="false">/,
         'hidden until the history says what is saved');
     const button = line.slice(line.indexOf('id="zero-lines"'));
     assert.match(button, /<path d="M2 3h12l-4\.5 5\.5v4\.5l-3 1\.5v-6z"\/>/, 'a funnel (since 0.81; two short arrows before)');

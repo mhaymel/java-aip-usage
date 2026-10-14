@@ -1038,7 +1038,7 @@
     function labelZeroLines() {
         var button = $('zero-lines');
         var hidden = historyZero === false;
-        var label = hidden ? 'Show the zero usage lines' : 'Hide the zero usage lines';
+        var label = hidden ? 'Show the zero usage lines and the failed lines' : 'Hide the zero usage lines and the failed lines';
         button.title = label;
         button.setAttribute('aria-label', label);
         button.setAttribute('aria-pressed', String(hidden));

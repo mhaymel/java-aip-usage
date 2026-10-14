@@ -801,9 +801,10 @@ final class ApiHandler implements HttpHandler {
     private HistoryBody history(Boolean zeroLines) {
         try {
             Settings now = settings.current();
+            boolean zero = zeroLines != null ? zeroLines : now.historyZeroLines();
+            // The failed lines go with the zero usage lines (since 0.81): one is hidden when either switch hides it.
             HistoryReader.Table table = HistoryReader.read(
-                    sources.history(), HISTORY_ROWS,
-                    new HistoryReader.Filter(zeroLines != null ? zeroLines : now.historyZeroLines(), now.historyFailedLines()));
+                    sources.history(), HISTORY_ROWS, new HistoryReader.Filter(zero, zero && now.historyFailedLines()));
             // Each column is there when its setting is on, in the order of the view: the time, the amounts, the changes and the currency.
             // With each title goes what the column is, by a fixed name: the page gives a column its width by that, not by its place.
             // And the tooltip of each title, which says what the column is.

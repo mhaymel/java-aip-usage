@@ -1080,7 +1080,7 @@ class ApiTest {
     }
 
     @Test
-    void withTheZeroUsageLinesHiddenEveryLineThatIsShownHasAChangeButAFailedOne() throws Exception {
+    void withTheZeroUsageLinesHiddenEveryLineThatIsShownHasAChange() throws Exception {
         // What the notes asked for: lines whose amount fell stay, and have their value; none is shown with an empty change.
         writeHistory(CSV_HEADER,
                 "2026-10-08 14:00:00,186.64,1000.00,USD,start,60,400",
@@ -1092,11 +1092,11 @@ class ApiTest {
 
         Json history = historyWith(false, true);
 
-        assertEquals(java.util.List.of("14:04:00", "14:02:00", "14:01:00", "14:00:00"), times(history));
-        assertEquals(java.util.List.of("+0.07", "", "-0.14", "+186.64"),
+        assertEquals(java.util.List.of("14:04:00", "14:01:00", "14:00:00"), times(history));
+        assertEquals(java.util.List.of("+0.07", "-0.14", "+186.64"),
                 history.get("lines").items().stream().map(line -> line.at("/cells/3").asText()).toList(),
-                "a rise, the failed line, a fall, and the first line of the file");
-        assertEquals("Showing 4 of 6 lines: 2 zero usage hidden.", history.get("note").asText());
+                "a rise, a fall, and the first line of the file; the failed line goes with the zero usage lines (since 0.81)");
+        assertEquals("Showing 3 of 6 lines: 2 zero usage and 1 failed hidden.", history.get("note").asText());
     }
 
     @Test
@@ -1414,15 +1414,16 @@ class ApiTest {
     }
 
     @Test
-    void theZeroUsageLinesCanBeHiddenAndTheNoteCountsThem() throws Exception {
+    void theZeroUsageLinesCanBeHiddenTheFailedLinesWithThemAndTheNoteCountsBoth() throws Exception {
         writeMixedHistory();
 
         Json history = historyWith(false, true);
 
         // 14:01 repeats 14:00, and 14:04 and 14:05 repeat 14:02, the last amount before them: zero usage, though a failed line
-        // is between. 14:00 is the first line of the file: its change is its amount, so it is shown, start line or not.
-        assertEquals(java.util.List.of("14:06:00", "14:03:00", "14:02:00", "14:00:00"), times(history));
-        assertEquals("Showing 4 of 7 lines: 3 zero usage hidden.", history.get("note").asText());
+        // is between. 14:00 is the first line of the file: its change is its amount, so it is shown, start line or not. The
+        // failed line, 14:03, goes with them since 0.81, though the checkbox of the failed lines is on.
+        assertEquals(java.util.List.of("14:06:00", "14:02:00", "14:00:00"), times(history));
+        assertEquals("Showing 3 of 7 lines: 3 zero usage and 1 failed hidden.", history.get("note").asText());
     }
 
     @Test
@@ -1554,7 +1555,7 @@ class ApiTest {
     }
 
     @Test
-    void aFailedStartupLineIsAFailedLineAndGoesWithThoseNotWithTheZeroUsageLines() throws Exception {
+    void aFailedStartupLineIsAFailedLineAndIsCountedAsOne() throws Exception {
         writeHistory(CSV_HEADER,
                 "2026-10-08 14:00:00,,,,start-failed,60,5000",
                 "2026-10-08 14:01:00,10.00,1000.00,USD,,60,400");
@@ -1562,8 +1563,8 @@ class ApiTest {
         Json zeroOff = historyWith(false, true);
         Json failedOff = historyWith(true, false);
 
-        assertTrue(times(zeroOff).contains("14:00:00"), "not a zero usage line");
-        assertEquals(2, zeroOff.get("lines").size(), "the failed startup line and the reading after it");
+        assertFalse(times(zeroOff).contains("14:00:00"), "hidden with the zero usage lines, since the failed lines go with them (since 0.81)");
+        assertEquals("Showing 1 of 2 lines: 1 failed hidden.", zeroOff.get("note").asText(), "and counted as a failed line, not a zero usage line");
         assertFalse(times(failedOff).contains("14:00:00"), "hidden with the failed lines");
         assertEquals("Showing 1 of 2 lines: 1 failed hidden.", failedOff.get("note").asText());
     }

@@ -1770,7 +1770,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   | `General` | `Log the response` | `Writes the JSON of every usage response to the log. Anything shaped like a credential is masked.` |
   | `Main view` | `Cost icon` | `The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.` |
   | `History view` | `Date` | `Shows the date before the time of each line.` |
-  | `History view` | `Zero usage lines` | `Shows the lines whose amount used is that of the reading before. Off, they are left out.` |
+  | `History view` | `Zero usage lines` | `Shows the lines whose amount used is that of the reading before. Off, they are left out, and the lines of failed requests with them.` |
   | `History view` | `Failed lines` | `Shows the lines of the usage requests that failed. Off, they are left out.` |
   | `History view` | `time` | `The column with the time of the reading.` |
   | `History view` | `used` | `The column with the amount used.` |
