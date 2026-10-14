@@ -100,6 +100,8 @@ public final class SettingsStore {
 
     static final String COST_DAILY_AUTOMATIC_KEY = "costDailyAutomatic";
 
+    static final String COST_CURRENCY_KEY = "costCurrency";
+
     static final String AUTO_SECONDS_KEY = "autoIntervalSeconds";
 
     /** The interval at which the last refusal came; left out for none. The keys of the lower and upper bound of earlier versions are read no more. */
@@ -356,10 +358,11 @@ public final class SettingsStore {
         Long monthly = limit(root, COST_MONTHLY_KEY);
         Long daily = limit(root, COST_DAILY_KEY);
         boolean automatic = flag(root, COST_DAILY_AUTOMATIC_KEY, CostControl.NONE.dailyAutomatic());
-        CostControl read = new CostControl(monthly, daily, automatic);
+        boolean currency = flag(root, COST_CURRENCY_KEY, CostControl.NONE.currency());
+        CostControl read = new CostControl(monthly, daily, automatic, currency);
         if (read.fault().isPresent()) {
             LOG.warning("Ignoring " + COST_DAILY_KEY + " in " + file + ": " + read.fault().get());
-            return new CostControl(monthly, null, automatic);
+            return new CostControl(monthly, null, automatic, currency);
         }
         return read;
     }
@@ -699,6 +702,7 @@ public final class SettingsStore {
         root.put(COST_MONTHLY_KEY, cost.monthlyCents() == null ? Json.NULL : dollars(cost.monthlyCents()));
         root.put(COST_DAILY_KEY, cost.dailyCents() == null ? Json.NULL : dollars(cost.dailyCents()));
         root.put(COST_DAILY_AUTOMATIC_KEY, cost.dailyAutomatic());
+        root.put(COST_CURRENCY_KEY, cost.currency());
         root.put(AUTO_SECONDS_KEY, search.interval());
         if (search.refused() != null) {
             root.put(AUTO_REFUSED_KEY, search.refused().intValue());

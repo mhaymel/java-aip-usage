@@ -742,6 +742,11 @@ body {
  * The line of the log panel with its two choices, the level and the date: at the left, above the lines, in the type of the
  * settings. It is not part of what scrolls, so it stays where it is.
  */
+/* The icons of the line stand at its right end (since 0.82): the zoom pushes itself and what follows it there. */
+.log-controls > .zoom:not([id]) {
+    margin-left: auto;
+}
+
 .log-controls {
     display: flex;
     flex: none;
@@ -1051,8 +1056,8 @@ body {
     /* Square corners. */
     border-radius: 0;
     overflow: hidden;
-    /* The gray of the track: the muted gray at a third of its strength. */
-    background: color-mix(in srgb, var(--muted) 33%, transparent);
+    /* The rest of the bar: the green at a quarter of its strength (since 0.82; the muted gray before). */
+    background: color-mix(in srgb, var(--ok) 25%, transparent);
 }
 
 .cost-fill {
@@ -1063,7 +1068,8 @@ body {
 }
 
 /*
- * The bar in blocks of a tenth: a gap of a pixel in the window's background after every tenth, over the green and the gray alike.
+ * The bar in blocks of 5 % (since 0.82; of a tenth in 0.81): a gap of a pixel in the window's background after every twentieth,
+ * over the used part and the rest alike.
  * The layer is a pixel wider than the bar, so that the tenth gap falls outside it and there is none at the end.
  */
 .cost-bar::after {
@@ -1073,10 +1079,23 @@ body {
     left: 0;
     width: calc(100% + 1px);
     height: 100%;
-    background: linear-gradient(to right, transparent calc(100% - 1px), Canvas calc(100% - 1px)) 0 0 / 10% 100% repeat-x;
+    background: linear-gradient(to right, transparent calc(100% - 1px), Canvas calc(100% - 1px)) 0 0 / 5% 100% repeat-x;
+}
+
+/* Over the limit the bar is red, every block (since 0.82). */
+.cost-bar.over {
+    background: color-mix(in srgb, var(--bad) 25%, transparent);
+}
+
+.cost-bar.over .cost-fill {
+    background: var(--bad);
 }
 
 /* A limit that is not set: the bar stays gray and empty. */
+.cost-bar.none {
+    background: color-mix(in srgb, var(--muted) 33%, transparent);
+}
+
 .cost-bar.none .cost-fill {
     width: 0;
 }
@@ -1093,9 +1112,3 @@ body {
     text-align: right;
 }
 
-/* The only colour besides the green and the gray: the red of errors, for a limit that is exceeded. */
-.cost-over {
-    color: var(--bad);
-    min-width: 1.2em;
-    text-align: center;
-}

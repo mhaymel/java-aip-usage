@@ -471,9 +471,17 @@ public final class UsageAppProbe {
             before[0] = javafx.scene.input.Clipboard.getSystemClipboard().getString();
             page().getEngine().executeScript("document.getElementById('about-copy-settings').click()");
         });
-        Thread.sleep(700);
+        // The system's clipboard is shared with every other program: it is asked again for a while, as another may hold it a moment.
+        String[] seen = new String[1];
+        for (int tries = 0; tries < 20; tries++) {
+            Thread.sleep(tries == 0 ? 700 : 200);
+            onFx(() -> seen[0] = javafx.scene.input.Clipboard.getSystemClipboard().getString());
+            if (seen[0] != null && seen[0].endsWith("settings.json")) {
+                break;
+            }
+        }
         onFx(() -> {
-            String copied = javafx.scene.input.Clipboard.getSystemClipboard().getString();
+            String copied = seen[0];
             Object link = page().getEngine().executeScript(
                     "(function () { var a = document.getElementById('about-settings'), c = getComputedStyle(a), b = document.getElementById('about-copy-settings');"
                             + " return c.fontWeight + '|' + c.color + '|' + c.textDecorationLine + '|' + c.cursor + '|' + (a.textContent === arguments.length ? '' : a.textContent.slice(-13))"

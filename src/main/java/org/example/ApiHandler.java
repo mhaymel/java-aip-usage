@@ -375,7 +375,8 @@ final class ApiHandler implements HttpHandler {
         if (automatic != null && !automatic.isNull() && !automatic.isBool()) {
             throw new InvalidSettingException("The setting costDailyAutomatic must be true or false.");
         }
-        CostControl wanted = new CostControl(monthly, daily, automatic == null || automatic.isNull() ? kept.dailyAutomatic() : automatic.bool());
+        CostControl wanted = new CostControl(monthly, daily, automatic == null || automatic.isNull() ? kept.dailyAutomatic() : automatic.bool(),
+                flag(body, "costCurrency", kept.currency()));
         wanted.fault().ifPresent(fault -> {
             throw new InvalidSettingException(fault);
         });
@@ -430,6 +431,7 @@ final class ApiHandler implements HttpHandler {
                 s.cost().monthlyCents() == null ? null : CostControl.text(s.cost().monthlyCents()),
                 s.cost().dailyCents() == null ? null : CostControl.text(s.cost().dailyCents()),
                 s.cost().dailyAutomatic(),
+                s.cost().currency(),
                 s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder());
     }
 
@@ -712,7 +714,8 @@ final class ApiHandler implements HttpHandler {
         try {
             Settings now = settings.current();
             HistoryReader.Table table = HistoryReader.read(sources.history(), Integer.MAX_VALUE);
-            return CostPanel.build(table.rows(), now.cost(), now.showCurrency(), java.time.LocalDate.now());
+            // The cost control has its own currency symbol since 0.82, off by default, and no longer the row's.
+            return CostPanel.build(table.rows(), now.cost(), now.cost().currency(), java.time.LocalDate.now());
         } catch (IOException e) {
             LOG.warning("Could not read the usage history", e);
             throw new ApiException(500, "The usage history could not be read.", null);
@@ -1281,6 +1284,7 @@ final class ApiHandler implements HttpHandler {
             String costMonthlyLimit,
             String costDailyLimit,
             boolean costDailyAutomatic,
+            boolean costCurrency,
             boolean historyTime,
             boolean historyUsed,
             boolean historyLimit,
@@ -1321,6 +1325,7 @@ final class ApiHandler implements HttpHandler {
                     .put("costMonthlyLimit", costMonthlyLimit)
                     .put("costDailyLimit", costDailyLimit)
                     .put("costDailyAutomatic", costDailyAutomatic)
+                    .put("costCurrency", costCurrency)
                     .put("historyTime", historyTime)
                     .put("historyUsed", historyUsed)
                     .put("historyLimit", historyLimit)

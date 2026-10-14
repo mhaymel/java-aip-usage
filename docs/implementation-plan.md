@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.81 is built: 113 phases are built, the last seven (107 to 113) not pushed yet and not looked at by a person.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.81 is built and pushed (113 phases); version 0.82, phases 114 to 120, is planned and not built.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2480,6 +2480,149 @@ restored at start.
 
 **By eye, when 107 to 113 are built**, on Windows and on macOS, on both themes: what each phase lists, and the pictures of the
 notes once more, `img_28` to `img_34`, each against the window.
+
+### 114 to 120. Version 0.82: the fourth round of notes
+
+**Status: planned, not built.** The requirements are written (every rule marked "since version 0.82"); these seven phases build
+them, in this order, and `AppInfo.VERSION` becomes `0.82` with the first. Each is committed by itself with its tests green, as
+`Phase 1xx built: <what> (0.82)`. The first two are small and stand alone; 116 to 119 are one feature, the limits and what is
+compared with them, in four steps from the settings to the page; 120 adds to the history file.
+
+| Phase | What | Where most of it is |
+| --- | --- | --- |
+| 114 | The small changes: the icons of a list's line at the right, bars of twenty blocks in green and light green, red over the limit with no warning sign, the cost control's own currency symbol | `app.css`, `index.html`, `CostPanel`, `Settings` |
+| 115 | Views that do not fit on the screen: the lists share the height | `UsageApp`, `WindowFit`, `app.js` |
+| 116 | The limit counted and the working days, as settings | `Settings`, `CostControl`, `SettingsStore`, `ApiHandler`, the Cost control tab |
+| 117 | What is compared: the day's projection, the month's pace, the states | a new `Spending`, `CostPanel`, `StatusDisplay` |
+| 118 | The row: the status circle, the figures of the day, red over the limit | `index.html`, `app.js`, `StatusDisplay` |
+| 119 | The cost control's colours: amber and red | `CostPanel`, `app.js`, `app.css` |
+| 120 | The limits in the history: three columns in the file and in the table | `UsageHistory`, `HistoryReader`, `ApiHandler`, `app.js` |
+
+`docs/api.md` is brought level in the phase that changes an endpoint or the host contract (114 to 120 all do). The three window
+tests are run in every phase that changes what the page or the window does.
+
+**Decided before building**, in one round of questions: the choice `Server limit` / `Monthly limit` in the Cost control tab,
+the monthly field disabled with the server's, which then counts everywhere; the row red over the limit it shows; three columns
+per reading in the history, off by default; the lists sharing the height of the screen, five lines each at least; the working
+day from the first rise of the day, eight hours by default; the month's pace by working days begun; a typed number of working
+days for its month only; the day's figures after the month's, off by default; a filled status dot, shown by default, gray with
+no limit; twenty blocks; the icons of a list's line at the right; the currency symbol of the cost control in its tab, off by
+default; every block red over the limit. **Confirmed in a last round**: the default `Monthly limit`, with the
+server's counted while none is typed; the amber, the titles `month`, `day`, `by`, the texts of the tooltips and the keys as the
+requirements have them; the header of a history file of seven columns rewritten once; one version, a commit per phase, no push,
+and the notes and pictures (`new-requirements.md`, `tmp.md`, `img_35` to `img_37`) in the first commit.
+
+### 114. The small changes
+
+**Status: built (version 0.82); seen in the real window on Windows by the three window tests.** As built: the cost control's symbol is a member of `CostControl` (`currency`, with a constructor of three for the rest), not of `Settings`, so that the settings of cost control are together and the record of the settings does not grow; key `costCurrency` after `costDailyAutomatic`. The icons go right by one rule, `.log-controls > .zoom:not([id]) { margin-left: auto }`: the zoom has no id, and what follows it in each line (the funnel, the log's two buttons) goes with it; no markup moved. The probe's check of the copied path of About now asks the clipboard again for up to four seconds: it failed twice on a clipboard another program held. Requirements: A zoom for the lists (the icons at the right); The cost control panel (twenty blocks, the
+colours, over the limit, the currency symbol); Cost control (`Currency symbol`).
+
+- **The icons at the right.** `app.css`: in `.log-controls` the span of the zoom gets `margin-left: auto`, and the funnel and the
+  log's two buttons are put in the same right-hand group in `index.html` (one `span.icons` per list, the zoom first); the log's
+  `Level` and `Date` stay at the left. The ids stay.
+- **Twenty blocks.** `app.css`: the gradient of `.cost-bar::after` at `5% 100%`; the track `color-mix(in srgb, var(--ok) 25%,
+  transparent)` where it was the muted gray; a bar with no limit keeps the gray (`.cost-bar.none`).
+- **Red over the limit, no sign.** `CostPanel.Row.over` already says it: `.cost-bar.over .cost-fill` is `var(--bad)` and its track
+  the light red; the warning sign, its cell and its tooltip go from `app.js` and `index.html`, and the column of the figures loses
+  its room.
+- **The currency symbol of the cost control.** `Settings.costCurrency` (key `costCurrency`, off), optional in a `POST`; `CostPanel.build`
+  is given it in the place of the row's `showCurrency`; the checkbox `Currency symbol` in the Cost control tab, with its tooltip.
+- `AppInfo.VERSION = "0.82"`.
+- **Tests.** `layout.test.cjs`: the right-hand group, the twenty blocks, the light green, no sign. `app.test.cjs`: an over bar has the
+  class, no sign is drawn. `CostPanelTest`/`ApiTest`: the symbol by the new setting. `SettingsStoreTest`: the key. The window tests,
+  whose cost control and list lines change.
+
+### 115. Views that do not fit on the screen
+
+**Status: planned.** Requirements: Views that do not fit on the screen; Several views at once.
+
+- **The host knows the screen**, the page does not. `UsageApp` tells the page the height its window may have, the visual bounds of
+  the screen it is on less the frame, through a function of the page, `window.screenRoom(pixels)`, when it changes (at the start,
+  when the window moves to another screen). The host contract gets it.
+- **The page shares the height.** `layoutViews` and `severalSize`: when the row, the views that are no list and the lists at their
+  heights alone need more than the room, each list is given an equal part of what the others leave, at least five of its lines;
+  the report asks for no more than the room. The lowest list still takes a dragged height. `aloneHeight` is unchanged, so the
+  remembered heights are not touched.
+- **The host** keeps a size within the room as well (`WindowFit` takes a room besides `MAX`), so a window is never taller than
+  its screen.
+- **Tests.** `app.test.cjs`: four views in a small room, each list its part, none under five lines; one view as before.
+  `WindowFitTest`: the room. `SeveralViewsWindowTest`: all four views open, the error log seen, the window within the screen.
+
+### 116. The limit counted and the working days, as settings
+
+**Status: planned.** Requirements: Cost control; Limits, projections and the status of spending (the limit counted).
+
+- **The settings.** `CostControl` gets `source` (`server` / `monthly`, default `monthly`), `workdayHours` (8), `workdays` and
+  `workdaysMonth`; `CostControl.workdays(YearMonth)` gives the typed number for its month and Monday to Friday otherwise, and
+  `dailyFor` divides by it. `SettingsStore` keys `costLimitSource`, `costWorkdayHours`, `costWorkdays`, `costWorkdaysMonth`;
+  `ApiHandler` takes them, each optional in a `POST`, with their ranges.
+- **The limit counted** is a function of the settings and of the newest reading: `CostControl.monthlyCounted(serverLimit)` – the
+  server's with `server`, the typed one with `monthly`, and the server's when none is typed. `CostPanel`, the daily limit worked
+  out and `GET /api/cost/daily` use it. The row's `Budget` and percentage: `StatusDisplay` takes the limit counted.
+- **The Cost control tab.** `index.html`: `Limit counted` as two radio buttons, `Hours of a working day` (a field, `h`), `Working days`
+  with `Automatic`, `Currency symbol` (from 114); `app.js`: the monthly field disabled with `Server limit`, and `Working days`
+  like the daily limit, with the number worked out shown while `Automatic` is on.
+- **Tests.** `CostControlTest`: the days typed for a month and not the next, the limit counted each way. `SettingsStoreTest`,
+  `ApiTest`: the keys, the ranges, the daily limit by the days. `app.test.cjs`: the tab, the field disabled, `Automatic`.
+
+### 117. What is compared: the projection, the pace and the states
+
+**Status: planned.** Requirements: Limits, projections and the status of spending.
+
+- **A new `Spending`** (in `org.example`, no window, no clock of its own: it is given the readings of the history in use, the
+  settings and the time) works out, for the day: the spend, the limit, the start of the working day (the first rise of today),
+  the projection, and the state; for the month: the amount used, the limit counted, the pace, and the state; and the circle's
+  state and its tooltip, in the words of the requirements. `CostPanel` uses it for its rows, so that both say the same.
+- **The status** carries it: `display.spending` with `state` (`green`, `amber`, `red`, `gray`), `tooltip`, and `day` and `month` each
+  with `state`, `used`, `limit`, `percent` as finished texts. Read with every poll from the history, as `GET /api/cost` is.
+- **Tests.** `SpendingTest`, by the clock given: no rise yet, the first 15 minutes, a projection over and under, the day over, a
+  weekend, the working day over; the month on and ahead of pace, the days typed, over; the circle of each pair, gray with no
+  limits, one limit missing; the tooltips word for word. `ApiTest`: `display.spending`.
+
+### 118. The row: the status circle, the figures of the day, red
+
+**Status: planned.** Requirements: The elements of the row; One green, and red over the limit; Limits, projections and the
+status of spending (the circle).
+
+- **The settings.** `showStatus` (on), `showDayPercentage`, `showDayUsed`, `showDayLimit` (off), in `Settings`, `SettingsStore`,
+  `ApiHandler` (optional in a `POST`), `StatusDisplay.Show`.
+- **The page.** `index.html`: the dot before the time, and after the budget a thin line and the three of the day, with `of`;
+  their checkboxes in `Main view` in the order of the row, with the tooltips. `app.js`: drawn from `display.spending`; the class
+  `over` (red) on the amount used and the percentage, and on today's spend and percentage; gray boxes with `No daily limit is
+  set` where there is no daily limit; the dot's colour by its state, its tooltip the text. `app.css`: the dot, 10 pixels, the four
+  colours; `.over` red, winning over the green.
+- **The width of the row** is still reserved for what is switched on, so the row does not change width when a figure turns red.
+- **Tests.** `app.test.cjs`: each element switched, the order, red and green, the dot's states and tooltip, the gray boxes.
+  `layout.test.cjs`: the markup, the order, the colours. `StatusDisplayTest`. The window tests: the row's width with the new
+  elements on and off.
+
+### 119. The cost control's colours
+
+**Status: planned.** Requirements: The cost control panel (the colour of the used part).
+
+- `CostPanel.Row` gets `state` from `Spending`; `app.js` puts `green`, `amber` or `red` as a class on each bar; `app.css`: the
+  amber `#bf8700` / `#d29922` and its light form, the red and its light form, the light green of 114 for green.
+- The tooltip of a bar adds, when amber, what the projection or the pace is: the second line of the circle's tooltip for it.
+- **Tests.** `CostPanelTest` and `ApiTest`: the states; `app.test.cjs`: the classes; `layout.test.cjs`: the colours.
+
+### 120. The limits in the history
+
+**Status: planned.** Requirements: Usage history (the three columns); The lines of the usage history (`month`, `day`, `by`).
+
+- **The file.** `UsageHistory` writes `monthly_limit`, `daily_limit`, `daily_auto` after `duration_ms`, from the settings at the time
+  of the reading (it is given them by `AppRuntime.fetchAndRecord`); the header of a new file has ten columns; a file with the seven
+  of before has its header rewritten once, through a temporary file moved into its place, before the first ten-column row (a
+  rewrite that fails leaves the file and the row is added all the same; readers take every row by place). `HistoryReader` reads the three when
+  they are there, empty when not.
+- **The table.** `historyMonthly`, `historyDaily`, `historyDailyBy` (off) in `Settings`, `SettingsStore`, `ApiHandler`; the columns
+  `month`, `day`, `by` after `limit`, with their widths and the tooltips of their titles; their checkboxes in `History view`
+  after `limit`, and in the select-all of the tab.
+- **Tests.** `UsageHistoryTest`: the ten columns, a file of seven whose header is rewritten once and whose rows stay, a rewrite that fails. `HistoryReaderTest`: both kinds of rows. `ApiTest`: the
+  columns on and off. `app.test.cjs`/`layout.test.cjs`: the checkboxes and the widths. The window tests, whose history table is
+  measured.
+
+**By eye, when 114 to 120 are built**, on Windows and on macOS, on both themes: the bars against `img_35` and `img_37`, the row with
+everything on, the dot in each colour with its tooltip, the icons of the lists at the right, and four views on a small screen.
 
 ## Implementation notes, as built
 

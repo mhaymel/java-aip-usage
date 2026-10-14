@@ -936,16 +936,19 @@ test('the mark of the fake backend is a solid red border, three pixels, that fad
     assert.match(frames, /50% \{ border-color: Canvas; \}/, 'the background of the window, where the border is not seen');
 });
 
-test('the cost control: a gray bar with the green of the figures, 14 px tall with square corners, the sign in the red of errors, and the text at 12 px', () => {
+test('the cost control: a bar in the green of the figures over a light green, square corners, red over the limit, gray with no limit', () => {
     const bar = ruleOf('.cost-bar');
     assert.match(bar, /height:\s*12px/);
     for (const selector of ['.cost-bar', '.cost-fill']) {
         assert.doesNotMatch(ruleOf(selector), /border-radius:\s*[1-9]/, selector + ' has square corners');
     }
     assert.match(bar, /min-width:\s*120px/, 'COST_BAR_MIN of app.js');
-    assert.match(bar, /var\(--muted\) 33%/, 'the muted gray at a third of its strength');
+    assert.match(bar, /color-mix\(in srgb, var\(--ok\) 25%, transparent\)/, 'the rest a light green (since 0.82)');
     assert.match(ruleOf('.cost-fill'), /background:\s*var\(--ok\)/, 'the green of the figures');
-    assert.match(ruleOf('.cost-over'), /color:\s*var\(--bad\)/, 'the red of errors, the one colour besides the green and the gray');
+    assert.match(ruleOf('.cost-bar.over .cost-fill'), /background:\s*var\(--bad\)/, 'over the limit, the red of errors');
+    assert.match(ruleOf('.cost-bar.over'), /color-mix\(in srgb, var\(--bad\) 25%, transparent\)/, 'every block');
+    assert.match(ruleOf('.cost-bar.none'), /var\(--muted\) 33%/, 'with no limit, gray');
+    assert.doesNotMatch(css, /\.cost-over/, 'no warning sign');
     assert.match(ruleOf('.cost'), /font:\s*400 11px\/1\.2/);
     assert.match(ruleOf('.cost-bar.none .cost-fill'), /width:\s*0/);
 });
@@ -1178,14 +1181,14 @@ test('the button of the zero usage lines is a funnel', () => {
     assert.match(button, /width="13" height="13"/, 'the size of the zoom');
 });
 
-test('the cost control is tight: 11 pixels on 1.2, rows a pixel apart, bars 12 tall in blocks of a tenth', () => {
+test('the cost control is tight: 11 pixels on 1.2, rows a pixel apart, bars 12 tall in blocks of 5 %', () => {
     assert.match(ruleOf('.cost'), /padding:\s*2px 8px/);
     assert.match(ruleOf('.cost-rows'), /gap:\s*1px 6px/);
     const blocks = ruleOf('.cost-bar::after');
     assert.match(blocks, /position:\s*absolute/);
     assert.match(blocks, /width:\s*calc\(100% \+ 1px\)/, 'the tenth gap falls outside the bar');
-    assert.match(blocks, /linear-gradient\(to right, transparent calc\(100% - 1px\), Canvas calc\(100% - 1px\)\) 0 0 \/ 10% 100% repeat-x/,
-        'a gap of a pixel in the background after every tenth');
+    assert.match(blocks, /linear-gradient\(to right, transparent calc\(100% - 1px\), Canvas calc\(100% - 1px\)\) 0 0 \/ 5% 100% repeat-x/,
+        'a gap of a pixel in the background after every twentieth (since 0.82)');
     assert.match(ruleOf('.cost-bar'), /overflow:\s*hidden/, 'so that what is beyond the bar is not drawn');
 });
 
@@ -1228,4 +1231,28 @@ test('the group Files is in General after Window, a line for each folder with it
     assert.match(group, /<p id="folder-error" class="panel-error" role="alert" hidden><\/p>/, 'a red line of its own');
     assert.match(ruleOf('.folder-path'), /overflow-wrap:\s*anywhere/, 'a long path breaks, and does not widen the view');
     assert.match(ruleOf('.folder-path.default'), /color:\s*var\(--muted\)/);
+});
+
+// ---- version 0.82
+
+test('the icons of the line at the top of a list stand at its right end, the log\'s choices at the left', () => {
+    assert.match(css, /\.log-controls > \.zoom:not\(\[id\]\)\s*{\s*margin-left:\s*auto/);
+    for (const name of ['history', 'log', 'errors']) {
+        const line = html.slice(html.indexOf('<div id="log-controls-' + name + '"'), html.indexOf('</div>', html.indexOf('<div id="log-controls-' + name + '"')));
+        const zoom = line.indexOf('<span class="zoom">');
+        assert.ok(zoom > 0, name + ' has the zoom without an id, which the rule finds');
+        for (const after of ['id="history-choices"', 'id="log-files"']) {
+            if (line.includes(after)) {
+                assert.ok(line.indexOf(after) > zoom, after + ' follows the zoom, at the right');
+            }
+        }
+        if (name === 'log') {
+            assert.ok(line.indexOf('id="log-choices"') < zoom, 'the level and the date stay at the left');
+        }
+    }
+});
+
+test('the checkbox Currency symbol of the cost control is in its tab, with its tooltip', () => {
+    const tab = html.slice(html.indexOf('<div id="tab-cost"'), html.indexOf('<div id="tab-debug"'));
+    assert.match(tab, /<label title="Puts the currency symbol before the amounts of the cost control\."><input id="set-costCurrency" type="checkbox"> Currency symbol<\/label>/);
 });

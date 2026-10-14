@@ -294,7 +294,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(37, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(38, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -3043,5 +3043,20 @@ class ApiTest {
         assertEquals(500, failed.statusCode());
         assertEquals("The folder could not be chosen: there is no window to choose a folder in", json(failed).get("error").asText());
         assertEquals(405, get(app, "/api/folder").statusCode());
+    }
+
+    @Test
+    void theCostControlHasItsOwnCurrencySymbolOffByDefault() throws Exception {
+        writeMixedHistory();
+        AppRuntime app = start(new FakeFetch());
+        assertFalse(json(get(app, "/api/settings")).at("/settings/costCurrency").asBoolean());
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("\"showCurrency\": false", "\"showCurrency\": true")
+                .replace("}", ", \"costMonthlyLimit\": \"500\"}"));
+        String month = json(get(app, "/api/cost")).at("/rows/1/text").asText();
+        assertFalse(month.contains("$"), "the row's symbol is on, the cost control's is not: " + month);
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costCurrency\": true}"));
+        assertTrue(json(get(app, "/api/settings")).at("/settings/costCurrency").asBoolean());
+        assertTrue(json(get(app, "/api/cost")).at("/rows/1/text").asText().contains("$"));
     }
 }

@@ -282,7 +282,10 @@ the height of the refresh button, so the row keeps its height and the window doe
 closed. When that panel is closed, or another is opened, the new one turns blue and bigger and the one that was goes back to
 what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is blue, and none is when no panel is shown; with `Several views at once` on (since version 0.80), the icon of every view that is shown is blue and bigger. The other icons are as they were.
 
-**One green.** The percentage spent, the amount used, the budget, the change in the amount used, the time since
+**One green, and red over the limit.** Since version 0.82 the amount used and the percentage spent are **red** (`#cf222e` / `#f85149`, the
+red of errors) while the amount used is more than the limit the row shows, and today's spend and today's percentage while
+today's spend is more than the daily limit (see Limits, projections and the status of spending); the rest of this paragraph
+holds otherwise. The percentage spent, the amount used, the budget, the change in the amount used, the time since
 the previous reading and the request duration are all in one green, `#1a7f37` on the light theme and `#3fb950` on the dark one. The green is
 fixed: it does not follow the severity, so nothing in the row turns amber or red as the budget is spent, and it is the
 same whether a severity was sent or not, whether a change is up or down, and whatever the settings are. A missing
@@ -467,6 +470,8 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Show the time in the row | on, off | on |
   | Show the amount used in the row | on, off | on |
   | Show the budget in the row | on, off | on |
+  | Show the status circle in the row (`Status`, since version 0.82) | on, off | on |
+  | Show today's percentage, today's spend and the daily limit in the row (three checkboxes, since version 0.82) | on, off | off |
   | Show the refresh button in the row | on, off | on |
   | Show the countdown in the row | on, off | on |
   | Show the history button in the row | on, off | on |
@@ -493,6 +498,11 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Show the change in the amount used in the history | on, off | off |
   | Show the time since the previous reading in the history | on, off | off |
   | Show the current marker (`Cur.`) in the history | on, off | on |
+  | Show the configured monthly limit, the daily limit and how the daily limit came about in the history (three checkboxes, since version 0.82) | on, off | off |
+  | The limit counted (`Server limit` or `Monthly limit`, in `Cost control`, since version 0.82) | one of the two | `Monthly limit` |
+  | The hours of a working day (in `Cost control`, since version 0.82) | a whole number from 1 to 24 | 8 |
+  | The working days of the month (in `Cost control`, since version 0.82) | empty for Monday to Friday, or a whole number from 1 to 31 for the current month | empty |
+  | Show the currency symbol in the cost control (`Currency symbol`, in `Cost control`, since version 0.82) | on, off | off |
 
 - A value typed in the interval box that is not a whole number from 5 to 3600 keeps the view open
   and shows a brief message in red when Save is pressed; the backend refuses it, as before. The current value,
@@ -697,6 +707,12 @@ The history is shown inside the main window, not in a window of its own.
 - **While the panel is shown, the window's height does not follow the main view.** When a message line
   appears or goes, or the row changes in any other way, the window keeps the height it has, as opened
   or as the person dragged it, and the panel takes up the difference.
+- **Since version 0.82 the history has three more columns, after `limit`**: `month`, the configured monthly limit counted
+  when the reading was made; `day`, the daily limit in force then; and `by`, `auto` when that daily limit was worked out and
+  `set` when it was typed. `limit` stays the limit the server sent. Each has a checkbox in `History view`, after `limit`, **off by
+  default**, saved under `historyMonthly`, `historyDaily` and `historyDailyBy`; a row written before 0.82 has empty cells there.
+  Widths, in characters: `month` 10, `day` 10, `by` 4. Tooltips of the titles: `The monthly limit counted when the reading was
+  made`, `The daily limit in force when the reading was made`, `Whether the daily limit was worked out (auto) or typed (set)`.
 - **Every column can be switched** (since version 0.64) by a checkbox in the tab `History view`, in the order of the view: `time`, `used`, `limit`, `Δ used`, `Δ time` and `Cur.`.
   By default `Δ used` and `Δ time` are off and the other four on. The history has no `interval` column; the file does (see Usage history). With a column off the others close up, and the
   right-most one still is at the right edge.
@@ -871,6 +887,12 @@ Every reading the application gets is kept, so the usage can be looked at afterw
   `java-aip-usage.csv` in the working directory, beside the log. The file is not
   committed to version control. It is added to, never overwritten, so successive runs build
   one history, and nothing in it is ever rotated or deleted by the application.
+- **Since version 0.82 three columns follow**, `monthly_limit`, `daily_limit` and `daily_auto`: the configured monthly limit
+  counted and the daily limit in force when the reading was made, as amounts, empty for none, and `auto` or `set` for whether
+  the daily limit was worked out or typed. A file of an earlier version is added to with them; its rows have none, and are read
+  as before. **The header of a file that has the seven columns of before is rewritten once**, to the ten names, before the first
+  row with ten is added: the file is written anew beside the old one and put in its place in one step, so that a failure leaves
+  it as it was (and the row is then added to it as it is, with ten fields, and read by place).
 - The columns are `datetime`, `used`, `limit`, `currency`, `status`, `interval` and `duration_ms`, with a
   header row written when the file is new or empty and never again, for example:
 
@@ -956,10 +978,14 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 | # | Name | What it is | Example | Shown by default | Key in `settings.json` |
 | --- | --- | --- | --- | --- | --- |
+| 0 | `Status` | whether the day and the month are within their limits: a dot, green, amber, red or gray (since version 0.82) | a filled circle | yes | `showStatus` |
 | 1 | `Time` | when the usage was last read | `20:28` | yes | `showTime` |
-| 2 | `Percentage spent` | the share of the budget that is spent | `26%` | no | `showPercentage` |
+| 2 | `Percentage spent` | the share of the limit counted that is spent | `26%` | no | `showPercentage` |
 | 3 | `Amount used` | what has been spent | `262.74` | yes | `showUsed` |
-| 4 | `Budget` | the spend limit | `1,000.00` | yes | `showLimit` |
+| 4 | `Budget` | the limit counted: the server's, or the configured monthly limit (since version 0.82, see Limits, projections and the status of spending) | `1,000.00` | yes | `showLimit` |
+| 4a | `Today's percentage` | the share of the daily limit spent today (since version 0.82) | `64%` | no | `showDayPercentage` |
+| 4b | `Today's spend` | what was spent today (since version 0.82) | `4.37` | no | `showDayUsed` |
+| 4c | `Daily limit` | the daily limit in force (since version 0.82) | `6.81` | no | `showDayLimit` |
 | 5 | `Refresh button` | reads the usage now | the arrow round a circle | yes | `showRefresh` |
 | 6 | `Countdown` | the seconds until the next refresh | `17s` | yes | `showCountdown` |
 | 7 | `Interval` | the time between usage requests in force | `30s` | no | `showInterval` |
@@ -971,6 +997,11 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 | 13 | `Log icon` | shows and hides the log | the sheet with lines | yes | `showLogIcon` |
 | 14 | `Error log icon` | shows and hides the error log | the triangle | yes | `showErrorIcon` |
 
+- **The four new elements of version 0.82** keep the numbers of the others: `Status` is the first of the row, before the time,
+  and the three of the day follow the budget, after a thin gray line, `64% 4.37 of 6.81`, the word `of` between the two
+  amounts as for the month and only when both are shown. They are in the green of the figures, and red as One green says. Their
+  checkboxes in `Main view` are in the order of the row. With no daily limit, today's percentage and the daily limit are gray
+  boxes whose tooltip says `No daily limit is set`.
 - **The order of the icons is the cost control, the usage history, the log and the error log** (since version 0.81), and the
   gear after them, as ever. The checkboxes of the four in `Main view` follow it, since they are in the order of the row: `Cost
   icon`, `History icon`, `Log icon`, `Error log icon`.
@@ -1015,10 +1046,14 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
   | Element | Tooltip |
   | --- | --- |
+  | `Status` | `A dot that says how the day and the month stand against their limits: green, amber when a limit is about to be passed, red when one is passed.` (since version 0.82) |
   | `Time` | `The time of day at which the usage shown was last read from Anthropic.` |
   | `Percentage spent` | `How much of the budget is spent, as a percentage, as Anthropic reports it.` |
   | `Amount used` | `What the account has spent in the current period, in the currency of the account.` |
   | `Budget` | `The spend limit of the account: the most that can be spent in the current period.` |
+  | `Today's percentage` | `The share of the daily limit spent today.` (since version 0.82) |
+  | `Today's spend` | `What was spent today.` (since version 0.82) |
+  | `Daily limit` | `The daily limit in force: the one typed, or the monthly limit divided by the working days.` (since version 0.82) |
   | `Refresh button` | `A button that reads the usage now, without waiting for the next refresh.` |
   | `Countdown` | `The seconds until the usage is read again. It is negative when a refresh is overdue, and red while Anthropic asks the program to slow down.` |
   | `Interval` | `The time between two usage requests, in seconds, as set under Request, or the longer wait in force after Anthropic asked the program to slow down.` |
@@ -1308,6 +1343,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   that. In the small sizes the lines are thicker in proportion, so that they are seen.
 
 ### A zoom for the lists: the log, the usage history and the error log
+
+- **The icons of the line at the top of a list stand at its right end** (since version 0.82): the two of the zoom, the funnel
+  of the history and the two of the log's file, in that order, close together; the log's `Level` and `Date` stay at the left.
+  The line is as wide as the list, so the icons are above the right edge of the lines.
 
 - **The text of the three lists can be made larger and smaller** (since version 0.52) with two small buttons, each an icon with no text: a
   magnifying glass with a plus, and one with a minus. Their tooltips are `Larger text` and `Smaller text`.
@@ -1642,11 +1681,29 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **In the file a limit there is none of is written as `null`**, so the three keys are always there.
 - **A limit in the file that is no amount in its range** is logged and counts as none; a daily limit above the monthly
   one is dropped.
-- **The program does nothing with the limits yet.** They are settings to be kept: the row shows nothing of them, nothing
-  is compared with them, and nothing warns. What is done with them is a later requirement.
-- **Decided for that later use, and not built now**, so that it is not asked again: what was spent today is counted
-  only while the program runs, from the first reading of the day in this run; what was spent in the month is the amount
-  used that Anthropic reports; and on a Saturday or a Sunday the daily limit is zero.
+- **What the limits are used for** is said in The cost control panel and, since version 0.82, in Limits, projections and the
+  status of spending. (The two paragraphs that stood here until 0.81, that the program did nothing with the limits, are
+  void.)
+- **Since version 0.82 the tab has four more settings**, in this order after the limits:
+  - **`Limit counted`**: two choices, `Server limit` and `Monthly limit`, one of which is on. `Server limit` counts the
+    limit the server sends with each reading as the monthly limit, everywhere: in the row, the Month bar and the daily limit
+    worked out from it; the field `Monthly limit` is then disabled, and what it holds is kept, unused, until `Monthly limit`
+    is chosen again. `Monthly limit` counts the typed one; while none is typed, the server's is counted all the same, so that
+    there is always a limit to count when the server sends one. The default is `Monthly limit`. Key `costLimitSource`,
+    `server` or `monthly`. Its tooltip: `Which limit the row, the bars and the daily limit count: the one the server sends
+    with each reading, or the monthly limit typed here.`
+  - **`Hours of a working day`**: a whole number from 1 to 24, 8 by default, with `h` after it; what today's spend is projected
+    over. Key `costWorkdayHours`. Its tooltip: `How long a working day is: today's spend is projected over it. The default is 8.`
+  - **`Working days`**: the number of working days of the current month, which the daily limit worked out and the month's pace
+    go by. Beside it a checkbox `Automatic`, on by default: on, the field is disabled and shows the days from Monday to Friday
+    of the month; off, a whole number from 1 to 31 is typed, and **it holds for the month it was typed in**: when a new month
+    begins it is Automatic again. Keys `costWorkdays` (the number, or `null`) and `costWorkdaysMonth` (`2026-10`, the month it is
+    for). Its tooltip: `The working days of this month, Monday to Friday unless a number is typed; a typed number holds for this
+    month only.`
+  - **`Currency symbol`**: whether the figures of the cost control have the currency symbol before the amounts, **off by
+    default** (until 0.81 they followed the row's `Currency symbol`). Key `costCurrency`. Its tooltip: `Puts the currency symbol
+    before the amounts of the cost control.`
+- **The daily limit worked out** is the monthly limit counted divided by the working days of the month, by the setting above.
 
 ### The cost control panel: two bars
 
@@ -1664,15 +1721,23 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **A bar is drawn in blocks of 10 %** (since version 0.81): a gap of 1 pixel, in the background of the window, stands after
   every tenth of the bar, nine gaps in all, through the green part and the gray part alike, so that the share can be read off
   in tenths. The green part ends where the share ends, inside a block if it does: 11 % is one block and a sliver of the next.
-  A bar over its limit is full, all ten blocks green, with the warning sign after the figures, as before.
+- **Since version 0.82 a bar is twenty blocks of 5 %**, as in `docs/img_35.png`: the gap of 1 pixel stands after every
+  twentieth, nineteen gaps, through both parts. **The part used is green, and the rest a light green** (the green of the figures
+  at a quarter of its strength), where the rest was gray. The used part ends where the share ends, inside a block if it does.
+- **The colour of the used part says the state** (since version 0.82): **green** while the bar is within its limit and on
+  pace; **amber** (`#bf8700` / `#d29922`) when the projection says the limit will be passed (see Limits, projections and the
+  status of spending); **red** (`#cf222e` / `#f85149`) when the limit is passed, and then the bar is full, every block red. Its
+  rest takes the light form of the same colour. A bar with no limit stays gray and empty, as before.
 - **The figures** are written `<used> of <limit> · <percent>%`, for example `12.40 of 25.00 · 50%`: the amount used, the limit, both in the form of the amounts of the row (two decimals, the currency symbol when `Currency symbol` is on), and the percentage, a
   whole number, rounded to the nearer and upwards at half. The amount is the one of the figures, so it is `$` for US dollars with the symbol on and the plain number with it off, as the row writes it.
 - **The monthly bar**: the amount used of the newest reading, against the monthly limit of the cost control. **The daily bar**: the amount spent today against the daily limit in force this month (the typed one, or the one worked out from the monthly limit, see Cost control).
   What is spent today is the amount used of the newest reading less the amount of **the last reading before today** (today being the local date) in the history in use, **of the same month**; when there is none, the first reading of today, so that a
   program started today shows what was spent since it started (and a first day of a month starts at its first reading, as the amount used begins again then). A fall of the amount (a new month, or a correction) is no spending: it is 0.00.
 - **No limit.** A bar whose limit is not set is **gray and empty** with the text `<used> · no limit set` (for the day, the amount spent today; for the month, the amount used), and no percentage.
-- **Over the limit.** The bar is full green, the text says the true percentage (`112%`), and a **warning sign**, a triangle with an exclamation mark in the red of errors (`#cf222e` / `#f85149`), stands at the right of the figures, as in the image.
-  The tooltip of the sign says `Over the limit`.
+- **Over the limit.** The bar is full and red (since version 0.82; until then full green with a **warning sign** after the
+  figures, which is gone), and the text says the true percentage (`112%`). The figures stay in the colour of the text.
+- **The currency symbol** of the figures is the cost control's own setting since version 0.82, off by default (see Cost
+  control), and no longer the row's.
 - **No reading yet.** With no reading to say what is used, both bars are empty and gray, and a note under them says `No usage has been read yet.` Failed refreshes change nothing: the last reading counts, and the text is not dimmed.
 - **It keeps up with the readings**, like the history: the bars are drawn again when a new reading comes, without pressing anything. The backend works the figures out and writes the texts (`GET /api/cost`, see `docs/api.md`); the page only draws them.
 - **The tooltips**: each bar says `<Label>: <used> of <limit> (<percent>%)`, or `<Label>: <used>, no limit set`.
@@ -1914,6 +1979,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   tall as their tab. The window is as
   tall as the row, its message lines and all of them together, and never taller than the program makes a window (1,600 pixels):
   when the views would need more, the lowest list is given what is left, and no less than three times the row's height.
+  **Since version 0.82 the window is never taller than the screen it is on**, and the lists share what there is: see Views that
+  do not fit on the screen. (In `docs/img_36.png` the four views were taller than the screen, and the error log, the lowest,
+  had no room at all.)
 - **The window is as wide as the widest of the open views needs**: three times the row with the log, one and a half times with
   the error log, the table with the usage history, the history's table or its bars with the cost control, and the least width
   of the settings with the settings. Every view is as
@@ -1926,7 +1994,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The title bar** is there whenever something of the window can be dragged, which is whenever a list is among the open views;
   with the cost control alone and the title bar switched off there is none, as before.
 - **Each view keeps up by itself**, as it does alone: the log and the error log with every poll, the usage history when a row
-  is added, the cost control with every poll. Each has its own line at its top, with the buttons that belong to it (the zoom
+  is added, the cost control with every poll. Each has its own line at its top (whose icons stand at its right end since version
+  0.82, see A zoom for the lists), with the buttons that belong to it (the zoom
   for each list, the level and the date and the two buttons of its file for the log, the button of the zero usage lines for the
   history), its own note and its own red line; the size of the text is still one for all three lists.
 - **The window restored at start** has every view that was open (see The window is restored at start).
@@ -2045,6 +2114,46 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   that file, and the log says so with a warning. The setting stays as it is, so that the folder is used again once it is back.
 - **The log** says at the info level which folder is now used for what, and the full path of every file that was moved.
 - **macOS and the others**: the folder picker is the system's own on each; on macOS it is built on Windows and not checked there.
+
+### Limits, projections and the status of spending
+
+- **Since version 0.82 the program compares what is spent with the limits**, for the day and for the month, and says how it
+  stands in three places: the colour of the bars of the cost control, the red of the row's figures, and the status circle.
+- **The limit counted** for the month is the server's limit or the typed monthly limit, by `Limit counted` (see Cost control);
+  the daily limit is the typed one, or the one worked out from the monthly limit counted and the working days. The row's
+  `Budget` and percentage show the limit counted, where they showed the server's until 0.81.
+- **What is spent today, and in the month**, is as The cost control panel says.
+- **The day's projection.** The working day begins at **the first reading of today whose amount used rose** over the one
+  before it. From then, what is spent today is projected over the hours of a working day (8 by default): spent today ÷ hours
+  since the day began × hours of a working day. No projection is made in the first 15 minutes, nor when the day has had no
+  rise; once the working day is over, the projection is what was spent. On a Saturday or a Sunday there is no daily limit,
+  and so no projection.
+- **The month's pace.** The month is ahead of its pace when the amount used is more than the monthly limit counted × the
+  working days begun so far ÷ the working days of the month, today counted as begun. Working days are Monday to Friday, or
+  the typed number, in which case the days begun are the weekdays begun, at most the typed number.
+- **The state of each**, the day and the month: **red** when what is spent is more than its limit; **amber** when not, but
+  the day's projection is more than the daily limit, or the month is ahead of its pace; **green** otherwise; **gray** when it
+  has no limit.
+- **The status circle** (the element `Status`, the first of the row, shown by default) is a filled dot, 10 pixels: red when
+  either is red, amber when either is amber and none red, green when both are green, gray when neither has a limit (one
+  without a limit counts as green beside the other). Its tooltip says each, in two lines, then the figures:
+  - `Today: within the limit` / `Today: on course to pass the daily limit: 4.37 spent, about 9.80 by the end of the day, of
+    6.81` / `Today: over the daily limit: 7.20 of 6.81` / `Today: no daily limit is set`;
+  - `Month: within the limit and on pace` / `Month: ahead of pace: 120.00 spent, 95.45 by now, of 150.00` / `Month: over the
+    monthly limit: 202.04 of 150.00` / `Month: no limit is set`.
+  With no limit at all its tooltip is `No limits are set: set them in the settings, under Cost control.`
+- **The backend works all of it out** and sends the states, the projection and the texts with the status (`docs/api.md`);
+  the page draws them.
+
+### Views that do not fit on the screen
+
+- **The window is never taller than the screen it is on** (since version 0.82), less the frame of its title bar. When the views
+  shown need more, **the lists share the height there is**: the views that are no list (the cost control, the settings) keep
+  theirs, and each list is given an equal part of the rest, never less than five of its lines. If even that is more than the
+  screen, the window is as tall as the screen and the lowest list is cut at the bottom.
+- **A list that is given less than its height alone** keeps the height it has alone remembered as it was: the sharing is not
+  a height the person gave it.
+- **Dragging the window** taller or shorter still changes the lowest list alone.
 
 ## Debug mode
 
@@ -2669,7 +2778,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, `logFolder`, `historyFolder`, and since version 0.82 `showStatus`, `showDayPercentage`, `showDayUsed`, `showDayLimit`, `historyMonthly`, `historyDaily`, `historyDailyBy`, `costLimitSource`, `costWorkdayHours`, `costWorkdays`, `costWorkdaysMonth` and `costCurrency`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
   `historyHeight` and `logHeight`. The three files, the settings, the log and the usage history, are in the working directory the program was
   started from; where that is for a version started in its usual way is said in its section. Since version 0.81 the log and
   the usage history can be in other folders (see The folders of the log and of the usage history); the settings file stays in

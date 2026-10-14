@@ -212,7 +212,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', showTitleBar: true, autoInterval: false,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, showTitleBar: true, autoInterval: false,
     costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
     historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
 };
@@ -986,7 +986,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', showTitleBar: true, autoInterval: false,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
         historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
     });
@@ -3948,7 +3948,7 @@ test('the checkbox that restores the window at start is in the General tab, in t
 
 const rowsOf = page => page.el('cost-rows').children.map(line => ({
     label: line.children[0].textContent, bar: line.children[1], fill: line.children[1].children[0], text: line.children[2].children[0].textContent,
-    sign: line.children[2].children[1], tooltip: line.title, cells: line.children,
+    figures: line.children[2].children, tooltip: line.title, cells: line.children,
 }));
 
 test('the cost button is there unless the backend says otherwise, and opens and closes the panel with the blue, bigger button', async () => {
@@ -3972,7 +3972,7 @@ test('the cost button is there unless the backend says otherwise, and opens and 
     assert.equal(page.el('cost-button').title, 'Show the cost control');
 });
 
-test('the two bars are drawn from the backend\'s texts: the label, the green share, the figures, and the sign only over the limit', async () => {
+test('the two bars are drawn from the backend\'s texts: the label, the share, the figures, and red and full over the limit with no sign', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
 
     await page.click('cost-button');
@@ -3981,9 +3981,10 @@ test('the two bars are drawn from the backend\'s texts: the label, the green sha
     assert.equal(day.label, 'Today');
     assert.equal(day.text, '12.40 of 25.00 \u00b7 50%');
     assert.equal(day.fill.style.width, '50%');
-    assert.equal(day.sign.hidden, true, 'under the limit: no sign');
+    assert.doesNotMatch(day.bar.className, /\bover\b/, 'under the limit');
     assert.equal(day.tooltip, 'Today: 12.40 of 25.00 (50%)');
-    assert.equal(day.cells.length, 3, 'three cells, as in every row: the label, the bar, and the figures with the sign');
+    assert.equal(day.cells.length, 3, 'three cells, as in every row: the label, the bar, and the figures');
+    assert.equal(day.figures.length, 1, 'the figures alone: there is no warning sign since 0.82');
     assert.equal(day.cells[2].className, 'cost-figures');
     for (const cell of [day.cells[0], day.cells[1], day.cells[2].children[0]]) {
         assert.equal(cell.title, day.tooltip, 'each part of the row says the tooltip of the row');
@@ -3991,8 +3992,8 @@ test('the two bars are drawn from the backend\'s texts: the label, the green sha
     assert.equal(month.label, 'Month');
     assert.equal(month.text, '300.00 of 250.00 \u00b7 120%', 'the true percentage, over the limit');
     assert.equal(month.fill.style.width, '100%', 'a full bar');
-    assert.equal(month.sign.hidden, false);
-    assert.equal(month.sign.title, 'Over the limit');
+    assert.match(month.bar.className, /\bover\b/, 'red, every block');
+    assert.equal(month.figures.length, 1, 'and no sign');
     assert.equal(page.el('cost-note').hidden, true);
     assert.equal(page.el('cost-rows').children.length, 2);
 });
@@ -4009,7 +4010,7 @@ test('a bar with no limit is empty and gray, and a note under the bars is shown 
     for (const row of rowsOf(page)) {
         assert.match(row.bar.className, /\bnone\b/);
         assert.equal(row.fill.style.width, '0%', 'whatever the share the backend sent');
-        assert.equal(row.sign.hidden, true);
+        assert.doesNotMatch(row.bar.className, /\bover\b/);
     }
     assert.equal(page.el('cost-note').hidden, false);
     assert.equal(page.el('cost-note').textContent, 'No usage has been read yet.');
@@ -5157,4 +5158,13 @@ test('a folder picker that cannot be shown is said in red under the group Files'
     await page.click('settings-button');
     await page.click('choose-logFolder');
     assert.equal(page.el('folder-error').textContent, 'The folder could not be chosen: there is no window to choose a folder in');
+});
+
+test('the cost control has its own currency symbol, a checkbox in its tab, off by default, sent with the settings', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.el('set-costCurrency').checked, false);
+    page.el('set-costCurrency').checked = true;
+    await page.click('settings-save');
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).costCurrency, true);
 });

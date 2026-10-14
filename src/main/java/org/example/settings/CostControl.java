@@ -14,11 +14,21 @@ import java.util.Optional;
  * @param monthlyCents what may be spent in a month, or {@code null} for no limit
  * @param dailyCents the daily limit that was typed in, or {@code null}; it counts only while {@code dailyAutomatic} is off
  * @param dailyAutomatic whether the daily limit is worked out from the monthly one, which it is by default
+ * @param currency whether the figures of the cost control have the currency symbol before the amounts (since 0.82; off by default)
  */
-public record CostControl(Long monthlyCents, Long dailyCents, boolean dailyAutomatic) {
+public record CostControl(Long monthlyCents, Long dailyCents, boolean dailyAutomatic, boolean currency) {
 
     /** No limits, and the daily one worked out once there is a monthly one: as it is when nobody has set anything. */
     public static final CostControl NONE = new CostControl(null, null, true);
+
+    /** The limits, with what came after them as it is by default. */
+    public CostControl(Long monthlyCents, Long dailyCents, boolean dailyAutomatic) {
+        this(monthlyCents, dailyCents, dailyAutomatic, false);
+    }
+
+    public CostControl withCurrency(boolean on) {
+        return new CostControl(monthlyCents, dailyCents, dailyAutomatic, on);
+    }
 
     /** The least and the most a limit may be: 0.01 to 1,000,000 dollars. */
     public static final long MIN_CENTS = 1;

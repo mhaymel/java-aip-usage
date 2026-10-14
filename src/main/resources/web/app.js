@@ -395,7 +395,7 @@
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
     var HISTORY_FLAGS = ['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent'];
-    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'severalViews', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
+    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'severalViews', 'costCurrency', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
 
     /**
      * Shows in the row what the main-view part of the form says, at once and before Save, so that it can be seen which element a
@@ -1369,7 +1369,7 @@
     var COST_BAR_MIN = 120;
     var COST_GAP = 6;
 
-    /** Draws the two bars: a label, a bar with its green share, the figures and, over the limit, the warning sign; and the note under them. */
+    /** Draws the two bars: a label, a bar with its share, red and full over the limit, and the figures; and the note under them. */
     function showCost(shown) {
         setNote('cost-error', '');
         var key = JSON.stringify(shown);
@@ -1387,7 +1387,7 @@
             label.className = 'cost-label';
             label.textContent = row.label;
             var bar = document.createElement('span');
-            bar.className = 'cost-bar' + (row.noLimit ? ' none' : '');
+            bar.className = 'cost-bar' + (row.noLimit ? ' none' : row.over ? ' over' : '');
             var fill = document.createElement('span');
             fill.className = 'cost-fill';
             fill.style.width = (row.noLimit ? 0 : Math.round(row.fraction * 1000) / 10) + '%';
@@ -1395,15 +1395,10 @@
             var text = document.createElement('span');
             text.className = 'cost-text';
             text.textContent = row.text;
-            var sign = document.createElement('span');
-            sign.className = 'cost-over';
-            sign.title = 'Over the limit';
-            sign.textContent = row.over ? '\u26a0' : '';
-            sign.hidden = !row.over;
-            // The figures and the sign are one cell, so that the two rows have the same three columns whether or not a sign is there.
+            // Over the limit the bar is red (since 0.82): there is no warning sign any more.
             var figures = document.createElement('span');
             figures.className = 'cost-figures';
-            figures.append(text, sign);
+            figures.append(text);
             // A row is no box of its own in the grid, so each of its cells says the tooltip of the row.
             label.title = row.tooltip;
             bar.title = row.tooltip;
