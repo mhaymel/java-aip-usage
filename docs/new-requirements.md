@@ -1,41 +1,30 @@
+a funtionality to change the directory for log files and history files
 
 
-there should be a functionalitty which supports more than one view at the same time, it should be possible eg
-to show cost control and history view at the same time. there should be a checkbox which  thsi behavior
-can be turned on and off. default is off. if it is on, when pressing an icon to show a view, the icon gets blue
-as usual. another view which is already open, stays open and the according icon stays with blue color. is an
-icon with blue is pressed, the view is closed and the icon is no long blue.
+order of icons, several views at once, where needed a separater between the views, a black solid line
+
+order of icons, cost control, history view, log view, error view, settings view.
+
+![img_28.png](img_28.png) add gray lines/dark gray lines to seperate views.
 
 
+![img_29.png](img_29.png) the icon does not make clear what it is about, choose a better visual
+representation
 
-start with general
+when clicking collaps, this works, but when deselecting
 
 
-in history view stronger font as it is heaere ![img_4.png](img_4.png)
-![img_16.png](img_16.png font is not bold enough
+do not use courier font, use the same: ![img_30.png](img_30.png)
 
-![img_17.png](img_17.png) there are still lines without value shown
+its still to much space, make font smaller if necessary; ![img_31.png](img_31.png)
 
-![img_18.png](img_18.png) reduce space
+the bar chart shall be shown with blocks of 10%, between the 10 percents there is small visible
+separater.
 
- the placeholder instead of the green rectangel the green line only at the bottom, the thickness like
-the blue of the selected tab in settings.   
+also hide failed requests ![img_32.png](img_32.png)
 
-![img_19.png](img_19.png) replace button by icon text
+vertical align center ![img_33.png](img_33.png)[
 
-![img_20.png](img_20.png) make this bold
+if several views is selected also the settings view can be open at the same time with other views.]()
 
-![img_21.png](img_21.png) the icons are hard to see, make them more visible
-
-![img_22.png](img_22.png) add tooltip
-
-![img_23.png](img_23.png) ![img_24.png](img_24.png) hide zero usage line does not work correctly
-
-![img_25.png](img_25.png) log also path make, make the file/path clickable, open finder/explorer
-
-![img_26.png](img_26.png) move the loggo to the lefthand side, the date/files etc shall be right of the logo
-
-if an icon is slected to show eg history, costs, log, ... etc, selecting settings, than the icon which
-curremtly is selected is in main view settings unchecked, when leaving the settings page, the view is not shown.
-
-![img_27.png](img_27.png) the lines are missing, they are not displayed
+there should be a bit more space between s and the scrollbar![img_34.png](img_34.png)
