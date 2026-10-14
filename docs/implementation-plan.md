@@ -2720,7 +2720,7 @@ window always wide enough for the figures of the cost control.
 
 ### 125. The cost control: its own width, blocks of 14 pixels, the yellow
 
-**Status: planned.** Requirements: The cost control panel (the width, the blocks, the yellow); Several views at once (the width).
+**Status: built (version 0.84); seen in the real window on Windows by the three window tests.** As built: the cost control asks for `Math.max(row, costWidth() + edge)`, alone and among views, the history's table no longer in it. **The cut of `img_53` was found in `costWidth()`**: it counted the panel's padding and not the cost control's own (8 pixels each side, `COST_PADDING`), nor the border of a window with no title bar; in the real window the row of the cost icon alone and the cost control now leave 19 pixels at the right of the figures (`SeveralViewsWindowTest`, `narrow-room`), and the cost control is 391 wide before and after the history. Blocks of 14 pixels by the gradient's size; `--warn: #ffff33`, `--warn-text: #b8a000`, the amber dot ringed by a `box-shadow`. Requirements: The cost control panel (the width, the blocks, the yellow); Several views at once (the width).
 
 - **The width.** `app.js`: the cost control's width, alone and among several views, is `Math.max(rowWidth, costWidth())`, no longer
   `currentTableWidth() + 16`. `costWidth()` is checked against the real window: the label, `COST_BAR_MIN`, the four columns and

@@ -103,6 +103,19 @@ public final class SeveralViewsProbe {
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-severalViews').checked = false;"));
             step("off", "settings-save");
             step("off-history", "history-button");
+            // img_53: the row with no element but the cost icon, and the cost control: no figure is cut at the window's edge.
+            step("narrow-settings", "settings-button");
+            onFx(() -> page().getEngine().executeScript(
+                    "Array.from(document.querySelectorAll('#tab-main input[id^=set-show]')).forEach(function (b) {"
+                            + " b.checked = b.id === 'set-showCostIcon'; b.dispatchEvent(new Event('change')); });"));
+            step("narrow-saved", "settings-save");
+            step("narrow-cost", "cost-button");
+            onFx(() -> {
+                System.out.println("PROBE narrow-room=" + page().getEngine().executeScript(
+                        "(function () { var most = 0; Array.prototype.forEach.call(document.querySelectorAll('#cost-rows .cost-row > *'), function (c) {"
+                                + " most = Math.max(most, c.getBoundingClientRect().right); }); return Math.round(window.innerWidth - most); })()"));
+                System.out.flush();
+            });
             onFx(() -> window().close());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

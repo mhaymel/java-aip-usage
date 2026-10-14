@@ -1458,6 +1458,8 @@
     // The least width of a bar, and the gap between the parts of a row, as the style sheet has them (`.cost-bar`, `.cost-rows`).
     var COST_BAR_MIN = 120;
     var COST_GAP = 6;
+    // The room the cost control keeps at its left and right (`.cost`), which is the 8 pixels at the right of the figures.
+    var COST_PADDING = 16;
 
     /** Draws the two bars: a label, a bar with its share, red and full over the limit, and the figures; and the note under them. */
     function showCost(shown) {
@@ -1542,8 +1544,9 @@
             var cells = Array.prototype.slice.call(line.children, 2);
             figures = Math.max(figures, cells.reduce(function (sum, part) { return sum + cellWidth(part); }, 0) + (cells.length - 1) * COST_GAP);
         });
-        // 16 px is the panel's own padding, as for the history.
-        return widest(0) + COST_BAR_MIN + figures + 2 * COST_GAP + 16;
+        // 16 px is the panel's own padding, as for the history, and 16 more the cost control's own, which until 0.83 was not counted
+        // and left the figures cut at the window's edge (img_53).
+        return widest(0) + COST_BAR_MIN + figures + 2 * COST_GAP + 16 + COST_PADDING;
     }
 
     /**
@@ -1947,7 +1950,8 @@
         var only = openViews.length === 1 ? openViews[0] : null;
         if (only === 'cost') {
             // As tall as the two bars and the note need, and as wide as the history's table, or as the bars need: not resizable.
-            return Math.max(width, currentTableWidth() + 16, costWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,cost';
+            // Its own width and the row's, never the history's table, which the page knows only once the history was shown (since 0.84).
+            return Math.max(width, costWidth() + edge) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,cost';
         }
         // The last field names the panel, so that the host remembers the height of the history and of the log.
         if (only === 'log') {
@@ -1988,7 +1992,7 @@
             } else if (name === 'errors') {
                 wide = Math.max(wide, Math.ceil(1.5 * width) + scrollbarWidth);
             } else {
-                wide = Math.max(wide, currentTableWidth() + 16, costWidth());
+                wide = Math.max(wide, costWidth() + (fakeInUse() ? 6 : bare() ? 2 : 0));
             }
             total += sectionHeight(name);
         });

@@ -147,6 +147,12 @@ class SeveralViewsWindowTest {
         near(Integer.parseInt(beside.group(10)), Integer.parseInt(restored.group(10)), "at the height it had:\n" + next);
         assertEquals("cost,", step(next, "off").group(1), "switched off: the first of them stays:\n" + next);
         assertEquals("history,", step(next, "off-history").group(1), "and an icon now takes the place of what is shown:\n" + next);
+        // img_53: with the row the cost icon and the gear alone, the cost control's figures have their room, 8 pixels at the right.
+        assertEquals("cost,", step(next, "narrow-cost").group(1), next);
+        int room = Integer.parseInt(next.lines().filter(l -> l.startsWith("PROBE narrow-room=")).findFirst().orElseThrow().substring("PROBE narrow-room=".length()));
+        assertTrue(room >= 8, "nothing cut at the right edge: " + room + " pixels of room\n" + next);
+        // img_45 to img_47: the cost control as wide after the history was shown as before.
+        assertEquals(step(all, "cost").group(2), step(all, "cost-alone").group(2), "the same width before and after the history:\n" + all);
         assertTrue(!all.contains("PROBE failed") && !next.contains("PROBE failed"), all + "\n" + next);
     }
 

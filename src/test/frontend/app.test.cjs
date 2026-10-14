@@ -4062,7 +4062,7 @@ test('the cost control asks for a window as wide as the history or as its bars n
     assert.equal(Number(parts[1]), 42, 'the page\'s own height, 41.5 rounded up');
 });
 
-test('the width of the cost control follows the widest row and the history\'s table', async () => {
+test('the width of the cost control follows its widest row, its own padding counted, and never the history\'s table', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('cost-button');
     const [day, month] = page.el('cost-rows').children;
@@ -4073,8 +4073,9 @@ test('the width of the cost control follows the widest row and the history\'s ta
 
     const wide = Number(page.window.contentSize().split(',')[0]);
 
-    // The rows share their columns: the wider label, the bar's least width, the wider figures (the sign is in their cell), two gaps of 6, and the padding.
-    assert.equal(wide, 60 + 120 + 320 + 2 * 6 + 16);
+    // The rows share their columns: the wider label, the bar's least width, the wider figures, two gaps of 6, the panel's padding
+    // and the cost control's own (since 0.84: until then not counted, and the figures were cut, img_53).
+    assert.equal(wide, 60 + 120 + 320 + 2 * 6 + 16 + 16);
 });
 
 test('the checkbox Cost button is in Main view, is posted with the rest and shows or hides the button in the row at once', async () => {
@@ -4996,7 +4997,7 @@ test('the size asked for with several views: as wide as the widest needs, as tal
     await page.click('cost-button');
     // The row is 42 tall; the history alone is ten rows, of which nine are its own; the cost control is as tall as it is, 42 here.
     // The cost control asks for the width of its bars, 948 here, which is more than the history needs.
-    assert.equal(page.window.contentSize(), '948,462,1,cost+history,420', 'the height may be dragged, for the history; after the names, the height the history has alone');
+    assert.equal(page.window.contentSize(), '964,462,1,cost+history,420', 'the height may be dragged, for the history; after the names, the height the history has alone');
 
     await page.click('log-button');
     assert.equal(page.window.contentSize(), '1200,840,2,cost+history+log,420', 'with the log the width may be dragged too, and the window is three rows wide');
@@ -5417,3 +5418,17 @@ for (const leave of ['settings-save', 'settings-cancel', 'settings-button']) {
         assert.deepEqual(shownViews(page), ['cost'], 'and the cost control stays');
     });
 }
+
+// ---- version 0.84: the cost control's own width
+
+test('the cost control asks for the same width before and after the history has been shown (img_45 to img_47)', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: HISTORY }) }));
+    await page.click('cost-button');
+    const before = page.window.contentSize();
+    await page.click('history-button');
+    // The table is measured once it is shown: a wide one, which until 0.83 made the cost control as wide.
+    page.el('table-probe').rect = { width: 2000, height: 20 };
+    page.window.contentSize();
+    await page.click('cost-button');
+    assert.equal(page.window.contentSize(), before);
+});

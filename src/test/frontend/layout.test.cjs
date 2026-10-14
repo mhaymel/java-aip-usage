@@ -846,7 +846,7 @@ test('the percentage, the amounts, the two changes and the request duration are 
     assert.match(ruleOf('.delta-used,\n.delta-time,\n.delta-duration,\n.spend'), /color:\s*var\(--ok\)/);
     assert.deepEqual([...css.matchAll(/--ok:\s*(#[0-9a-f]{6})/g)].map(m => m[1]), ['#1a7f37', '#3fb950'], 'the light theme, then the dark one');
     assert.doesNotMatch(css, /\.sev-/, 'no rule by severity');
-    assert.match(css, /--warn:\s*#e3b341/, 'a golden yellow since 0.83, for a limit about to be passed, never for the severity');
+    assert.match(css, /--warn:\s*#ffff33/, 'a bright yellow since 0.84, for a limit about to be passed, never for the severity');
     for (const rule of ['.time', '.countdown', '.delta-interval']) {
         assert.doesNotMatch(ruleOf(rule), /color/, rule + ' stays in the colour of the text');
     }
@@ -1182,14 +1182,14 @@ test('the button of the zero usage lines is a funnel', () => {
     assert.match(button, /width="13" height="13"/, 'the size of the zoom');
 });
 
-test('the cost control is tight: 11 pixels on 1.2, rows a pixel apart, bars 12 tall in blocks of 5 %', () => {
+test('the cost control is tight: 11 pixels on 1.2, rows a pixel apart, bars 12 tall in blocks of 14 pixels', () => {
     assert.match(ruleOf('.cost'), /padding:\s*2px 8px/);
     assert.match(ruleOf('.cost-rows'), /gap:\s*1px 6px/);
     const blocks = ruleOf('.cost-bar::after');
     assert.match(blocks, /position:\s*absolute/);
     assert.match(blocks, /width:\s*calc\(100% \+ 1px\)/, 'the tenth gap falls outside the bar');
-    assert.match(blocks, /linear-gradient\(to right, transparent calc\(100% - 1px\), Canvas calc\(100% - 1px\)\) 0 0 \/ 5% 100% repeat-x/,
-        'a gap of a pixel in the background after every twentieth (since 0.82)');
+    assert.match(blocks, /linear-gradient\(to right, transparent calc\(100% - 1px\), Canvas calc\(100% - 1px\)\) 0 0 \/ 14px 100% repeat-x/,
+        'a gap of a pixel in the background after every 13 of colour, however wide the bar (since 0.84)');
     assert.match(ruleOf('.cost-bar'), /overflow:\s*hidden/, 'so that what is beyond the bar is not drawn');
 });
 
@@ -1314,8 +1314,10 @@ test('the checkbox of the row\'s limit is Monthly limit, with its tooltip', () =
     assert.match(html, /<label title="The monthly limit counted: the one the server sends, or the one typed under Cost control\."><input id="set-showLimit" type="checkbox"> Monthly limit<\/label>/);
 });
 
-test('the yellow is #e3b341 on both themes, and the status circle stands still', () => {
-    assert.deepEqual(css.match(/--warn:\s*(#[0-9a-f]{6})/g), ['--warn: #e3b341']);
+test('the yellow is #ffff33 on both themes, a darker one for text, the yellow circle ringed, and the circle stands still', () => {
+    assert.deepEqual(css.match(/--warn:\s*(#[0-9a-f]{6})/g), ['--warn: #ffff33']);
+    assert.match(css, /--warn-text:\s*#b8a000/);
+    assert.match(css, /\.status-dot\.amber\s*{\s*background:\s*var\(--warn\);\s*box-shadow:\s*0 0 0 1px var\(--warn-text\)/);
     assert.doesNotMatch(ruleOf('.status-dot'), /animation/, 'no pulse: it would have the window repaint all the time');
     assert.doesNotMatch(css, /.status-dot[^{]*{[^}]*animation/, 'nor any of its colours');
 });

@@ -28,7 +28,9 @@
      * What is about to pass a limit: the projection or the pace (since 0.82). A golden yellow on both themes since 0.83, where
      * the amber of 0.82 looked light brown; it is the dot's and the bars' alone.
      */
-    --warn: #e3b341;
+    --warn: #ffff33;
+    /* The yellow of a figure of the row, which the bright one would leave hard to read on the background (since 0.84). */
+    --warn-text: #b8a000;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -265,7 +267,8 @@ body {
 }
 
 .status-dot.green { background: var(--ok); }
-.status-dot.amber { background: var(--warn); }
+/* The bright yellow is hardly seen on the background alone: a ring of a pixel in the darker one, which takes no room (since 0.84). */
+.status-dot.amber { background: var(--warn); box-shadow: 0 0 0 1px var(--warn-text); }
 .status-dot.red { background: var(--bad); }
 
 /*
@@ -1121,8 +1124,8 @@ body {
 }
 
 /*
- * The bar in blocks of 5 % (since 0.82; of a tenth in 0.81): a gap of a pixel in the window's background after every twentieth,
- * over the used part and the rest alike.
+ * The bar in blocks of 14 pixels, 13 of colour and a gap of a pixel in the window's background, over the used part and the rest
+ * alike, however wide the bar is: a wider bar has more of them (since 0.84; twenty of 5 % in 0.82 and 0.83, of a tenth in 0.81).
  * The layer is a pixel wider than the bar, so that the tenth gap falls outside it and there is none at the end.
  */
 .cost-bar::after {
@@ -1132,7 +1135,7 @@ body {
     left: 0;
     width: calc(100% + 1px);
     height: 100%;
-    background: linear-gradient(to right, transparent calc(100% - 1px), Canvas calc(100% - 1px)) 0 0 / 5% 100% repeat-x;
+    background: linear-gradient(to right, transparent calc(100% - 1px), Canvas calc(100% - 1px)) 0 0 / 14px 100% repeat-x;
 }
 
 /* Over the limit the bar is red, every block (since 0.82). */
