@@ -3,6 +3,7 @@ package org.example;
 import org.example.money.Amount;
 import org.example.json.Json;
 import org.example.json.JsonReader;
+import org.example.settings.CostControl;
 import org.example.settings.LaunchOptions;
 import org.example.settings.SettingsStore;
 import org.example.usage.Spend;
@@ -294,7 +295,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(38, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(41, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -2846,7 +2847,9 @@ class ApiTest {
         assertTrue(body.at("/settings/costDailyLimit").isNull());
         assertTrue(body.at("/settings/costDailyAutomatic").asBoolean());
         assertTrue(body.at("/defaults/costDailyAutomatic").asBoolean());
-        assertTrue(body.get("costDailyWorkedOut").isNull(), "nothing to work it out from");
+        // None typed: the server's limit is counted (since 0.82), and the daily limit is worked out from it; the fake fetch sends 1,000.00.
+        assertEquals(CostControl.text(100_000L / CostControl.weekdays(java.time.YearMonth.now())), body.get("costDailyWorkedOut").asText());
+        assertEquals("1000.00", body.get("serverLimit").asText());
     }
 
     @Test
@@ -3058,5 +3061,42 @@ class ApiTest {
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costCurrency\": true}"));
         assertTrue(json(get(app, "/api/settings")).at("/settings/costCurrency").asBoolean());
         assertTrue(json(get(app, "/api/cost")).at("/rows/1/text").asText().contains("$"));
+    }
+
+    @Test
+    void theChoicesOfCostControlAreSettingsWithTheirRanges() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        Json settings = json(get(app, "/api/settings")).get("settings");
+        assertEquals("monthly", settings.get("costLimitSource").asText());
+        assertEquals(8, settings.get("costWorkdayHours").asInt());
+        assertTrue(settings.get("costWorkdays").isNull());
+
+        HttpResponse<String> saved = post(app, "/api/settings", allSettings(60, false, "hh:mm")
+                .replace("}", ", \"costLimitSource\": \"server\", \"costWorkdayHours\": 6, \"costWorkdays\": 19}"));
+        assertEquals(200, saved.statusCode(), saved.body());
+        assertEquals("server", json(saved).at("/settings/costLimitSource").asText());
+        assertEquals(19, json(saved).at("/settings/costWorkdays").asInt());
+        assertEquals(java.time.YearMonth.now().toString(), JsonReader.read(Files.readString(dir.resolve("settings.json"))).get("costWorkdaysMonth").asText(),
+                "the days hold for the month they were typed in");
+
+        for (String wrong : new String[] {"\"costLimitSource\": \"both\"", "\"costWorkdayHours\": 0", "\"costWorkdayHours\": 25", "\"costWorkdays\": 32"}) {
+            assertEquals(400, post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", " + wrong + "}")).statusCode(), wrong);
+        }
+        assertEquals("21.05", json(get(app, "/api/cost/daily?monthly=400&workdays=19")).get("daily").asText(), "the days typed");
+    }
+
+    @Test
+    void theRowShowsTheLimitCountedAndItsPercentage() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        assertEquals("1,000.00", json(get(app, "/api/status")).at("/display/spend/limit").asText(), "nothing typed: the server's");
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"500\"}"));
+        Json spend = json(get(app, "/api/status")).at("/display/spend");
+        assertEquals("500.00", spend.get("limit").asText(), "the monthly limit typed is counted");
+        assertEquals("37%", spend.get("percentText").asText(), "186.02 of 500.00");
+        assertTrue(spend.get("limitTooltip").asText().startsWith("Monthly limit of cost control"));
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costLimitSource\": \"server\"}"));
+        assertEquals("1,000.00", json(get(app, "/api/status")).at("/display/spend/limit").asText(), "the server's, the typed one kept");
     }
 }

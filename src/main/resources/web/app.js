@@ -378,6 +378,13 @@
     // worked out, as a finished text. The page works no limit out itself.
     var costDailyTyped = '';
     var costDailyWorkedOut = '';
+    // The limit the server sent with the newest reading, and the weekdays of this month, as the settings say (since 0.82).
+    var serverLimit = null;
+    var monthWeekdays = null;
+    // The working days typed, kept while Automatic shows the weekdays.
+    var workdaysTyped = '';
+    // Whether the field of the working days shows the weekdays, as Automatic had it when the fields were last synced.
+    var workdaysShownAuto = true;
     // Counts the questions about the daily limit: an answer to an earlier one, arriving late, is not the one to show.
     var costAsked = 0;
     // The tabs of the settings, in order: the page of each is `tab-<id>`, its title in the strip `tabbtn-<id>`. The Debug tab is there
@@ -495,6 +502,44 @@
         $('set-usageIntervalSeconds').value = String(values.usageIntervalSeconds);
         $('set-costMonthlyLimit').value = values.costMonthlyLimit || '';
         costDailyTyped = values.costDailyLimit || '';
+        var server = values.costLimitSource === 'server';
+        $('set-costLimitSource-server').checked = server;
+        $('set-costLimitSource-monthly').checked = !server;
+        $('set-costWorkdayHours').value = String(typeof values.costWorkdayHours === 'number' ? values.costWorkdayHours : 8);
+        workdaysTyped = typeof values.costWorkdays === 'number' ? String(values.costWorkdays) : '';
+        $('set-costWorkdaysAutomatic').checked = typeof values.costWorkdays !== 'number';
+        syncCounting();
+    }
+
+    /**
+     * The fields that follow the choices of 0.82: the monthly limit is disabled while the server's is counted, and the working
+     * days while Automatic is checked, which then shows the weekdays of the month.
+     */
+    function syncCounting() {
+        if ($('set-costLimitSource-server').checked) {
+            $('set-costMonthlyLimit').setAttribute('disabled', '');
+        } else {
+            $('set-costMonthlyLimit').removeAttribute('disabled');
+        }
+        var days = $('set-costWorkdays');
+        workdaysShownAuto = Boolean($('set-costWorkdaysAutomatic').checked);
+        if ($('set-costWorkdaysAutomatic').checked) {
+            days.setAttribute('disabled', '');
+            days.value = monthWeekdays === null ? '' : String(monthWeekdays);
+        } else {
+            days.removeAttribute('disabled');
+            days.value = workdaysTyped;
+        }
+    }
+
+    /** A choice of 0.82 was changed: the fields follow, and the daily limit is worked out again. */
+    function countingChanged() {
+        // What the field holds is what was typed, while it was not showing the weekdays: it is kept, as the daily limit's is.
+        if (!workdaysShownAuto) {
+            workdaysTyped = String($('set-costWorkdays').value).trim();
+        }
+        syncCounting();
+        return workOutDailyLimit();
     }
 
     /**
@@ -514,11 +559,16 @@
 
     /** Asks the backend what daily limit follows from the monthly limit in the field, and shows it while the limit is worked out. */
     async function workOutDailyLimit() {
+        // The monthly limit counted: the server's while that is chosen, or while none is typed.
         var monthly = String($('set-costMonthlyLimit').value).trim();
+        if ($('set-costLimitSource-server').checked || monthly === '') {
+            monthly = serverLimit || '';
+        }
+        var days = $('set-costWorkdaysAutomatic').checked ? '' : String($('set-costWorkdays').value).trim();
         var asked = ++costAsked;
         var worked;
         try {
-            worked = (await request('/api/cost/daily?monthly=' + encodeURIComponent(monthly))).daily || '';
+            worked = (await request('/api/cost/daily?monthly=' + encodeURIComponent(monthly) + '&workdays=' + encodeURIComponent(days))).daily || '';
         } catch (e) {
             // What is typed is no amount yet: there is nothing to work out, and saving says what is wrong with it.
             worked = '';
@@ -596,6 +646,9 @@
         var daily = values.costDailyAutomatic ? costDailyTyped : String($('set-costDailyLimit').value).trim();
         values.costMonthlyLimit = monthly === '' ? null : monthly;
         values.costDailyLimit = daily === '' ? null : daily;
+        values.costLimitSource = $('set-costLimitSource-server').checked ? 'server' : 'monthly';
+        values.costWorkdayHours = Number(String($('set-costWorkdayHours').value).trim());
+        values.costWorkdays = $('set-costWorkdaysAutomatic').checked ? null : Number(String($('set-costWorkdays').value).trim());
         FOLDERS.forEach(function (key) {
             values[key] = folderChoice[key];
         });
@@ -621,6 +674,9 @@
             intervalLocked = Boolean(body.settings.autoInterval);
             syncIntervalField();
             costDailyWorkedOut = body.costDailyWorkedOut || '';
+            serverLimit = typeof body.serverLimit === 'string' ? body.serverLimit : null;
+            monthWeekdays = typeof body.weekdays === 'number' ? body.weekdays : null;
+            syncCounting();
             syncDailyLimit();
             show('settings-form', true);
         } catch (e) {
@@ -2069,6 +2125,9 @@
         $('set-autoInterval').addEventListener('change', syncIntervalField);
         $('set-costDailyAutomatic').addEventListener('change', dailyAutomaticChanged);
         $('set-costMonthlyLimit').addEventListener('change', workOutDailyLimit);
+        ['set-costLimitSource-server', 'set-costLimitSource-monthly', 'set-costWorkdaysAutomatic', 'set-costWorkdays'].forEach(function (id) {
+            $(id).addEventListener('change', countingChanged);
+        });
         $('settings-cancel').addEventListener('click', cancelSettings);
         MAIN_FLAGS.forEach(function (key) { $('set-' + key).addEventListener('change', previewNow); });
         $('set-timeFormat').addEventListener('change', previewNow);

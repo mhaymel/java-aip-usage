@@ -162,7 +162,8 @@ final class StatusDisplay {
             time = Formatting.time(usage.fetchedAt(), settings.timeFormat(), zone);
             timeTooltip = "Last update: " + Formatting.dateTime(usage.fetchedAt(), zone);
             if (usage.spend() != null) {
-                spend = spend(usage.spend(), settings.showCurrency());
+                spend = spend(counted(usage.spend(), settings), settings.showCurrency(), !settings.cost().serverCounted()
+                        && settings.cost().monthlyCents() != null);
             }
             if (spend == null) {
                 placeholder = "No usage reported";
@@ -173,7 +174,7 @@ final class StatusDisplay {
             placeholder = state.error() != null ? "No data" : null;
         }
         boolean loading = usage == null && state.error() == null;
-        Spend amounts = usage == null ? null : usage.spend();
+        Spend amounts = usage == null || usage.spend() == null ? null : counted(usage.spend(), settings);
         Variants variants = usage == null ? null : new Variants(
                 Formatting.time(usage.fetchedAt(), TimeFormat.HOURS_MINUTES, zone),
                 Formatting.time(usage.fetchedAt(), TimeFormat.HOURS_MINUTES_SECONDS, zone),
@@ -256,7 +257,36 @@ final class StatusDisplay {
      * The numbers carry no currency sign unless that is switched on, so the tooltips say what they are and in what unit. The unit
      * is the currency code the response names; without one they say what the numbers are and leave the unit out.
      */
+    /**
+     * The spend with the limit counted (since 0.82): the server's, or the monthly limit typed, by the setting of cost control;
+     * the percentage is then of that limit, worked out here, rounded to the nearer and upwards at half.
+     */
+    static Spend counted(Spend spend, Settings settings) {
+        Long server;
+        try {
+            server = spend.limit() == null ? null : spend.limit().cents();
+        } catch (ArithmeticException e) {
+            server = null;
+        }
+        Long counted = settings.cost().monthlyCounted(server).orElse(null);
+        if (counted == null || counted.equals(server)) {
+            return spend;
+        }
+        Amount limit = Amount.ofCents(counted);
+        Integer percent = null;
+        if (spend.used() != null && counted > 0) {
+            long millionths = spend.used().shareOf(limit, 6);
+            percent = (int) ((millionths + (millionths >= 0 ? 5_000 : -5_000)) / 10_000);
+        }
+        return new Spend(spend.used(), limit, spend.currency(), percent, spend.severity());
+    }
+
     private static SpendView spend(Spend spend, boolean withSymbol) {
+        return spend(spend, withSymbol, false);
+    }
+
+    /** @param monthly whether the limit is the monthly limit typed in cost control, which the tooltip of the budget then says */
+    private static SpendView spend(Spend spend, boolean withSymbol, boolean monthly) {
         String unit = spend.currency() != null && !spend.currency().isEmpty() ? ", in " + spend.currency() : "";
         String percentText = spend.percent() != null ? spend.percent() + "%" : null;
         String severity = spend.severity() == null || spend.severity().isEmpty() ? null : spend.severity();
@@ -267,7 +297,7 @@ final class StatusDisplay {
                 amountText(spend.used(), spend.currency(), withSymbol),
                 amountText(spend.limit(), spend.currency(), withSymbol),
                 "Credits used" + unit,
-                "Credit budget" + unit,
+                (monthly ? "Monthly limit of cost control" : "Credit budget") + unit,
                 severity);
     }
 }

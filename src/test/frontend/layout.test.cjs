@@ -1256,3 +1256,15 @@ test('the checkbox Currency symbol of the cost control is in its tab, with its t
     const tab = html.slice(html.indexOf('<div id="tab-cost"'), html.indexOf('<div id="tab-debug"'));
     assert.match(tab, /<label title="Puts the currency symbol before the amounts of the cost control\."><input id="set-costCurrency" type="checkbox"> Currency symbol<\/label>/);
 });
+
+test('the Cost control tab has Limit counted, the hours of a working day and the working days, in that order before the currency symbol', () => {
+    const tab = html.slice(html.indexOf('<div id="tab-cost"'), html.indexOf('<div id="tab-debug"'));
+    const order = ['id="set-costMonthlyLimit"', 'id="set-costDailyLimit"', 'id="set-costLimitSource-server"', 'id="set-costLimitSource-monthly"',
+        'id="set-costWorkdayHours"', 'id="set-costWorkdays"', 'id="set-costWorkdaysAutomatic"', 'id="set-costCurrency"'].map(id => tab.indexOf(id));
+    assert.ok(order.every(at => at > 0));
+    assert.deepEqual([...order].sort((a, b) => a - b), order);
+    assert.match(tab, /name="costLimitSource" type="radio" value="server"> Server limit/);
+    assert.match(tab, /name="costLimitSource" type="radio" value="monthly"> Monthly limit/);
+    assert.match(tab, /title="How long a working day is: today's spend is projected over it\. The default is 8\.">Hours of a working day/);
+    assert.match(tab, /title="The working days of this month, Monday to Friday unless a number is typed; a typed number holds for this\s+month only\.">Working days|title="The working days of this month, Monday to Friday unless a number is typed; a typed number holds for this month only\.">Working days/);
+});

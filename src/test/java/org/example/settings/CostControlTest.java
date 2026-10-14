@@ -77,4 +77,35 @@ class CostControlTest {
             assertEquals(Optional.empty(), CostControl.cents(bad), String.valueOf(bad));
         }
     }
+
+    @Test
+    void theLimitCountedIsTheServersOrTheTypedOneAndTheServersWhileNoneIsTyped() {
+        CostControl typed = new CostControl(15_000L, null, true);
+        assertEquals(Optional.of(15_000L), typed.monthlyCounted(100_000L), "monthly by default");
+        assertEquals(Optional.of(100_000L), new CostControl(null, null, true).monthlyCounted(100_000L), "none typed: the server's");
+        CostControl server = typed.withCounting(CostControl.SERVER, 8, null, null);
+        assertTrue(server.serverCounted());
+        assertEquals(Optional.of(100_000L), server.monthlyCounted(100_000L), "the typed one is kept, unused");
+        assertEquals(Long.valueOf(15_000L), server.monthlyCents());
+        assertEquals(Optional.empty(), server.monthlyCounted(null));
+    }
+
+    @Test
+    void typedWorkingDaysHoldForTheirMonthAloneAndTheDailyLimitFollowsThem() {
+        YearMonth october = YearMonth.of(2026, 10);
+        CostControl days = new CostControl(44_000L, null, true).withCounting(CostControl.MONTHLY, 8, 20, "2026-10");
+        assertEquals(20, days.workdays(october));
+        assertEquals(Optional.of(2_200L), days.dailyIn(october, null), "440.00 over 20 days");
+        assertEquals(CostControl.weekdays(YearMonth.of(2026, 11)), days.workdays(YearMonth.of(2026, 11)), "a new month: Monday to Friday again");
+        assertEquals(Optional.of(20_000L / 22), new CostControl(null, null, true).dailyIn(october, 20_000L), "worked out from the server's");
+    }
+
+    @Test
+    void valuesThatCannotBeAreTheDefaults() {
+        CostControl odd = new CostControl(null, null, true).withCounting("other", 0, 40, "2026-10");
+        assertEquals(CostControl.MONTHLY, odd.source());
+        assertEquals(8, odd.workdayHours());
+        assertEquals(null, odd.workdays());
+        assertEquals(null, odd.workdaysMonth());
+    }
 }

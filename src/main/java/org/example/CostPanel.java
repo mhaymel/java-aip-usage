@@ -76,10 +76,12 @@ final class CostPanel {
         String currency = newest.get(3);
         YearMonth month = YearMonth.from(today);
         Amount spentToday = spentSince(used, baseline(readings, today, month, used));
-        Optional<Long> daily = limits.dailyIn(month);
+        // The monthly limit counted (since 0.82): the server's, sent with the newest reading, or the one typed.
+        Long server = serverLimit(newest);
+        Optional<Long> daily = limits.dailyIn(month, server);
         return new View(List.of(
                 row("Today", spentToday, daily.orElse(null), currency, withSymbol),
-                row("Month", used, limits.monthlyCents(), currency, withSymbol)), null);
+                row("Month", used, limits.monthlyCounted(server).orElse(null), currency, withSymbol)), null);
     }
 
     /** What was spent since an earlier amount: the difference, and nothing where the amount has fallen. */
@@ -145,6 +147,15 @@ final class CostPanel {
     private static String money(Amount amount, String currency, boolean withSymbol) {
         String text = Formatting.amount(amount);
         return withSymbol ? Formatting.currencySymbol(currency) + text : text;
+    }
+
+    /** The limit the server sent with a reading, in cents, or null when the row has none. */
+    static Long serverLimit(List<String> row) {
+        try {
+            return row.size() < 3 || row.get(2).isBlank() ? null : Amount.parse(row.get(2)).cents();
+        } catch (NumberFormatException | ArithmeticException e) {
+            return null;
+        }
     }
 
     private static Amount amount(List<String> row) {

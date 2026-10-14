@@ -360,8 +360,23 @@ final class ApiHandler implements HttpHandler {
                 toBody(Settings.defaults()),
                 new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())),
                 settings.current().usageIntervalSeconds(),
-                settings.current().cost().dailyIn(java.time.YearMonth.now()).map(CostControl::text).orElse(null),
-                absolute(files.programFolder()));
+                settings.current().cost().dailyIn(java.time.YearMonth.now(), serverLimitCents()).map(CostControl::text).orElse(null),
+                absolute(files.programFolder()),
+                java.util.Optional.ofNullable(serverLimitCents()).map(CostControl::text).orElse(null),
+                CostControl.weekdays(java.time.YearMonth.now()));
+    }
+
+    /** The limit the server sent with the newest reading, in cents, or null when there is none. */
+    private Long serverLimitCents() {
+        UsageSnapshot newest = service.state().snapshot();
+        if (newest == null || newest.spend() == null || newest.spend().limit() == null) {
+            return null;
+        }
+        try {
+            return newest.spend().limit().cents();
+        } catch (ArithmeticException e) {
+            return null;
+        }
     }
 
     /**
@@ -377,6 +392,39 @@ final class ApiHandler implements HttpHandler {
         }
         CostControl wanted = new CostControl(monthly, daily, automatic == null || automatic.isNull() ? kept.dailyAutomatic() : automatic.bool(),
                 flag(body, "costCurrency", kept.currency()));
+        // The choices of 0.82, each optional: what is not given stays as it is.
+        String source = kept.source();
+        Json givenSource = body.get("costLimitSource");
+        if (givenSource != null && !givenSource.isNull()) {
+            if (!givenSource.isText() || !(givenSource.text().equals(CostControl.SERVER) || givenSource.text().equals(CostControl.MONTHLY))) {
+                throw new InvalidSettingException("The limit counted must be server or monthly.");
+            }
+            source = givenSource.text();
+        }
+        int hours = kept.workdayHours();
+        Json givenHours = body.get("costWorkdayHours");
+        if (givenHours != null && !givenHours.isNull()) {
+            if (!givenHours.fitsInt() || givenHours.intValue() < 1 || givenHours.intValue() > 24) {
+                throw new InvalidSettingException("The hours of a working day must be a whole number from 1 to 24.");
+            }
+            hours = givenHours.intValue();
+        }
+        Integer days = kept.workdays();
+        String daysMonth = kept.workdaysMonth();
+        if (body.has("costWorkdays")) {
+            Json givenDays = body.get("costWorkdays");
+            if (givenDays == null || givenDays.isNull()) {
+                days = null;
+                daysMonth = null;
+            } else if (!givenDays.fitsInt() || givenDays.intValue() < 1 || givenDays.intValue() > 31) {
+                throw new InvalidSettingException("The working days must be a whole number from 1 to 31.");
+            } else {
+                // A number typed holds for the month it is typed in.
+                days = givenDays.intValue();
+                daysMonth = java.time.YearMonth.now().toString();
+            }
+        }
+        wanted = wanted.withCounting(source, hours, days, daysMonth);
         wanted.fault().ifPresent(fault -> {
             throw new InvalidSettingException(fault);
         });
@@ -406,20 +454,26 @@ final class ApiHandler implements HttpHandler {
      */
     private static DailyLimitBody dailyLimit(String query) {
         String monthly = "";
+        String days = "";
         for (String part : query == null ? new String[0] : query.split("&")) {
             if (part.startsWith("monthly=")) {
                 monthly = java.net.URLDecoder.decode(part.substring("monthly=".length()), java.nio.charset.StandardCharsets.UTF_8);
+            } else if (part.startsWith("workdays=")) {
+                days = java.net.URLDecoder.decode(part.substring("workdays=".length()), java.nio.charset.StandardCharsets.UTF_8).strip();
             }
         }
         java.time.YearMonth month = java.time.YearMonth.now();
+        // The working days the view has typed, when they are a number it can be (since 0.82); else Monday to Friday.
+        int workdays = days.matches("\\d{1,2}") && Integer.parseInt(days) >= 1 && Integer.parseInt(days) <= 31
+                ? Integer.parseInt(days) : CostControl.weekdays(month);
         if (monthly.isBlank()) {
-            return new DailyLimitBody(null, CostControl.weekdays(month));
+            return new DailyLimitBody(null, workdays);
         }
         long cents = CostControl.cents(monthly).orElseThrow(() -> new ApiException(400, CostControl.AMOUNT_FAULT, null));
         if (cents < CostControl.MIN_CENTS || cents > CostControl.MAX_CENTS) {
             throw new ApiException(400, CostControl.AMOUNT_FAULT, null);
         }
-        return new DailyLimitBody(CostControl.text(CostControl.dailyFor(cents, month)), CostControl.weekdays(month));
+        return new DailyLimitBody(CostControl.text(cents / workdays), workdays);
     }
 
     private static SettingValues toBody(Settings s) {
@@ -432,6 +486,9 @@ final class ApiHandler implements HttpHandler {
                 s.cost().dailyCents() == null ? null : CostControl.text(s.cost().dailyCents()),
                 s.cost().dailyAutomatic(),
                 s.cost().currency(),
+                s.cost().source(),
+                s.cost().workdayHours(),
+                s.cost().workdaysTyped(java.time.YearMonth.now()).orElse(null),
                 s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder());
     }
 
@@ -1285,6 +1342,9 @@ final class ApiHandler implements HttpHandler {
             String costDailyLimit,
             boolean costDailyAutomatic,
             boolean costCurrency,
+            String costLimitSource,
+            int costWorkdayHours,
+            Integer costWorkdays,
             boolean historyTime,
             boolean historyUsed,
             boolean historyLimit,
@@ -1326,6 +1386,9 @@ final class ApiHandler implements HttpHandler {
                     .put("costDailyLimit", costDailyLimit)
                     .put("costDailyAutomatic", costDailyAutomatic)
                     .put("costCurrency", costCurrency)
+                    .put("costLimitSource", costLimitSource)
+                    .put("costWorkdayHours", costWorkdayHours)
+                    .put("costWorkdays", costWorkdays == null ? Json.NULL : Json.number(String.valueOf(costWorkdays)))
                     .put("historyTime", historyTime)
                     .put("historyUsed", historyUsed)
                     .put("historyLimit", historyLimit)
@@ -1354,7 +1417,7 @@ final class ApiHandler implements HttpHandler {
      */
     /** @param programFolder the folder the log and the history are kept in when the settings name none, for the view to show */
     record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds, String costDailyWorkedOut,
-            String programFolder) {
+            String programFolder, String serverLimit, int weekdays) {
 
         Json toJson() {
             return Json.object()
@@ -1363,7 +1426,9 @@ final class ApiHandler implements HttpHandler {
                     .put("limits", limits.toJson())
                     .put("configuredIntervalSeconds", configuredIntervalSeconds)
                     .put("costDailyWorkedOut", costDailyWorkedOut)
-                    .put("programFolder", programFolder);
+                    .put("programFolder", programFolder)
+                    .put("serverLimit", serverLimit)
+                    .put("weekdays", weekdays);
         }
     }
 

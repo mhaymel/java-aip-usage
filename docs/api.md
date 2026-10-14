@@ -139,12 +139,23 @@ In a `POST` the three may be given or left out, and what is left out stays as it
 text for none, or an amount, as a number or the text of one, from 0.01 to 1,000,000 with two decimals at most. `400`:
 `A limit must be an amount from 0.01 to 1,000,000, with two decimals at most.`; `The daily limit cannot be more than the
 monthly limit.`, when the daily limit is typed in and above the monthly one; `The setting costDailyAutomatic must be true
-or false.` The program keeps the limits and compares nothing with them yet.
+or false.`
 
-### `GET /api/cost/daily?monthly=<amount>`
+Since version 0.82 four more, each optional in a `POST`: `costCurrency` (`false` by default), whether the figures of the cost
+control have the currency symbol; `costLimitSource`, `"monthly"` (default) or `"server"`, which limit is counted as the monthly
+one (the server's while none is typed, with `monthly`); `costWorkdayHours`, a whole number from 1 to 24, 8 by default; and
+`costWorkdays`, the working days typed for the current month, a whole number from 1 to 31, or `null` for Monday to Friday. A
+number holds for the month it was given in (the file keeps that month as `costWorkdaysMonth`), and the answer has `null` once
+the month is another. `400`: `The limit counted must be server or monthly.`, `The hours of a working day must be a whole number
+from 1 to 24.`, `The working days must be a whole number from 1 to 31.` Beside the settings the answer has `serverLimit`, the
+limit the server sent with the newest reading as a finished text or `null`, and `weekdays`, Monday to Friday of the month;
+`costDailyWorkedOut` is worked out from the monthly limit counted and the working days.
+
+### `GET /api/cost/daily?monthly=<amount>&workdays=<days>`
 
 What the settings view asks while a monthly limit is typed and the daily one is worked out: `{"daily": "11.36",
-"weekdays": 22}`, the daily limit that follows in the current month and the weekdays it was divided by. With no
+"weekdays": 22}`, the daily limit that follows in the current month and the days it was divided by: the `workdays` given (since
+0.82), a whole number from 1 to 31, or Monday to Friday of the month when it is empty or no such number. With no
 `monthly`, or an empty one, `daily` is `null`. `400` for one that is no amount in the range. The page works no limit
 out itself.
 

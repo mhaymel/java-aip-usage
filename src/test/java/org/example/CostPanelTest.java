@@ -22,6 +22,21 @@ class CostPanelTest {
 
     private static final CostControl LIMITS = new CostControl(100_000L, 5_000L, false);
 
+    /** A reading the server sent no limit with. */
+    private static List<String> noServerLimit(List<String> row) {
+        List<String> without = new java.util.ArrayList<>(row);
+        without.set(2, "");
+        return without;
+    }
+
+    @Test
+    void noLimitTypedCountsTheServersAndServerLimitCountsItWhateverIsTyped() {
+        CostPanel.Row month = build(CostControl.NONE, false, row("2026-10-12 10:00:00", "262.50")).rows().get(1);
+        assertEquals("262.50 of 1,000.00 · 26%", month.text(), "none typed: the server's 1,000.00");
+        CostControl server = new CostControl(20_000L, null, true).withCounting(CostControl.SERVER, 8, null, null);
+        assertEquals("262.50 of 1,000.00 · 26%", build(server, false, row("2026-10-12 10:00:00", "262.50")).rows().get(1).text(), "the 200.00 typed is not counted");
+    }
+
     private static CostPanel.View build(CostControl limits, boolean symbol, List<String>... newestFirst) {
         return CostPanel.build(List.of(newestFirst), limits, symbol, TODAY);
     }
@@ -79,7 +94,8 @@ class CostPanelTest {
     @SuppressWarnings("unchecked")
     @Test
     void noLimitIsAGrayEmptyBarWithTheAmountAndNoPercentage() {
-        CostPanel.View view = build(CostControl.NONE, false, row("2026-10-12 10:00:00", "262.50"), row("2026-10-11 23:00:00", "250.00"));
+        // No limit typed and none sent by the server: since 0.82 the server's would be counted while none is typed.
+        CostPanel.View view = build(CostControl.NONE, false, noServerLimit(row("2026-10-12 10:00:00", "262.50")), noServerLimit(row("2026-10-11 23:00:00", "250.00")));
 
         for (CostPanel.Row row : view.rows()) {
             assertTrue(row.noLimit());

@@ -186,7 +186,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "historyHeight", "logHeight"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -685,5 +685,17 @@ class SettingsStoreTest {
         Files.writeString(file(), "{\"logFolder\": 12, \"historyFolder\": null}");
         assertEquals("", new SettingsStore(file()).load().logFolder(), "not a text: the program's folder");
         assertEquals("", new SettingsStore(file()).load().historyFolder());
+    }
+
+    @Test
+    void theChoicesOfCostControlAreKept() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        store.save(Settings.defaults().withCost(new CostControl(15_000L, null, true, true).withCounting(CostControl.SERVER, 6, 19, "2026-10")));
+        CostControl read = new SettingsStore(file()).load().cost();
+        assertEquals(CostControl.SERVER, read.source());
+        assertEquals(6, read.workdayHours());
+        assertEquals(Integer.valueOf(19), read.workdays());
+        assertEquals("2026-10", read.workdaysMonth());
+        assertTrue(read.currency());
     }
 }

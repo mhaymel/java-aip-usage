@@ -2550,7 +2550,7 @@ colours, over the limit, the currency symbol); Cost control (`Currency symbol`).
 
 ### 116. The limit counted and the working days, as settings
 
-**Status: planned.** Requirements: Cost control; Limits, projections and the status of spending (the limit counted).
+**Status: built (version 0.82).** As built: the four are members of `CostControl` (`source`, `workdayHours`, `workdays`, `workdaysMonth`; its compact constructor makes what cannot be the default), with `withCounting`, `serverCounted`, `workdaysTyped`, `workdays(month)`, `monthlyCounted(server)` and `dailyIn(month, server)`; `dailyIn(month)` is that with no server limit. `CostPanel` takes the server's limit from the newest reading (`serverLimit(row)`); `StatusDisplay.counted` gives the row the limit counted and works the percentage out when it is not the server's, and the budget's tooltip says `Monthly limit of cost control` then. `GET /api/settings` adds `serverLimit` and `weekdays`, and `GET /api/cost/daily` takes `workdays`. The page: `syncCounting`, `countingChanged`; a test found that the field of the working days lost what was typed when it was synced, and the page now keeps what the field held while it was not showing the weekdays. Two tests that held "no limit" with a server limit there now hold the server's limit counted. Requirements: Cost control; Limits, projections and the status of spending (the limit counted).
 
 - **The settings.** `CostControl` gets `source` (`server` / `monthly`, default `monthly`), `workdayHours` (8), `workdays` and
   `workdaysMonth`; `CostControl.workdays(YearMonth)` gives the typed number for its month and Monday to Friday otherwise, and

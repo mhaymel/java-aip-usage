@@ -212,7 +212,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, showTitleBar: true, autoInterval: false,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showTitleBar: true, autoInterval: false,
     costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
     historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
 };
@@ -986,7 +986,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, showTitleBar: true, autoInterval: false,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
         historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
     });
@@ -3612,13 +3612,13 @@ test('with a monthly limit the daily field shows the limit the backend worked ou
 });
 
 test('a monthly limit that is typed is sent as typed, and the backend is asked what daily limit follows from it', async () => {
-    const state = { config: CONFIG, status: SPEND_STATUS, costDaily: call => ({ status: 200, body: { daily: call.url.endsWith('=440') ? '20.00' : null, weekdays: 22 } }) };
+    const state = { config: CONFIG, status: SPEND_STATUS, costDaily: call => ({ status: 200, body: { daily: call.url.includes('monthly=440') ? '20.00' : null, weekdays: 22 } }) };
     const page = await load(backendOf(state));
     await page.click('settings-button');
 
     await change(page, 'set-costMonthlyLimit', '440');
 
-    assert.deepEqual(dailyAsked(page), ['/api/cost/daily?monthly=440'], 'the page works nothing out itself');
+    assert.deepEqual(dailyAsked(page), ['/api/cost/daily?monthly=440&workdays='], 'the page works nothing out itself');
     assert.equal(page.el('set-costDailyLimit').value, '20.00');
 
     await page.click('settings-save');
@@ -5199,4 +5199,51 @@ test('one view does not share: it asks for its ten rows, and the host keeps the 
     await page.click('history-button');
     page.window.screenRoom(200);
     assert.equal(page.window.contentSize(), '400,420,1,history');
+});
+
+// ---- version 0.82: the limit counted and the working days
+
+test('Limit counted: Monthly limit by default; Server limit disables the monthly field, and the daily limit is worked out from the server\'s', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS,
+        settings: () => ({ status: 200, body: { ...SETTINGS, serverLimit: '1000.00', weekdays: 22 } }),
+        costDaily: call => ({ status: 200, body: { daily: call.url.includes('monthly=1000.00') ? '45.45' : null, weekdays: 22 } }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    assert.equal(page.el('set-costLimitSource-monthly').checked, true);
+    assert.ok(!('disabled' in page.el('set-costMonthlyLimit').attrs));
+
+    page.el('set-costLimitSource-server').checked = true;
+    page.el('set-costLimitSource-monthly').checked = false;
+    await page.el('set-costLimitSource-server').listeners.change.call(page.el('set-costLimitSource-server'));
+    await settle();
+    assert.equal(page.el('set-costMonthlyLimit').attrs.disabled, '', 'the monthly field is disabled');
+    assert.ok(dailyAsked(page).some(url => url.includes('monthly=1000.00')), 'the daily limit is asked for the server\'s limit');
+
+    await page.click('settings-save');
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).costLimitSource, 'server');
+});
+
+test('Working days: Automatic shows the weekdays of the month; unchecked, a number is typed and sent, and the daily limit follows it', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS,
+        settings: () => ({ status: 200, body: { ...SETTINGS, weekdays: 22, settings: { ...SETTINGS.settings, costMonthlyLimit: '440.00' } } }),
+        costDaily: call => ({ status: 200, body: { daily: call.url.includes('workdays=20') ? '22.00' : '20.00', weekdays: 22 } }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    assert.equal(page.el('set-costWorkdaysAutomatic').checked, true);
+    assert.equal(page.el('set-costWorkdays').value, '22', 'Monday to Friday of the month');
+    assert.equal(page.el('set-costWorkdays').attrs.disabled, '');
+    assert.equal(page.el('set-costWorkdayHours').value, '8');
+
+    page.el('set-costWorkdaysAutomatic').checked = false;
+    await page.el('set-costWorkdaysAutomatic').listeners.change.call(page.el('set-costWorkdaysAutomatic'));
+    page.el('set-costWorkdays').value = '20';
+    await page.el('set-costWorkdays').listeners.change.call(page.el('set-costWorkdays'));
+    await settle();
+    assert.ok(dailyAsked(page).some(url => url.endsWith('workdays=20')), 'asked with the days typed');
+
+    page.el('set-costWorkdayHours').value = '6';
+    await page.click('settings-save');
+    const sent = JSON.parse(settingsPosts(page)[0].body);
+    assert.equal(sent.costWorkdays, 20);
+    assert.equal(sent.costWorkdayHours, 6);
 });

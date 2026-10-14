@@ -210,10 +210,12 @@ class TitleBarWindowTest {
         // Cost control: with no limits the fields are empty and the daily one is not to be typed in; a monthly limit of 440
         // gives the daily limit the program works out for this month; unchecked, the field can be typed in; emptied, none.
         String daily = org.example.settings.CostControl.text(org.example.settings.CostControl.dailyFor(44_000, java.time.YearMonth.now()));
-        assertTrue(line(all, "settings").contains(" cost:[||true|true|"), all);
+        // With no monthly limit typed the server's, 1,000.00 from the fake backend, is counted (since 0.82), and the daily limit follows from it.
+        String fromServer = org.example.settings.CostControl.text(org.example.settings.CostControl.dailyFor(100_000, java.time.YearMonth.now()));
+        assertTrue(line(all, "settings").contains(" cost:[|" + fromServer + "|true|true|"), all);
         assertTrue(line(all, "cost").contains(" cost:[440|" + daily + "|true|true|"), "440 over the weekdays of this month is " + daily + ":\n" + all);
         assertTrue(line(all, "cost-typed").contains(" cost:[440||false|false|"), all);
-        assertTrue(line(all, "cost-none").contains(" cost:[||true|true|"), all);
+        assertTrue(line(all, "cost-none").contains(" cost:[|" + fromServer + "|true|true|"), all);
         assertTrue(line(all, "cost").matches(".* cost:\\[[^]]*\\|[0-6]] .*"), "the checkbox is in the line of the field:\n" + all);
 
         // The log panel has its line of two choices, and each takes effect on the lines that are shown.

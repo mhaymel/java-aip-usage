@@ -102,6 +102,14 @@ public final class SettingsStore {
 
     static final String COST_CURRENCY_KEY = "costCurrency";
 
+    static final String COST_LIMIT_SOURCE_KEY = "costLimitSource";
+
+    static final String COST_WORKDAY_HOURS_KEY = "costWorkdayHours";
+
+    static final String COST_WORKDAYS_KEY = "costWorkdays";
+
+    static final String COST_WORKDAYS_MONTH_KEY = "costWorkdaysMonth";
+
     static final String AUTO_SECONDS_KEY = "autoIntervalSeconds";
 
     /** The interval at which the last refusal came; left out for none. The keys of the lower and upper bound of earlier versions are read no more. */
@@ -359,10 +367,19 @@ public final class SettingsStore {
         Long daily = limit(root, COST_DAILY_KEY);
         boolean automatic = flag(root, COST_DAILY_AUTOMATIC_KEY, CostControl.NONE.dailyAutomatic());
         boolean currency = flag(root, COST_CURRENCY_KEY, CostControl.NONE.currency());
-        CostControl read = new CostControl(monthly, daily, automatic, currency);
+        Json source = root.get(COST_LIMIT_SOURCE_KEY);
+        Json hours = root.get(COST_WORKDAY_HOURS_KEY);
+        Json days = root.get(COST_WORKDAYS_KEY);
+        Json daysMonth = root.get(COST_WORKDAYS_MONTH_KEY);
+        CostControl read = new CostControl(monthly, daily, automatic, currency)
+                .withCounting(source != null && source.isText() ? source.text() : CostControl.MONTHLY,
+                        hours != null && hours.fitsInt() ? hours.intValue() : CostControl.DEFAULT_WORKDAY_HOURS,
+                        days != null && days.fitsInt() ? Integer.valueOf(days.intValue()) : null,
+                        daysMonth != null && daysMonth.isText() && daysMonth.text().matches("\\d{4}-\\d{2}") ? daysMonth.text() : null);
         if (read.fault().isPresent()) {
             LOG.warning("Ignoring " + COST_DAILY_KEY + " in " + file + ": " + read.fault().get());
-            return new CostControl(monthly, null, automatic, currency);
+            return new CostControl(monthly, null, automatic, currency)
+                    .withCounting(read.source(), read.workdayHours(), read.workdays(), read.workdaysMonth());
         }
         return read;
     }
@@ -703,6 +720,10 @@ public final class SettingsStore {
         root.put(COST_DAILY_KEY, cost.dailyCents() == null ? Json.NULL : dollars(cost.dailyCents()));
         root.put(COST_DAILY_AUTOMATIC_KEY, cost.dailyAutomatic());
         root.put(COST_CURRENCY_KEY, cost.currency());
+        root.put(COST_LIMIT_SOURCE_KEY, cost.source());
+        root.put(COST_WORKDAY_HOURS_KEY, cost.workdayHours());
+        root.put(COST_WORKDAYS_KEY, cost.workdays() == null ? Json.NULL : Json.number(String.valueOf(cost.workdays())));
+        root.put(COST_WORKDAYS_MONTH_KEY, cost.workdaysMonth() == null ? Json.NULL : Json.text(cost.workdaysMonth()));
         root.put(AUTO_SECONDS_KEY, search.interval());
         if (search.refused() != null) {
             root.put(AUTO_REFUSED_KEY, search.refused().intValue());

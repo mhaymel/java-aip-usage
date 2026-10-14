@@ -303,6 +303,17 @@
                             <input id="set-costDailyLimit" class="amount" type="text" inputmode="decimal" autocomplete="off" aria-label="Daily limit in US dollars"> USD</label>
                         <label title="Works the daily limit out: the monthly limit divided by the weekdays, Monday to Friday, of the current month."><input id="set-costDailyAutomatic" type="checkbox"> Automatic</label>
                     </span>
+                    <span class="line" title="Which limit the row, the bars and the daily limit count: the one the server sends with each reading, or the monthly limit typed here.">Limit counted
+                        <label title="Counts the limit the server sends with each reading; the monthly limit typed is kept, unused."><input id="set-costLimitSource-server" name="costLimitSource" type="radio" value="server"> Server limit</label>
+                        <label title="Counts the monthly limit typed here, and the server's while none is typed."><input id="set-costLimitSource-monthly" name="costLimitSource" type="radio" value="monthly"> Monthly limit</label>
+                    </span>
+                    <label title="How long a working day is: today's spend is projected over it. The default is 8.">Hours of a working day
+                        <input id="set-costWorkdayHours" class="number" type="text" inputmode="numeric" autocomplete="off" aria-label="Hours of a working day, from 1 to 24"> h</label>
+                    <span class="line">
+                        <label title="The working days of this month, Monday to Friday unless a number is typed; a typed number holds for this month only.">Working days
+                            <input id="set-costWorkdays" class="number" type="text" inputmode="numeric" autocomplete="off" aria-label="Working days of this month, from 1 to 31"></label>
+                        <label title="Counts the working days of this month from Monday to Friday."><input id="set-costWorkdaysAutomatic" type="checkbox"> Automatic</label>
+                    </span>
                     <label title="Puts the currency symbol before the amounts of the cost control."><input id="set-costCurrency" type="checkbox"> Currency symbol</label>
                 </fieldset>
                 </div>
