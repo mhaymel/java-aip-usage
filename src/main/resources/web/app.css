@@ -1124,6 +1124,15 @@ body {
     background: var(--bad);
 }
 
+/* About to pass the limit: the used part amber, the rest a light amber (since 0.82). */
+.cost-bar.amber {
+    background: color-mix(in srgb, var(--warn) 25%, transparent);
+}
+
+.cost-bar.amber .cost-fill {
+    background: var(--warn);
+}
+
 /* A limit that is not set: the bar stays gray and empty. */
 .cost-bar.none {
     background: color-mix(in srgb, var(--muted) 33%, transparent);

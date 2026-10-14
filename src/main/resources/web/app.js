@@ -1477,7 +1477,8 @@
             label.className = 'cost-label';
             label.textContent = row.label;
             var bar = document.createElement('span');
-            bar.className = 'cost-bar' + (row.noLimit ? ' none' : row.over ? ' over' : '');
+            // The colour says the state: amber when the limit is about to be passed, red over it (since 0.82).
+            bar.className = 'cost-bar' + (row.noLimit ? ' none' : row.over || row.state === 'red' ? ' over' : row.state === 'amber' ? ' amber' : '');
             var fill = document.createElement('span');
             fill.className = 'cost-fill';
             fill.style.width = (row.noLimit ? 0 : Math.round(row.fraction * 1000) / 10) + '%';

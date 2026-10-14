@@ -181,7 +181,9 @@
                 tooltip: row.tooltip || '',
                 fraction: Math.min(1, Math.max(0, isFinite(fraction) ? fraction : 0)),
                 over: Boolean(row.over),
-                noLimit: Boolean(row.noLimit)
+                noLimit: Boolean(row.noLimit),
+                // The colour of the bar (since 0.82): one of the four, and green for anything else.
+                state: ['green', 'amber', 'red', 'gray'].indexOf(row.state) >= 0 ? row.state : 'green'
             };
         });
         return { rows: rows, note: data.note || null };

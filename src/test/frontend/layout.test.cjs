@@ -1284,3 +1284,9 @@ test('the row has the status circle first and the figures of the day after the b
     assert.match(css, /\.status-dot\.red\s*{\s*background:\s*var\(--bad\)/);
     assert.match(ruleOf('.spend .over'), /color:\s*var\(--bad\)/);
 });
+
+test('an amber bar has its used part in the amber and the rest in a light amber', () => {
+    assert.match(ruleOf('.cost-bar.amber .cost-fill'), /background:\s*var\(--warn\)/);
+    assert.match(ruleOf('.cost-bar.amber'), /color-mix\(in srgb, var\(--warn\) 25%, transparent\)/);
+    assert.match(css, /--warn:\s*#d29922/, 'the dark theme');
+});

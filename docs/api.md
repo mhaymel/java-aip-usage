@@ -448,14 +448,14 @@ The cost control panel, finished: the page only draws it. Read when the panel op
 ```json
 {
   "rows": [
-    { "label": "Today", "text": "12.50 of 50.00 \u00b7 25%", "tooltip": "Today: 12.50 of 50.00 (25%)", "fraction": 0.25, "over": false, "noLimit": false },
-    { "label": "Month", "text": "262.50 of 1,000.00 \u00b7 26%", "tooltip": "Month: 262.50 of 1,000.00 (26%)", "fraction": 0.2625, "over": false, "noLimit": false }
+    { "label": "Today", "text": "12.50 of 50.00 \u00b7 25%", "tooltip": "Today: 12.50 of 50.00 (25%)", "fraction": 0.25, "over": false, "noLimit": false, "state": "green" },
+    { "label": "Month", "text": "262.50 of 1,000.00 \u00b7 26%", "tooltip": "Month: 262.50 of 1,000.00 (26%)", "fraction": 0.2625, "over": false, "noLimit": false, "state": "green" }
   ],
   "note": null
 }
 ```
 
-`fraction` is the green share of the bar, 0 to 1, never more. `over` is true when the amount is more than the limit (the bar is full and the page shows the warning sign), and `noLimit` when there is no limit to compare with: the bar is gray and empty, the text is
+`state` (since version 0.82) is the colour of the bar: `green`, `amber` when the projection of the day or the pace of the month says the limit will be passed (the tooltip then has a second line that says so, as the status circle's does), `red` over the limit, `gray` with no limit. The limit of each row is the one counted (see Cost control in the settings), and the warning sign is gone since 0.82: a bar over its limit is red. `fraction` is the green share of the bar, 0 to 1, never more. `over` is true when the amount is more than the limit (the bar is full and the page shows the warning sign), and `noLimit` when there is no limit to compare with: the bar is gray and empty, the text is
 `<used> \u00b7 no limit set`, and there is no percentage. The amounts are written as in the row, with the currency symbol when `showCurrency` is on. The month is the amount used of the newest reading, against the monthly limit; today is that amount less the one of the last
 reading before today in the same month (else the first reading of today; a fall is 0.00), against the daily limit in force. With no reading to say what is used both rows are empty with `noLimit`, and `note` is `No usage has been read yet.`; else it is `null`. Any method but `GET` is `405`.
 

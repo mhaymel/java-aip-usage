@@ -5308,3 +5308,16 @@ test('the four new checkboxes of Main view preview the row and are sent with the
     assert.equal(sent.showDayUsed, true);
     assert.equal(sent.showStatus, true);
 });
+
+test('a bar is amber when the backend says the limit is about to be passed, red over it, and green otherwise', async () => {
+    const cost = { rows: [
+        { label: 'Today', text: '6.00 of 10.00 · 60%', tooltip: 'Today: 6.00 of 10.00 (60%)\nToday: on course to pass the daily limit', fraction: 0.6, over: false, noLimit: false, state: 'amber' },
+        { label: 'Month', text: '90.00 of 220.00 · 41%', tooltip: 'Month: 90.00 of 220.00 (41%)', fraction: 0.41, over: false, noLimit: false, state: 'green' },
+    ], note: null };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, cost: () => ({ status: 200, body: cost }) }));
+    await page.click('cost-button');
+    const [day, month] = rowsOf(page);
+    assert.match(day.bar.className, /\bamber\b/);
+    assert.doesNotMatch(month.bar.className, /\bamber\b|\bover\b/);
+    assert.match(day.tooltip, /on course to pass/);
+});

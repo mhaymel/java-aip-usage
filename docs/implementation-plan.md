@@ -2598,7 +2598,7 @@ status of spending (the circle).
 
 ### 119. The cost control's colours
 
-**Status: planned.** Requirements: The cost control panel (the colour of the used part).
+**Status: built (version 0.82).** As built: `CostPanel.Row.state`, with the old constructor of six making it from the limit alone (red, gray, green); `Row.with(part)` and `View.with(spending)` make a row amber, and add the line of the part to its tooltip, only when the part is amber and the row neither over nor without a limit; `ApiHandler.cost()` applies `Spending.compute` to what `CostPanel.build` gives. `view.js` passes `state` on, one of the four or green: a page test found it left out, as `view.js` copies the fields it knows. `.cost-bar.amber` and its fill in `--warn`. Requirements: The cost control panel (the colour of the used part).
 
 - `CostPanel.Row` gets `state` from `Spending`; `app.js` puts `green`, `amber` or `red` as a class on each bar; `app.css`: the
   amber `#bf8700` / `#d29922` and its light form, the red and its light form, the light green of 114 for green.

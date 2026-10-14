@@ -3131,4 +3131,14 @@ class ApiTest {
         assertFalse(show.get("status").asBoolean());
         assertTrue(show.get("dayUsed").asBoolean());
     }
+
+    @Test
+    void theBarsOfTheCostControlSayTheirStates() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"150\"}"));
+        Json rows = json(get(app, "/api/cost")).get("rows");
+        assertEquals("red", rows.get(1).get("state").asText(), "186.02 of 150.00");
+        assertTrue(rows.get(1).get("over").asBoolean());
+        assertTrue(java.util.Set.of("green", "amber", "red", "gray").contains(rows.get(0).get("state").asText()));
+    }
 }

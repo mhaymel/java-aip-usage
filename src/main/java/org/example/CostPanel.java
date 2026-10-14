@@ -32,10 +32,25 @@ final class CostPanel {
      * @param text what is written at the right of the bar
      * @param tooltip the hover text of the bar
      * @param fraction how much of the bar is green, from 0 to 1
-     * @param over whether the limit is exceeded, which a warning sign shows
+     * @param over whether the limit is exceeded: the bar is full and red
      * @param noLimit whether there is no limit to compare with: the bar is gray and empty
+     * @param state the colour of the bar (since 0.82): {@code green}, {@code amber} when the projection or the pace says the
+     *     limit will be passed, {@code red} over the limit, {@code gray} with no limit
      */
-    record Row(String label, String text, String tooltip, double fraction, boolean over, boolean noLimit) {
+    record Row(String label, String text, String tooltip, double fraction, boolean over, boolean noLimit, String state) {
+
+        /** A row whose colour follows from its limit alone: red over it, gray with none, green otherwise. */
+        Row(String label, String text, String tooltip, double fraction, boolean over, boolean noLimit) {
+            this(label, text, tooltip, fraction, over, noLimit, noLimit ? Spending.GRAY : over ? Spending.RED : Spending.GREEN);
+        }
+
+        /** This row amber, with what the projection or the pace says added to its tooltip, when the part says so. */
+        Row with(Spending.Part part) {
+            if (part == null || !Spending.AMBER.equals(part.state()) || over || noLimit) {
+                return this;
+            }
+            return new Row(label, text, tooltip + "\n" + part.line(), fraction, over, noLimit, Spending.AMBER);
+        }
 
         Json toJson() {
             return Json.object()
@@ -44,11 +59,21 @@ final class CostPanel {
                     .put("tooltip", tooltip)
                     .put("fraction", fraction)
                     .put("over", over)
-                    .put("noLimit", noLimit);
+                    .put("noLimit", noLimit)
+                    .put("state", state);
         }
     }
 
     record View(List<Row> rows, String note) {
+
+        /** The two bars with the states of the day and the month as Spending has them (since 0.82). */
+        View with(Spending.Result spending) {
+            if (spending == null || rows.size() != 2) {
+                return this;
+            }
+            return new View(List.of(rows.get(0).with(spending.day()), rows.get(1).with(spending.month())), note);
+        }
+
 
         Json toJson() {
             Json all = Json.array();

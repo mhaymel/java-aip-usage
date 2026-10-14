@@ -157,4 +157,16 @@ class CostPanelTest {
         assertTrue(view.rows().stream().allMatch(CostPanel.Row::noLimit));
         assertEquals(CostPanel.NO_READING, CostPanel.build(List.of(), LIMITS, false, TODAY).note());
     }
+
+    @Test
+    void aBarIsAmberWhenSpendingSaysSoAndNeverWhenItIsOverOrHasNoLimit() {
+        CostPanel.View view = build(LIMITS, false, row("2026-10-12 10:00:00", "260.00"), row("2026-10-11 23:00:00", "250.00"));
+        Spending.Part amber = new Spending.Part(Spending.AMBER, null, 5_000L, "Today: on course to pass the daily limit");
+        Spending.Part green = new Spending.Part(Spending.GREEN, null, 100_000L, "Month: within the limit and on pace");
+        Spending.Result spending = new Spending.Result(Spending.AMBER, "", amber, green);
+        CostPanel.View colored = view.with(spending);
+        assertEquals(Spending.AMBER, colored.rows().get(0).state(), "10.00 of 50.00, and on course to pass it");
+        assertTrue(colored.rows().get(0).tooltip().endsWith("\nToday: on course to pass the daily limit"));
+        assertEquals(Spending.GREEN, colored.rows().get(1).state(), "the month on pace stays green");
+    }
 }

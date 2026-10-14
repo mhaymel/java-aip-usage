@@ -777,7 +777,10 @@ final class ApiHandler implements HttpHandler {
             Settings now = settings.current();
             HistoryReader.Table table = HistoryReader.read(sources.history(), Integer.MAX_VALUE);
             // The cost control has its own currency symbol since 0.82, off by default, and no longer the row's.
-            return CostPanel.build(table.rows(), now.cost(), now.cost().currency(), java.time.LocalDate.now());
+            // Amber where the projection of the day or the pace of the month says the limit will be passed (since 0.82).
+            java.time.LocalDateTime at = java.time.LocalDateTime.now();
+            return CostPanel.build(table.rows(), now.cost(), now.cost().currency(), at.toLocalDate())
+                    .with(Spending.compute(table.rows(), now.cost(), at));
         } catch (IOException e) {
             LOG.warning("Could not read the usage history", e);
             throw new ApiException(500, "The usage history could not be read.", null);
