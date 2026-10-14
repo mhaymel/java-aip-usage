@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.80 is built and pushed (106 phases); version 0.81, phases 107 to 113, is planned and not built.** What phases 100 to 106 list "by eye" is still to be looked at. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.81 is built: 113 phases are built, the last seven (107 to 113) not pushed yet and not looked at by a person.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2297,7 +2297,7 @@ The requirements have no section "specified, not yet built" any more.
 
 ### 107 to 113. Version 0.81: the third round of notes
 
-**Status: planned, not built.** The requirements are written (every rule marked "since version 0.81"); these seven phases build
+**Status: built, all seven, as planned; what each lists "by eye" is still to be looked at, on Windows and on macOS.** The requirements are written (every rule marked "since version 0.81"); these seven phases build
 them, in this order, and `AppInfo.VERSION` becomes `0.81` with the first. Each is committed by itself with its tests green, as
 `Phase 1xx built: <what> (0.81)`. The small ones come first; 111 changes how the settings stand among the views, page and host;
 112 and 113 are the folders, the backend first and the page after, and are the bulk of the work.
@@ -2464,7 +2464,7 @@ restored at start.
 
 ### 113. The folders in the window
 
-**Status: planned.** Requirements: The folders of the log and of the usage history.
+**Status: built (version 0.81); the group seen in the real window by the three window tests (the settings neither wider nor wrapped by it); the folder picker itself not seen, since no test can drive a window of the system.** As built: `Desk.chooseFolder`, which `Desk.SYSTEM` does with JavaFX's `DirectoryChooser` over the program's window, on the toolkit's thread, waiting up to an hour for the person; `POST /api/folder`; `programFolder` in `GET /api/settings`, which the view shows in gray for a folder that is the default. `app.js`: `folderChoice`, `showFolder`, `chooseFolder`, `defaultFolder`; both folders are sent with every save, and a refusal `The folder cannot be written` is said under the group (`folder-error`), not under one line: the backend does not say which of the two it was, and the requirements now say so. Requirements: The folders of the log and of the usage history.
 
 - **The folder picker.** The backend cannot show a window; the host can. `Desk` gets `chooseFolder(Path from)`, which `UsageApp`
   implements with JavaFX's `DirectoryChooser` on its own stage, on the FX thread, and the tests with a fake. `POST /api/folder`

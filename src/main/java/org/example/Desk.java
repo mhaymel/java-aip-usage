@@ -35,8 +35,52 @@ interface Desk {
      */
     void copy(String text) throws IOException;
 
+    /**
+     * Lets the person choose a folder with the system's own folder picker, which opens at this folder (since 0.81).
+     *
+     * @return the folder chosen, or empty when the person cancelled
+     * @throws IOException if there is no window to show the picker over
+     */
+    default java.util.Optional<Path> chooseFolder(Path start) throws IOException {
+        throw new Fault("there is no window to choose a folder in");
+    }
+
     /** The desktop of the machine the program runs on. */
     Desk SYSTEM = new Desk() {
+
+        @Override
+        public java.util.Optional<Path> chooseFolder(Path start) throws IOException {
+            CompletableFuture<java.util.Optional<Path>> done = new CompletableFuture<>();
+            try {
+                // The picker is the window toolkit's, shown over the program's window, and is used on its thread.
+                Platform.runLater(() -> {
+                    try {
+                        javafx.stage.DirectoryChooser chooser = new javafx.stage.DirectoryChooser();
+                        chooser.setTitle("Choose a folder");
+                        if (start != null && Files.isDirectory(start)) {
+                            chooser.setInitialDirectory(start.toFile());
+                        }
+                        javafx.stage.Window owner = javafx.stage.Window.getWindows().stream()
+                                .filter(window -> window.isShowing() && window instanceof javafx.stage.Stage).findFirst().orElse(null);
+                        java.io.File chosen = chooser.showDialog(owner);
+                        done.complete(chosen == null ? java.util.Optional.empty() : java.util.Optional.of(chosen.toPath().toAbsolutePath()));
+                    } catch (RuntimeException e) {
+                        done.completeExceptionally(e);
+                    }
+                });
+                // The person takes the time they need; an hour is no answer any more.
+                return done.get(1, TimeUnit.HOURS);
+            } catch (IllegalStateException e) {
+                throw new Fault("there is no window to choose a folder in", e);
+            } catch (ExecutionException e) {
+                throw new Fault(Failure.of(e.getCause()), e.getCause());
+            } catch (TimeoutException e) {
+                throw new Fault("the folder picker did not answer", e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new Fault(Failure.INTERRUPTED, e);
+            }
+        }
 
         @Override
         public void reveal(Path file) throws IOException {

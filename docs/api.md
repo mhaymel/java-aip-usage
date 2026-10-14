@@ -31,6 +31,7 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `GET` | `/api/cost/daily` | The daily limit that follows from a monthly one, in the current month |
 | `GET` | `/api/about` | What the About view says: the version, where the files are, what the program runs on |
 | `POST` | `/api/about/open` | Show one of the program's three files in its folder |
+| `POST` | `/api/folder` | Let the person choose a folder with the system's picker (since 0.81); saves nothing |
 | `POST` | `/api/about/copy` | Put the path of one of the three files on the clipboard |
 
 Only a path that begins `/api/` is the API's; a query on it is not looked at. Any
@@ -497,6 +498,15 @@ name.
   history.`, and nothing is opened or copied. No request makes the program open or copy anything but these three.
 - `500` with `The folder could not be opened: <reason>` or `The path could not be copied: <reason>` when the desktop
   refuses. Any other method is `405`.
+
+## `POST /api/folder`
+
+Since version 0.81. Opens the system's folder picker over the window, at the folder the body names, `{"start": "C:\logs"}`,
+when that is a full path of a folder there, and at the program's folder otherwise; it answers when the person has chosen,
+`{"folder": "D:\logs"}`, or `{"folder": null}` when they cancelled. Nothing is saved: the page puts the folder in the
+settings form, and it is saved with the settings. `500` with `The folder could not be chosen: <reason>` when there is no
+window to show the picker over. `GET /api/settings` says the program's folder, which a folder setting that is empty stands
+for, as `programFolder`.
 
 ## `GET /api/history` and `POST /api/history`
 

@@ -185,6 +185,7 @@ function backendOf(state) {
         if (call.url.split('?')[0] === '/api/log') return state.log ? state.log(call) : { status: 200, body: LOG };
         if (call.url === '/api/text-size') return state.postTextSize ? state.postTextSize(JSON.parse(call.body)) : { status: 200, body: JSON.parse(call.body) };
         if (call.url === '/api/about') return state.about ? state.about() : { status: 200, body: ABOUT };
+        if (call.url === '/api/folder') return state.folder ? state.folder(JSON.parse(call.body)) : { status: 200, body: { folder: null } };
         if (call.url === '/api/about/open' || call.url === '/api/about/copy') {
             return state.aboutAction ? state.aboutAction(call) : { status: 200, body: { done: true } };
         }
@@ -211,7 +212,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, showTitleBar: true, autoInterval: false,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', showTitleBar: true, autoInterval: false,
     costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
     historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
 };
@@ -985,7 +986,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, showTitleBar: true, autoInterval: false,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
         historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
     });
@@ -5082,4 +5083,78 @@ test('with several views at once switched off, only the first of the views that 
     await settle();
 
     assert.equal(page.window.currentView(), 'cost,', 'the first in the order of the icons');
+});
+
+// ---- version 0.81: the folders of the log and of the history
+
+const WITH_PROGRAM = () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip' } });
+
+test('the group Files shows each folder, the program\'s in gray while it is the default, and Default can then not be pressed', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS,
+        settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip', settings: { ...SETTINGS.settings, logFolder: 'D:\\logs' } } }) }));
+    await page.click('settings-button');
+
+    assert.equal(page.el('set-logFolder').textContent, 'D:\\logs');
+    assert.equal(page.el('set-logFolder').className, 'folder-path');
+    assert.ok(!('disabled' in page.el('default-logFolder').attrs));
+    assert.equal(page.el('set-historyFolder').textContent, 'C:\\aip', 'the program\'s folder');
+    assert.equal(page.el('set-historyFolder').className, 'folder-path default');
+    assert.ok('disabled' in page.el('default-historyFolder').attrs, 'it is the default already');
+});
+
+test('Choose… asks for a folder, opened at the one shown, and puts what was chosen in the form; cancelled, nothing changes', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS, settings: WITH_PROGRAM };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+
+    state.folder = () => ({ status: 200, body: { folder: null } });
+    await page.click('choose-historyFolder');
+    assert.equal(page.el('set-historyFolder').textContent, 'C:\\aip', 'cancelled');
+    assert.deepEqual(JSON.parse(page.calls.filter(c => c.url === '/api/folder').pop().body), { start: 'C:\\aip' });
+
+    state.folder = () => ({ status: 200, body: { folder: 'E:\\history' } });
+    await page.click('choose-historyFolder');
+    assert.equal(page.el('set-historyFolder').textContent, 'E:\\history');
+    assert.equal(settingsPosts(page).length, 0, 'nothing is saved by choosing');
+
+    await page.click('settings-save');
+    const sent = JSON.parse(settingsPosts(page)[0].body);
+    assert.equal(sent.historyFolder, 'E:\\history', 'it is saved with the settings');
+    assert.equal(sent.logFolder, '', 'and the other is the program\'s');
+});
+
+test('Default puts back the program\'s folder, which is sent as the empty text', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS,
+        settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip', settings: { ...SETTINGS.settings, logFolder: 'D:\\logs' } } }) }));
+    await page.click('settings-button');
+
+    await page.click('default-logFolder');
+    assert.equal(page.el('set-logFolder').textContent, 'C:\\aip');
+
+    await page.click('settings-save');
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).logFolder, '');
+});
+
+test('a folder that cannot be written is said in red under the group Files, and the settings stay open', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS, settings: WITH_PROGRAM,
+        folder: () => ({ status: 200, body: { folder: 'Z:\\gone' } }),
+        postSettings: () => ({ status: 400, body: { error: 'The folder cannot be written: the file or its folder is not there.' } }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    await page.click('choose-logFolder');
+
+    await page.click('settings-save');
+
+    assert.equal(page.el('folder-error').textContent, 'The folder cannot be written: the file or its folder is not there.');
+    assert.equal(page.el('folder-error').hidden, false);
+    assert.equal(page.el('settings-error').hidden, true, 'not at the top of the view');
+    assert.equal(page.el('settings-view').hidden, false, 'the settings stay');
+});
+
+test('a folder picker that cannot be shown is said in red under the group Files', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: WITH_PROGRAM,
+        folder: () => ({ status: 500, body: { error: 'The folder could not be chosen: there is no window to choose a folder in' } }) }));
+    await page.click('settings-button');
+    await page.click('choose-logFolder');
+    assert.equal(page.el('folder-error').textContent, 'The folder could not be chosen: there is no window to choose a folder in');
 });

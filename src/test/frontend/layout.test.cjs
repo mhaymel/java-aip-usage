@@ -1210,3 +1210,22 @@ test('the program brings Cascadia Mono, with its licence, and names it first', (
 test('the settings beside other views are above them and keep the height of their tab', () => {
     assert.match(css, /\.panel > \.settings\s*{\s*order:\s*-1;\s*flex:\s*none/);
 });
+
+test('the group Files is in General after Window, a line for each folder with its path as text, Choose… and Default, and their tooltips', () => {
+    const general = html.slice(html.indexOf('<legend>Window</legend>'), html.indexOf('<legend>Log</legend>'));
+    const group = general.slice(general.indexOf('<legend>Files</legend>'));
+    assert.ok(general.indexOf('<legend>Files</legend>') > 0, 'after Window, before Log');
+    for (const [key, label, tip] of [
+        ['logFolder', 'Log folder', 'The folder the log and its old logs are kept in. The default is the program\'s folder.'],
+        ['historyFolder', 'History folder', 'The folder the usage history is kept in. The default is the program\'s folder.']]) {
+        const line = group.slice(group.lastIndexOf('<div class="folder-line"', group.indexOf('id="set-' + key + '"')), group.indexOf('</div>', group.indexOf('id="set-' + key + '"')));
+        assert.match(line, new RegExp('title="' + tip.replace(/[.()]/g, '\\$&') + '"'), key);
+        assert.match(line, new RegExp('<span class="folder-label">' + label + '</span>'));
+        assert.match(line, new RegExp('<span id="set-' + key + '" class="folder-path"></span>'), 'text, not a field: nothing is typed');
+        assert.match(line, new RegExp('<button id="choose-' + key + '" type="button" title="Opens a window to choose the folder\\.">Choose…</button>'));
+        assert.match(line, new RegExp('<button id="default-' + key + '" type="button" title="Puts back the program\'s folder\\.">Default</button>'));
+    }
+    assert.match(group, /<p id="folder-error" class="panel-error" role="alert" hidden><\/p>/, 'a red line of its own');
+    assert.match(ruleOf('.folder-path'), /overflow-wrap:\s*anywhere/, 'a long path breaks, and does not widen the view');
+    assert.match(ruleOf('.folder-path.default'), /color:\s*var\(--muted\)/);
+});

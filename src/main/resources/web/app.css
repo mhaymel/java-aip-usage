@@ -359,6 +359,29 @@ body {
     white-space: nowrap;
 }
 
+/*
+ * A folder of the group Files: its name, the path, which breaks rather than widening the view, and the two buttons. The path
+ * is text, not a field: it is chosen with the system's picker.
+ */
+.folder-line {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+    align-items: center;
+    column-gap: 6px;
+    width: 0;
+    min-width: 100%;
+}
+
+.folder-path {
+    font-weight: 400;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.folder-path.default {
+    color: var(--muted);
+}
+
 .settings fieldset {
     margin: 0 0 6px;
     padding: 2px 8px 4px;

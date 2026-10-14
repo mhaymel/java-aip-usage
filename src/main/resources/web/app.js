@@ -544,6 +544,43 @@
         return undefined;
     }
 
+    // The folders of the group Files as the form holds them: a full path, or the empty text for the program's folder.
+    var FOLDERS = ['logFolder', 'historyFolder'];
+    var folderChoice = { logFolder: '', historyFolder: '' };
+    var programFolder = '';
+
+    /** Shows a folder of the group Files: its path, or the program's in gray while it is the default. */
+    function showFolder(key) {
+        var value = folderChoice[key];
+        var shown = $('set-' + key);
+        shown.textContent = value || programFolder;
+        shown.className = 'folder-path' + (value ? '' : ' default');
+        if (value) {
+            $('default-' + key).removeAttribute('disabled');
+        } else {
+            $('default-' + key).setAttribute('disabled', '');
+        }
+    }
+
+    /** Choose…: the system's picker, opened at the folder shown; the folder chosen is put in the form, and saved with it. */
+    async function chooseFolder(key) {
+        setNote('folder-error', '');
+        try {
+            var body = await postJson('/api/folder', { start: folderChoice[key] || programFolder });
+            if (body && typeof body.folder === 'string') {
+                folderChoice[key] = body.folder === programFolder ? '' : body.folder;
+                showFolder(key);
+            }
+        } catch (e) {
+            setNote('folder-error', e.message);
+        }
+    }
+
+    function defaultFolder(key) {
+        folderChoice[key] = '';
+        showFolder(key);
+    }
+
     function readForm() {
         var values = {
             // With Automatic checked the field shows the interval the program found; the configured one is what is kept.
@@ -559,6 +596,9 @@
         var daily = values.costDailyAutomatic ? costDailyTyped : String($('set-costDailyLimit').value).trim();
         values.costMonthlyLimit = monthly === '' ? null : monthly;
         values.costDailyLimit = daily === '' ? null : daily;
+        FOLDERS.forEach(function (key) {
+            values[key] = folderChoice[key];
+        });
         return values;
     }
 
@@ -570,6 +610,12 @@
             takeSettings(body);
             fillInterval(body.settings.usageIntervalSeconds);
             fillForm(body.settings);
+            programFolder = typeof body.programFolder === 'string' ? body.programFolder : '';
+            setNote('folder-error', '');
+            FOLDERS.forEach(function (key) {
+                folderChoice[key] = typeof body.settings[key] === 'string' ? body.settings[key] : '';
+                showFolder(key);
+            });
             // The field is enabled while the form is filled, so that the checkbox alone says how it is afterwards.
             $('set-usageIntervalSeconds').removeAttribute('disabled');
             intervalLocked = Boolean(body.settings.autoInterval);
@@ -621,9 +667,11 @@
         try {
             var body = await postJson('/api/settings', readForm());
             takeSettings(body);
+            setNote('folder-error', '');
             return true;
         } catch (e) {
-            setNote('settings-error', e.message);
+            // A folder that cannot be written is said under the group Files, where it was chosen.
+            setNote(/^The folder cannot be written/.test(e.message) ? 'folder-error' : 'settings-error', e.message);
             return false;
         }
     }
@@ -1909,6 +1957,10 @@
             $('zoom-out-' + name).addEventListener('click', function () { zoomLists(-1, name); });
         });
         $('zero-lines').addEventListener('click', toggleZeroLines);
+        FOLDERS.forEach(function (key) {
+            $('choose-' + key).addEventListener('click', function () { chooseFolder(key); });
+            $('default-' + key).addEventListener('click', function () { defaultFolder(key); });
+        });
         $('log-reset').addEventListener('click', function () { return logFileAction('reset'); });
         $('log-merge').addEventListener('click', function () { return logFileAction('merge'); });
         // The Debug tab is there in debug mode, and never otherwise.

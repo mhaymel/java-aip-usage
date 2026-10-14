@@ -2680,6 +2680,17 @@ class ApiTest {
 
         volatile String failure;
 
+        volatile java.nio.file.Path chosen;
+
+        @Override
+        public Optional<java.nio.file.Path> chooseFolder(java.nio.file.Path start) throws IOException {
+            asked.add("choose " + start);
+            if (failure != null) {
+                throw new Fault(failure);
+            }
+            return Optional.ofNullable(chosen);
+        }
+
         @Override
         public void reveal(java.nio.file.Path file) throws IOException {
             asked.add("reveal " + file.toAbsolutePath().normalize());
@@ -3007,5 +3018,30 @@ class ApiTest {
 
         assertTrue(Files.exists(dir.resolve("java-aip-usage.csv")), "the old one is left where it is");
         assertEquals("09:00:00", times(historyWith(true, true)).get(0), "the one that was there is the history now");
+    }
+
+    @Test
+    void theFolderPickerOpensAtTheFolderNamedOrTheProgramsAndSavesNothing() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        NotedDesk desk = new NotedDesk();
+        app.desk(desk);
+        Path other = Files.createDirectory(dir.resolve("other"));
+
+        HttpResponse<String> cancelled = post(app, "/api/folder", "{\"start\": " + jsonPath(other) + "}");
+        assertEquals(200, cancelled.statusCode(), cancelled.body());
+        assertTrue(json(cancelled).get("folder").isNull(), "cancelled");
+        assertEquals("choose " + other, desk.asked.get(0), "opened at the folder named");
+
+        desk.chosen = other;
+        assertEquals(other.toAbsolutePath().normalize().toString(), json(post(app, "/api/folder", "{\"start\": \"not a folder\"}")).get("folder").asText());
+        assertEquals("choose " + dir.toAbsolutePath(), desk.asked.get(1), "the program's folder for what is not one");
+        assertEquals("", json(get(app, "/api/settings")).at("/settings/logFolder").asText(), "nothing is saved");
+        assertEquals(dir.toAbsolutePath().normalize().toString(), json(get(app, "/api/settings")).get("programFolder").asText());
+
+        desk.failure = "there is no window to choose a folder in";
+        HttpResponse<String> failed = post(app, "/api/folder", "{}");
+        assertEquals(500, failed.statusCode());
+        assertEquals("The folder could not be chosen: there is no window to choose a folder in", json(failed).get("error").asText());
+        assertEquals(405, get(app, "/api/folder").statusCode());
     }
 }

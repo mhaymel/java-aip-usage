@@ -2039,7 +2039,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   same name that is in the new folder already is not overwritten: it is used, the one of the old folder is left where it is,
   and the log says so. The program goes on logging to the moved log.
 - **A folder that cannot be used is refused**: one that is not there, or cannot be written to. `Save` is then refused with a
-  red line under its line, `The folder cannot be written: <reason>`, nothing is moved, and the folder in use stays. A move that
+  red line under the group `Files`, `The folder cannot be written: <reason>`, nothing is moved, and the folder in use stays. A move that
   fails half way puts back what was moved, and is refused in the same way.
 - **At a start**, a folder that is no longer there, or cannot be written to, is not used: the program uses its own folder for
   that file, and the log says so with a warning. The setting stays as it is, so that the folder is used again once it is back.

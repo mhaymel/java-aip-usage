@@ -178,6 +178,13 @@ final class ApiHandler implements HttpHandler {
                 }
                 send(exchange, 200, about().toJson());
             }
+            case "/api/folder" -> {
+                if (!method.equals("POST")) {
+                    throw new ApiException(405, "Use POST.", "POST");
+                }
+                requireJson(exchange);
+                chooseFolder(exchange);
+            }
             case "/api/about/open", "/api/about/copy" -> {
                 if (!method.equals("POST")) {
                     throw new ApiException(405, "Use POST.", "POST");
@@ -353,7 +360,8 @@ final class ApiHandler implements HttpHandler {
                 toBody(Settings.defaults()),
                 new Limits(new Range(IntervalRange.USAGE.min(), IntervalRange.USAGE.max())),
                 settings.current().usageIntervalSeconds(),
-                settings.current().cost().dailyIn(java.time.YearMonth.now()).map(CostControl::text).orElse(null));
+                settings.current().cost().dailyIn(java.time.YearMonth.now()).map(CostControl::text).orElse(null),
+                absolute(files.programFolder()));
     }
 
     /**
@@ -727,6 +735,34 @@ final class ApiHandler implements HttpHandler {
                 (System.getProperty("os.name", "unknown") + " " + System.getProperty("os.version", "")).trim(),
                 sources.debug(),
                 sources.fake());
+    }
+
+    /**
+     * Lets the person choose a folder with the system's picker, opened at the folder the request names when that is one, else
+     * at the program's. It saves nothing: the folder chosen is put in the form, and saved with the settings.
+     */
+    private void chooseFolder(HttpExchange exchange) throws IOException {
+        Json start = readJson(exchange).get("start");
+        java.nio.file.Path from = files.programFolder();
+        if (start != null && start.isText() && !start.text().isBlank()) {
+            try {
+                java.nio.file.Path named = java.nio.file.Path.of(start.text().strip());
+                if (named.isAbsolute() && java.nio.file.Files.isDirectory(named)) {
+                    from = named;
+                }
+            } catch (RuntimeException e) {
+                // Not a path: the picker opens at the program's folder.
+            }
+        }
+        java.util.Optional<java.nio.file.Path> chosen;
+        try {
+            chosen = sources.desk().chooseFolder(from);
+        } catch (IOException | RuntimeException e) {
+            String what = "The folder could not be chosen: ";
+            LOG.warning(what + Failure.of(e));
+            throw new ApiException(500, what + Failure.of(e), null);
+        }
+        send(exchange, 200, Json.object().put("folder", chosen.map(ApiHandler::absolute).orElse(null)));
     }
 
     /**
@@ -1311,7 +1347,9 @@ final class ApiHandler implements HttpHandler {
      * @param configuredIntervalSeconds the interval that is saved, which {@code settings.usageIntervalSeconds} is not while
      *     a back-off or the automatic interval has another in force
      */
-    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds, String costDailyWorkedOut) {
+    /** @param programFolder the folder the log and the history are kept in when the settings name none, for the view to show */
+    record SettingsBody(SettingValues settings, SettingValues defaults, Limits limits, int configuredIntervalSeconds, String costDailyWorkedOut,
+            String programFolder) {
 
         Json toJson() {
             return Json.object()
@@ -1319,7 +1357,8 @@ final class ApiHandler implements HttpHandler {
                     .put("defaults", defaults.toJson())
                     .put("limits", limits.toJson())
                     .put("configuredIntervalSeconds", configuredIntervalSeconds)
-                    .put("costDailyWorkedOut", costDailyWorkedOut);
+                    .put("costDailyWorkedOut", costDailyWorkedOut)
+                    .put("programFolder", programFolder);
         }
     }
 
