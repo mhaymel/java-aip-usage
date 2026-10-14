@@ -329,6 +329,12 @@ texts are in the requirements (How the figures are written).
   `deltaTime`, `time`, `used`, `limit`, `refresh`, `countdown` and `duration` the settings switch on, and which of the buttons `historyIcon`, `logIcon`, `errorIcon` and `costIcon` there are (the settings button is always there), and `severalViews`, the setting of that name, which is no element of the row: the page reads from it whether an icon leaves the other views open. With `currency` on, `spend.used` and `spend.limit` have
   the symbol before the number: `$` for US dollars, any other currency its code and a space (`EUR 186.02`), none when the response named no currency. The raw values above stay for
   other clients. Numbers use a dot and `,` for thousands whatever the machine's language (the cells of the history are the exception: they are the file's own text, `1000.00`).
+- `spending` (since version 0.82): how the day and the month stand against their limits, worked out by the backend from the
+  history in use, the settings of cost control and the time (again when one of them changes, and every minute): `state`, the
+  status circle's, `green`, `amber`, `red` or `gray`; `tooltip`, its text, two lines (`Today: …` and `Month: …`), or `No limits are
+  set: set them in the settings, under Cost control.`; and `day` and `month`, each with `state`, `used`, `limit` and `percent` as
+  finished texts (`"4.37"`, `"6.81"`, `"64%"`), `limit` and `percent` `null` with no limit. `spending` is `null` when the history
+  cannot be read.
 - `heights` (since version 0.80): the heights the window was last left at with the history and with the log shown, `history` and `log`, in pixels of its content with the row, `0` for none. The page gives a list that has another view below it the larger of this and its own ten rows; see the window host contract.
 - `historyStamp`: a text that changes whenever a row is added to the history file in use (invented readings have a file of their own, `java-aip-usage.fake.csv`), a row of a failed refresh as well as a reading: the file's size in bytes, a `-`, and its time of last change in milliseconds.
   It is empty when there is no file, when what is there is not an ordinary file, and when the size or the time cannot be read. A client that

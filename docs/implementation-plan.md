@@ -2567,7 +2567,7 @@ colours, over the limit, the currency symbol); Cost control (`Currency symbol`).
 
 ### 117. What is compared: the projection, the pace and the states
 
-**Status: planned.** Requirements: Limits, projections and the status of spending.
+**Status: built (version 0.82).** As built: `Spending.compute(rows, cost, now)` with `dayStart`, `projection`, `pace`, `circle`, and `Result`/`Part` that write themselves as JSON; it counts today's spend with `CostPanel`'s own `baseline` and `spentSince`, opened to the package. The status has it at the top as `spending` (not under `display`), worked out in `ApiHandler.spending()` when the history, the settings of cost control or the minute is another, and `null` when the history cannot be read. **On a Saturday or a Sunday** there is no projection, but the day is still red over the daily limit and green under it: the daily limit the cost control shows is not taken away on a weekend, which the requirements' "no daily limit" would have done to the bar as well; to be confirmed. `SpendingTest`, seven, by the clock given; one more of `ApiTest`. Requirements: Limits, projections and the status of spending.
 
 - **A new `Spending`** (in `org.example`, no window, no clock of its own: it is given the readings of the history in use, the
   settings and the time) works out, for the day: the spend, the limit, the start of the working day (the first rise of today),

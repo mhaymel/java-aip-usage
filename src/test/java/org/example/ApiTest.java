@@ -3099,4 +3099,21 @@ class ApiTest {
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costLimitSource\": \"server\"}"));
         assertEquals("1,000.00", json(get(app, "/api/status")).at("/display/spend/limit").asText(), "the server's, the typed one kept");
     }
+
+    @Test
+    void theStatusSaysHowTheDayAndTheMonthStandAgainstTheirLimits() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        Json spending = json(get(app, "/api/status")).get("spending");
+        assertTrue(java.util.Set.of("green", "amber", "red", "gray").contains(spending.get("state").asText()), spending.toString());
+        assertEquals("186.02", spending.at("/month/used").asText(), "the amount used of the newest reading");
+        assertEquals("1,000.00", spending.at("/month/limit").asText(), "the server's limit, none being typed");
+        assertEquals("19%", spending.at("/month/percent").asText());
+        assertFalse(spending.get("tooltip").asText().isBlank());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"150\"}"));
+        Json over = json(get(app, "/api/status")).get("spending");
+        assertEquals("red", over.at("/month/state").asText(), "186.02 of 150.00");
+        assertEquals("red", over.get("state").asText());
+        assertTrue(over.get("tooltip").asText().contains("Month: over the monthly limit: 186.02 of 150.00"), over.get("tooltip").asText());
+    }
 }

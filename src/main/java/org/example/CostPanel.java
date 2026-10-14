@@ -85,7 +85,7 @@ final class CostPanel {
     }
 
     /** What was spent since an earlier amount: the difference, and nothing where the amount has fallen. */
-    private static Amount spentSince(Amount used, Amount earlier) {
+    static Amount spentSince(Amount used, Amount earlier) {
         try {
             return used.minus(earlier).max(Amount.ZERO);
         } catch (ArithmeticException e) {
@@ -99,7 +99,7 @@ final class CostPanel {
      * so that a program started today shows what was spent since it started and the first day of a month begins at its first reading.
      * With neither, today has nothing to count from and nothing was spent.
      */
-    private static Amount baseline(List<List<String>> readings, LocalDate today, YearMonth month, Amount newestAmount) {
+    static Amount baseline(List<List<String>> readings, LocalDate today, YearMonth month, Amount newestAmount) {
         Amount beforeToday = null;
         Amount firstToday = null;
         LocalDateTime latestBefore = null;
@@ -158,7 +158,7 @@ final class CostPanel {
         }
     }
 
-    private static Amount amount(List<String> row) {
+    static Amount amount(List<String> row) {
         try {
             return row.get(1).isBlank() ? null : Amount.parse(row.get(1));
         } catch (NumberFormatException e) {
@@ -166,7 +166,7 @@ final class CostPanel {
         }
     }
 
-    private static LocalDateTime time(List<String> row) {
+    static LocalDateTime time(List<String> row) {
         try {
             return LocalDateTime.parse(row.get(0), TIME);
         } catch (DateTimeParseException e) {

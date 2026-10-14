@@ -1112,7 +1112,33 @@ final class ApiHandler implements HttpHandler {
                 StatusDisplay.build(state, countdown, change, duration(), shown(), Instant.now(), ZoneId.systemDefault()),
                 historyStamp(),
                 sources.fake(),
-                new HeightsBody(settings.storedHeight("history"), settings.storedHeight("log")));
+                new HeightsBody(settings.storedHeight("history"), settings.storedHeight("log")),
+                spending());
+    }
+
+    /** What spending was worked out last, and for what: the history, the settings of cost control and the minute. */
+    private Spending.Result spendingDone;
+
+    private String spendingFor;
+
+    /**
+     * How the day and the month stand against their limits (since 0.82), for the row and its circle. It is worked out anew when
+     * the history, the settings of cost control or the minute is another, since the projection moves with the time; else the
+     * last result is given. Null when the history cannot be read: the page then shows the circle gray.
+     */
+    private synchronized Spending.Result spending() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        String key = sources.history() + "|" + historyStamp() + "|" + settings.current().cost() + "|" + now.withSecond(0).withNano(0);
+        if (!key.equals(spendingFor)) {
+            try {
+                spendingDone = Spending.compute(HistoryReader.read(sources.history(), Integer.MAX_VALUE).rows(), settings.current().cost(), now);
+            } catch (IOException | RuntimeException e) {
+                LOG.debug("Could not work out the spending: " + Failure.of(e));
+                spendingDone = null;
+            }
+            spendingFor = key;
+        }
+        return spendingDone;
     }
 
     /**
@@ -1621,7 +1647,7 @@ final class ApiHandler implements HttpHandler {
 
     record StatusBody(
             boolean refreshing, boolean stale, Long nextRefreshInSeconds, ErrorBody error, UsageBody usage, DeltaBody change,
-            StatusDisplay.View display, String historyStamp, boolean fake, HeightsBody heights) {
+            StatusDisplay.View display, String historyStamp, boolean fake, HeightsBody heights, Spending.Result spending) {
 
         Json toJson() {
             return Json.object()
@@ -1634,7 +1660,8 @@ final class ApiHandler implements HttpHandler {
                     .put("display", display.toJson())
                     .put("historyStamp", historyStamp)
                     .put("fake", fake)
-                    .put("heights", heights.toJson());
+                    .put("heights", heights.toJson())
+                    .put("spending", spending == null ? Json.NULL : spending.toJson());
         }
     }
 
