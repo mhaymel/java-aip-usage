@@ -301,7 +301,7 @@ final class StatusDisplay {
                 percentText != null ? percentText + " of the monthly limit spent" : "Share of the monthly limit spent",
                 amountText(spend.used(), spend.currency(), withSymbol),
                 amountText(spend.limit(), spend.currency(), withSymbol),
-                "Credits used" + unit,
+                "Monthly credit used" + unit,
                 (monthly ? "Monthly limit" : "Monthly limit sent by the server") + unit,
                 severity);
     }

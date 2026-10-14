@@ -1329,3 +1329,7 @@ test('the grid of the cost control has the label, the bar and four columns of fi
     assert.match(ruleOf('.cost-rest'), /grid-column:\s*span 3/);
     assert.match(ruleOf('.cost-text'), /grid-column:\s*span 4/);
 });
+
+test('a yellow figure of the row is the darker yellow', () => {
+    assert.match(ruleOf('.spend .warn'), /color:\s*var\(--warn-text\)/);
+});

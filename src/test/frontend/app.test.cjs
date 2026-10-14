@@ -415,7 +415,7 @@ test('a reading with no usage shows the countdown and its time, and gray boxes f
     assert.doesNotMatch(page.el('time').className, /skeleton/);
     assert.equal(page.el('spend').hidden, false);
     assert.match(page.el('spend').className, /\bboxes\b/, 'so that the group is not dimmed with old figures');
-    const tooltips = { percent: 'Share of the monthly limit spent', used: 'Credits used', limit: 'Monthly limit' };
+    const tooltips = { percent: 'Share of the monthly limit spent', used: 'Monthly credit used', limit: 'Monthly limit' };
     for (const [id, tooltip] of Object.entries(tooltips)) {
         assert.equal(page.el(id).hidden, false, id);
         assert.match(page.el(id).className, /\bskeleton\b/, id + ' is a gray box');
@@ -461,7 +461,7 @@ test('an error before any reading is shown, such as Claude Code not being found'
     const page = await load(backendOf({ config: CONFIG, status }));
 
     // No word in the row: gray boxes, the time among them, and the message line says what went wrong.
-    for (const [id, tooltip] of Object.entries({ time: 'Last update', used: 'Credits used', limit: 'Monthly limit' })) {
+    for (const [id, tooltip] of Object.entries({ time: 'Last update', used: 'Monthly credit used', limit: 'Monthly limit' })) {
         assert.equal(page.el(id).hidden, false, id);
         assert.match(page.el(id).className, /\bskeleton\b/, id);
         assert.equal(page.el(id).title, tooltip + ': no data', id);
@@ -2447,7 +2447,7 @@ test('before the first reading each element that is switched on is a gray box wi
     const page = await load(backendOf({ config: CONFIG, status: withShow(withDisplay(waiting), everything) }));
 
     const tooltips = {
-        'time': 'Last update', 'percent': 'Share of the monthly limit spent', 'used': 'Credits used', 'limit': 'Monthly limit',
+        'time': 'Last update', 'percent': 'Share of the monthly limit spent', 'used': 'Monthly credit used', 'limit': 'Monthly limit',
         'countdown': 'Seconds until the next refresh',
         'delta-used': 'Change in the amount used since the previous reading', 'delta-time': 'Time since the previous reading',
         'duration': 'How long the latest usage request took',
@@ -5103,7 +5103,8 @@ test('the group Files shows each folder, the program\'s in gray while it is the 
     assert.equal(page.el('set-logFolder').textContent, 'D:\\logs');
     assert.equal(page.el('set-logFolder').className, 'folder-path');
     assert.ok(!('disabled' in page.el('default-logFolder').attrs));
-    assert.equal(page.el('set-historyFolder').textContent, 'C:\\aip', 'the program\'s folder');
+    assert.equal(page.el('set-historyFolder').textContent, 'Program folder', 'the program\'s folder is named, not written out (since 0.84)');
+    assert.equal(page.el('set-historyFolder').title, 'C:\\aip', 'its path is the tooltip');
     assert.equal(page.el('set-historyFolder').className, 'folder-path default');
     assert.ok('disabled' in page.el('default-historyFolder').attrs, 'it is the default already');
 });
@@ -5115,7 +5116,7 @@ test('Choose… asks for a folder, opened at the one shown, and puts what was ch
 
     state.folder = () => ({ status: 200, body: { folder: null } });
     await page.click('choose-historyFolder');
-    assert.equal(page.el('set-historyFolder').textContent, 'C:\\aip', 'cancelled');
+    assert.equal(page.el('set-historyFolder').textContent, 'Program folder', 'cancelled');
     assert.deepEqual(JSON.parse(page.calls.filter(c => c.url === '/api/folder').pop().body), { start: 'C:\\aip' });
 
     state.folder = () => ({ status: 200, body: { folder: 'E:\\history' } });
@@ -5135,7 +5136,8 @@ test('Default puts back the program\'s folder, which is sent as the empty text',
     await page.click('settings-button');
 
     await page.click('default-logFolder');
-    assert.equal(page.el('set-logFolder').textContent, 'C:\\aip');
+    assert.equal(page.el('set-logFolder').textContent, 'Program folder', 'named, its path the tooltip (since 0.84)');
+    assert.equal(page.el('set-logFolder').title, 'C:\\aip');
 
     await page.click('settings-save');
     assert.equal(JSON.parse(settingsPosts(page)[0].body).logFolder, '');
@@ -5431,4 +5433,26 @@ test('the cost control asks for the same width before and after the history has 
     page.window.contentSize();
     await page.click('cost-button');
     assert.equal(page.window.contentSize(), before);
+});
+
+// ---- version 0.84: the row takes the colours of the bars
+
+test('the amount used and the percentage take the colour of the month\'s bar, today\'s those of the day\'s: yellow, red or green', async () => {
+    const spending = {
+        state: 'red', tooltip: 'x',
+        day: { state: 'amber', used: '4.37', limit: '6.81', percent: '64%' },
+        month: { state: 'red', used: '320.00', limit: '300.00', percent: '107%' },
+    };
+    const page = await load(backendOf({ config: CONFIG, status: withShow({ ...SPEND_STATUS, spending }, { percentage: true, dayPercentage: true, dayUsed: true, dayLimit: true }) }));
+    assert.match(page.el('used').className, /\bover\b/);
+    assert.match(page.el('percent').className, /\bover\b/);
+    assert.match(page.el('day-used').className, /\bwarn\b/, 'yellow');
+    assert.match(page.el('day-percent').className, /\bwarn\b/);
+    assert.doesNotMatch(page.el('day-limit').className, /\bwarn\b|\bover\b/, 'the limits stay green');
+    assert.doesNotMatch(page.el('limit').className, /\bwarn\b|\bover\b/);
+
+    const green = await load(backendOf({ config: CONFIG, status: withShow({ ...SPEND_STATUS, spending: { ...spending, day: { ...spending.day, state: 'green' }, month: { ...spending.month, state: 'gray' } } },
+        { percentage: true, dayUsed: true }) }));
+    assert.doesNotMatch(green.el('used').className, /\bwarn\b|\bover\b/, 'gray leaves the green');
+    assert.doesNotMatch(green.el('day-used').className, /\bwarn\b|\bover\b/);
 });

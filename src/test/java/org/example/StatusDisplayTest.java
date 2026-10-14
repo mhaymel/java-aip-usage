@@ -74,7 +74,7 @@ class StatusDisplayTest {
         StatusDisplay.View v = build(state(spend(SPEND), null, null));
 
         assertEquals("19% of the monthly limit spent", v.spend().percentTooltip(), "the severity is named nowhere (since 0.83)");
-        assertEquals("Credits used, in USD", v.spend().usedTooltip());
+        assertEquals("Monthly credit used, in USD", v.spend().usedTooltip());
         assertEquals("Monthly limit sent by the server, in USD", v.spend().limitTooltip());
     }
 
@@ -89,7 +89,7 @@ class StatusDisplayTest {
         assertEquals("186.02", plain.spend().used(), "off by default");
         assertEquals("$186.02", with.spend().used());
         assertEquals("$1,000.00", with.spend().limit());
-        assertEquals("Credits used, in USD", with.spend().usedTooltip(), "the tooltips are the same");
+        assertEquals("Monthly credit used, in USD", with.spend().usedTooltip(), "the tooltips are the same");
         assertEquals(true, with.show().currency());
         assertEquals(false, plain.show().currency());
     }
@@ -130,7 +130,7 @@ class StatusDisplayTest {
             Settings settings = Settings.defaults().withShowPercentage(percentage);
             StatusDisplay.View v = build(state(spend(SPEND), null, null), OptionalLong.empty(), null, settings);
 
-            assertEquals("Credits used, in USD", v.spend().usedTooltip(), "percentage " + percentage);
+            assertEquals("Monthly credit used, in USD", v.spend().usedTooltip(), "percentage " + percentage);
             assertEquals("Monthly limit sent by the server, in USD", v.spend().limitTooltip(), "percentage " + percentage);
             assertEquals(percentage, v.show().percentage());
         }
@@ -140,7 +140,7 @@ class StatusDisplayTest {
     void withoutACurrencyOrAPercentTheTooltipsStillSayWhatTheNumbersAre() {
         StatusDisplay.View v = build(state(spend(new Spend(Amount.parse("1.0"), Amount.parse("2.0"), null, null, null)), null, null));
 
-        assertEquals("Credits used", v.spend().usedTooltip());
+        assertEquals("Monthly credit used", v.spend().usedTooltip());
         assertEquals("Monthly limit sent by the server", v.spend().limitTooltip());
         assertEquals("Share of the monthly limit spent", v.spend().percentTooltip());
         assertNull(v.spend().percentText());

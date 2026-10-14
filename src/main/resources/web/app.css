@@ -285,6 +285,11 @@ body {
     color: var(--bad);
 }
 
+/* About to pass the limit: the darker yellow, which can be read on the background (since 0.84). */
+.spend .warn {
+    color: var(--warn-text);
+}
+
 #day-percent.skeleton { min-width: 3ch; }
 #day-used.skeleton { min-width: 5ch; }
 #day-limit.skeleton { min-width: 5ch; }

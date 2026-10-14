@@ -234,7 +234,7 @@
         // Boxes are not dimmed with the old figures, and the dimming is the whole group's.
         $('spend').className = 'spend' + (spendBoxes ? ' boxes' : '');
         figure('percent', 'percent', percentShown, spend && spend.percentText, spend ? spend.percentTooltip : 'Share of the monthly limit spent' + why, spendBoxes);
-        figure('used', 'used', usedShown, spend && amount(spend.used, variants, 'used', s.currency), spend ? spend.usedTooltip : 'Credits used' + why, spendBoxes);
+        figure('used', 'used', usedShown, spend && amount(spend.used, variants, 'used', s.currency), spend ? spend.usedTooltip : 'Monthly credit used' + why, spendBoxes);
         figure('limit', 'limit', limitShown, spend && amount(spend.limit, variants, 'limit', s.currency), spend ? spend.limitTooltip : 'Monthly limit' + why, spendBoxes);
         show('of', usedShown && limitShown);
         renderSpending(s, boxes);
@@ -271,26 +271,35 @@
         show('status-dot', s.status !== false);
         $('status-dot').className = 'status-dot ' + state;
         $('status-dot').title = spending ? spending.tooltip : 'No usage has been read yet.';
-        // Over the limit the row shows, the amount used and its percentage are red.
-        var monthOver = Boolean(spending && spending.month.state === 'red');
+        // The amount used and its percentage take the colour of the bar of the month, today's those of the bar of today (since 0.84;
+        // red alone in 0.82 and 0.83): red over the limit, yellow when it is about to be passed, and green else.
+        var monthTone = toneOf(spending && spending.month);
         ['used', 'percent'].forEach(function (id) {
-            if (monthOver && !/\bskeleton\b/.test($(id).className)) {
-                $(id).className += ' over';
+            if (monthTone && !/\bskeleton\b/.test($(id).className)) {
+                $(id).className += monthTone;
             }
         });
         var day = spending ? spending.day : null;
         var noLimit = !day || day.limit === null;
-        var dayOver = Boolean(day && day.state === 'red');
+        var dayTone = toneOf(day);
         var percentShown = Boolean(s.dayPercentage);
         var usedShown = Boolean(s.dayUsed);
         var limitShown = Boolean(s.dayLimit);
         show('day', percentShown || usedShown || limitShown);
         var why = noLimit ? 'No daily limit is set' : null;
-        figure('day-percent', 'percent' + (dayOver ? ' over' : ''), percentShown, day && day.percent, why || 'Share of the daily limit spent today',
+        figure('day-percent', 'percent' + dayTone, percentShown, day && day.percent, why || 'Share of the daily limit spent today',
             boxes || !day || day.percent === null);
-        figure('day-used', dayOver ? 'over' : '', usedShown, day && day.used, 'Spent today', boxes || !day || day.used === null);
+        figure('day-used', dayTone.trim(), usedShown, day && day.used, 'Spent today', boxes || !day || day.used === null);
         figure('day-limit', '', limitShown, day && day.limit, why || 'The daily limit in force', boxes || noLimit);
         show('day-of', usedShown && limitShown);
+    }
+
+    /** The class a figure takes from the state of its bar: ` over` for red, ` warn` for yellow, and none for green or gray. */
+    function toneOf(part) {
+        if (!part) {
+            return '';
+        }
+        return part.state === 'red' ? ' over' : part.state === 'amber' ? ' warn' : '';
     }
 
     /**
@@ -637,7 +646,9 @@
     function showFolder(key) {
         var value = folderChoice[key];
         var shown = $('set-' + key);
-        shown.textContent = value || programFolder;
+        // The program's folder is named, not written out (since 0.84): a path is shown only for a folder that was chosen.
+        shown.textContent = value || 'Program folder';
+        shown.title = value || programFolder;
         shown.className = 'folder-path' + (value ? '' : ' default');
         if (value) {
             $('default-' + key).removeAttribute('disabled');

@@ -2841,6 +2841,14 @@ class ApiTest {
     @Test
     void theSettingsHaveNoLimitsByDefaultAndTheDailyOneIsWorkedOut() throws Exception {
         AppRuntime app = start(new FakeFetch());
+        // The first reading, whose limit is counted: it comes from the fetch the program begins at once, not before the start returns.
+        await(() -> {
+            try {
+                return !json(get(app, "/api/status")).get("usage").isNull();
+            } catch (Exception e) {
+                return false;
+            }
+        });
 
         Json body = json(get(app, "/api/settings"));
 
@@ -3089,6 +3097,14 @@ class ApiTest {
     @Test
     void theRowShowsTheLimitCountedAndItsPercentage() throws Exception {
         AppRuntime app = start(new FakeFetch());
+        // The first reading, whose limit is counted: it comes from the fetch the program begins at once, not before the start returns.
+        await(() -> {
+            try {
+                return !json(get(app, "/api/status")).get("usage").isNull();
+            } catch (Exception e) {
+                return false;
+            }
+        });
         assertEquals("1,000.00", json(get(app, "/api/status")).at("/display/spend/limit").asText(), "nothing typed: the server's");
 
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"500\"}"));

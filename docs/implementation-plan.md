@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.83 is built and pushed (123 phases); version 0.84, phases 124 to 126, is planned and not built.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.84 is built: 126 phases are built, the last three (124 to 126) not pushed yet and not looked at by a person; the fault of `img_50` was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2689,7 +2689,7 @@ each colour, the yellow against `img_42`, the figures of the cost control agains
 
 ### 124 to 126. Version 0.84: the sixth round of notes
 
-**Status: planned, not built.** The requirements are written (every rule marked as of 0.84); these three phases build them, in
+**Status: built, all three; the fault of `img_50` could not be made to happen, and its steps are to be asked.** The requirements are written (every rule marked as of 0.84); these three phases build them, in
 this order, and `AppInfo.VERSION` becomes `0.84` with the first. A commit for each, with its tests green, as `Phase 12x built:
 <what> (0.84)`; the first has the notes and the pictures `img_45` to `img_53`, the requirements and this plan. No push until it is
 asked for.
@@ -2736,7 +2736,7 @@ window always wide enough for the figures of the cost control.
 
 ### 126. The row: the colours of the bars, `Monthly credit used`, the folders
 
-**Status: planned.** Requirements: One green, and the colours of the bars; the tooltips of the row; The folders of the log and of
+**Status: built (version 0.84); seen in the real window on Windows by the three window tests.** As built: `toneOf(part)` gives ` over` for red and ` warn` for yellow, put on the amount used and the percentage of the month and on today's spend and percentage; `.spend .warn` in `--warn-text`; the limits untouched. `Monthly credit used` in `StatusDisplay` and in the gray box. `showFolder` writes `Program folder` with the path as its tooltip. Two tests of `ApiTest` that read the server's limit at once now wait for the first reading: they failed once in this phase's run, the fetch not having answered yet. Requirements: One green, and the colours of the bars; the tooltips of the row; The folders of the log and of
 the usage history.
 
 - **The colours.** `renderSpending`: the class of the amount used and the percentage of the month from `spending.month.state`

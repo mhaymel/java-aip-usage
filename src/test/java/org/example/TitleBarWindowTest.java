@@ -122,7 +122,7 @@ class TitleBarWindowTest {
         assertTrue(line(all, "start").contains("titleBar:false") && line(all, "history").contains("titleBar:true"), "both kinds of window were among them:\n" + all);
 
         // The tooltip of the amount used comes when the mouse rests on it, and is 14 pixels.
-        assertEquals("PROBE tooltip=shown:[Credits used, in USD|14.0] sheets:1", line(all, "tooltip"), all);
+        assertEquals("PROBE tooltip=shown:[Monthly credit used, in USD|14.0] sheets:1", line(all, "tooltip"), all);
 
         // The word of between the amount used and the budget: small, light and gray, and near the foot of the figures.
         assertTrue(line(all, "start").matches(".* of:\\[ of \\|14px\\|400\\|rgb\\(138, 143, 152\\)\\|[0-3]] .*"), all);
@@ -286,8 +286,8 @@ class TitleBarWindowTest {
         // Nothing listens at the address, so there is no reading at all: gray boxes with a thin green border and their tooltip,
         // and no word in the row.
         String noData = line(all, "fake-off-settled");
-        assertTrue(noData.contains(" usedBox:[used skeleton|2px|rgb(26, 127, 55)|Credits used: no data|")
-                        || noData.contains(" usedBox:[used skeleton|2px|rgb(63, 185, 80)|Credits used: no data|"),
+        assertTrue(noData.contains(" usedBox:[used skeleton|2px|rgb(26, 127, 55)|Monthly credit used: no data|")
+                        || noData.contains(" usedBox:[used skeleton|2px|rgb(63, 185, 80)|Monthly credit used: no data|"),
                 "the amount used is a gray box: a green line of two pixels at its bottom:\n" + all);
         assertTrue(!noData.contains("No data"), "and the row does not say it in words:\n" + all);
         assertTrue(line(all, "start").contains(" usedBox:[used|0px|"), "a figure has no such line:\n" + all);
@@ -323,7 +323,7 @@ class TitleBarWindowTest {
 
         // A seat-based account: gray boxes and no line; the line that says so while the mouse is on a box, muted, and the
         // window taller by it; and gone again, with the window as tall as it was, when the mouse is elsewhere.
-        assertTrue(line(all, "seat").contains("Credits used: no usage reported"), all);
+        assertTrue(line(all, "seat").contains("Monthly credit used: no usage reported"), all);
         assertEquals("PROBE seat-hover=line:[Received, but this account reports no spend: it looks like a seat-based account, which is not supported yet.]"
                 + " colour:rgb(138, 143, 152) used:used skeleton", line(all, "seat-hover").replaceAll(" height:.*", ""), all);
         assertTrue(line(all, "seat-away").startsWith("PROBE seat-away=line:[] "), "the mouse is on the refresh button: no line:\n" + all);
