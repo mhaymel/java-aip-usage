@@ -291,8 +291,8 @@ what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is
 red of errors) while the amount used is more than the limit the row shows, and today's spend and today's percentage while
 today's spend is more than the daily limit (see Limits, projections and the status of spending). **Since version 0.84 they take
 the colour of their bar** in the cost control, whatever it is: today's spend and percentage that of `Today`, the amount used and
-the percentage that of `Month`, green, yellow or red; the yellow of a figure is a darker one, `#b8a000`, so that it can be read
-on the background. The limits stay green. The rest of this paragraph holds otherwise. The percentage spent, the amount used, the budget, the change in the amount used, the time since
+the percentage that of `Month`, green, orange or red; the orange of a figure is a darker one, `#c26a00` (since version 0.85; the
+yellow `#b8a000` in 0.84), so that it can be read on the background. The limits stay green. The rest of this paragraph holds otherwise. The percentage spent, the amount used, the budget, the change in the amount used, the time since
 the previous reading and the request duration are all in one green, `#1a7f37` on the light theme and `#3fb950` on the dark one. The green is
 fixed: it does not follow the severity, so nothing in the row turns amber or red as the budget is spent, and it is the
 same whether a severity was sent or not, whether a change is up or down, and whatever the settings are. A missing
@@ -1224,6 +1224,28 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   was is not remembered for the next start: the program starts where it always does. (Remembering the position was
   considered and decided against.)
 
+### The row goes while the pointer is outside the window
+
+- **Since version 0.85 the row goes while the pointer is outside the window**, and the views that are shown stand at the top
+  of it; the row comes back the moment the pointer is inside again. It does so only when all of these hold:
+  - the setting `Title bar` is off, as it is saved;
+  - a view is shown: the cost control, a list, several views, or the settings;
+  - of the row only icons are switched on: the status circle, the refresh button and the icons of the views may be on, and every
+    figure is off, the time, the percentage, the amount used, the limit, the countdown, the interval, the two changes, the request
+    duration and the three figures of the day. As the settings are saved: what the open settings preview does not count.
+- **Outside is outside the whole window**, its title bar and its frame included: the pointer on them is still in the program, so
+  that the row stays while the window is moved by its title bar or dragged larger by its frame.
+- **The pointer is outside for half a second** before the row goes, so that a pointer that brushes past the edge moves nothing.
+  It is back at once.
+- **The window is less tall by the row**, its message lines with it, while the row is away; its width stays, and so does its place:
+  the top of the window stays where it is. A list keeps its height of its own, so that the height the person gave it is remembered
+  as it would be with the row there, and the window is as tall again when the row comes back. What is stored for the next start
+  is the size with the row.
+- **The row comes back when the conditions no longer hold**: the last view is closed, or the settings are saved with the title bar
+  on or a figure of the row on.
+- Asked for in `new-requirements.md` with the orange of 0.85; the choices, the conditions, a shorter window and half a second,
+  were the person's.
+
 ### Debug lines in the log
 
 - **The program writes debug lines** (since version 0.44). They are written to the log file and to the console in every run, with
@@ -1748,7 +1770,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   twentieth, nineteen gaps, through both parts. **The part used is green, and the rest a light green** (the green of the figures
   at a quarter of its strength), where the rest was gray. The used part ends where the share ends, inside a block if it does.
 - **The colour of the used part says the state** (since version 0.82): **green** while the bar is within its limit and on
-  pace; **amber**, a bright yellow since version 0.84 (`#ffff33` on both themes, `docs/img_51.png`; the golden `#e3b341` in 0.83; `#bf8700` / `#d29922`, which looked light brown, in 0.82; `docs/img_42.png`), the bars and the status circle in it (the circle with a ring of 1 pixel in the darker `#b8a000` round it, so that it is seen on
+  pace; **amber**, an orange since version 0.85 (`#ff9900` on both themes; the bright yellow `#ffff33` in 0.84, `docs/img_51.png`; the golden `#e3b341` in 0.83; `#bf8700` / `#d29922`, which looked light brown, in 0.82; `docs/img_42.png`), the bars and the status circle in it (the circle with a ring of 1 pixel in the darker `#c26a00` round it, `#b8a000` in 0.84, so that it is seen on
   the background), when the projection says the limit will be passed (see Limits, projections and the
   status of spending); **red** (`#cf222e` / `#f85149`) when the limit is passed, and then the bar is full, every block red. Its
   rest takes the light form of the same colour. A bar with no limit stays gray and empty, as before.

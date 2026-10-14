@@ -37,6 +37,18 @@ class WindowFitTest {
     }
 
     @Test
+    void readsHowManyPixelsTheRowIsAwayBy() {
+        assertEquals(Optional.of(new Size(400, 420, WindowFit.Resize.HEIGHT, "history", 0, 41)), WindowFit.parse("400,420,1,history,-41"));
+        assertEquals(Optional.of(new Size(400, 800, WindowFit.Resize.HEIGHT, "cost+history", 420, 41)), WindowFit.parse("400,800,1,cost+history,420,-41"),
+                "after the height the lowest list has alone");
+        assertEquals(Optional.of(new Size(400, 120, WindowFit.Resize.FIXED, "cost", 0, 0)), WindowFit.parse("400,120,3,cost"), "none said: the row is there");
+        assertEquals(Optional.empty(), WindowFit.parse("400,42,0,-41"), "only with a view named");
+        assertEquals(8, WindowFit.parse("400,40,3,cost,-30").orElseThrow().away(), "never more than the least height leaves");
+        Optional<Size> there = WindowFit.parse("400,420,1,history");
+        assertEquals(WindowFit.parse("400,420,1,history,-41"), WindowFit.next("400,420,1,history,-41", there), "the row going is a change");
+    }
+
+    @Test
     void aChangeOfResizabilityAloneIsAChange() {
         Optional<Size> applied = Optional.of(new Size(400, 68, WindowFit.Resize.NONE));
         assertEquals(Optional.of(new Size(400, 68, WindowFit.Resize.HEIGHT)), WindowFit.next("400,68,1", applied));

@@ -25,12 +25,12 @@
     /* The line between the row and a view, and between two views: a middle gray. */
     --view-line: #8c959f;
     /*
-     * What is about to pass a limit: the projection or the pace (since 0.82). A golden yellow on both themes since 0.83, where
-     * the amber of 0.82 looked light brown; it is the dot's and the bars' alone.
+     * What is about to pass a limit: the projection or the pace (since 0.82). An orange on both themes since 0.85, after the
+     * golden yellow of 0.83 and the bright one of 0.84, where the amber of 0.82 looked light brown; it is the dot's and the bars' alone.
      */
-    --warn: #ffff33;
-    /* The yellow of a figure of the row, which the bright one would leave hard to read on the background (since 0.84). */
-    --warn-text: #b8a000;
+    --warn: #ff9900;
+    /* The orange of a figure of the row, which the bright one would leave hard to read on the background (since 0.84; orange since 0.85). */
+    --warn-text: #c26a00;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -98,6 +98,17 @@ body {
     min-width: 100%;
     max-width: 900px;
     padding: 5px 8px;
+}
+
+/*
+ * While the pointer is outside the window the row is away, with its message lines, and the views stand at the top (since 0.85).
+ * It keeps its width, so that the window is as wide as with it, and takes no height; the page measures it as it would be.
+ */
+.top.away {
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
 }
 
 /*
@@ -267,7 +278,7 @@ body {
 }
 
 .status-dot.green { background: var(--ok); }
-/* The bright yellow is hardly seen on the background alone: a ring of a pixel in the darker one, which takes no room (since 0.84). */
+/* The bright orange is hardly seen on the background alone: a ring of a pixel in the darker one, which takes no room (since 0.84). */
 .status-dot.amber { background: var(--warn); box-shadow: 0 0 0 1px var(--warn-text); }
 .status-dot.red { background: var(--bad); }
 
@@ -285,7 +296,7 @@ body {
     color: var(--bad);
 }
 
-/* About to pass the limit: the darker yellow, which can be read on the background (since 0.84). */
+/* About to pass the limit: the darker orange, which can be read on the background (since 0.84). */
 .spend .warn {
     color: var(--warn-text);
 }

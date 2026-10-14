@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.84 is built: 126 phases are built, the last three (124 to 126) not pushed yet and not looked at by a person; the fault of `img_50` was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.85 is built: 127 phases are built, the last four (124 to 127) not pushed yet and not looked at by a person; the fault of `img_50` was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2749,6 +2749,34 @@ the usage history.
 
 **By eye, when 124 to 126 are built**: the cost control in a narrow and in a wide window (the blocks, nothing cut), the yellow, the
 row's colours in each state, the group Files.
+
+### 127. Version 0.85: the orange, and the row that goes while the pointer is outside
+
+**Status: built (version 0.85); not looked at by a person.** The notes of `new-requirements.md` (the seventh round), decided in one
+round of questions: `#ff9900` for the bars and the dot, `#c26a00` for an orange figure; "only icons" is every figure of the row off,
+no new setting; the window less tall by the row, the views moved up; half a second before the row goes. `AppInfo.VERSION = "0.85"`.
+Requirements: The cost control panel (the colour of the used part); One green, and the colours of the bars; The row goes while the
+pointer is outside the window. The exchange is in `docs/api.md` (The pointer outside the window).
+
+- **The orange.** `app.css`: `--warn: #ff9900`, `--warn-text: #c26a00`; nothing else changes, the dot's ring, the bars and the figures
+  taking them by name.
+- **The host.** `PointerAway` (new): away once the pointer has been outside for `DELAY_MILLIS` (500) without a break, back at once.
+  `UsageApp.followPointer`, on every fitting tick: the pointer's place from a JavaFX `Robot`, inside the stage's bounds with its
+  title bar and frame, and `window.pointerAway(true|false)` only on a change. `WindowFit` reads a last field `,-<pixels>`, after
+  the panel and its height alone, as `Size.away`, never more than the least height leaves. `resize` takes it from the content
+  height after the screen's room; `rememberDraggedHeight` and the stored window add it back, and a height dragged and not yet
+  remembered is remembered before the row goes.
+- **The page.** `rowMayHide(show)`: `display.titleBar === false`, a view or the settings open, and every figure off in the saved
+  `show` (the circle, the refresh and the icons may be on). `render` sets `rowAway`, `markNoted` the class `away` on `#top`, which
+  `app.css` gives no height and no vertical padding, its width kept. `rowHeight()` measures the row with the class let go of for
+  the moment; `chromeHeight`, `panelHeight` and the page's own height (`appHeight`) count it while it is away, so every height is
+  the one with the row, and `contentSize` appends `,-` and the row's height rounded down.
+- **Tests.** `app.test.cjs`: the row going and coming with the cost control, a list, the settings; not with nothing open, the title
+  bar on, or any of the twelve figures on; back when the saved settings change or the last view closes. `layout.test.cjs`: the
+  orange, the rule of `.top.away`. `WindowFitTest`: the new field; `PointerAwayTest`: the half second and the bounds.
+
+**By eye**: the orange of the dot, the bars and a figure; the row going and coming in the real window with the cost control, a
+list and several views, on Windows and on macOS, and a list dragged taller and the row going after it.
 
 ## Implementation notes, as built
 

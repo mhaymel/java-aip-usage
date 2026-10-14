@@ -846,7 +846,7 @@ test('the percentage, the amounts, the two changes and the request duration are 
     assert.match(ruleOf('.delta-used,\n.delta-time,\n.delta-duration,\n.spend'), /color:\s*var\(--ok\)/);
     assert.deepEqual([...css.matchAll(/--ok:\s*(#[0-9a-f]{6})/g)].map(m => m[1]), ['#1a7f37', '#3fb950'], 'the light theme, then the dark one');
     assert.doesNotMatch(css, /\.sev-/, 'no rule by severity');
-    assert.match(css, /--warn:\s*#ffff33/, 'a bright yellow since 0.84, for a limit about to be passed, never for the severity');
+    assert.match(css, /--warn:\s*#ff9900/, 'an orange since 0.85, for a limit about to be passed, never for the severity');
     for (const rule of ['.time', '.countdown', '.delta-interval']) {
         assert.doesNotMatch(ruleOf(rule), /color/, rule + ' stays in the colour of the text');
     }
@@ -1289,7 +1289,7 @@ test('the row has the status circle first, the figures of the day after the time
 test('an amber bar has its used part in the amber and the rest in a light amber', () => {
     assert.match(ruleOf('.cost-bar.amber .cost-fill'), /background:\s*var\(--warn\)/);
     assert.match(ruleOf('.cost-bar.amber'), /color-mix\(in srgb, var\(--warn\) 25%, transparent\)/);
-    assert.equal((css.match(/--warn:/g) || []).length, 1, 'one yellow for both themes');
+    assert.equal((css.match(/--warn:/g) || []).length, 1, 'one orange for both themes');
 });
 
 test('History view has the three columns of the limits after limit, and the table their widths', () => {
@@ -1314,9 +1314,9 @@ test('the checkbox of the row\'s limit is Monthly limit, with its tooltip', () =
     assert.match(html, /<label title="The monthly limit counted: the one the server sends, or the one typed under Cost control\."><input id="set-showLimit" type="checkbox"> Monthly limit<\/label>/);
 });
 
-test('the yellow is #ffff33 on both themes, a darker one for text, the yellow circle ringed, and the circle stands still', () => {
-    assert.deepEqual(css.match(/--warn:\s*(#[0-9a-f]{6})/g), ['--warn: #ffff33']);
-    assert.match(css, /--warn-text:\s*#b8a000/);
+test('the orange is #ff9900 on both themes, a darker one for text, the orange circle ringed, and the circle stands still', () => {
+    assert.deepEqual(css.match(/--warn:\s*(#[0-9a-f]{6})/g), ['--warn: #ff9900'], 'orange since 0.85, the bright yellow #ffff33 in 0.84');
+    assert.match(css, /--warn-text:\s*#c26a00/);
     assert.match(css, /\.status-dot\.amber\s*{\s*background:\s*var\(--warn\);\s*box-shadow:\s*0 0 0 1px var\(--warn-text\)/);
     assert.doesNotMatch(ruleOf('.status-dot'), /animation/, 'no pulse: it would have the window repaint all the time');
     assert.doesNotMatch(css, /.status-dot[^{]*{[^}]*animation/, 'nor any of its colours');
@@ -1330,6 +1330,17 @@ test('the grid of the cost control has the label, the bar and four columns of fi
     assert.match(ruleOf('.cost-text'), /grid-column:\s*span 4/);
 });
 
-test('a yellow figure of the row is the darker yellow', () => {
+test('an orange figure of the row is the darker orange', () => {
     assert.match(ruleOf('.spend .warn'), /color:\s*var\(--warn-text\)/);
+});
+
+// ---- version 0.85
+
+test('the row that is away takes no height and keeps its width', () => {
+    const rule = ruleOf('.top.away');
+    assert.match(rule, /height:\s*0/);
+    assert.match(rule, /padding-top:\s*0/);
+    assert.match(rule, /padding-bottom:\s*0/);
+    assert.match(rule, /overflow:\s*hidden/);
+    assert.doesNotMatch(rule, /width|display/, 'its width is still the window\'s');
 });

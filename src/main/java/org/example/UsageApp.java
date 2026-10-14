@@ -8,10 +8,12 @@ import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Worker;
+import javafx.geometry.Point2D;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.robot.Robot;
 import javafx.scene.web.WebView;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
@@ -93,6 +95,18 @@ public class UsageApp extends Application {
 
     /** What of the height the window was fitted to belongs to the views above the list whose height is remembered. */
     private int rememberedAbove;
+
+    /** How many pixels the row was away by when the window was fitted, which a dragged height is without (since 0.85). */
+    private int rememberedAway;
+
+    /** Whether the pointer has been outside the window for a moment, for the row to go (since 0.85). */
+    private final PointerAway pointer = new PointerAway();
+
+    /** What the page was last told of the pointer, so that it is told only when that changes; null until it has been told. */
+    private Boolean awayTold;
+
+    /** Where the pointer is on the screen; made on the toolkit's thread the first time it is needed. */
+    private Robot robot;
 
     /** The least height of the content the person may drag the window to while its height can be dragged. */
     private double leastHeight = Double.MAX_VALUE;
@@ -337,12 +351,38 @@ public class UsageApp extends Application {
         // The same tick follows the setting that keeps the window on top: it is read, not listened for, since it changes rarely.
         // The title bar and the stage are looked at on the same tick: the window may be another one from one tick to the next.
         fitTimer = new Timeline(new KeyFrame(FIT_INTERVAL, event -> {
+            followPointer(webView);
             fit(webView, stage);
             followTitleBar();
             followStayOnTop();
         }));
         fitTimer.setCycleCount(Animation.INDEFINITE);
         fitTimer.play();
+    }
+
+    /**
+     * Tells the page when the pointer has been outside the window for a moment, and when it is back (since 0.85): the page then
+     * lets the row go, when the settings say it may, and asks for a window less tall by it. The window is the whole of it, its
+     * title bar and frame included, so that the row stays while the window is moved or dragged larger by them.
+     */
+    private void followPointer(WebView webView) {
+        try {
+            if (robot == null) {
+                robot = new Robot();
+            }
+            Point2D at = robot.getMousePosition();
+            boolean away = pointer.away(PointerAway.inside(at.getX(), at.getY(), stage.getX(), stage.getY(), stage.getWidth(), stage.getHeight()),
+                    System.nanoTime() / 1_000_000);
+            if (awayTold != null && awayTold == away) {
+                return;
+            }
+            Object told = webView.getEngine().executeScript("typeof window.pointerAway === 'function' ? window.pointerAway(" + away + ") : false");
+            if (Boolean.TRUE.equals(told)) {
+                awayTold = away;
+            }
+        } catch (RuntimeException e) {
+            // The page is not ready, or the pointer cannot be read: the row stays, and the next tick tries again.
+        }
     }
 
     /**
@@ -393,8 +433,15 @@ public class UsageApp extends Application {
         }
         // Never taller than the screen the window is on (since 0.82).
         contentHeight = Math.min(contentHeight, screenRoom());
+        // While the pointer is outside the window the row is away, and the window less tall by it (since 0.85). A height the
+        // person had just dragged to, and that was not remembered yet, is remembered first, as it was with the row there.
+        if (before.isPresent() && before.get().away() != size.away() && heightSettled.getStatus() == Animation.Status.RUNNING) {
+            rememberDraggedHeight(stage);
+        }
+        contentHeight = Math.max(WindowFit.MIN.height(), contentHeight - size.away());
         rememberedPanel = remembered ? list : null;
         rememberedAbove = above;
+        rememberedAway = size.away();
         // A list that has views above it can be dragged down to one line of its own, and no further.
         leastHeight = size.several() && list != null ? above + closedHeight : closedHeight;
         heightSettled.stop();
@@ -422,7 +469,8 @@ public class UsageApp extends Application {
         if (rememberedPanel == null || Double.isNaN(decorationHeight)) {
             return;
         }
-        int pixels = (int) Math.round(stage.getHeight() - decorationHeight) - rememberedAbove;
+        // The height is the list's with the row there, also while the row is away.
+        int pixels = (int) Math.round(stage.getHeight() - decorationHeight) - rememberedAbove + rememberedAway;
         if (RememberedHeights.shouldStore(pixels, runtime.settings().storedHeight(rememberedPanel))) {
             runtime.settings().storeHeight(rememberedPanel, pixels);
         }
@@ -531,7 +579,8 @@ public class UsageApp extends Application {
         }
         if (!Double.isNaN(decorationWidth) && !Double.isNaN(decorationHeight)) {
             lastContentWidth = stage.getWidth() - decorationWidth;
-            lastContentHeight = stage.getHeight() - decorationHeight;
+            // As tall as the window is with the row there, also while the row is away (since 0.85).
+            lastContentHeight = stage.getHeight() - decorationHeight + appliedSize.map(WindowFit.Size::away).orElse(0);
         }
         lastX = stage.getX();
         lastY = stage.getY();

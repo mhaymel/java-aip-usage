@@ -17,7 +17,9 @@ import java.util.regex.Pattern;
  * content and not from the window, so resizing the window to match never changes
  * the answer. With several views shown at once they are named together, in the order of their icons and joined by
  * {@code +}, as in {@code ,cost+history}, and a number may follow: the height the lowest list of them has when it is
- * shown alone, row included, from which the host works out what a dragged height is for that list. Everything else is defence: a reading that is not that shape is
+ * shown alone, row included, from which the host works out what a dragged height is for that list. Last, a panel being named,
+ * may come {@code ,-<pixels>} (since 0.85): the row is away while the pointer is outside the window, by so many pixels, and every
+ * height before it is as if the row were there. Everything else is defence: a reading that is not that shape is
  * ignored, a size is kept within sane limits, and a size equal to the one already
  * applied is not applied again.
  */
@@ -32,19 +34,25 @@ final class WindowFit {
      *     history and the log, and gives the window its title bar for as long as a panel is open that keeps it
      * @param alone with several views, the height the lowest list has when it is shown alone, row included; 0 when the
      *     page did not say
+     * @param away how many pixels the row is away by, while the pointer is outside the window (since 0.85); 0 while it is there.
+     *     The heights before it are as if the row were there, so that nothing remembered of a list depends on it.
      */
-    record Size(int width, int height, Resize resize, String panel, int alone) {
+    record Size(int width, int height, Resize resize, String panel, int alone, int away) {
 
         Size(int width, int height) {
-            this(width, height, Resize.NONE, null, 0);
+            this(width, height, Resize.NONE, null, 0, 0);
         }
 
         Size(int width, int height, Resize resize) {
-            this(width, height, resize, null, 0);
+            this(width, height, resize, null, 0, 0);
         }
 
         Size(int width, int height, Resize resize, String panel) {
-            this(width, height, resize, panel, 0);
+            this(width, height, resize, panel, 0, 0);
+        }
+
+        Size(int width, int height, Resize resize, String panel, int alone) {
+            this(width, height, resize, panel, alone, 0);
         }
 
         /** The views that are open, in the order the page named them; one name for a panel alone, none when it named none. */
@@ -103,7 +111,7 @@ final class WindowFit {
 
     static final Size MAX = new Size(2400, 1600);
 
-    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(debug|(?:settings\\+)?(?:log|history|errors|cost)(?:\\+(?:log|history|errors|cost)){0,3}|settings)(?:,(\\d{1,5}))?)?)?");
+    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(debug|(?:settings\\+)?(?:log|history|errors|cost)(?:\\+(?:log|history|errors|cost)){0,3}|settings)(?:,(\\d{1,5}))?(?:,-(\\d{1,4}))?)?)?");
 
     /** The views in the order of their icons, which is the order the page names them in. */
     private static final List<String> VIEWS = List.of("cost", "history", "log", "errors");
@@ -156,6 +164,8 @@ final class WindowFit {
                 Math.clamp(height, MIN.height(), MAX.height()),
                 match.group(3) == null ? Resize.NONE : Resize.values()[Integer.parseInt(match.group(3))],
                 match.group(4),
-                match.group(5) == null ? 0 : Math.min(Integer.parseInt(match.group(5)), MAX.height())));
+                match.group(5) == null ? 0 : Math.min(Integer.parseInt(match.group(5)), MAX.height()),
+                // The row is never away by more than the height leaves of the window.
+                match.group(6) == null ? 0 : Math.min(Integer.parseInt(match.group(6)), Math.clamp(height, MIN.height(), MAX.height()) - MIN.height())));
     }
 }

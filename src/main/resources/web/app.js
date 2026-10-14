@@ -111,6 +111,9 @@
     var tableWidth = 0;
     // What the settings view shows of the row before it is applied: {show, timeFormat}, or null when the row is the backend's.
     var preview = null;
+    // Whether the host says the pointer has been outside the window for a moment, and whether the row is away for it (since 0.85).
+    var pointerAway = false;
+    var rowAway = false;
 
     function $(id) {
         return document.getElementById(id);
@@ -254,6 +257,8 @@
         renderOptional('duration', s.duration, v.duration, 'How long the latest usage request took');
 
         setNote('note', v.message && v.message.text, v.message ? 'note note-' + v.message.kind : null);
+        // The row is away while the pointer is outside the window, as long as the saved settings let it go (since 0.85).
+        rowAway = pointerAway && rowMayHide(v.show);
         markNoted();
         // With the settings shown and Automatic checked, the field of the interval follows the search.
         if (settingsOpen && settingsShown !== null && $('set-autoInterval').checked) {
@@ -309,7 +314,48 @@
      */
     function markNoted() {
         var noted = ['note', 'alert-note', 'hover-note', 'connection'].some(function (id) { return !$(id).hidden; });
-        $('top').className = 'top' + (noted ? ' noted' : '');
+        $('top').className = 'top' + (noted ? ' noted' : '') + (rowAway ? ' away' : '');
+    }
+
+    /**
+     * Whether the row may go while the pointer is outside the window (since 0.85): the title bar is switched off, a view or the
+     * settings are shown, and of the row only icons are switched on, the status circle, the refresh button and the icons of the
+     * views, and none of its figures. The settings as they are saved count, not what the open settings preview.
+     */
+    function rowMayHide(s) {
+        if (!lastStatus || !lastStatus.display || lastStatus.display.titleBar !== false || !anyOpen()) {
+            return false;
+        }
+        var figures = [on(s.time), s.percentage, on(s.used), on(s.limit), on(s.countdown), s.interval, s.deltaUsed, s.deltaTime, s.duration,
+            s.dayPercentage, s.dayUsed, s.dayLimit];
+        return !figures.some(Boolean);
+    }
+
+    /**
+     * The host says whether the pointer has been outside the window for a moment, or is back in it (since 0.85). The row goes, or
+     * comes back at once, and the host is asked for a window less tall by it, or as tall again, at its next question.
+     */
+    window.pointerAway = function (away) {
+        pointerAway = Boolean(away);
+        render();
+        return true;
+    };
+
+    /**
+     * How tall the row and its message lines are, in CSS pixels, not rounded: as they are, or, while the row is away, as they
+     * would be if it were there. The class that takes it away is let go of for the moment of the measuring; nothing is drawn between.
+     */
+    function rowHeight() {
+        var top = $('top');
+        var away = /\baway\b/.test(top.className);
+        if (away) {
+            top.className = top.className.replace(/\s*\baway\b/, '');
+        }
+        var height = top.getBoundingClientRect().height || 0;
+        if (away) {
+            top.className += ' away';
+        }
+        return height;
     }
 
     /** Shows or hides the line that says contact is lost, and what follows from a message line being there. */
@@ -1733,7 +1779,8 @@
             return panelHeight / 10;
         }
         var edge = fakeInUse() ? 3 : bare() ? 1 : 0;
-        return Math.ceil(panel.top - app.top) + PANEL_PADDING_BOTTOM + edge;
+        // While the row is away it is counted all the same, so that every height worked out from this is the one with the row there.
+        return Math.ceil(panel.top - app.top + (rowAway ? rowHeight() : 0)) + PANEL_PADDING_BOTTOM + edge;
     }
 
     // How tall the window may be on the screen it is on, in CSS pixels, as the host says; 0 while it has not said.
@@ -1830,7 +1877,7 @@
         }
         // The window's height while a list is shown is fixed at what it was when it opened (ten rows),
         // so that a message line coming or going does not move it; the list takes up the difference.
-        panelHeight = 10 * Math.ceil($('top').getBoundingClientRect().height);
+        panelHeight = 10 * Math.ceil(rowHeight());
         layoutViews();
         applyAppClass();
         // The row changes with the views (the icons that are switched off come and go), at once and not at the next poll.
@@ -1919,6 +1966,15 @@
 
     window.contentSize = function () {
         markNoted();
+        // While the row is away every height is as if it were there, and the last field says by how much the window is less
+        // tall (since 0.85), so that the host remembers nothing of a list's height that depends on it. Rounded down: the
+        // window is never shorter than what is shown needs.
+        var size = sizeWithTheRow();
+        return rowAway ? size + ',-' + Math.floor(rowHeight()) : size;
+    };
+
+    /** The size the window needs, as contentSize says it, with the row there. */
+    function sizeWithTheRow() {
         // While a panel is shown the row is stretched to the window, so its own width is measured with the stretch let go
         // of for the moment: the size asked for must never follow from the size the window has.
         var top = $('top');
@@ -1953,7 +2009,7 @@
             // width asked for is the same least width, whatever the window has. The height is that of the page as it lies,
             // which with About follows the width of the window, since a wider window breaks the paths over fewer lines: the
             // one place where what is asked for follows from the window, and only in the height, which is not the person's.
-            return Math.max(width, settingsWidth()) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',' + (currentTab === 'about' ? 4 : 3) + ',settings';
+            return Math.max(width, settingsWidth()) + ',' + appHeight() + ',' + (currentTab === 'about' ? 4 : 3) + ',settings';
         }
         if (openViews.length > 1) {
             return severalSize(width);
@@ -1962,7 +2018,7 @@
         if (only === 'cost') {
             // As tall as the two bars and the note need, and as wide as the history's table, or as the bars need: not resizable.
             // Its own width and the row's, never the history's table, which the page knows only once the history was shown (since 0.84).
-            return Math.max(width, costWidth() + edge) + ',' + Math.ceil($('app').getBoundingClientRect().height) + ',3,cost';
+            return Math.max(width, costWidth() + edge) + ',' + appHeight() + ',3,cost';
         }
         // The last field names the panel, so that the host remembers the height of the history and of the log.
         if (only === 'log') {
@@ -1978,7 +2034,12 @@
             return (Math.ceil(1.5 * width) + scrollbarWidth) + ',' + panelHeight + ',2,errors';
         }
         return width + ',' + height + ',0';
-    };
+    }
+
+    /** The height of the whole page as it lies, rounded up, with the row counted while it is away (since 0.85). */
+    function appHeight() {
+        return Math.ceil($('app').getBoundingClientRect().height + (rowAway ? rowHeight() : 0));
+    }
 
     /**
      * The size the window needs for several views at once, and what of it may be dragged. It is as wide as the widest of

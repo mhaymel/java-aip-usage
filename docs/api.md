@@ -672,6 +672,14 @@ several views need more than that, the page shares it among the lists, each at l
 than the room, and leaves out the fifth field, the height the lowest list has alone: the host then remembers nothing of the
 height. The host itself never makes the window taller than the room.
 
+**The pointer outside the window** (since version 0.85). The host tells the page by `window.pointerAway(away)`, with `true` once
+the pointer has been outside the whole window, its title bar and frame included, for half a second, and `false` the moment it is
+inside again; it tells only a change, and the page answers `true`. When the saved settings let the row go (see the requirements,
+The row goes while the pointer is outside the window) the page takes it away and ends what `window.contentSize()` says with
+`,-<pixels>`, after the name of the views and after the height the lowest list has alone: `400,420,1,history,-41`. Every height
+before it is as it would be with the row there; the host makes the window less tall by so many pixels, and adds them back to
+whatever it remembers of a height or stores of the window. Without a view named there is no such field.
+
 The page exposes nothing else to its host, and the host exposes nothing to the page.
 
 The host also asks the page where a move of the window may begin. While the window has no title bar, a press of the

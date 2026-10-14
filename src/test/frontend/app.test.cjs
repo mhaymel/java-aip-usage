@@ -5437,7 +5437,7 @@ test('the cost control asks for the same width before and after the history has 
 
 // ---- version 0.84: the row takes the colours of the bars
 
-test('the amount used and the percentage take the colour of the month\'s bar, today\'s those of the day\'s: yellow, red or green', async () => {
+test('the amount used and the percentage take the colour of the month\'s bar, today\'s those of the day\'s: orange, red or green', async () => {
     const spending = {
         state: 'red', tooltip: 'x',
         day: { state: 'amber', used: '4.37', limit: '6.81', percent: '64%' },
@@ -5446,7 +5446,7 @@ test('the amount used and the percentage take the colour of the month\'s bar, to
     const page = await load(backendOf({ config: CONFIG, status: withShow({ ...SPEND_STATUS, spending }, { percentage: true, dayPercentage: true, dayUsed: true, dayLimit: true }) }));
     assert.match(page.el('used').className, /\bover\b/);
     assert.match(page.el('percent').className, /\bover\b/);
-    assert.match(page.el('day-used').className, /\bwarn\b/, 'yellow');
+    assert.match(page.el('day-used').className, /\bwarn\b/, 'orange');
     assert.match(page.el('day-percent').className, /\bwarn\b/);
     assert.doesNotMatch(page.el('day-limit').className, /\bwarn\b|\bover\b/, 'the limits stay green');
     assert.doesNotMatch(page.el('limit').className, /\bwarn\b|\bover\b/);
@@ -5455,4 +5455,88 @@ test('the amount used and the percentage take the colour of the month\'s bar, to
         { percentage: true, dayUsed: true }) }));
     assert.doesNotMatch(green.el('used').className, /\bwarn\b|\bover\b/, 'gray leaves the green');
     assert.doesNotMatch(green.el('day-used').className, /\bwarn\b|\bover\b/);
+});
+
+// ---- version 0.85: the row goes while the pointer is outside the window
+
+// Of the row only icons: every figure switched off, the status circle, the refresh button and the icons of the views on.
+const ICONS_ONLY = {
+    time: false, percentage: false, used: false, limit: false, countdown: false, interval: false, deltaUsed: false, deltaTime: false,
+    duration: false, dayPercentage: false, dayUsed: false, dayLimit: false, costIcon: true, historyIcon: true, logIcon: true, errorIcon: true,
+};
+const awayStatus = (show = {}, titleBar = false) => {
+    const s = withDisplay(SPEND_STATUS);
+    return { ...s, display: { ...s.display, titleBar, show: { ...ICONS_ONLY, ...show } } };
+};
+const isAway = page => /\baway\b/.test(page.el('top').className);
+
+test('with only icons in the row and no title bar, the row goes while the pointer is outside, and the window asks to be less tall by it', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: awayStatus() }));
+    await page.click('cost-button');
+    const there = page.window.contentSize();
+    assert.equal(page.window.pointerAway(true), true);
+    assert.ok(isAway(page));
+    // The fake page lays nothing out: the page is made less tall by the row here, as it is in the window.
+    page.el('app').rect = { width: 399.2, height: 0 };
+    assert.equal(page.window.contentSize(), there + ',-41', 'every height as with the row, and the row\'s height, rounded down, after them');
+    page.el('app').rect = { width: 399.2, height: 41.5 };
+    page.window.pointerAway(false);
+    assert.ok(!isAway(page), 'back at once');
+    assert.equal(page.window.contentSize(), there);
+});
+
+test('a list keeps the height it has with the row, and so do several views, while the row is away', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: awayStatus({}, false) }));
+    await page.click('history-button');
+    page.window.pointerAway(true);
+    assert.equal(page.window.contentSize(), '400,420,1,history,-41');
+    page.window.pointerAway(false);
+    assert.equal(page.window.contentSize(), '400,420,1,history');
+});
+
+test('the row stays with nothing open, with the title bar on, and with any figure of the row on', async () => {
+    const nothing = await load(backendOf({ config: CONFIG, status: awayStatus() }));
+    nothing.window.pointerAway(true);
+    assert.ok(!isAway(nothing), 'nothing open');
+    assert.match(nothing.window.contentSize(), /^\d+,\d+,0$/);
+
+    const titled = await load(backendOf({ config: CONFIG, status: awayStatus({}, true) }));
+    await titled.click('cost-button');
+    titled.window.pointerAway(true);
+    assert.ok(!isAway(titled), 'the title bar on');
+
+    for (const figure of ['time', 'percentage', 'used', 'limit', 'countdown', 'interval', 'deltaUsed', 'deltaTime', 'duration', 'dayPercentage', 'dayUsed', 'dayLimit']) {
+        const page = await load(backendOf({ config: CONFIG, status: awayStatus({ [figure]: true }) }));
+        await page.click('cost-button');
+        page.window.pointerAway(true);
+        assert.ok(!isAway(page), figure + ' on');
+    }
+
+    const circle = await load(backendOf({ config: CONFIG, status: awayStatus({ status: true, refresh: true }) }));
+    await circle.click('cost-button');
+    circle.window.pointerAway(true);
+    assert.ok(isAway(circle), 'the status circle and the refresh button are icons');
+});
+
+test('the row goes with the settings open, and comes back when the saved settings no longer let it go', async () => {
+    const state = { config: CONFIG, status: awayStatus() };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    page.window.pointerAway(true);
+    assert.ok(isAway(page), 'the settings are a view too');
+    assert.match(page.window.contentSize(), /,settings,-41$/);
+    state.status = awayStatus({ time: true });
+    await page.firePoll();
+    assert.ok(!isAway(page), 'a figure switched on');
+    assert.doesNotMatch(page.window.contentSize(), /,-\d+$/);
+});
+
+test('the row comes back when the last view is closed', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: awayStatus() }));
+    await page.click('cost-button');
+    page.window.pointerAway(true);
+    assert.ok(isAway(page));
+    await page.click('cost-button');
+    assert.ok(!isAway(page));
+    assert.match(page.window.contentSize(), /^\d+,\d+,0$/);
 });
