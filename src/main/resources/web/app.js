@@ -277,7 +277,7 @@
         $('status-dot').className = 'status-dot ' + state;
         $('status-dot').title = spending ? spending.tooltip : 'No usage has been read yet.';
         // The amount used and its percentage take the colour of the bar of the month, today's those of the bar of today (since 0.84;
-        // red alone in 0.82 and 0.83): red over the limit, yellow when it is about to be passed, and green else.
+        // red alone in 0.82 and 0.83): red over the limit, orange when it is about to be passed, and green else.
         var monthTone = toneOf(spending && spending.month);
         ['used', 'percent'].forEach(function (id) {
             if (monthTone && !/\bskeleton\b/.test($(id).className)) {
@@ -299,7 +299,7 @@
         show('day-of', usedShown && limitShown);
     }
 
-    /** The class a figure takes from the state of its bar: ` over` for red, ` warn` for yellow, and none for green or gray. */
+    /** The class a figure takes from the state of its bar: ` over` for red, ` warn` for orange, and none for green or gray. */
     function toneOf(part) {
         if (!part) {
             return '';
