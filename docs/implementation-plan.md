@@ -2363,7 +2363,13 @@ usage lines (the icon); The cost control panel: two bars; The About view; Detail
 
 ### 108. Cascadia Mono comes with the program
 
-**Status: planned.** Requirements: A sturdier typeface for the lists.
+**Status: built (version 0.81); seen in the real window on Windows, not on macOS.** As built, otherwise than below: **the file is
+the static `CascadiaMono-Regular.ttf`** (576 KB) of release `v2407.24`, not the `.woff2`, since whether the WebKit of JavaFX reads
+WOFF2 is not known and TrueType it does; the release has no licence file, so `CascadiaMono-LICENSE.txt` is the `LICENSE` of the
+repository at that tag. `LocalWebServer` serves `ttf` as `font/ttf` and `txt` as text. No wait for `document.fonts.ready` was
+needed: the page measures the table again when it is seen to lack room, as for any typeface that comes late. In the real window:
+`PROBE list-typefaces=has:[Cascadia Mono Bundled|Cascadia Mono|Consolas] used:Cascadia Mono Bundled`. One run of
+`TitleBarWindowTest` failed on the clipboard of the About view, which another program held; it passed run again. Requirements: A sturdier typeface for the lists.
 
 - **The file.** `CascadiaMono-Regular.woff2` from the official release of Microsoft's `cascadia-code` on GitHub (the static
   regular weight, about 300 KB; the variable `.ttf` of Windows is larger and not needed), and its `LICENSE` (SIL Open Font

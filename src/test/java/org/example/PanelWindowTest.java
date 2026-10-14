@@ -49,8 +49,8 @@ class PanelWindowTest {
         // Cascadia Mono or Consolas, on macOS the system's own fixed-width one, SF Mono or Menlo.
         String typefaces = all.lines().filter(l -> l.startsWith("PROBE list-typefaces=")).findFirst().orElseThrow();
         System.out.println(typefaces);
-        assertTrue(typefaces.matches(".* used:(ui-monospace|Cascadia Mono|SF Mono|SFMono-Regular|Menlo|Consolas)"),
-                "the window takes one of the typefaces that are named:\n" + all);
+        assertTrue(typefaces.matches(".* used:Cascadia Mono Bundled"),
+                "the window draws the lists in the typeface the program brings (since 0.81), on every system:\n" + all);
         assertTrue(all.contains("PROBE log-top=19:00:00 INFO    [Probe] probe log line last"), "so the newest line is the first the person sees:\n" + all);
         int row = Integer.parseInt(all.lines().filter(l -> l.startsWith("PROBE settings-row=")).findFirst().orElseThrow().substring("PROBE settings-row=".length()));
         assertTrue(width(all, "settings") > row, "with every element hidden the row is narrow, and the settings need more room than it has:\n" + all);

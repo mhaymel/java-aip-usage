@@ -1115,12 +1115,12 @@ test('the About view has its logo at the left and the name, the version and the 
 
 test('the three lists, the copy the table is measured on and the cost control have one typeface, sturdy ones named before the system\'s own', () => {
     const stack = css.match(/--list-font:\s*([^;]+);/)[1];
-    assert.equal(stack, 'ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace');
+    assert.equal(stack, '"Cascadia Mono Bundled", ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace');
     for (const selector of ['.panel', '.table-probe', '.cost']) {
         assert.match(ruleOf(selector), /font:\s*400 1[12]px\/[0-9.px]+ var\(--list-font\)/, selector);
     }
     assert.equal((css.match(/Menlo/g) || []).length, 1, 'named in one place, so that the copy cannot have another typeface than the table');
-    assert.doesNotMatch(css, /@font-face|url\(/, 'nothing is fetched');
+    assert.deepEqual(css.match(/url\([^)]*\)/g), ['url("fonts/CascadiaMono-Regular.ttf")'], 'nothing is fetched: the one file named is the program\'s own (since 0.81)');
 });
 
 // ---- version 0.80: a box for each view
@@ -1193,4 +1193,14 @@ test('the logo of About is in the middle of the height of what is at its right',
 
 test('the last cell of a line of the history and of the error log keeps 6 pixels from the scrollbar', () => {
     assert.match(css, /\.panel-lines \.columns > :last-child,\s*\.panel-lines \.cols-2 > :last-child\s*{\s*margin-right:\s*6px/);
+});
+
+test('the program brings Cascadia Mono, with its licence, and names it first', () => {
+    const face = css.slice(css.indexOf('@font-face'), css.indexOf('}', css.indexOf('@font-face')));
+    assert.match(face, /font-family:\s*"Cascadia Mono Bundled"/);
+    assert.match(face, /src:\s*url\("fonts\/CascadiaMono-Regular\.ttf"\) format\("truetype"\)/, 'from the program, fetched from nowhere');
+    assert.match(face, /font-weight:\s*400/, 'the regular weight alone');
+    const dir = require('node:path').join(__dirname, '..', '..', 'main', 'resources', 'web', 'fonts');
+    assert.ok(fs.statSync(require('node:path').join(dir, 'CascadiaMono-Regular.ttf')).size > 100000);
+    assert.match(fs.readFileSync(require('node:path').join(dir, 'CascadiaMono-LICENSE.txt'), 'utf8'), /SIL Open Font License, Version 1\.1/);
 });

@@ -62,6 +62,21 @@ class LocalWebServerTest {
     }
 
     @Test
+    void theTypefaceOfTheListsIsServedWithItsTypeAndItsLicenceIsBesideIt() throws Exception {
+        try (LocalWebServer server = start()) {
+            HttpResponse<byte[]> font = client.send(HttpRequest.newBuilder(server.baseUri().resolve("fonts/CascadiaMono-Regular.ttf")).build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
+            assertEquals(200, font.statusCode());
+            assertEquals("font/ttf", font.headers().firstValue("Content-Type").orElse(""));
+            assertTrue(font.body().length > 100_000, "the whole file");
+
+            HttpResponse<String> licence = get(server.baseUri().resolve("fonts/CascadiaMono-LICENSE.txt"));
+            assertEquals(200, licence.statusCode());
+            assertTrue(licence.body().contains("SIL Open Font License, Version 1.1"), licence.body());
+        }
+    }
+
+    @Test
     void staticAssetsAreNeverCachedSoAnUpdateIsAlwaysSeen() throws Exception {
         try (LocalWebServer server = start()) {
             HttpResponse<String> response = get(server.baseUri());

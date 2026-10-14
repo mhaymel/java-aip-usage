@@ -101,7 +101,7 @@ public final class PanelProbe {
      * as wide as in that other alone when the named one is not there. The list is drawn in the one whose width it has.
      */
     private static String typefaces() {
-        return "(function () { var names = ['ui-monospace', 'Cascadia Mono', 'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas'];"
+        return "(function () { var names = ['Cascadia Mono Bundled', 'ui-monospace', 'Cascadia Mono', 'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas'];"
                 + " var s = document.createElement('span'); s.style.cssText = 'position:absolute;left:-9999px;font-size:72px;white-space:nowrap';"
                 + " s.textContent = 'mmmmiiiillllWW00.,'; document.body.appendChild(s);"
                 + " function w(f) { s.style.fontFamily = f; return s.getBoundingClientRect().width; }"

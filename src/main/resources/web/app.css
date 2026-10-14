@@ -1,3 +1,14 @@
+/*
+ * Cascadia Mono, which the program brings with it (fonts/, with its licence, the SIL Open Font License): the window on macOS took
+ * none of the names below and drew the lists in Courier. Served by the program like the page's other files; nothing is fetched.
+ */
+@font-face {
+    font-family: "Cascadia Mono Bundled";
+    src: url("fonts/CascadiaMono-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+}
+
 :root {
     color-scheme: light dark;
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -10,7 +21,7 @@
      * The typeface of the three lists and of the cost control: sturdy fixed-width ones by name, and the system's own last, which
      * on Windows is a thin one. One place for it, so that the copy the history's table is measured on has the typeface of the table.
      */
-    --list-font: ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --list-font: "Cascadia Mono Bundled", ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
     /* The line between the row and a view, and between two views: a middle gray. */
     --view-line: #8c959f;
 }

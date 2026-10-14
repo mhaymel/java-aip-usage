@@ -43,7 +43,10 @@ final class LocalWebServer implements AutoCloseable {
             "js", "text/javascript; charset=utf-8",
             "json", "application/json; charset=utf-8",
             "svg", "image/svg+xml",
-            "png", "image/png");
+            "png", "image/png",
+            // The typeface the program brings for its lists, and its licence beside it.
+            "ttf", "font/ttf",
+            "txt", "text/plain; charset=utf-8");
 
     /** The one file the page is given that is not among its own: the program's icon at its largest, as the logo of the About view. */
     static final String LOGO_PATH = "/icon.png";
