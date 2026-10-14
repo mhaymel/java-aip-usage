@@ -132,6 +132,9 @@ class SeveralViewsWindowTest {
         String[] withSettings = beside.group(11).split("/");
         assertTrue(withSettings[0].startsWith("settings-view:37:") && withSettings[1].startsWith("cost-view:") && withSettings[2].startsWith("view-history:"), all);
         near(Integer.parseInt(draggedViews[1].split(":")[2]), Integer.parseInt(withSettings[2].split(":")[2]), "the history as tall as it was:\n" + all);
+        // img_50: the elements of the row unchecked but the icons, and saved: the settings close alone.
+        assertEquals("cost+history,", step(all, "beside-saved").group(1), "the views beside the settings stay:\n" + all);
+        assertEquals("settings+cost+history,general", step(all, "settings-beside-final").group(1), all);
         assertTrue(all.contains("PROBE stored=settings,cost,history|"), "all three are stored, the settings first, with commas:\n" + all);
 
         // The second start: both come back, at the same height.

@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.83 is built: 123 phases are built, the last three (121 to 123) not pushed yet and not looked at by a person.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.83 is built and pushed (123 phases); version 0.84, phases 124 to 126, is planned and not built.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2686,6 +2686,69 @@ right edge, the severity); Limits, projections and the status of spending (the t
 
 **By eye, when 121 to 123 are built**: the row with a list open and with the row alone (the icons at the right), the dot in
 each colour, the yellow against `img_42`, the figures of the cost control against `img_41`.
+
+### 124 to 126. Version 0.84: the sixth round of notes
+
+**Status: planned, not built.** The requirements are written (every rule marked as of 0.84); these three phases build them, in
+this order, and `AppInfo.VERSION` becomes `0.84` with the first. A commit for each, with its tests green, as `Phase 12x built:
+<what> (0.84)`; the first has the notes and the pictures `img_45` to `img_53`, the requirements and this plan. No push until it is
+asked for.
+
+| Phase | What | Where most of it is |
+| --- | --- | --- |
+| 124 | The fault of `img_50`: leaving the settings closed the cost control beside them | `app.js`, found by a failing test first |
+| 125 | The cost control: its own width, never cut; blocks of 14 pixels; the bright yellow | `app.js`, `app.css` |
+| 126 | The row: the colours of the bars on its figures, `Monthly credit used`; the folders say `Program folder` | `app.js`, `app.css`, `StatusDisplay`, `index.html` |
+
+**Decided before building**, in two rounds of questions: the cost control's width its own and the row's; a path only for a folder
+that is chosen; blocks of a fixed 14 pixels, more of them in a wider bar; the history not moved (the note was a mistake, the
+cost control stays first); the view stays when the settings are left, its icon being checked (a fault, not a rule); `#ffff33` for
+the bars and the dot, `#b8a000` for a yellow figure; the amount used and the percentage take the colour, the limits do not; the
+window always wide enough for the figures of the cost control.
+
+### 124. The fault: leaving the settings closed the cost control beside them
+
+**Status: built (version 0.84), as far as it could be: the fault was not found.** Tried, each as a test: the cost control open and the settings beside it, every element of Main view unchecked but the cost icon, the settings left by `Save`, `Cancel` and the gear (three tests); the settings opened first and the cost control beside them, left the same three ways (three tests); and in the real window, with the real backend, the settings beside the cost control and the history, every element unchecked but the icons, and `Save` (`SeveralViewsWindowTest`, step `beside-saved`). In every one the cost control stayed open. Nothing was changed on a guess; the tests stay, and the steps that led to `img_50` are to be asked of its author. The version is 0.84 with this phase. Requirements: Several views at once (leaving the settings).
+
+- **First a test that fails**, in `app.test.cjs`, doing what `img_50` shows: several views at once on, the cost control open, the
+  gear, every element of `Main view` unchecked but the cost icon, and the settings left by each way (`Save`, `Cancel`, the gear).
+  The cost control must stay. If the test does not fail, the other ways are tried (the settings opened first and the cost control
+  beside them, the switch off when they were opened, the poll that comes between), each in a test, and nothing is changed on a
+  guess; what was found is said here.
+- **The fix** is where the test points, in `leaveForm`, `keepSwitchedOn` or the poll; the test stays.
+- `AppInfo.VERSION = "0.84"`.
+
+### 125. The cost control: its own width, blocks of 14 pixels, the yellow
+
+**Status: planned.** Requirements: The cost control panel (the width, the blocks, the yellow); Several views at once (the width).
+
+- **The width.** `app.js`: the cost control's width, alone and among several views, is `Math.max(rowWidth, costWidth())`, no longer
+  `currentTableWidth() + 16`. `costWidth()` is checked against the real window: the label, `COST_BAR_MIN`, the four columns and
+  their gaps, the panel's padding, and 8 pixels of room at the right; what `img_53` shows missing is found by a probe step that
+  says how far the figures stick out, and the formula is put right by what it says.
+- **The blocks.** `app.css`: the gradient of `.cost-bar::after` sized `14px 100%` in the place of `5% 100%`, the layer as wide as the
+  bar and a pixel; the fill is unchanged, so it still ends at the share.
+- **The yellow.** `--warn: #ffff33`; a new `--warn-text: #b8a000` for 126; the amber dot a ring of 1 pixel in `--warn-text`
+  (`box-shadow: 0 0 0 1px`, which takes no room), decided in a last question: the plain yellow dot was hardly seen.
+- **Tests.** `app.test.cjs`: the cost control's size the same before and after the history has been shown; `layout.test.cjs`: the
+  gradient of 14 pixels, the yellow. The window tests: a probe step with the row of few elements and the cost control, that
+  nothing sticks out at the right (`img_53`), and that the window is as wide after the history as before (`img_45` to `img_47`).
+
+### 126. The row: the colours of the bars, `Monthly credit used`, the folders
+
+**Status: planned.** Requirements: One green, and the colours of the bars; the tooltips of the row; The folders of the log and of
+the usage history.
+
+- **The colours.** `renderSpending`: the class of the amount used and the percentage of the month from `spending.month.state`
+  (`over` for red, `warn` for amber), and of today's spend and percentage from `spending.day.state`; `app.css`: `.spend .warn {
+  color: var(--warn-text) }`. A gray state leaves the green.
+- **The tooltip.** `StatusDisplay`: `Monthly credit used` with its unit in the place of `Credits used`; `app.js`: the gray box's.
+- **The folders.** `showFolder`: with no folder chosen the text is `Program folder` in gray, and the path is the tooltip's.
+- **Tests.** `app.test.cjs`: the classes by state, the folder's text; `StatusDisplayTest`, `ApiTest`: the tooltip; the window tests,
+  whose seat-based step reads the tooltip of the amount used.
+
+**By eye, when 124 to 126 are built**: the cost control in a narrow and in a wide window (the blocks, nothing cut), the yellow, the
+row's colours in each state, the group Files.
 
 ## Implementation notes, as built
 

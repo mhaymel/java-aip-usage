@@ -4735,6 +4735,8 @@ test('the links of the log are not built again while the log says the same', asy
 
 // ---- version 0.80: several views at once
 
+const MAIN_FLAG_IDS = ['set-showStatus', 'set-showTime', 'set-showDayPercentage', 'set-showDayUsed', 'set-showDayLimit', 'set-showPercentage', 'set-showUsed', 'set-showLimit',
+    'set-showRefresh', 'set-showCountdown', 'set-showInterval', 'set-showDeltaUsed', 'set-showDeltaTime', 'set-showDuration', 'set-showCostIcon', 'set-showHistoryIcon', 'set-showLogIcon', 'set-showErrorIcon'];
 const SEVERAL = withShow(WITH_CHANGE, { historyIcon: true, logIcon: true, errorIcon: true, costIcon: true, severalViews: true });
 // In the order of the icons, since 0.81: the cost control, the history, the log, the error log.
 const BOX_OF = { cost: 'cost-view', history: 'view-history', log: 'view-log', errors: 'view-errors' };
@@ -5365,3 +5367,53 @@ test('the figures of the cost control are four columns: the amount, of, the limi
     assert.deepEqual(month.figures.map(cell => cell.className), ['cost-used', 'cost-rest']);
     assert.deepEqual(month.figures.map(cell => cell.textContent), ['236.56', '\u00b7 no limit set']);
 });
+
+// ---- version 0.84: the fault of img_50
+
+for (const leave of ['settings-save', 'settings-cancel', 'settings-button']) {
+    test('leaving the settings by ' + leave + ' with every element unchecked but the cost icon keeps the cost control beside them open (img_50)', async () => {
+        const saved = { ...SETTINGS.settings, severalViews: true };
+        const state = { config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: saved } }) };
+        const page = await load(backendOf(state));
+        await page.click('cost-button');
+        await page.click('settings-button');
+        assert.deepEqual(shownViews(page), ['cost'], 'the cost control beside the settings');
+        for (const box of MAIN_FLAG_IDS) {
+            if (box !== 'set-showCostIcon') {
+                await change(page, box, false);
+            }
+        }
+        state.status = withShow(WITH_CHANGE, { percentage: false, time: false, used: false, limit: false, refresh: false, countdown: false,
+            historyIcon: false, logIcon: false, errorIcon: false, costIcon: true, severalViews: true, status: false });
+
+        await page.click(leave);
+        await page.firePoll();
+
+        assert.equal(page.el('settings-view').hidden, true, 'the settings are closed');
+        assert.deepEqual(shownViews(page), ['cost'], 'and the cost control stays');
+    });
+}
+
+for (const leave of ['settings-save', 'settings-cancel', 'settings-button']) {
+    test('the settings opened first and the cost control beside them: leaving by ' + leave + ' keeps it open (img_50)', async () => {
+        const saved = { ...SETTINGS.settings, severalViews: true };
+        const state = { config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: saved } }) };
+        const page = await load(backendOf(state));
+        await page.click('settings-button');
+        await page.click('cost-button');
+        assert.deepEqual(shownViews(page), ['cost'], 'the cost control beside the settings');
+        for (const box of MAIN_FLAG_IDS) {
+            if (box !== 'set-showCostIcon') {
+                await change(page, box, false);
+            }
+        }
+        state.status = withShow(WITH_CHANGE, { percentage: false, time: false, used: false, limit: false, refresh: false, countdown: false,
+            historyIcon: false, logIcon: false, errorIcon: false, costIcon: true, severalViews: true, status: false });
+
+        await page.click(leave);
+        await page.firePoll();
+
+        assert.equal(page.el('settings-view').hidden, true, 'the settings are closed');
+        assert.deepEqual(shownViews(page), ['cost'], 'and the cost control stays');
+    });
+}

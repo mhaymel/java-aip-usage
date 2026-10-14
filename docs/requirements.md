@@ -287,10 +287,12 @@ the height of the refresh button, so the row keeps its height and the window doe
 closed. When that panel is closed, or another is opened, the new one turns blue and bigger and the one that was goes back to
 what it was, as before: gray, 20 and 12 pixels, light lines. No more than one is blue, and none is when no panel is shown; with `Several views at once` on (since version 0.80), the icon of every view that is shown is blue and bigger. The other icons are as they were.
 
-**One green, and red over the limit.** Since version 0.82 the amount used and the percentage spent are **red** (`#cf222e` / `#f85149`, the
+**One green, and the colours of the bars.** Since version 0.82 the amount used and the percentage spent are **red** (`#cf222e` / `#f85149`, the
 red of errors) while the amount used is more than the limit the row shows, and today's spend and today's percentage while
-today's spend is more than the daily limit (see Limits, projections and the status of spending); the rest of this paragraph
-holds otherwise. The percentage spent, the amount used, the budget, the change in the amount used, the time since
+today's spend is more than the daily limit (see Limits, projections and the status of spending). **Since version 0.84 they take
+the colour of their bar** in the cost control, whatever it is: today's spend and percentage that of `Today`, the amount used and
+the percentage that of `Month`, green, yellow or red; the yellow of a figure is a darker one, `#b8a000`, so that it can be read
+on the background. The limits stay green. The rest of this paragraph holds otherwise. The percentage spent, the amount used, the budget, the change in the amount used, the time since
 the previous reading and the request duration are all in one green, `#1a7f37` on the light theme and `#3fb950` on the dark one. The green is
 fixed: it does not follow the severity, so nothing in the row turns amber or red as the budget is spent, and it is the
 same whether a severity was sent or not, whether a change is up or down, and whatever the settings are. A missing
@@ -339,7 +341,8 @@ names, shown as its code, here `USD`.
 - The time: `Last update: ` followed by the full local date and time of the last
   refresh, for example `Last update: 8 Oct 2026, 14:24:53`. This is the one place a
   date appears.
-- The used amount (the first number): `Credits used, in USD`.
+- The used amount (the first number): `Credits used, in USD`; since version 0.84 `Monthly credit used, in USD` (`docs/img_52.png`), and with no
+  currency `Monthly credit used`.
 - The budget (the second number): `Credit budget, in USD`; since version 0.83 `Monthly limit, in USD` or `Monthly limit sent by the server, in USD` (see Limits, projections and the status of spending).
 - The percentage: how much of the budget is spent, and the severity, for example
   `19% of the budget spent. Severity: normal`, which is the only place the severity shows. Since version 0.83 it is
@@ -1721,7 +1724,13 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **A panel, `Cost control`, shows how much of the limits is spent** (since version 0.69): two bar charts, one for the day and one for the month, as in `docs/img.png` (a bar, the amount at its right). It is a panel like
   the history, log and error log: below the row, in the one panel area, replacing the one that is shown, with a button of its own in the row, the cost icon (its checkbox `Cost icon` in `Main view`; `Cost button` until version 0.79, on by default, saved under
   `showCostIcon`; its icon is two short horizontal bars, one longer than the other; its tooltips are `Show the cost control` and `Hide the cost control`). The limits stay settings, in the tab `Cost control` of the settings (see Cost control).
-- **The panel is as tall as its two bars need and as wide as the history's table**, and it cannot be dragged to another size. It has the title bar only when the setting `Title bar` is on (since version 0.79; before, like every panel, always: see Settings, The title bar). The settings give it back as they give back the others
+- **The panel is as wide as its own rows and the row need, and never as wide as the history's table** (since version 0.84;
+  `docs/img_45.png` to `docs/img_47.png`: until then it took the width of the table, which the page knows only once the history
+  has been shown, so that the window was wider after the history had been opened and closed). Its width is the label, the bar
+  at its least width (120 pixels), the four columns of the figures with the room between them, and 8 pixels of room at the
+  right; **no figure is ever cut at the window's edge** (`docs/img_53.png`). The window is as wide as that or as the row,
+  whichever is wider.
+- **The panel is as tall as its two bars need and as wide as the history's table** (until version 0.83; see above), and it cannot be dragged to another size. It has the title bar only when the setting `Title bar` is on (since version 0.79; before, like every panel, always: see Settings, The title bar). The settings give it back as they give back the others
   (see Settings). It is one of the panels the window restores at the start (`cost`, see The window is restored at start).
 - **Two rows**, each: a label, a bar and, at its right, the figures. The labels are `Today` and `Month` (since version 0.79; the second was `This month`). The bar is **green for what is consumed and gray for what is left**, and nothing else is coloured but the warning sign (below), in the
   green of the figures `#1a7f37` / `#3fb950` and a gray, muted, `#8a8f98` at a third of its strength. The bar is 14 pixels tall and **its corners are square** (since version 0.79; they were rounded), those of the green part as well. **The two bars are equally wide** (since version 0.79; before, each took what its own label and figures left, so the
@@ -1732,11 +1741,15 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **A bar is drawn in blocks of 10 %** (since version 0.81): a gap of 1 pixel, in the background of the window, stands after
   every tenth of the bar, nine gaps in all, through the green part and the gray part alike, so that the share can be read off
   in tenths. The green part ends where the share ends, inside a block if it does: 11 % is one block and a sliver of the next.
+- **Since version 0.84 a block is 14 pixels**, 13 of colour and the gap of 1 (`docs/img_49.png`), **whatever the width of the bar**: a
+  wider bar has more blocks, and a block is then less than 5 %. The used part still ends exactly where the share ends, inside a
+  block if it does. (The rest of this rule, of twenty blocks, held in versions 0.82 and 0.83.)
 - **Since version 0.82 a bar is twenty blocks of 5 %**, as in `docs/img_35.png`: the gap of 1 pixel stands after every
   twentieth, nineteen gaps, through both parts. **The part used is green, and the rest a light green** (the green of the figures
   at a quarter of its strength), where the rest was gray. The used part ends where the share ends, inside a block if it does.
 - **The colour of the used part says the state** (since version 0.82): **green** while the bar is within its limit and on
-  pace; **amber**, a golden yellow since version 0.83 (`#e3b341` on both themes; `#bf8700` / `#d29922`, which looked light brown, until then; `docs/img_42.png`), when the projection says the limit will be passed (see Limits, projections and the
+  pace; **amber**, a bright yellow since version 0.84 (`#ffff33` on both themes, `docs/img_51.png`; the golden `#e3b341` in 0.83; `#bf8700` / `#d29922`, which looked light brown, in 0.82; `docs/img_42.png`), the bars and the status circle in it (the circle with a ring of 1 pixel in the darker `#b8a000` round it, so that it is seen on
+  the background), when the projection says the limit will be passed (see Limits, projections and the
   status of spending); **red** (`#cf222e` / `#f85149`) when the limit is passed, and then the bar is full, every block red. Its
   rest takes the light form of the same colour. A bar with no limit stays gray and empty, as before.
 - **The figures are four columns** (since version 0.83; `docs/img_41.png`), shared by the two rows: the amount spent, right-aligned;
@@ -1997,8 +2010,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   do not fit on the screen. (In `docs/img_36.png` the four views were taller than the screen, and the error log, the lowest,
   had no room at all.)
 - **The window is as wide as the widest of the open views needs**: three times the row with the log, one and a half times with
-  the error log, the table with the usage history, the history's table or its bars with the cost control, and the least width
-  of the settings with the settings. Every view is as
+  the error log, the table with the usage history, its own rows with the cost control (since 0.84; the history's table or
+  its bars until then), and the least width of the settings with the settings.
+- **Leaving the settings closes the settings alone** (a fault of 0.83, `docs/img_50.png`, put right in 0.84): a view beside them
+  whose icon is checked stays open, the cost control as much as any other. Every view is as
   wide as the window; a list that is wider than it has to be shows its lines as it does in a window dragged wider.
 - **What may be dragged.** The height, when any of the three lists is open: dragging it changes the height of **the lowest
   list**, and the views above keep theirs. The width, when the log or the error log is among the open views, or the tab `About` is shown. With the cost
@@ -2109,7 +2124,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   both are the program's folder, the working directory, as before. The log folder holds the log and its old logs; the history
   folder holds the usage history and, in debug mode, the history of invented readings (`java-aip-usage.fake.csv`).
 - **Where.** A group `Files` in the tab `General`, after `Window`, with a line for each folder, `Log folder` and `History
-  folder`: the full path of the folder as text, a button `Choose…` that opens the system's folder picker at that folder, and a
+  folder`: the full path of the folder as text (since version 0.84 only once another folder is chosen: while a folder is the
+  default its line says `Program folder` in gray, with no path, `docs/img_48.png`), a button `Choose…` that opens the system's folder picker at that folder, and a
   button `Default`, which puts back the program's folder. Nothing is typed. Saved under the keys `logFolder` and
   `historyFolder`, as full paths; a key that is not there, or empty, is the program's folder.
 - **Their tooltips**: the line of the log folder `The folder the log and its old logs are kept in. The default is the program's

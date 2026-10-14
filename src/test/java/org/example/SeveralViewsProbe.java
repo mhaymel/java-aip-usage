@@ -76,6 +76,18 @@ public final class SeveralViewsProbe {
             step("four-closed", "errors-button");
             // The settings beside the two, above them; the program stops with all three shown.
             step("settings-beside", "settings-button");
+            // img_50: every element of Main view unchecked but the icons, and Save: the settings close, the views beside them stay.
+            onFx(() -> page().getEngine().executeScript(
+                    "window.probeUnchecked = Array.from(document.querySelectorAll('#tab-main input[id^=set-show]')).filter(function (b) {"
+                            + " return b.checked && !/Icon$/.test(b.id); });"
+                            + " window.probeUnchecked.forEach(function (b) { b.checked = false; b.dispatchEvent(new Event('change')); });"));
+            step("beside-saved", "settings-save");
+            // And everything as it was, the settings beside the two again, as the program is to stop with them.
+            step("beside-again", "settings-button");
+            onFx(() -> page().getEngine().executeScript(
+                    "window.probeUnchecked.forEach(function (b) { b.checked = true; b.dispatchEvent(new Event('change')); });"));
+            step("beside-back", "settings-save");
+            step("settings-beside-final", "settings-button");
             onFx(() -> window().close());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
