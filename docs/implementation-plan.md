@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.80 is built: 106 phases are built, the last seven (100 to 106) not pushed yet and not looked at by a person.** Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.80 is built and pushed (106 phases); version 0.81, phases 107 to 113, is planned and not built.** What phases 100 to 106 list "by eye" is still to be looked at. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2294,6 +2294,186 @@ The requirements have no section "specified, not yet built" any more.
 - **By eye.** The stacking with three and four views on a small screen, where the lowest list is squeezed, and the look of two lines of controls one under the other.
 
 **By eye, when 100 to 106 are built**, on Windows and on macOS, on both themes: what each phase lists; and the pictures of the notes once more, each against the window: the typeface of the lists, the history with the zero usage lines hidden, the room in the cost control, the placeholder, the four words, the bold note, the icons of the lists, the tooltips of the titles, a link in the log, About with its logo at the left, and a view whose icon was unchecked.
+
+### 107 to 113. Version 0.81: the third round of notes
+
+**Status: planned, not built.** The requirements are written (every rule marked "since version 0.81"); these seven phases build
+them, in this order, and `AppInfo.VERSION` becomes `0.81` with the first. Each is committed by itself with its tests green, as
+`Phase 1xx built: <what> (0.81)`. The small ones come first; 111 changes how the settings stand among the views, page and host;
+112 and 113 are the folders, the backend first and the page after, and are the bulk of the work.
+
+| Phase | What | Where most of it is |
+| --- | --- | --- |
+| 107 | The small changes of the page: the line between the views, the funnel, the cost control tighter and in blocks of 10 %, the logo of About in the middle, room before the scrollbar | `index.html`, `app.css`, `app.js` |
+| 108 | Cascadia Mono comes with the program | `web/fonts`, `app.css`, `LocalWebServer` |
+| 109 | The funnel hides the failed lines too | `HistoryReader`, `ApiHandler`, `view.js`, `index.html` |
+| 110 | The new order of the icons: cost control, history, log, error log | `index.html`, `app.js`, `WindowFit`, `SettingsStore` |
+| 111 | The settings beside the other views | `app.js`, `WindowFit`, `UsageApp`, `SettingsStore` |
+| 112 | The folders of the log and of the history, in the backend: the settings, the switch and the move | `Settings`, `SettingsStore`, `AppFiles`, `Logging`, `ApiHandler`, a new `FileFolders` |
+| 113 | The folders in the window: the group `Files` and the folder picker | `index.html`, `app.js`, `UsageApp`, `Desk` |
+
+`docs/api.md` is brought level in the phase that changes an endpoint or the host contract (109, 110, 111, 112, 113). The three
+window tests that run only when asked for, `PanelWindowTest`, `TitleBarWindowTest` and `SeveralViewsWindowTest`, are run in
+every phase that changes what the page or the window does; a run during which the machine sleeps does not count and is run again.
+
+**Decided before building**, in three rounds of questions: the line gray on the light theme and dark gray on the dark one, under
+the row and between the views; the views in the new order of the icons, the checkboxes of `Main view` too; the funnel, which hides
+the failed lines with the zero usage lines (either it or the checkbox `Failed lines` hides one); bars in blocks of 10 % with the
+fill exact, a bar over its limit full as before; the cost control at 11 pixels, rows 1 pixel apart; the logo in the middle of
+everything at its right; 6 pixels before the scrollbar; Cascadia Mono shipped; the settings beside the views at the top, `Save`
+and `Cancel` closing them alone, restored with the views, and alone as before with the switch off; a folder for the log and one
+for the history, chosen in `General` with the system's picker, moved on `Save` and used at once, a folder that cannot be written
+refused, the history of invented readings with the history. The note "when deselecting" is not built: its author found it works.
+
+**Decided about the building itself**: one version, 0.81, a commit for each phase, no push until it is asked for; the notes and the
+pictures `img_28` to `img_34` are committed already, by their author, and the first commit has the requirements and this plan.
+Confirmed in a last round: the font from the official release, not copied from Windows; the checkbox `Zero usage lines` keeps its
+text, its tooltip saying that the failed lines go with them; the line `#8c959f` / `#484f58`; the folders as two commits, 112 and 113.
+
+### 107. The small changes of the page
+
+**Status: built (version 0.81); seen in the real window on Windows by the three window tests, not looked at by a person.** As
+built, two things otherwise than below: **the line is the top border of each view** (`.view`, `.panel > .cost`, `.panel > .settings`),
+inside its box, so that no size the page reports and no remembered height changes, and the requirements say so; and **the 6 pixels
+are a margin of the last cell** of a row of the history and of the error log, not more padding of the list, since the padding of a
+box that scrolls is not kept at the end of its lines in every WebKit, which is what `img_34` shows; the copy the table is measured
+on has the margin too, so the window is wider by it without the page adding anything. The probe of `TitleBarWindowTest` now asks for
+the logo in the middle of the text and the last column 6 pixels from the edge. Requirements: A line between the row and the views; A button in the history that hides and shows the zero
+usage lines (the icon); The cost control panel: two bars; The About view; Details of the behaviour (The panels, exactly).
+
+- **The line.** `app.css`: a token `--view-line` on `:root`, a middle gray on the light theme (`#8c959f`) and a dark gray on the
+  dark one (`#484f58`), and `#panel > :not([hidden]) ~ :not([hidden])` with `border-top: 1px solid var(--view-line)`; the line
+  under the row is the top border of the panel while it is shown. The heights the page reports grow by a pixel for each line:
+  `severalSize` and the one-view sizes add them, so that no list loses a pixel to them, and the remembered heights stay those of
+  the lists.
+- **The funnel.** `index.html`: the `svg` of `zero-lines` becomes a funnel outline (`M2 3h12l-4.5 5.5v4.5l-3 1.5v-6z`), the
+  tooltips stay as they are until phase 109.
+- **The cost control.** `app.css`: `.cost` 11 pixels on 1.2, `padding: 2px 8px`; `.cost-rows` `gap: 1px 6px`; `.cost-bar` 12
+  pixels. The blocks: a `repeating-linear-gradient` over the bar, drawn above the fill (`::after`), transparent for 10 % less a
+  pixel and the window's background for one pixel, nine gaps and none at the ends; the fill is as it is, so it stays exact. `COST_GAP`
+  of `app.js` and the measured height follow by themselves; the probe's `cost-view:…:46` becomes the new height.
+- **About.** `app.css`: the two columns `align-items: center` where they had `start`.
+- **Room before the scrollbar.** `app.css`: the lists' right padding of their lines grows by 6 pixels, and `app.js` adds 6 to the
+  width it asks for each list (`scrollbarWidth` stays what is measured).
+- `AppInfo.VERSION = "0.81"`.
+- **Tests.** `layout.test.cjs`: the rule of the line and its two colours; the cost sizes and the gradient of ten blocks; About's
+  `align-items`; the 6 pixels. `app.test.cjs`: the size with one and with several views is taller by the lines, and wider by 6.
+  The three window tests; their numbers that follow from these sizes are brought level.
+- **By eye.** The line on both themes, the blocks at 11 %, 55 % and over 100 %, and the funnel against the zoom icons.
+
+### 108. Cascadia Mono comes with the program
+
+**Status: planned.** Requirements: A sturdier typeface for the lists.
+
+- **The file.** `CascadiaMono-Regular.woff2` from the official release of Microsoft's `cascadia-code` on GitHub (the static
+  regular weight, about 300 KB; the variable `.ttf` of Windows is larger and not needed), and its `LICENSE` (SIL Open Font
+  License 1.1) beside it, in `src/main/resources/web/fonts/`. The version of the release is said in the commit.
+- **The page.** `app.css`: an `@font-face` `"Cascadia Mono Bundled"` from `fonts/CascadiaMono-Regular.woff2`, weight 400, and
+  `--list-font` begins with it. The bold of the table's header and of the notes is the browser's own from the regular.
+- **The server.** `LocalWebServer`: `woff2` is `font/woff2` in the types it serves; nothing else is new, the file is a resource
+  like the others.
+- **The measuring.** The copy the history's table is measured on uses `--list-font`; the page waits for `document.fonts.ready`
+  before the first measure, so that a table measured before the face is loaded is not too narrow.
+- **Tests.** `layout.test.cjs`: the `@font-face` and the first name. A Java test: `/fonts/CascadiaMono-Regular.woff2` is served
+  with its type, and the licence is among the resources. `PanelWindowTest`: the list is drawn in the bundled face
+  (`used:Cascadia Mono Bundled`).
+- **By eye.** On macOS above all: the lists, the cost control and the history, against `img_30`.
+
+### 109. The funnel hides the failed lines too
+
+**Status: planned.** Requirements: A button in the history that hides and shows the zero usage lines; Hiding lines.
+
+- **The backend.** `HistoryReader`: a failed line is left out when `historyFailedLines` is off **or** `historyZeroLines` is off;
+  the count of what is left out is kept by kind, zero usage and failed. `ApiHandler`: the note of `GET /api/history` says both
+  kinds, `Showing 320 of 835 lines: 499 zero usage and 16 failed hidden.`, and a kind with none is not named.
+- **The page.** `app.js` (`labelZeroLines`): the tooltips `Show the zero usage lines and the failed lines` and `Hide …`.
+  `index.html`: the checkbox `Zero usage lines` keeps its text, and its tooltip says that the failed lines go with them.
+- **Tests.** `HistoryReaderTest`: the four ways of the two switches; the counts. `ApiTest`: the note. `app.test.cjs`: the tooltips.
+
+### 110. The new order of the icons
+
+**Status: planned.** Requirements: The thirteen elements and their names; A checkbox for each element; Several views at once; The
+window is restored at start.
+
+- **The page.** `index.html`: the four buttons of the row in the order cost, history, log, error log, and the four checkboxes of
+  `Main view` in the same order; the boxes of the views in the panel in that order. `app.js`: `VIEWS` and `LISTS` in the new
+  order, from which the stacking, `currentView()` and the report follow.
+- **The host.** `WindowFit`: its `VIEWS` in the new order, which is what `inIconOrder` holds the report to. `SettingsStore`: its
+  `VIEWS` in the new order, so that a `lastPanel` of 0.80, `history,cost`, is read as `cost,history`. `RememberedHeights` and
+  the lowest list need nothing: the lowest is the last list named.
+- **Tests.** The page's tests that name the order (the boxes, the icons, the reports `history+cost` that become `cost+history`);
+  `WindowFitTest` and `SettingsStoreTest` with the new order and a file of 0.80; `SeveralViewsWindowTest`, whose views are now
+  the cost control above the history: the drag still goes to the history, the lowest list.
+- **By eye.** The row, and the `Main view` tab.
+
+### 111. The settings beside the other views
+
+**Status: planned.** Requirements: Several views at once; Settings; The panel buttons while the settings are shown; The window is
+restored at start.
+
+- **The page.** `app.js`: with `several()` on, the settings are a view among `openViews` (`settings` first, the others in the
+  order of the icons), and `settingsOpen` follows from that; the gear opens and closes them like an icon; `Save` and `Cancel` take
+  `settings` out of the list and leave the others; an icon pressed while they are shown opens or closes its view and leaves the
+  settings as they are, unsaved; `returnTo` is used only with the switch off. `layoutViews` gives the settings their content's
+  height, never the lowest list's part. Off, everything stays as built in 0.80.
+- **The report.** `severalSize`: the settings count with their least width and their height; the name list begins with
+  `settings`; the flag is that of the views, and `4` when the settings on `About` are with no list (the width free); with a list,
+  `2` covers About's wider width. `currentView()` names them first with the tab after the comma: `settings+cost+history,general`.
+- **The host.** `WindowFit`: `settings` may stand first in a joined list; `lowestList` passes it over. `UsageApp` needs nothing new
+  for the height, since the settings are never the lowest list. `SettingsStore`: `lastPanel` `settings,cost,history` is kept
+  with its `lastTab` (today `settings` with a view is read as `settings` alone); `LastWindow.shows` takes it. `window.restoreView`
+  opens them together, on the tab, with the switch on, and the settings alone with it off.
+- **The settings' own state.** What the form holds while it is open with other views is kept when a view beside it opens or
+  closes: `showViews` must not reload the form for a change of the other views.
+- **Tests.** `app.test.cjs`: the gear with views open, `Save` and `Cancel` leaving them, an icon while the settings are shown, the
+  report and `currentView`, the switch off as before, the switch switched off by saving with views open. `WindowFitTest`,
+  `SettingsStoreTest`. `SeveralViewsWindowTest`: the settings with the cost control and the history, their order, `Save`
+  closing them alone, and the restore of all three at the second start.
+- **By eye.** The settings above a list, with a dragged height; `About` beside the log.
+
+### 112. The folders of the log and of the history, in the backend
+
+**Status: planned.** Requirements: The folders of the log and of the usage history; the settings file.
+
+- **The settings.** `Settings`: `logFolder` and `historyFolder`, texts, empty for the program's folder; `SettingsStore`: the keys
+  after `severalViews`, a value that is not text read as empty. `ApiHandler`: both in `GET /api/settings` and optional in
+  `POST`.
+- **The files in use.** A new `FileFolders` holds where the log, the history and the fake history are now, and is what every
+  reader and writer asks: `AppFiles` gives the program's folder and the names, `FileFolders` the folder in force for each.
+  `AppRuntime` makes it at the start from the settings, falling back to the program's folder, with a warning, for a folder that
+  is not there or cannot be written. Every place that holds a path of its own today (`Logging`, `LogTail`, the writer and the
+  readers of the history, `LatestChangeCache`, `CostPanel`, the About paths, the log's links) takes it from there.
+- **The switch.** On a `POST` that changes a folder: the folder is checked (there, a folder, a file can be written in it and
+  deleted again), then the files are moved: the log through `Logging.moveTo(folder)`, which closes the writer, moves the log and
+  its old logs and opens the moved one again; the history and the fake history with `Files.move`. A file of the same name in the
+  new folder is not overwritten: it is used, the old one stays, and the log says so. A move that fails puts back what was moved and
+  the `POST` is refused with `The folder cannot be written: <reason>`, the words of The words for what went wrong. The history's
+  stamp changes with the file, so the page reads it again by itself.
+- **The log.** At the info level: the folder in use for each, and the full path of every file moved.
+- **Tests.** `SettingsStoreTest`: the keys, their order, empty, not text. A `FileFoldersTest`: a start with a folder that is
+  gone; a move of each kind; a file of the same name already there; a folder that cannot be written; a move that fails half way and
+  is put back. `ApiTest`: the `POST`, the refusal, the history and the log read from the new folder after it. `LoggingTest`:
+  `moveTo` keeps logging to the moved file, and the old logs go with it.
+- **`docs/api.md`**: the two settings and the refusal.
+
+### 113. The folders in the window
+
+**Status: planned.** Requirements: The folders of the log and of the usage history.
+
+- **The folder picker.** The backend cannot show a window; the host can. `Desk` gets `chooseFolder(Path from)`, which `UsageApp`
+  implements with JavaFX's `DirectoryChooser` on its own stage, on the FX thread, and the tests with a fake. `POST /api/folder`
+  `{start}` answers `{folder}` or `{folder: null}` when the person cancelled; nothing is saved by it.
+- **The page.** `index.html`: the group `Files` after `Window` in `General`, a line for each folder: its label, the path as
+  text (not an input), `Choose…` and `Default`, with the tooltips of the requirements. `app.js`: `Choose…` asks the backend and
+  puts the folder in the form; `Default` empties it; `Save` sends both with the rest; a refusal is the red line under the line of
+  that folder. The form's least width takes a long path by wrapping it, never by widening the window.
+- **About** shows the paths in force after a `Save`, as it reads them from the backend.
+- **Tests.** `app.test.cjs`: the group, `Choose…` with a folder and cancelled, `Default`, the save and the refusal. `ApiTest`: `POST
+  /api/folder` with the fake `Desk`. In the real window, a probe step that opens the picker cannot be driven: it is checked by hand.
+- **By eye.** The picker on Windows; on macOS not checked here, as the requirements say.
+
+**By eye, when 107 to 113 are built**, on Windows and on macOS, on both themes: what each phase lists, and the pictures of the
+notes once more, `img_28` to `img_34`, each against the window.
 
 ## Implementation notes, as built
 

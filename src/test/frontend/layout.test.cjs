@@ -936,7 +936,7 @@ test('the mark of the fake backend is a solid red border, three pixels, that fad
 
 test('the cost control: a gray bar with the green of the figures, 14 px tall with square corners, the sign in the red of errors, and the text at 12 px', () => {
     const bar = ruleOf('.cost-bar');
-    assert.match(bar, /height:\s*14px/);
+    assert.match(bar, /height:\s*12px/);
     for (const selector of ['.cost-bar', '.cost-fill']) {
         assert.doesNotMatch(ruleOf(selector), /border-radius:\s*[1-9]/, selector + ' has square corners');
     }
@@ -944,7 +944,7 @@ test('the cost control: a gray bar with the green of the figures, 14 px tall wit
     assert.match(bar, /var\(--muted\) 33%/, 'the muted gray at a third of its strength');
     assert.match(ruleOf('.cost-fill'), /background:\s*var\(--ok\)/, 'the green of the figures');
     assert.match(ruleOf('.cost-over'), /color:\s*var\(--bad\)/, 'the red of errors, the one colour besides the green and the gray');
-    assert.match(ruleOf('.cost'), /font:\s*400 12px/);
+    assert.match(ruleOf('.cost'), /font:\s*400 11px\/1\.2/);
     assert.match(ruleOf('.cost-bar.none .cost-fill'), /width:\s*0/);
 });
 
@@ -961,7 +961,7 @@ test('the two bars of the cost control are equally wide: the rows share the colu
     const rows = ruleOf('.cost-rows');
     assert.match(rows, /display:\s*grid/);
     assert.match(rows, /grid-template-columns:\s*max-content minmax\(120px, 1fr\) max-content/, 'the label, the bar with its least width (COST_BAR_MIN of app.js), the figures');
-    assert.match(rows, /gap:\s*4px 6px/, '4 pixels between the two rows, and 6 between the parts of a row: COST_GAP of app.js');
+    assert.match(rows, /gap:\s*1px 6px/, '1 pixel between the two rows, and 6 between the parts of a row: COST_GAP of app.js');
     assert.match(read('app.js'), /var COST_GAP = 6;/);
     assert.doesNotMatch(ruleOf('.cost-label'), /min-width/, 'the labels are as wide as the wider of them, and no wider');
     assert.match(ruleOf('.cost-row'), /display:\s*contents/, 'a row is no box of its own: its parts are the cells');
@@ -1041,7 +1041,7 @@ test('the history has a button in the line of the zoom buttons, after them, for 
     assert.match(line, /<span id="history-choices" class="zoom" hidden>\s*<button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines" title="Hide the zero usage lines" aria-pressed="false">/,
         'hidden until the history says what is saved');
     const button = line.slice(line.indexOf('id="zero-lines"'));
-    assert.match(button, /<path d="M2\.5 8h11M8 1\.5v4M6 3\.7l2 1\.8 2-1\.8M8 14\.5v-4M6 12\.3l2-1\.8 2 1\.8"\/>/, 'two short arrows that point at a line between them');
+    assert.match(button, /<path d="M2 3h12l-4\.5 5\.5v4\.5l-3 1\.5v-6z"\/>/, 'a funnel (since 0.81; two short arrows before)');
     assert.equal(button.slice(0, button.indexOf('</button>')).replace(/<svg[\s\S]*<\/svg>/, '').replace(/<[^>]*>/g, '').replace(/^[^>]*>/, '').trim(), '', 'no text');
     const rule = ruleOf('.icon.tiny.on');
     assert.match(rule, /color:\s*var\(--info\)/, 'the blue of the notes');
@@ -1107,7 +1107,7 @@ test('the About view has its logo at the left and the name, the version and the 
     const rule = ruleOf('.about');
     assert.match(rule, /display:\s*grid/);
     assert.match(rule, /grid-template-columns:\s*max-content minmax\(0, 1fr\)/, 'the logo as wide as it is, the rest taking what is left and breaking its paths');
-    assert.match(rule, /align-items:\s*start/, 'the logo at the top');
+    assert.match(rule, /align-items:\s*center/, 'the logo in the middle of the height (since 0.81; at the top in 0.80)');
     assert.match(rule, /text-align:\s*left/);
     assert.doesNotMatch(ruleOf('.about-logo'), /auto/, 'not centred');
     assert.match(ruleOf('.about-text'), /min-width:\s*0/, 'so that a long path breaks and does not widen the view');
@@ -1117,7 +1117,7 @@ test('the three lists, the copy the table is measured on and the cost control ha
     const stack = css.match(/--list-font:\s*([^;]+);/)[1];
     assert.equal(stack, 'ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace');
     for (const selector of ['.panel', '.table-probe', '.cost']) {
-        assert.match(ruleOf(selector), /font:\s*400 12px\/[0-9.px]+ var\(--list-font\)/, selector);
+        assert.match(ruleOf(selector), /font:\s*400 1[12]px\/[0-9.px]+ var\(--list-font\)/, selector);
     }
     assert.equal((css.match(/Menlo/g) || []).length, 1, 'named in one place, so that the copy cannot have another typeface than the table');
     assert.doesNotMatch(css, /@font-face|url\(/, 'nothing is fetched');
@@ -1158,4 +1158,39 @@ test('the checkbox Several views at once is the last of the group Window, after 
     const ids = [...group.matchAll(/<input id="(set-[A-Za-z]+)"/g)].map(m => m[1]);
     assert.deepEqual(ids, ['set-showTitleBar', 'set-stayOnTop', 'set-restoreWindow', 'set-severalViews']);
     assert.match(group, /<input id="set-severalViews" type="checkbox"> Several views at once<\/label>/);
+});
+
+// ---- version 0.81: the small changes of the page
+
+test('a line of a middle gray separates the row from a view and each view from the next, inside the view', () => {
+    assert.match(css, /:root\s*{[^}]*--view-line:\s*#8c959f/, 'the light theme');
+    assert.match(css, /@media \(prefers-color-scheme: dark\)\s*{\s*:root\s*{[^}]*--view-line:\s*#484f58/, 'the dark theme');
+    assert.match(css, /\.view,\s*\.panel > \.cost,\s*\.panel > \.settings\s*{\s*border-top:\s*1px solid var\(--view-line\)/,
+        'the top edge of every view, the cost control and the settings among them');
+    assert.doesNotMatch(css, /border-bottom:\s*1px solid var\(--view-line\)/, 'none below the lowest');
+});
+
+test('the button of the zero usage lines is a funnel', () => {
+    const button = html.slice(html.indexOf('<button id="zero-lines"'), html.indexOf('</button>', html.indexOf('<button id="zero-lines"')));
+    assert.match(button, /<path d="M2 3h12l-4\.5 5\.5v4\.5l-3 1\.5v-6z"\/>/);
+    assert.match(button, /width="13" height="13"/, 'the size of the zoom');
+});
+
+test('the cost control is tight: 11 pixels on 1.2, rows a pixel apart, bars 12 tall in blocks of a tenth', () => {
+    assert.match(ruleOf('.cost'), /padding:\s*2px 8px/);
+    assert.match(ruleOf('.cost-rows'), /gap:\s*1px 6px/);
+    const blocks = ruleOf('.cost-bar::after');
+    assert.match(blocks, /position:\s*absolute/);
+    assert.match(blocks, /width:\s*calc\(100% \+ 1px\)/, 'the tenth gap falls outside the bar');
+    assert.match(blocks, /linear-gradient\(to right, transparent calc\(100% - 1px\), Canvas calc\(100% - 1px\)\) 0 0 \/ 10% 100% repeat-x/,
+        'a gap of a pixel in the background after every tenth');
+    assert.match(ruleOf('.cost-bar'), /overflow:\s*hidden/, 'so that what is beyond the bar is not drawn');
+});
+
+test('the logo of About is in the middle of the height of what is at its right', () => {
+    assert.match(ruleOf('.about'), /align-items:\s*center/);
+});
+
+test('the last cell of a line of the history and of the error log keeps 6 pixels from the scrollbar', () => {
+    assert.match(css, /\.panel-lines \.columns > :last-child,\s*\.panel-lines \.cols-2 > :last-child\s*{\s*margin-right:\s*6px/);
 });

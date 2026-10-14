@@ -194,7 +194,7 @@ class TitleBarWindowTest {
             edge[i] = Integer.parseInt(table.group(i + 1));
         }
         assertEquals(0, edge[1], "the time begins at the left edge:\n" + all);
-        assertTrue(Math.abs(edge[0] - edge[8]) <= 1, "the last column ends at the right edge:\n" + all);
+        assertTrue(Math.abs(edge[0] - 6 - edge[8]) <= 1, "the last column ends 6 pixels before the right edge, kept from the scrollbar (since 0.81):\n" + all);
         int first = edge[3] - edge[2];
         int second = edge[5] - edge[4];
         int third = edge[7] - edge[6];

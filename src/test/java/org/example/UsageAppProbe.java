@@ -286,9 +286,10 @@ public final class UsageAppProbe {
                                     + " + '|' + document.getElementById('about-debug').textContent + '|' + document.getElementById('about-settings').textContent.slice(-13)"
                                     + " + '|' + document.getElementById('about-history').textContent.slice(-23) + '|' + !document.getElementById('settings-form').hidden"
                                     + " + '|' + Math.round(v.getBoundingClientRect().width) + '/' + window.innerWidth + '|' + (document.documentElement.scrollWidth - window.innerWidth)"
-                                    // Whether the logo is at the left of the name, the version and the table, and at their top.
-                                    + " + '|side:' + (b.right <= document.getElementById('about-text').getBoundingClientRect().left"
-                                    + " && Math.abs(b.top - document.getElementById('about-text').getBoundingClientRect().top) < 12); })()") + "]"
+                                    // Whether the logo is at the left of the name, the version and the table, and in the middle of their
+                                    // height (since 0.81; at their top before).
+                                    + " + '|side:' + (function (t) { return b.right <= t.left"
+                                    + " && Math.abs((b.top + b.bottom) / 2 - (t.top + t.bottom) / 2) < 3; })(document.getElementById('about-text').getBoundingClientRect()); })()") + "]"
                     // The history's table: the left edge of each cell of the first row beside the list's own edges, so that the
                     // room between the columns can be worked out.
                     + " columns:[" + page().getEngine().executeScript(

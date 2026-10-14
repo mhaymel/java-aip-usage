@@ -11,6 +11,8 @@
      * on Windows is a thin one. One place for it, so that the copy the history's table is measured on has the typeface of the table.
      */
     --list-font: ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    /* The line between the row and a view, and between two views: a middle gray. */
+    --view-line: #8c959f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,6 +20,7 @@
         --ok: #3fb950;
         --bad: #f85149;
         --info: #58a6ff;
+        --view-line: #484f58;
     }
 }
 
@@ -468,7 +471,8 @@ body {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
     column-gap: 14px;
-    align-items: start;
+    /* The logo in the middle of the height of everything at its right, which leaves no empty space below it. */
+    align-items: center;
     width: 0;
     min-width: 100%;
     white-space: normal;
@@ -679,6 +683,16 @@ body {
     display: none;
 }
 
+/*
+ * A line separates the row from the view below it, and each view from the next: the top edge of every view that is shown, inside
+ * its box, so that the sizes the page asks for are as they were. There is none below the lowest.
+ */
+.view,
+.panel > .cost,
+.panel > .settings {
+    border-top: 1px solid var(--view-line);
+}
+
 /* A view above another keeps its height; the page says how tall it is. */
 .view.fixed {
     flex: none;
@@ -855,6 +869,15 @@ body {
     column-gap: 8px;
 }
 
+/*
+ * 6 pixels between the end of the last column and the scrollbar, whatever room the system's scrollbar takes: a margin of the last
+ * cell, which the table and the copy it is measured on both have, so that the window is as much wider.
+ */
+.panel-lines .columns > :last-child,
+.panel-lines .cols-2 > :last-child {
+    margin-right: 6px;
+}
+
 /* The header stays at the top of the box while the rows scroll under it. */
 .panel-lines .head {
     position: sticky;
@@ -954,10 +977,10 @@ body {
  * tall as its content, so the window is: the page's own height is the content's.
  */
 .cost {
-    font: 400 12px/1.45 var(--list-font);
+    font: 400 11px/1.2 var(--list-font);
     letter-spacing: normal;
     white-space: nowrap;
-    padding: 4px 8px;
+    padding: 2px 8px;
 }
 
 /*
@@ -968,8 +991,8 @@ body {
     display: grid;
     grid-template-columns: max-content minmax(120px, 1fr) max-content;
     align-items: center;
-    /* Little room: 4 pixels between the two rows, 6 between a label, its bar and its figures. */
-    gap: 4px 6px;
+    /* Little room: 1 pixel between the two rows, 6 between a label, its bar and its figures. */
+    gap: 1px 6px;
 }
 
 .cost-row {
@@ -984,7 +1007,7 @@ body {
 .cost-bar {
     position: relative;
     min-width: 120px;
-    height: 14px;
+    height: 12px;
     /* Square corners. */
     border-radius: 0;
     overflow: hidden;
@@ -997,6 +1020,20 @@ body {
     height: 100%;
     background: var(--ok);
     border-radius: 0;
+}
+
+/*
+ * The bar in blocks of a tenth: a gap of a pixel in the window's background after every tenth, over the green and the gray alike.
+ * The layer is a pixel wider than the bar, so that the tenth gap falls outside it and there is none at the end.
+ */
+.cost-bar::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: calc(100% + 1px);
+    height: 100%;
+    background: linear-gradient(to right, transparent calc(100% - 1px), Canvas calc(100% - 1px)) 0 0 / 10% 100% repeat-x;
 }
 
 /* A limit that is not set: the bar stays gray and empty. */
