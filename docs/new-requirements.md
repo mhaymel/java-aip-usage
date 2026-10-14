@@ -19,7 +19,7 @@ in history view stronger font as it is heaere ![img_4.png](img_4.png)
 ![img_18.png](img_18.png) reduce space
 
  the placeholder instead of the green rectangel the green line only at the bottom, the thickness like
-the blue of the selected tab in settings.
+the blue of the selected tab in settings.   
 
 ![img_19.png](img_19.png) replace button by icon text
 
