@@ -44,7 +44,16 @@ import java.util.Optional;
  */
 public final class UsageHistory {
 
-    static final String HEADER = "datetime,used,limit,currency,status,interval,duration_ms";
+    static final String HEADER = "datetime,used,limit,currency,status,interval,duration_ms,monthly_limit,daily_limit,daily_auto";
+
+    /** The header of files written before the limits of cost control were columns (until 0.81). */
+    private static final String SEVEN_HEADER = "datetime,used,limit,currency,status,interval,duration_ms";
+
+    /**
+     * The three columns of the limits of cost control at a reading (since 0.82), given the limit the server sent with it in
+     * cents or null: the monthly limit counted, the daily limit in force, and {@code auto} or {@code set}, each empty for none.
+     */
+    private volatile java.util.function.Function<Long, String[]> limits = server -> new String[] {"", "", ""};
 
     /** The header of files written before the currency was a column. */
     private static final String OLD_HEADER = "datetime,used,limit";
@@ -77,6 +86,11 @@ public final class UsageHistory {
 
     public Path file() {
         return file;
+    }
+
+    /** Says what the three columns of the limits are for a reading; until it is said they are empty. */
+    public void limitsFrom(java.util.function.Function<Long, String[]> columns) {
+        this.limits = columns;
     }
 
     /**
@@ -112,9 +126,15 @@ public final class UsageHistory {
         if (spend == null) {
             return;
         }
+        Long server;
+        try {
+            server = spend.limit() == null ? null : spend.limit().cents();
+        } catch (ArithmeticException e) {
+            server = null;
+        }
         write(snapshot.fetchedAt(), amount(spend.used()), amount(spend.limit()),
                 spend.currency() == null ? "" : spend.currency().replace(',', ' ').strip(),
-                false, intervalSeconds, durationMillis);
+                false, intervalSeconds, durationMillis, limits.apply(server));
     }
 
     /**
@@ -123,11 +143,11 @@ public final class UsageHistory {
      * @throws IOException if the file cannot be written
      */
     public synchronized void appendFailure(Instant at, int intervalSeconds, long durationMillis) throws IOException {
-        write(at, "", "", "", true, intervalSeconds, durationMillis);
+        write(at, "", "", "", true, intervalSeconds, durationMillis, limits.apply(null));
     }
 
     private void write(Instant at, String used, String limit, String currency, boolean failed,
-                       int intervalSeconds, long durationMillis) throws IOException {
+                       int intervalSeconds, long durationMillis, String[] limitColumns) throws IOException {
         String status = (written ? "" : "start") + (failed ? (written ? "failed" : "-failed") : "");
         String row = TIME.format(at.atZone(zone))
                 + "," + used
@@ -136,8 +156,14 @@ public final class UsageHistory {
                 + "," + status
                 + "," + intervalSeconds
                 + "," + durationMillis
+                + "," + limitColumns[0] + "," + limitColumns[1] + "," + limitColumns[2]
                 + "\n";
-        upgradeOldFile();
+        try {
+            upgradeOldFile();
+        } catch (IOException e) {
+            // The file is as it was, with its old header: the row is added all the same, and every reader takes it by place.
+            org.example.log.Log.of(UsageHistory.class).warning("Could not bring the header of " + file + " up to date", e);
+        }
         boolean needsHeader = !Files.exists(file) || Files.size(file) == 0;
         Files.writeString(
                 file,
@@ -162,12 +188,15 @@ public final class UsageHistory {
         String missing;
         boolean startupMark = false;
         if (header.equals(OLD_HEADER)) {
-            missing = ",,,,";
+            missing = ",,,,,,,";
         } else if (header.equals(PREVIOUS_HEADER)) {
-            missing = ",,,";
+            missing = ",,,,,,";
         } else if (header.equals(STARTUP_HEADER)) {
-            missing = ",,";
+            missing = ",,,,,";
             startupMark = true;
+        } else if (header.equals(SEVEN_HEADER)) {
+            // A file of 0.81: its rows lack the three columns of the limits, which are empty for them.
+            missing = ",,,";
         } else {
             return;
         }

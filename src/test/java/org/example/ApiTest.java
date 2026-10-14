@@ -295,7 +295,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(45, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(48, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -339,7 +339,7 @@ class ApiTest {
 
         // The figure of the row is the one the history file has for that request.
         String row = history(app).getLast();
-        String millis = row.substring(row.lastIndexOf(',') + 1);
+        String millis = row.split(",", -1)[6];
         long written = Long.parseLong(millis);
         String expected = written < 1000 ? written + "ms" : (written / 1000) + "s" + String.format("%03d", written % 1000) + "ms";
         assertEquals(expected, json(get(app, "/api/status")).at("/display/duration/text").asText());
@@ -927,8 +927,9 @@ class ApiTest {
 
         List<String> lines = history(app);
 
-        assertEquals("datetime,used,limit,currency,status,interval,duration_ms", lines.get(0));
-        assertTrue(lines.get(1).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},186\\.02,1000\\.00,USD,start,60,\\d+"), lines.get(1));
+        assertEquals("datetime,used,limit,currency,status,interval,duration_ms,monthly_limit,daily_limit,daily_auto", lines.get(0));
+        // The limits of cost control at the reading (since 0.82): none typed, so the server's 1,000.00 and the daily one from it.
+        assertTrue(lines.get(1).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},186\\.02,1000\\.00,USD,start,60,\\d+,1000\\.00,\\d+\\.\\d{2},auto"), lines.get(1));
     }
 
     @Test
@@ -968,7 +969,7 @@ class ApiTest {
         await(() -> history(app).size() >= 2);
 
         assertEquals(2, history(app).size(), "the header and the failed query");
-        assertTrue(history(app).get(1).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},,,,start-failed,60,\\d+"), history(app).get(1));
+        assertTrue(history(app).get(1).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},,,,start-failed,60,\\d+,,,"), history(app).get(1));
     }
 
     @Test
@@ -992,7 +993,7 @@ class ApiTest {
         await(() -> history(app).size() >= 3);
 
         assertTrue(history(app).get(1).contains(",,,,start-failed,60,"), history(app).get(1));
-        assertTrue(history(app).get(2).matches(".*,186\\.02,1000\\.00,USD,,120,\\d+"), history(app).get(2));
+        assertTrue(history(app).get(2).matches(".*,186\\.02,1000\\.00,USD,,120,\\d+,1000\\.00,\\d+\\.\\d{2},auto"), history(app).get(2));
     }
 
     @Test
@@ -1745,14 +1746,14 @@ class ApiTest {
     }
 
     @Test
-    void theHistoryNeverHoldsAnythingButTheSevenColumns() throws Exception {
+    void theHistoryNeverHoldsAnythingButTheTenColumns() throws Exception {
         AppRuntime app = start(new FakeFetch());
         await(() -> history(app).size() >= 2);
         post(app, "/api/refresh", "{}");
         await(() -> history(app).size() >= 3);
 
         for (String line : history(app)) {
-            assertEquals(6, line.chars().filter(c -> c == ',').count(), line);
+            assertEquals(9, line.chars().filter(c -> c == ',').count(), line);
         }
     }
 
@@ -3140,5 +3141,23 @@ class ApiTest {
         assertEquals("red", rows.get(1).get("state").asText(), "186.02 of 150.00");
         assertTrue(rows.get(1).get("over").asBoolean());
         assertTrue(java.util.Set.of("green", "amber", "red", "gray").contains(rows.get(0).get("state").asText()));
+    }
+
+    @Test
+    void theHistoryHasTheColumnsOfTheLimitsWhenTheyAreSwitchedOn() throws Exception {
+        writeHistory("datetime,used,limit,currency,status,interval,duration_ms,monthly_limit,daily_limit,daily_auto",
+                "2026-10-08 14:00:00,10.00,1000.00,USD,start,60,400,150.00,6.81,auto",
+                "2026-10-08 14:01:00,10.05,1000.00,USD,,60,400");
+        AppRuntime app = start(new FakeFetch());
+        Json off = historyWith(true, true);
+        assertFalse(off.get("kinds").toString().contains("monthly"), "off by default");
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"historyMonthly\": true, \"historyDaily\": true, \"historyDailyBy\": true}"));
+        Json on = historyWith(true, true);
+        assertEquals(List.of("time", "used", "limit", "monthly", "daily", "dailyBy"),
+                on.get("kinds").items().stream().map(Json::asText).toList().subList(0, 6), "after the limit");
+        assertEquals(List.of("month", "day", "by"), on.get("columns").items().stream().map(Json::asText).toList().subList(3, 6));
+        Json oldest = on.get("lines").items().getLast();
+        assertEquals(List.of("150.00", "6.81", "auto"), oldest.get("cells").items().stream().map(Json::asText).toList().subList(3, 6));
     }
 }

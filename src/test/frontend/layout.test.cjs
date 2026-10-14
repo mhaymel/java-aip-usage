@@ -1290,3 +1290,12 @@ test('an amber bar has its used part in the amber and the rest in a light amber'
     assert.match(ruleOf('.cost-bar.amber'), /color-mix\(in srgb, var\(--warn\) 25%, transparent\)/);
     assert.match(css, /--warn:\s*#d29922/, 'the dark theme');
 });
+
+test('History view has the three columns of the limits after limit, and the table their widths', () => {
+    const tab = html.slice(html.indexOf('id="tab-history"'), html.indexOf('id="tab-cost"'));
+    const order = ['set-historyLimit', 'set-historyMonthly', 'set-historyDaily', 'set-historyDailyBy', 'set-historyDeltaUsed'].map(id => tab.indexOf('id="' + id + '"'));
+    assert.ok(order.every(at => at > 0));
+    assert.deepEqual([...order].sort((a, b) => a - b), order);
+    assert.match(css, /\.panel-lines \.columns > \.c-monthly,\s*\.panel-lines \.columns > \.c-daily\s*{\s*width:\s*10ch/);
+    assert.match(ruleOf('.panel-lines .columns > .c-dailyBy'), /width:\s*4ch/);
+});

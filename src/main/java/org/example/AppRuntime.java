@@ -65,6 +65,18 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         this.folders = folders;
         this.realHistory = new UsageHistory(folders.history());
         this.fakeHistory = new UsageHistory(folders.fakeHistory());
+        // With each reading the limits of cost control as they are then (since 0.82).
+        java.util.function.Function<Long, String[]> limits = server -> {
+            org.example.settings.CostControl cost = settings.current().cost();
+            java.time.YearMonth month = java.time.YearMonth.now();
+            java.util.Optional<Long> daily = cost.dailyIn(month, server);
+            return new String[] {
+                cost.monthlyCounted(server).map(org.example.settings.CostControl::text).orElse(""),
+                daily.map(org.example.settings.CostControl::text).orElse(""),
+                daily.isEmpty() ? "" : cost.dailyAutomatic() ? "auto" : "set"};
+        };
+        realHistory.limitsFrom(limits);
+        fakeHistory.limitsFrom(limits);
     }
 
     FileFolders folders() {

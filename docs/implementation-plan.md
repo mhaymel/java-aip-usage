@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.81 is built and pushed (113 phases); version 0.82, phases 114 to 120, is planned and not built.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.82 is built: 120 phases are built, the last seven (114 to 120) not pushed yet and not looked at by a person.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2483,7 +2483,7 @@ notes once more, `img_28` to `img_34`, each against the window.
 
 ### 114 to 120. Version 0.82: the fourth round of notes
 
-**Status: planned, not built.** The requirements are written (every rule marked "since version 0.82"); these seven phases build
+**Status: built, all seven, as planned; what each lists "by eye" is still to be looked at, on Windows and on macOS; the weekend rule of phase 117 is to be confirmed.** The requirements are written (every rule marked "since version 0.82"); these seven phases build
 them, in this order, and `AppInfo.VERSION` becomes `0.82` with the first. Each is committed by itself with its tests green, as
 `Phase 1xx built: <what> (0.82)`. The first two are small and stand alone; 116 to 119 are one feature, the limits and what is
 compared with them, in four steps from the settings to the page; 120 adds to the history file.
@@ -2607,7 +2607,7 @@ status of spending (the circle).
 
 ### 120. The limits in the history
 
-**Status: planned.** Requirements: Usage history (the three columns); The lines of the usage history (`month`, `day`, `by`).
+**Status: built (version 0.82); seen in the real window on Windows by the three window tests.** As built: `UsageHistory.limitsFrom`, a function of the server's limit of the reading, which `AppRuntime` gives both histories; the header of ten, and `upgradeOldFile` takes a file of seven as it took the older ones, its rows getting three empty fields; a header that cannot be rewritten is logged and the row added all the same. `HistoryReader.FIELDS` is ten. The three settings in `Settings` (`withHistoryLimits`), `SettingsStore`, `ApiHandler`; the columns after `limit`; the three checkboxes after `limit` in History view, and in its select-all. Some fifty tests held the rows of seven fields, and were brought to ten by script where they were expectations and left where they wrote an old file. **One fault of phase 115 came up in this phase's window run**: once, at a start whose window was restored, the frame of the window was measured before the stage and its scene agreed (879 pixels), the room of the screen was told the page as 513, and the views were shared into it; `UsageApp` now passes over a frame measured larger than 150 pixels and measures again at the next tick. It passed three times after. Requirements: Usage history (the three columns); The lines of the usage history (`month`, `day`, `by`).
 
 - **The file.** `UsageHistory` writes `monthly_limit`, `daily_limit`, `daily_auto` after `duration_ms`, from the settings at the time
   of the reading (it is given them by `AppRuntime.fetchAndRecord`); the header of a new file has ten columns; a file with the seven

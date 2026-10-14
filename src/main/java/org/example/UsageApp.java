@@ -54,6 +54,9 @@ public class UsageApp extends Application {
     /** How often the page is asked how big it needs to be. Cheap, and quick enough to feel instant. */
     private static final Duration FIT_INTERVAL = Duration.millis(150);
 
+    /** The most a window's frame, its title bar and borders, can be in pixels, in either direction: more is a measure taken too soon. */
+    private static final double MOST_FRAME = 150;
+
     /** The page's own answer to "how big do you need to be?", see docs/api.md. */
     private static final String ASK_CONTENT_SIZE = "window.contentSize ? window.contentSize() : null";
 
@@ -355,6 +358,12 @@ public class UsageApp extends Application {
             double height = stage.getHeight() - stage.getScene().getHeight();
             if (Double.isNaN(width) || Double.isNaN(height) || width < 0 || height < 0) {
                 return; // Not laid out yet; the next tick tries again.
+            }
+            if (width > MOST_FRAME || height > MOST_FRAME) {
+                // No frame is that large: the stage and its scene do not agree yet, as at a start whose window is being restored,
+                // when the stage can have its size before the scene has the page's. Measured so, the screen's room would be told
+                // the page far too small (since 0.82). The next tick tries again.
+                return;
             }
             decorationWidth = width;
             decorationHeight = height;

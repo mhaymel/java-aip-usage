@@ -552,7 +552,7 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
 }
 ```
 
-- `kinds`: what each column is, in the order of `columns`, by a fixed name: `time`, `used`, `limit`, `deltaUsed`, `deltaTime` or `currency`. A column is known by this, not by its title or its place: the page gives it its width by it,
+- `kinds`: what each column is, in the order of `columns`, by a fixed name: `time`, `used`, `limit`, `monthly`, `daily`, `dailyBy` (the three since version 0.82, after `limit`, titled `month`, `day` and `by`, with the settings `historyMonthly`, `historyDaily` and `historyDailyBy`, off by default and optional in a `POST`; a row written before 0.82 has those cells empty), `deltaUsed`, `deltaTime` or `currency`. A column is known by this, not by its title or its place: the page gives it its width by it,
   and puts the red of a failed line on the cell of `used`.
 - `columnTitles`: the tooltip of each title, in the order of `columns`, written by the backend: what the column is. With the date the first is `The date and time at which the usage was read`. The page puts each on its title as it is given.
 - `columns`: the titles, in the order of the `cells`: the time (`time`, or `date time` when the date setting is on), `used`, `limit`, when their settings are on `\u0394 used` and `\u0394 time`, and

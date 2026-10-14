@@ -131,6 +131,12 @@ public final class SettingsStore {
 
     static final String SHOW_DAY_LIMIT_KEY = "showDayLimit";
 
+    static final String HISTORY_MONTHLY_KEY = "historyMonthly";
+
+    static final String HISTORY_DAILY_KEY = "historyDaily";
+
+    static final String HISTORY_DAILY_BY_KEY = "historyDailyBy";
+
     static final String HISTORY_FOLDER_KEY = "historyFolder";
 
     static final String LAST_PANEL_KEY = "lastPanel";
@@ -253,7 +259,10 @@ public final class SettingsStore {
                 flag(root, SHOW_STATUS_KEY, defaults.showStatus()),
                 flag(root, SHOW_DAY_PERCENTAGE_KEY, defaults.showDayPercentage()),
                 flag(root, SHOW_DAY_USED_KEY, defaults.showDayUsed()),
-                flag(root, SHOW_DAY_LIMIT_KEY, defaults.showDayLimit()));
+                flag(root, SHOW_DAY_LIMIT_KEY, defaults.showDayLimit()),
+                flag(root, HISTORY_MONTHLY_KEY, defaults.historyMonthly()),
+                flag(root, HISTORY_DAILY_KEY, defaults.historyDaily()),
+                flag(root, HISTORY_DAILY_BY_KEY, defaults.historyDailyBy()));
     }
 
     /**
@@ -753,6 +762,9 @@ public final class SettingsStore {
         root.put(SHOW_DAY_PERCENTAGE_KEY, settings.showDayPercentage());
         root.put(SHOW_DAY_USED_KEY, settings.showDayUsed());
         root.put(SHOW_DAY_LIMIT_KEY, settings.showDayLimit());
+        root.put(HISTORY_MONTHLY_KEY, settings.historyMonthly());
+        root.put(HISTORY_DAILY_KEY, settings.historyDaily());
+        root.put(HISTORY_DAILY_BY_KEY, settings.historyDailyBy());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
         // What the window showed when the program last stopped; only what was stored is written.

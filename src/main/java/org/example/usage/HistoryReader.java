@@ -23,8 +23,11 @@ public final class HistoryReader {
     /** The columns the history panel shows, in the order they are in the file. */
     static final List<String> COLUMNS = List.of("datetime", "used", "limit", "currency");
 
-    /** The fields of a row as the file has them: the shown columns, then the status, the interval and the duration. */
-    static final int FIELDS = 7;
+    /**
+     * The fields of a row as the file has them: the shown columns, then the status, the interval and the duration, and since
+     * 0.82 the monthly limit counted, the daily limit and how the daily limit came about, which an older row has empty.
+     */
+    static final int FIELDS = 10;
 
     /**
      * @param exists whether there is a history file at all

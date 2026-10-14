@@ -490,7 +490,8 @@ final class ApiHandler implements HttpHandler {
                 s.cost().workdayHours(),
                 s.cost().workdaysTyped(java.time.YearMonth.now()).orElse(null),
                 s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder(),
-                s.showStatus(), s.showDayPercentage(), s.showDayUsed(), s.showDayLimit());
+                s.showStatus(), s.showDayPercentage(), s.showDayUsed(), s.showDayLimit(),
+                s.historyMonthly(), s.historyDaily(), s.historyDailyBy());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -543,7 +544,10 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showStatus", current.showStatus()),
                     flag(body, "showDayPercentage", current.showDayPercentage()),
                     flag(body, "showDayUsed", current.showDayUsed()),
-                    flag(body, "showDayLimit", current.showDayLimit()));
+                    flag(body, "showDayLimit", current.showDayLimit()),
+                    flag(body, "historyMonthly", current.historyMonthly()),
+                    flag(body, "historyDaily", current.historyDaily()),
+                    flag(body, "historyDailyBy", current.historyDailyBy()));
             // A folder that is changed is used at once: its files are moved there before the settings are saved, and a folder
             // that cannot be written refuses the whole of it, with nothing changed.
             moveFolders(given);
@@ -968,6 +972,22 @@ final class ApiHandler implements HttpHandler {
                 kinds.add("limit");
                 tips.add("The budget at that reading");
             }
+            // The limits at each reading (since 0.82), after the limit the server sent.
+            if (now.historyMonthly()) {
+                columns.add("month");
+                kinds.add("monthly");
+                tips.add("The monthly limit counted when the reading was made");
+            }
+            if (now.historyDaily()) {
+                columns.add("day");
+                kinds.add("daily");
+                tips.add("The daily limit in force when the reading was made");
+            }
+            if (now.historyDailyBy()) {
+                columns.add("by");
+                kinds.add("dailyBy");
+                tips.add("Whether the daily limit was worked out (auto) or typed (set)");
+            }
             if (now.historyDeltaUsed()) {
                 columns.add("\u0394 used");
                 kinds.add("deltaUsed");
@@ -1005,6 +1025,15 @@ final class ApiHandler implements HttpHandler {
                 }
                 if (now.historyLimit()) {
                     cells.add(row.get(2));
+                }
+                if (now.historyMonthly()) {
+                    cells.add(row.get(7));
+                }
+                if (now.historyDaily()) {
+                    cells.add(row.get(8));
+                }
+                if (now.historyDailyBy()) {
+                    cells.add(row.get(9));
                 }
                 if (now.historyDeltaUsed()) {
                     // The history shows every change but one of 0.00: a rise with its plus, a fall with its minus.
@@ -1391,7 +1420,10 @@ final class ApiHandler implements HttpHandler {
             boolean showStatus,
             boolean showDayPercentage,
             boolean showDayUsed,
-            boolean showDayLimit) {
+            boolean showDayLimit,
+            boolean historyMonthly,
+            boolean historyDaily,
+            boolean historyDailyBy) {
 
         Json toJson() {
             return Json.object()
@@ -1439,7 +1471,10 @@ final class ApiHandler implements HttpHandler {
                     .put("showStatus", showStatus)
                     .put("showDayPercentage", showDayPercentage)
                     .put("showDayUsed", showDayUsed)
-                    .put("showDayLimit", showDayLimit);
+                    .put("showDayLimit", showDayLimit)
+                    .put("historyMonthly", historyMonthly)
+                    .put("historyDaily", historyDaily)
+                    .put("historyDailyBy", historyDailyBy);
         }
     }
 

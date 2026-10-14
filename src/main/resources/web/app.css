@@ -928,6 +928,16 @@ body {
     width: 10ch;
 }
 
+/* The limits at each reading (since 0.82): two amounts, and auto or set. */
+.panel-lines .columns > .c-monthly,
+.panel-lines .columns > .c-daily {
+    width: 10ch;
+}
+
+.panel-lines .columns > .c-dailyBy {
+    width: 4ch;
+}
+
 .panel-lines .columns > .c-deltaUsed {
     width: 9ch;
 }

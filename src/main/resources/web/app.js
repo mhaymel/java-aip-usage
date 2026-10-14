@@ -434,8 +434,8 @@
     // The fourteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
-    var HISTORY_FLAGS = ['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent'];
-    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'severalViews', 'costCurrency', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
+    var HISTORY_FLAGS = ['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyMonthly', 'historyDaily', 'historyDailyBy', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent'];
+    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'severalViews', 'costCurrency', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'historyMonthly', 'historyDaily', 'historyDailyBy', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
 
     /**
      * Shows in the row what the main-view part of the form says, at once and before Save, so that it can be seen which element a
