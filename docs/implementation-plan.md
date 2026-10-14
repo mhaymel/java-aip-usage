@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.86 is built: 128 phases are built, the last five (124 to 128) not pushed yet and not looked at by a person, and phase 128 run against a few tests only; the fault of `img_50` was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.87 is built: 129 phases are built, the last six (124 to 129) not pushed yet and not looked at by a person; phase 128 was run against a few tests only, and phase 129 against none; the fault of `img_50` was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2798,6 +2798,33 @@ at once (the order).
   Run: those and the tests of 0.85's row, eleven in all.
 
 **By eye**: `img_54` and `img_55` again, the cost control above the settings, and one view without its line.
+
+### 129. Version 0.87: one folder, and no title bar but the settings'
+
+**Status: built (version 0.87); no test was run, by request, and none was written or changed: the Java was compiled and the page
+script parsed, nothing more.** The notes of `new-requirements.md` (the ninth round, `img_56`), decided in three rounds of
+questions. `AppInfo.VERSION = "0.87"`. Requirements: The folders of the log and of the usage history; Settings, The title bar;
+A border round the window that has no title bar; Dragging the window that has no title bar; Taller and shorter by buttons.
+
+- **One folder.** `SettingsStore`: `dataFolder` read (else `historyFolder`, which wins), written alone; `Settings` keeps its two
+  fields, always the same, so nothing that reads them changed. `oldLogFolder()` says the log's folder of a 0.86 file when it is
+  another; `Main.moveOldLog` moves the log and its old logs there by `Logging.moveFiles` before the log is opened, saves the
+  file, and logs what it did once the log is open. `ApiHandler`: `dataFolder` in and out of `/api/settings`. The page: `FOLDERS
+  = ['dataFolder']`, one line in `index.html`.
+- **The title bar.** `WindowFit.Size.keepsTitleBar()`: the settings and the debug settings only. The page: `bare()` without
+  `!listOpen()`, so a list has the border; `dragStartsAt` refuses the scrollbars of `.panel-lines`, by `clientWidth` and
+  `clientHeight` against the box; the tooltip of `Title bar`.
+- **The buttons.** `size-<list>` with `taller-<list>` and `shorter-<list>` in each line of controls, shown while
+  `display.titleBar === false`. `resizeList` changes the height alone by `5 × listSize × 1.25`, between `panelHeight` and 1,600;
+  for the history and the log `POST /api/height` (new) stores it first, then the page takes it into `lastStatus.heights`, and
+  for the error log `errorsHeight` holds it. A list alone now asks for `aloneHeight(list)` in the place of `panelHeight`, so that
+  the host sees a new height; where nothing is remembered that is the same number.
+- **Not done**: the tests. `app.test.cjs` and `layout.test.cjs` that name `logFolder`, `historyFolder`, the two lines of `Files`,
+  a list with its title bar, or a list alone at `panelHeight` with a larger remembered height, are expected to fail;
+  `SettingsStoreTest` and `ApiTest` where they read or write the two keys; `WindowFitTest` on `keepsTitleBar`.
+
+**By eye**: the move of a 0.86 settings file with two folders; a list with no title bar, its border, moving it by its lines and
+not by its scrollbar, the two buttons, and the height kept for the next start.
 
 ## Implementation notes, as built
 

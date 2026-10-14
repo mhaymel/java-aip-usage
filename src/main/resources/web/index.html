@@ -108,6 +108,20 @@
                     </svg>
                 </button>
             </span>
+            <span id="size-history" class="zoom" hidden>
+                <button id="taller-history" class="icon tiny" type="button" aria-label="Taller by five lines" title="Taller by five lines">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2 14h12M8 11V2M5 5l3-3 3 3"/>
+                    </svg>
+                </button>
+                <button id="shorter-history" class="icon tiny" type="button" aria-label="Shorter by five lines" title="Shorter by five lines">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2 14h12M8 2v9M5 8l3 3 3-3"/>
+                    </svg>
+                </button>
+            </span>
             <span id="history-choices" class="zoom" hidden>
                 <button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines and the failed lines" title="Hide the zero usage lines and the failed lines" aria-pressed="false">
                     <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -150,6 +164,20 @@
                     </svg>
                 </button>
             </span>
+            <span id="size-log" class="zoom" hidden>
+                <button id="taller-log" class="icon tiny" type="button" aria-label="Taller by five lines" title="Taller by five lines">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2 14h12M8 11V2M5 5l3-3 3 3"/>
+                    </svg>
+                </button>
+                <button id="shorter-log" class="icon tiny" type="button" aria-label="Shorter by five lines" title="Shorter by five lines">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2 14h12M8 2v9M5 8l3 3 3-3"/>
+                    </svg>
+                </button>
+            </span>
             <span id="log-files" class="zoom" hidden>
                 <button id="log-reset" class="icon tiny" type="button" aria-label="Reset the log: the file is kept under a name with the date and time, and a new one is started"
                         title="Reset the log: the file is kept under a name with the date and time, and a new one is started">
@@ -189,6 +217,20 @@
                     </svg>
                 </button>
             </span>
+            <span id="size-errors" class="zoom" hidden>
+                <button id="taller-errors" class="icon tiny" type="button" aria-label="Taller by five lines" title="Taller by five lines">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2 14h12M8 11V2M5 5l3-3 3 3"/>
+                    </svg>
+                </button>
+                <button id="shorter-errors" class="icon tiny" type="button" aria-label="Shorter by five lines" title="Shorter by five lines">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2 14h12M8 2v9M5 8l3 3 3-3"/>
+                    </svg>
+                </button>
+            </span>
         </div>
         <p id="log-error-errors" class="panel-error" role="alert" hidden></p>
         <p id="panel-note-errors" class="panel-note" hidden></p>
@@ -220,24 +262,18 @@
                 </fieldset>
                 <fieldset>
                     <legend>Window</legend>
-                    <label title="Shows the title bar of the window. Off, the window is the row alone; the title bar comes back for as long as a panel that can be resized is open, so open one to close the window."><input id="set-showTitleBar" type="checkbox"> Title bar</label>
+                    <label title="Shows the title bar of the window. Off, no view has one; it comes back for as long as the settings are open, so open them to close the window."><input id="set-showTitleBar" type="checkbox"> Title bar</label>
                     <label title="Keeps the window above every other window for as long as the program runs. Off, it only comes to the front when the program starts."><input id="set-stayOnTop" type="checkbox"> Stay on top</label>
                     <label title="Opens the window at the next start as it was when the program was stopped: the same panel, the same size and the same place."><input id="set-restoreWindow" type="checkbox"> Restore the window at start</label>
                     <label title="Lets more than one view be shown at the same time: an icon opens its view and leaves the others open. Off, opening a view closes the one that is shown."><input id="set-severalViews" type="checkbox"> Several views at once</label>
                 </fieldset>
                 <fieldset>
                     <legend>Files</legend>
-                    <div class="folder-line" title="The folder the log and its old logs are kept in. The default is the program's folder.">
-                        <span class="folder-label">Log folder</span>
-                        <span id="set-logFolder" class="folder-path"></span>
-                        <button id="choose-logFolder" type="button" title="Opens a window to choose the folder.">Choose…</button>
-                        <button id="default-logFolder" type="button" title="Puts back the program's folder.">Default</button>
-                    </div>
-                    <div class="folder-line" title="The folder the usage history is kept in. The default is the program's folder.">
-                        <span class="folder-label">History folder</span>
-                        <span id="set-historyFolder" class="folder-path"></span>
-                        <button id="choose-historyFolder" type="button" title="Opens a window to choose the folder.">Choose…</button>
-                        <button id="default-historyFolder" type="button" title="Puts back the program's folder.">Default</button>
+                    <div class="folder-line" title="The folder the log, its old logs and the usage history are kept in. The default is the program's folder.">
+                        <span class="folder-label">Log and history folder</span>
+                        <span id="set-dataFolder" class="folder-path"></span>
+                        <button id="choose-dataFolder" type="button" title="Opens a window to choose the folder.">Choose…</button>
+                        <button id="default-dataFolder" type="button" title="Puts back the program's folder.">Default</button>
                     </div>
                     <p id="folder-error" class="panel-error" role="alert" hidden></p>
                 </fieldset>

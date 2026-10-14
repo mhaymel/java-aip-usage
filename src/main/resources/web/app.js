@@ -252,6 +252,8 @@
         setNote('hover-note', onBox && v.noSpend ? v.noSpend : '', 'note note-info');
         renderOptional('interval', s.interval, v.interval, 'Time between usage requests');
         renderButtons(s);
+        // The buttons that make a list taller and shorter are there while the title bar is off, as saved (since 0.87).
+        LISTS.forEach(function (name) { show('size-' + name, noTitleBar()); });
         renderOptional('delta-used', s.deltaUsed, v.deltaUsed, 'Change in the amount used since the previous reading');
         renderOptional('delta-time', s.deltaTime, v.deltaTime, 'Time since the previous reading');
         renderOptional('duration', s.duration, v.duration, 'How long the latest usage request took');
@@ -450,7 +452,8 @@
      * the window.
      */
     function bare() {
-        return Boolean(lastStatus && lastStatus.display && lastStatus.display.titleBar === false) && !settingsOpen && !listOpen() && !fakeInUse();
+        // A list has no title bar either since 0.87: only the settings bring it back.
+        return noTitleBar() && !settingsOpen && !fakeInUse();
     }
 
     // ---- the settings view: a form the backend fills in each time it is opened
@@ -684,9 +687,10 @@
         return undefined;
     }
 
-    // The folders of the group Files as the form holds them: a full path, or the empty text for the program's folder.
-    var FOLDERS = ['logFolder', 'historyFolder'];
-    var folderChoice = { logFolder: '', historyFolder: '' };
+    // The folder of the group Files as the form holds it: a full path, or the empty text for the program's folder. One folder for
+    // the log and the usage history since 0.87, where there were two.
+    var FOLDERS = ['dataFolder'];
+    var folderChoice = { dataFolder: '' };
     var programFolder = '';
 
     /** Shows a folder of the group Files: its path, or the program's in gray while it is the default. */
@@ -1756,8 +1760,50 @@
      * one the person last gave it, less the row. The last of the lists has no height of its own: it takes what the window has.
      */
     function aloneHeight(name) {
-        var kept = lastStatus && lastStatus.heights ? lastStatus.heights[name] : 0;
+        // The error log's height is not remembered: what its buttons gave it holds for the run (since 0.87).
+        var kept = name === 'errors' ? errorsHeight : lastStatus && lastStatus.heights ? lastStatus.heights[name] : 0;
         return Math.max(panelHeight, typeof kept === 'number' ? kept : 0);
+    }
+
+    // The height the buttons of the error log gave it alone, row included, or 0 (since 0.87).
+    var errorsHeight = 0;
+    // The most height a list alone is given by its buttons: the most the program makes a window.
+    var LIST_HEIGHT_MAX = 1600;
+
+    /** Whether the title bar is switched off, as saved: the lists then have buttons to make them taller and shorter (since 0.87). */
+    function noTitleBar() {
+        return Boolean(lastStatus && lastStatus.display && lastStatus.display.titleBar === false);
+    }
+
+    /**
+     * Makes a list taller (1) or shorter (-1) by five of its lines, while the window has no title bar to drag (since 0.87). Its
+     * height alone is what changes, never below the one it opens with; the history's and the log's is remembered by the backend,
+     * as a dragged one is, before the page asks for it, so that the host takes it and does not put back the one it had.
+     */
+    async function resizeList(name, by) {
+        var now = aloneHeight(name);
+        var next = Math.max(panelHeight, Math.min(LIST_HEIGHT_MAX, now + by * Math.round(5 * listSize * 1.25)));
+        if (next === now) {
+            return;
+        }
+        if (name !== 'errors') {
+            try {
+                await postJson('/api/height', { panel: name, pixels: next });
+            } catch (e) {
+                setNote('log-error-' + name, 'The height could not be saved: ' + e.message, 'panel-error');
+                return;
+            }
+            var heights = {};
+            Object.keys((lastStatus && lastStatus.heights) || {}).forEach(function (key) { heights[key] = lastStatus.heights[key]; });
+            heights[name] = next;
+            if (lastStatus) {
+                lastStatus.heights = heights;
+            }
+        } else {
+            errorsHeight = next;
+        }
+        setNote('log-error-' + name, '');
+        layoutViews();
     }
 
     function sectionHeight(name) {
@@ -1960,11 +2006,23 @@
     /**
      * Whether a press of the mouse at this place of the page, in CSS pixels, may begin a move of the window. The host asks
      * when the window has no title bar, and moves it by a drag that begins where this says yes: anywhere but on something
-     * that is pressed for its own sake, a button of the row or a control. A press there does what it always did.
+     * that is pressed for its own sake, a button of the row or a control, and the scrollbars of a list, which scroll it (since
+     * 0.87, when a list is shown with no title bar). A press there does what it always did.
      */
     window.dragStartsAt = function (x, y) {
         var at = document.elementFromPoint(x, y);
-        return !(at && at.closest && at.closest('button, select, input, textarea, label, a'));
+        if (at && at.closest && at.closest('button, select, input, textarea, label, a')) {
+            return false;
+        }
+        var lines = at && at.closest ? at.closest('.panel-lines') : null;
+        if (lines) {
+            // The box of the lines less its scrollbars: what is right of its content or below it is a scrollbar.
+            var box = lines.getBoundingClientRect();
+            if (x >= box.left + (lines.clientLeft || 0) + lines.clientWidth || y >= box.top + (lines.clientTop || 0) + lines.clientHeight) {
+                return false;
+            }
+        }
+        return true;
     };
 
     window.contentSize = function () {
@@ -2024,17 +2082,19 @@
             return Math.max(width, costWidth() + edge) + ',' + appHeight() + ',3,cost';
         }
         // The last field names the panel, so that the host remembers the height of the history and of the log.
+        // A list alone asks for the height it has alone (since 0.87; ten rows until then, the host putting the remembered one in
+        // their place): the same where nothing was remembered, and what the buttons of a list give it.
         if (only === 'log') {
-            return (3 * width + scrollbarWidth) + ',' + panelHeight + ',2,log';
+            return (3 * width + scrollbarWidth) + ',' + aloneHeight('log') + ',2,log';
         }
         if (only === 'history') {
             // As wide as the table needs (16 px is the panel's padding), never narrower than the row, and wider by what the
             // list was seen to lack at that width.
-            return (Math.max(width, currentTableWidth() + 16) + scrollbarWidth + historyLack(width)) + ',' + panelHeight + ',1,history';
+            return (Math.max(width, currentTableWidth() + 16) + scrollbarWidth + historyLack(width)) + ',' + aloneHeight('history') + ',1,history';
         }
         if (only === 'errors') {
             // Half as wide as the log; a long message scrolls sideways.
-            return (Math.ceil(1.5 * width) + scrollbarWidth) + ',' + panelHeight + ',2,errors';
+            return (Math.ceil(1.5 * width) + scrollbarWidth) + ',' + aloneHeight('errors') + ',2,errors';
         }
         return width + ',' + height + ',0';
     }
@@ -2204,6 +2264,8 @@
         LISTS.forEach(function (name) {
             $('zoom-in-' + name).addEventListener('click', function () { zoomLists(1, name); });
             $('zoom-out-' + name).addEventListener('click', function () { zoomLists(-1, name); });
+            $('taller-' + name).addEventListener('click', function () { return resizeList(name, 1); });
+            $('shorter-' + name).addEventListener('click', function () { return resizeList(name, -1); });
         });
         $('zero-lines').addEventListener('click', toggleZeroLines);
         FOLDERS.forEach(function (key) {

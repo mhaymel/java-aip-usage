@@ -89,13 +89,13 @@ final class WindowFit {
         }
 
         /**
-         * Whether the window has its title bar for this, whatever the setting says. A panel that the person can resize has
-         * it, since a window with no frame cannot be dragged larger: the log, the error log, the history, and the settings,
-         * one tab of which can be dragged wider. The cost control cannot be resized and has none, like the row alone. With
-         * several views it has it when any of them does: cost control and the history together can be dragged.
+         * Whether the window has its title bar for this, whatever the setting says: while the settings are shown, alone or
+         * beside views, and the debug settings (since 0.87). No other view has it with the setting off: the lists are made
+         * taller and shorter by buttons of their own then, and the window is moved by dragging it. Until 0.86 every view
+         * that could be resized had it, the lists among them.
          */
         boolean keepsTitleBar() {
-            return panels().stream().anyMatch(name -> !name.equals("cost"));
+            return panels().stream().anyMatch(name -> name.equals("settings") || name.equals("debug"));
         }
     }
 

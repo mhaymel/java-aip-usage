@@ -552,6 +552,12 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
 - **The title bar.** The setting `Title bar`, in the group `Window` before `Stay on top`, on by default and saved under the key
   `showTitleBar`, shows or hides the title bar of the window. It is not previewed: it takes effect when the settings are saved.
   - **With the title bar hidden the window is the row alone**, with no title, no buttons of the system and no frame to drag.
+  - **Since version 0.87 only the settings bring the title bar back** (the rest of this point, and the next, held until version
+    0.86). With the setting off no view has a title bar, the lists as little as the cost control, alone or several together: the
+    window has its border and is moved by dragging it (see A border round the window that has no title bar and Dragging the
+    window that has no title bar), and each list has two buttons of its own to make it taller and shorter (see Taller and shorter
+    by buttons). The settings, alone or beside views, and their tab `Debug`, have the title bar whatever the setting says, so
+    that the window can be closed there.
   - **While a panel that can be resized is shown the title bar is there**, whatever the setting says: the log and the error log,
     which can be dragged in height and in width, the usage history, in height, and the settings, whose tab `About` can be dragged
     wider and which keep the title bar on every tab, so that the window is not exchanged from tab to tab. **The cost control
@@ -571,9 +577,10 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
     flickers for a moment as it changes is accepted. There is never more than one window, and never none.
   - **The window keeps its place**: the row stays where it is on the screen, and the title bar appears above it or goes from
     there. A window that stays on top still does afterwards.
-  - Its tooltip is `Shows the title bar of the window. Off, the window is the row alone; the title bar comes back for as long as
-    a panel that can be resized is open, so open one to close the window.` (until version 0.78 its end read `a panel is open, so
-    open one to move or close the window.`) The log says `The window has its title bar` and `The window has
+  - Its tooltip is `Shows the title bar of the window. Off, no view has one; it comes back for as long as the settings are open,
+    so open them to close the window.` (since version 0.87; until then `Shows the title bar of the window. Off, the window is the
+    row alone; the title bar comes back for as long as a panel that can be resized is open, so open one to close the window.`,
+    and until version 0.78 its end read `a panel is open, so open one to move or close the window.`) The log says `The window has its title bar` and `The window has
     no title bar` when it changes, as debug lines.
 - **The window on top.** At startup the window comes to the front, above all other windows. The setting `Stay on top`, in the
   group `Window`, off by default and saved under the key `stayOnTop`, says what happens after that: on, the window stays above
@@ -1195,7 +1202,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   by the page. It shows where the window ends, which the frame of the system does when there is a title bar.
 - **Its colour is that of the text**: black on the light theme, and the light colour of the text on the dark one, where
   black would not be seen.
-- **It is there exactly while the window has no title bar**: the setting `Title bar` is off and no panel is shown, or none but the cost control (since version 0.79).
+- **It is there exactly while the window has no title bar**: the setting `Title bar` is off and the settings are not shown (since
+  version 0.87, the lists included; until then no panel was shown, or none but the cost control, since version 0.79).
   With the title bar shown, by the setting or because a panel is open, there is no such border.
 - **It is left out while the red border of the fake backend is shown**, which is round the window then. In debug mode
   with the fake backend off, and no title bar, the black border is there.
@@ -1213,16 +1221,34 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **A press with no movement does nothing**: the window does not move, and no tooltip, hover or countdown line is lost
   by it.
 - **Anywhere else inside the border begins a drag**: the figures, the gray boxes, the room between the elements, a
-  message line, and the border itself, the red one of the fake backend included.
+  message line, and the border itself, the red one of the fake backend included. Since version 0.87, with a list shown and no
+  title bar, its lines and its line of controls as well; **the scrollbars of a list do not**: a press on one scrolls the list as
+  always, and the wheel scrolls it.
 - **The left mouse button only.** Another button moves nothing.
 - **While the window is dragged the page is not told of the moves**, so the text of the row is not selected by a drag
   that moves the window; the press and the release reach it as always.
 - **Only without the title bar.** With the title bar the window is moved by it, and a drag inside the window moves
-  nothing; so nothing changes while a panel that has the title bar is shown. With the cost control shown and the title bar
+  nothing; so nothing changes while a panel that has the title bar is shown, which since version 0.87 is the settings alone. With the cost control shown and the title bar
   switched off (since version 0.79) the window is dragged as the row alone is, by the row and by the panel.
 - **The window stays where it was dropped** for the run, also when the title bar comes and goes for a panel. Where it
   was is not remembered for the next start: the program starts where it always does. (Remembering the position was
   considered and decided against.)
+
+### Taller and shorter by buttons
+
+- **Since version 0.87 each list has two buttons to make it taller and shorter** while the setting `Title bar` is off, as it is
+  saved: the usage history, the log and the error log. A window with no title bar has no frame to drag, so they take its place.
+  With the title bar on they are not there, and the window is dragged larger by its frame as before.
+- **Where.** In the list's line of controls, after its zoom: `Taller by five lines` and `Shorter by five lines`, which are also
+  their tooltips, an arrow up and an arrow down over a line, the size of the zoom's icons.
+- **A press changes the list's height by five of its lines**, at the size of the text the lists have; the height of the list
+  alone, row included, is what changes, also when it is among several views, where the others keep theirs. Never shorter than
+  the height a list opens with, ten times the row's, and never taller than the program makes a window (1,600 pixels) or the
+  screen has room for; a press that would change nothing does nothing.
+- **The height is remembered** for the usage history and for the log, as a dragged one is (see Remembered heights), and the list
+  opens at it the next time; the error log's holds for the run, as its dragged one did not.
+- **The width stays**: the log and the error log keep the width they open with.
+- A height that cannot be saved is said in the list's red line, `The height could not be saved: <reason>`, and nothing changes.
 
 ### The row goes while the pointer is outside the window
 
@@ -2152,17 +2178,23 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### The folders of the log and of the usage history
 
-- **The folder of the log and the folder of the usage history can be chosen** (since version 0.81), each by itself. By default
-  both are the program's folder, the working directory, as before. The log folder holds the log and its old logs; the history
-  folder holds the usage history and, in debug mode, the history of invented readings (`java-aip-usage.fake.csv`).
-- **Where.** A group `Files` in the tab `General`, after `Window`, with a line for each folder, `Log folder` and `History
-  folder`: the full path of the folder as text (since version 0.84 only once another folder is chosen: while a folder is the
+- **The folder of the log and of the usage history can be chosen** (since version 0.81; **one folder for both since version
+  0.87**, `docs/img_56.png`, where until then each had its own). By default it is the program's folder, the working directory,
+  as before. It holds the log and its old logs, the usage history and, in debug mode, the history of invented readings
+  (`java-aip-usage.fake.csv`).
+- **Where.** A group `Files` in the tab `General`, after `Window`, with one line, `Log and history folder` (until version 0.86 two,
+  `Log folder` and `History folder`): the full path of the folder as text (since version 0.84 only once another folder is chosen: while the folder is the
   default its line says `Program folder` in gray, with no path, `docs/img_48.png`), a button `Choose…` that opens the system's folder picker at that folder, and a
-  button `Default`, which puts back the program's folder. Nothing is typed. Saved under the keys `logFolder` and
-  `historyFolder`, as full paths; a key that is not there, or empty, is the program's folder.
-- **Their tooltips**: the line of the log folder `The folder the log and its old logs are kept in. The default is the program's
-  folder.`; that of the history folder `The folder the usage history is kept in. The default is the program's folder.`;
-  `Choose…` `Opens a window to choose the folder.`; `Default` `Puts back the program's folder.`
+  button `Default`, which puts back the program's folder. Nothing is typed. Saved under the key `dataFolder`, as a full path; a
+  key that is not there, or empty, is the program's folder.
+- **A settings file of version 0.86 or before**, which has the two keys `logFolder` and `historyFolder` and no `dataFolder`: the
+  folder of the usage history is the one folder, and wins over the log's. At the first start the log and its old logs are moved
+  from the log's folder into it, before the log is opened, each unless a file of its name is there already, as `Save` moves them;
+  the log says so, at the info level, once it is open. The file is then saved with `dataFolder` and without the two keys. A move
+  that fails puts back what it moved, is logged as a warning, and is tried again at the next start; the log is opened in the
+  one folder all the same. When the two keys name the same folder nothing is moved.
+- **Its tooltips**: the line `The folder the log, its old logs and the usage history are kept in. The default is the program's
+  folder.`; `Choose…` `Opens a window to choose the folder.`; `Default` `Puts back the program's folder.`
 - **It takes effect at once, on `Save`**: the program switches to the new folder there and then, and the log, the error log
   and the usage history read from it; the About view shows the new paths.
 - **The files are moved.** On `Save` the log and its old logs are moved into the new log folder, and the usage history (and the

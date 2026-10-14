@@ -121,7 +121,11 @@ public final class SettingsStore {
 
     static final String SEVERAL_VIEWS_KEY = "severalViews";
 
+    /** The folder of the log until 0.86, read once to move the log into the one folder; never written since 0.87. */
     static final String LOG_FOLDER_KEY = "logFolder";
+
+    /** The one folder of the log and the usage history (since 0.87). */
+    static final String DATA_FOLDER_KEY = "dataFolder";
 
     static final String SHOW_STATUS_KEY = "showStatus";
 
@@ -137,6 +141,7 @@ public final class SettingsStore {
 
     static final String HISTORY_DAILY_BY_KEY = "historyDailyBy";
 
+    /** The folder of the usage history until 0.86, which a file of then has its one folder from; never written since 0.87. */
     static final String HISTORY_FOLDER_KEY = "historyFolder";
 
     static final String LAST_PANEL_KEY = "lastPanel";
@@ -214,6 +219,7 @@ public final class SettingsStore {
             LOG.warning("Ignoring settings file " + file + ": not a JSON object");
             return defaults;
         }
+        String data = dataFolder(root);
         return new Settings(
                 interval(root, defaults.usageIntervalSeconds()),
                 flag(root, LOG_RESPONSE_KEY, defaults.logResponse()),
@@ -254,8 +260,8 @@ public final class SettingsStore {
                 flag(root, RESTORE_WINDOW_KEY, defaults.restoreWindow()),
                 flag(root, SHOW_COST_ICON_KEY, defaults.showCostIcon()),
                 flag(root, SEVERAL_VIEWS_KEY, defaults.severalViews()),
-                folder(root, LOG_FOLDER_KEY),
-                folder(root, HISTORY_FOLDER_KEY),
+                data,
+                data,
                 flag(root, SHOW_STATUS_KEY, defaults.showStatus()),
                 flag(root, SHOW_DAY_PERCENTAGE_KEY, defaults.showDayPercentage()),
                 flag(root, SHOW_DAY_USED_KEY, defaults.showDayUsed()),
@@ -649,6 +655,32 @@ public final class SettingsStore {
         return node != null && node.isText() ? node.text().strip() : "";
     }
 
+    /**
+     * The one folder of the log and the usage history (since 0.87): {@code dataFolder}, or, in a file of 0.86 or before that has
+     * none, the folder the usage history was kept in, which wins over the log's.
+     */
+    private static String dataFolder(Json root) {
+        return root.get(DATA_FOLDER_KEY) != null ? folder(root, DATA_FOLDER_KEY) : folder(root, HISTORY_FOLDER_KEY);
+    }
+
+    /**
+     * The folder a file of 0.86 or before kept the log in, when it is not the one folder the log is kept in from now on, so that
+     * the log and its old logs can be moved there at the start; null when there is nothing to move: the file is of 0.87 or later,
+     * or names the same folder for both, or cannot be read. The empty text is the program's folder. Never fails.
+     */
+    public String oldLogFolder() {
+        try {
+            Json root = JsonReader.read(Files.readString(file));
+            if (root == null || !root.isObject() || root.get(DATA_FOLDER_KEY) != null || root.get(LOG_FOLDER_KEY) == null) {
+                return null;
+            }
+            String log = folder(root, LOG_FOLDER_KEY);
+            return log.equals(folder(root, HISTORY_FOLDER_KEY)) ? null : log;
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+    }
+
     private static String name(Json root, String key, java.util.Set<String> known) {
         Json node = root.get(key);
         return node != null && node.isText() && known.contains(node.text()) ? node.text() : null;
@@ -756,8 +788,8 @@ public final class SettingsStore {
         root.put(SHOW_COST_ICON_KEY, settings.showCostIcon());
         root.put(RESTORE_WINDOW_KEY, settings.restoreWindow());
         root.put(SEVERAL_VIEWS_KEY, settings.severalViews());
-        root.put(LOG_FOLDER_KEY, settings.logFolder());
-        root.put(HISTORY_FOLDER_KEY, settings.historyFolder());
+        // One folder for both (since 0.87); the two keys of before are no longer written.
+        root.put(DATA_FOLDER_KEY, settings.historyFolder());
         root.put(SHOW_STATUS_KEY, settings.showStatus());
         root.put(SHOW_DAY_PERCENTAGE_KEY, settings.showDayPercentage());
         root.put(SHOW_DAY_USED_KEY, settings.showDayUsed());

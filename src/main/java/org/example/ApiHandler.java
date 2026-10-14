@@ -166,6 +166,12 @@ final class ApiHandler implements HttpHandler {
                 }
                 updateTextSize(exchange);
             }
+            case "/api/height" -> {
+                if (!method.equals("POST")) {
+                    throw new ApiException(405, "Use POST.", "POST");
+                }
+                updateHeight(exchange);
+            }
             case "/api/cost" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
@@ -489,7 +495,7 @@ final class ApiHandler implements HttpHandler {
                 s.cost().source(),
                 s.cost().workdayHours(),
                 s.cost().workdaysTyped(java.time.YearMonth.now()).orElse(null),
-                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder(),
+                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.historyFolder(),
                 s.showStatus(), s.showDayPercentage(), s.showDayUsed(), s.showDayLimit(),
                 s.historyMonthly(), s.historyDaily(), s.historyDailyBy());
     }
@@ -504,6 +510,8 @@ final class ApiHandler implements HttpHandler {
                 throw new InvalidSettingException("The setting " + USAGE_KEY + " is missing.");
             }
             Settings current = settings.current();
+            // The log and the usage history are kept in one folder (since 0.87): the settings hold it twice, the same.
+            String dataFolder = folderText(body, "dataFolder", current.historyFolder());
             Settings given = new Settings(
                     usage.intValue(),
                     flag(body, "logResponse"),
@@ -539,8 +547,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "restoreWindow", current.restoreWindow()),
                     flag(body, "showCostIcon", current.showCostIcon()),
                     flag(body, "severalViews", current.severalViews()),
-                    folderText(body, "logFolder", current.logFolder()),
-                    folderText(body, "historyFolder", current.historyFolder()),
+                    dataFolder,
+                    dataFolder,
                     flag(body, "showStatus", current.showStatus()),
                     flag(body, "showDayPercentage", current.showDayPercentage()),
                     flag(body, "showDayUsed", current.showDayUsed()),
@@ -773,6 +781,30 @@ final class ApiHandler implements HttpHandler {
             throw new ApiException(500, "The text size could not be saved: " + Failure.of(e.getCause()), null);
         }
         send(exchange, 200, new TextSizeBody(settings.current().listFontSize()).toJson());
+    }
+
+    /** The least and the most height of a list alone, row included, that the buttons of a list may remember. */
+    private static final int LEAST_HEIGHT = 50;
+
+    private static final int MOST_HEIGHT = 1600;
+
+    /**
+     * The height of the history or the log alone, row included, in pixels, which the buttons of a list change while the window
+     * has no title bar (since 0.87): it is remembered as a dragged height is, and the window takes it.
+     */
+    private void updateHeight(HttpExchange exchange) throws IOException {
+        requireJson(exchange);
+        Json body = readJson(exchange);
+        Json panel = body.get("panel");
+        Json pixels = body.get("pixels");
+        if (panel == null || !panel.isText() || !(panel.text().equals("history") || panel.text().equals("log"))) {
+            throw new ApiException(400, "The panel must be history or log.", null);
+        }
+        if (pixels == null || !pixels.fitsInt() || pixels.intValue() < LEAST_HEIGHT || pixels.intValue() > MOST_HEIGHT) {
+            throw new ApiException(400, "The height must be a whole number of pixels from " + LEAST_HEIGHT + " to " + MOST_HEIGHT + ".", null);
+        }
+        settings.storeHeight(panel.text(), pixels.intValue());
+        send(exchange, 200, Json.object().put("panel", panel.text()).put("pixels", settings.storedHeight(panel.text())));
     }
 
     /** The cost control panel, finished: the two bars, worked out from the history in use and the limits. */
@@ -1415,8 +1447,7 @@ final class ApiHandler implements HttpHandler {
             boolean restoreWindow,
             boolean showCostIcon,
             boolean severalViews,
-            String logFolder,
-            String historyFolder,
+            String dataFolder,
             boolean showStatus,
             boolean showDayPercentage,
             boolean showDayUsed,
@@ -1466,8 +1497,8 @@ final class ApiHandler implements HttpHandler {
                     .put("restoreWindow", restoreWindow)
                     .put("showCostIcon", showCostIcon)
                     .put("severalViews", severalViews)
-                    .put("logFolder", logFolder)
-                    .put("historyFolder", historyFolder)
+                    // One folder for the log and the usage history (since 0.87).
+                    .put("dataFolder", dataFolder)
                     .put("showStatus", showStatus)
                     .put("showDayPercentage", showDayPercentage)
                     .put("showDayUsed", showDayUsed)

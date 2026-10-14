@@ -27,6 +27,7 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `POST` | `/api/history` | Save the one choice of the history panel, whether its zero usage lines are shown |
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 | `POST` | `/api/text-size` | Save the size of the text of the three lists |
+| `POST` | `/api/height` | Remember the height of the history or the log alone (since 0.87) |
 | `GET` | `/api/cost` | The cost control panel: the two bars, finished |
 | `GET` | `/api/cost/daily` | The daily limit that follows from a monthly one, in the current month |
 | `GET` | `/api/about` | What the About view says: the version, where the files are, what the program runs on |
@@ -87,8 +88,7 @@ Every setting as the backend has it, read afresh each time the settings view is 
     "showTitleBar": true,
     "restoreWindow": false,
     "severalViews": false,
-    "logFolder": "",
-    "historyFolder": ""
+    "dataFolder": ""
   },
   "defaults": { "...": "the same keys, with the defaults" },
   "limits": { "usageIntervalSeconds": { "min": 5, "max": 3600 } }
@@ -105,9 +105,11 @@ only the columns that are on, in `columns` and in each line's `cells`.
 `restoreWindow` (off by default) says whether the window is opened at a start as it was when the program stopped, and
 `severalViews` (since version 0.80, off by default) whether more than one view can be shown at the same time: an icon
 then opens its view and leaves the others open. A `POST` may leave either out, which keeps what the settings have; so may it `showCostIcon`.
-`logFolder` and `historyFolder` (since version 0.81) are the folders the log (with its old logs) and the usage history (with
-the history of invented readings) are kept in, as full paths, and the empty text for the program's folder, which is the
-default. A `POST` may leave them out. One that names another folder than the one in use moves the files there at once, before
+`dataFolder` (since version 0.87; until then two folders, `logFolder` and `historyFolder`, since version 0.81) is the one folder
+the log (with its old logs) and the usage history (with the history of invented readings) are kept in, as a full path, and the
+empty text for the program's folder, which is the default. A `POST` may leave it out; `logFolder` and `historyFolder` are no
+longer read from it. In `settings.json` a file of 0.86 or before is read as the requirements say (The folders of the log and of
+the usage history). One that names another folder than the one in use moves the files there at once, before
 the settings are saved; a file of the same name that is there already is used and not overwritten. A folder that is not a
 full path, is not there, or cannot be written in is refused with `400` and `The folder cannot be written: <reason>.`, and
 nothing is moved or saved. The settings file itself stays in the program's folder.
@@ -468,6 +470,18 @@ that is saved, `{"size": 14}`; `GET /api/config` says it from then on. A `size` 
 out of the range is `400` with `The size must be a whole number of pixels from 10 to 20.`, and nothing is saved; a file
 that cannot be written is `500` with `The text size could not be saved: <reason>`. The settings of `/api/settings` do
 not have the size, and saving them leaves it as it is. Any other method is `405`.
+
+## `POST /api/height`
+
+Since version 0.87. Remembers the height of the usage history or the log alone, row included, which the buttons `Taller by five
+lines` and `Shorter by five lines` of the list change while the window has no title bar: `{"panel": "history", "pixels": 480}`,
+a whole number of pixels from 50 to 1600. It is stored as a dragged height is, under `historyHeight` or `logHeight`, and the
+answer is what is stored, `{"panel": "history", "pixels": 480}`; `GET /api/status` says it under `heights` from then on. A
+`panel` that is not `history` or `log` is `400` with `The panel must be history or log.`, and `pixels` that are missing, not a
+whole number, or out of the range are `400` with `The height must be a whole number of pixels from 50 to 1600.`; nothing is
+stored then. A file that cannot be written is logged and the height is not stored, as with a dragged one. Any other method is
+`405`. The page asks for it before it asks the host for the new height, so that the host, which opens a list at the larger of
+the height asked and the one remembered, takes it.
 
 ## `GET /api/about`
 

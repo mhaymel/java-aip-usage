@@ -80,7 +80,7 @@ public class UsageApp extends Application {
     /** The window that is showing. It is another one after the title bar has come or gone; see {@link StageSwap}. */
     private Stage stage;
 
-    /** Whether the page shows a panel that keeps the title bar whatever the setting says: any but the cost control. */
+    /** Whether the page shows a panel that keeps the title bar whatever the setting says: the settings (since 0.87; any but the cost control until then). */
     private boolean panelKeepsTitleBar;
 
     /** Releases the runtime once, whether the window was closed or the process was told to stop. */

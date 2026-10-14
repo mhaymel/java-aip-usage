@@ -2,7 +2,10 @@ package org.example;
 
 import javafx.application.Application;
 
+import org.example.log.Log;
 import org.example.settings.LaunchOptions;
+import org.example.settings.Settings;
+import org.example.settings.SettingsStore;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -43,6 +46,12 @@ public final class Main {
         // the runtime logs when it reads the settings again.
         Path logFile = logFileAtStart();
         try (Logging logging = Logging.install(logFile, options.debug())) {
+            if (moveNote != null) {
+                LOG.info(moveNote);
+            }
+            if (moveFault != null) {
+                LOG.warning(moveFault);
+            }
             // Also tidies up if the process is told to stop; see ShutdownHook.
             ShutdownHook.install(() -> UsageApp.shutDown(), logging);
             // On macOS a program started as java is shown under that name: the system is told the program's own.
@@ -57,7 +66,42 @@ public final class Main {
      */
     private static Path logFileAtStart() {
         AppFiles files = AppFiles.inWorkingDirectory();
-        String folder = new org.example.settings.SettingsStore(files.settings()).load().logFolder();
-        return FileFolders.atStart(files, folder, "").log();
+        SettingsStore store = new SettingsStore(files.settings());
+        Settings settings = store.load();
+        FileFolders folders = FileFolders.atStart(files, settings.logFolder(), "");
+        moveOldLog(store, settings, files, folders.logFolder());
+        return folders.log();
     }
+
+    /**
+     * Since 0.87 the log is kept in the folder of the usage history: a settings file of before that named another for the log has
+     * the log and its old logs moved there, once, before the log is opened, and is then saved without its two folders of before.
+     * A move that fails puts back what it moved, and is tried again at the next start; the log is opened in the one folder all
+     * the same. What happened is logged once the log is open.
+     */
+    private static void moveOldLog(SettingsStore store, Settings settings, AppFiles files, Path folder) {
+        String old = store.oldLogFolder();
+        if (old == null) {
+            return;
+        }
+        Path from = FileFolders.folderOf(old, FileFolders.programFolder(files));
+        try {
+            if (!from.equals(folder) && java.nio.file.Files.isDirectory(from)) {
+                List<Path> moved = Logging.moveFiles(from.resolve(files.log().getFileName()), folder);
+                moveNote = "The log and its old logs are now kept with the usage history in " + folder + "; moved from " + from + ": "
+                        + moved.size() + (moved.size() == 1 ? " file" : " files");
+            }
+            store.save(settings);
+        } catch (java.io.IOException | RuntimeException e) {
+            moveFault = "Could not move the log from " + from + " to the folder of the usage history, " + folder + ": " + Failure.of(e)
+                    + "; it is tried again at the next start";
+        }
+    }
+
+    private static final Log LOG = Log.of(Main.class);
+
+    /** What the move of the log of 0.86 did, or why it failed, to be logged once the log is open; null when there was none. */
+    private static String moveNote;
+
+    private static String moveFault;
 }
