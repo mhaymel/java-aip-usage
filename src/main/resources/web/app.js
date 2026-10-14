@@ -15,8 +15,9 @@
     var polling = false;
     var lastStale = false;
     // The views there are, in the order of their icons, which is the order they are stacked in; and those of them that are lists.
-    var VIEWS = ['log', 'history', 'errors', 'cost'];
-    var LISTS = ['log', 'history', 'errors'];
+    // In the order of the icons (since 0.81: before, the log, the history, the error log and the cost control).
+    var VIEWS = ['cost', 'history', 'log', 'errors'];
+    var LISTS = ['history', 'log', 'errors'];
     // Which of them are shown below the strip, in that order: none, one, or, with several views at once, more. The settings
     // are no view among them: they are shown alone, in the place of whatever was shown, and are a state of their own.
     var openViews = [];
@@ -381,7 +382,7 @@
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon', cost: 'showCostIcon' };
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
-    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon', 'showCostIcon'];
+    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon'];
     // The fourteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
@@ -1511,7 +1512,26 @@
     }
 
     function sectionHeight(name) {
-        return name === 'cost' ? Math.ceil(sectionOf('cost').getBoundingClientRect().height) : aloneHeight(name) - panelHeight / 10;
+        return name === 'cost' ? Math.ceil(sectionOf('cost').getBoundingClientRect().height) : aloneHeight(name) - chromeHeight();
+    }
+
+    // The room the panel keeps below its lowest view (its padding).
+    var PANEL_PADDING_BOTTOM = 4;
+
+    /**
+     * What of the window's height is not a view's: the row, its message lines and the border above them, the room below the lowest
+     * view and the border below that. A list alone is as tall as the window less this, and so a list with another view below it is
+     * given its height alone less this, which makes it as tall as it is when it is the lowest. Where nothing is laid out, as in the
+     * tests of the page, it is the row's height.
+     */
+    function chromeHeight() {
+        var app = $('app').getBoundingClientRect();
+        var panel = $('panel').getBoundingClientRect();
+        if (typeof app.top !== 'number' || typeof panel.top !== 'number') {
+            return panelHeight / 10;
+        }
+        var edge = fakeInUse() ? 3 : bare() ? 1 : 0;
+        return Math.ceil(panel.top - app.top) + PANEL_PADDING_BOTTOM + edge;
     }
 
     /** Gives each list that has another view below it its height, and lets the lowest list take what is left. */
@@ -1703,7 +1723,7 @@
      */
     function severalSize(width) {
         var wide = width;
-        var total = panelHeight / 10;
+        var total = chromeHeight();
         openViews.forEach(function (name) {
             if (name === 'log') {
                 wide = Math.max(wide, 3 * width + scrollbarWidth);

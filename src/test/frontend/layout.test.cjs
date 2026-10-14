@@ -58,14 +58,14 @@ test('the base text is a sans-serif font', () => {
 test('the controls come in the required order, in one strip', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     // Time first, then the percentage, the two amounts, the refresh button, the countdown, the two
-    // changes, and the log, history, error log and settings buttons, the gear last.
+    // changes, and the cost control, history, log and error log buttons (in this order since 0.81), the gear last.
     const order = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"',
         'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"',
-        'id="log-button"', 'id="history-button"', 'id="errors-button"', 'id="settings-button"'];
+        'id="cost-button"', 'id="history-button"', 'id="log-button"', 'id="errors-button"', 'id="settings-button"'];
     const positions = order.map(marker => strip.indexOf(marker));
     positions.forEach((position, i) => assert.ok(position >= 0, 'missing ' + order[i] + ' in the strip'));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions,
-        'the order is time, percentage, used, limit, refresh, countdown, changes, log, history, error log, settings');
+        'the order is time, percentage, used, limit, refresh, countdown, changes, cost, history, log, error log, settings');
 });
 
 test('the time is the very first thing in the strip', () => {
@@ -179,16 +179,17 @@ test('the hidden attribute really hides, even on elements the stylesheet gives a
     assert.ok(overridden.length > 0, 'at least one hidden element has a display rule, which is why the [hidden] rule is needed: ' + hiddenIds);
 });
 
-test('the settings button is at the right-hand end of the row, after the log and history buttons, which come after everything else', () => {
+test('the settings button is at the right-hand end of the row, after the icons of the views, which come after everything else', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
-    const log = strip.indexOf('id="log-button"');
+    const cost = strip.indexOf('id="cost-button"');
     const history = strip.indexOf('id="history-button"');
+    const log = strip.indexOf('id="log-button"');
     const settings = strip.indexOf('id="settings-button"');
-    assert.ok(log >= 0 && history >= 0 && settings >= 0, 'all three are in the row');
+    assert.ok(cost >= 0 && log >= 0 && history >= 0 && settings >= 0, 'all four are in the row');
     for (const earlier of ['id="time"', 'id="percent"', 'id="used"', 'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"']) {
-        assert.ok(strip.indexOf(earlier) < log, earlier + ' comes before the log button');
+        assert.ok(strip.indexOf(earlier) < cost, earlier + ' comes before the first icon, the cost icon');
     }
-    assert.ok(log < history && history < settings, 'the log button, the history button, then the settings button');
+    assert.ok(cost < history && history < log && log < settings, 'the cost icon, the history icon, the log icon, then the settings button');
 });
 
 test('the settings button is a gear: a circle and the toothed outline round it', () => {
@@ -563,11 +564,12 @@ test('the settings never scroll: the window is as tall as they need', () => {
 test('the four icon buttons sit close together in one group, much nearer than the strip\'s gap', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     const group = strip.slice(strip.indexOf('class="tools"'));
-    for (const id of ['log-button', 'history-button', 'errors-button', 'settings-button']) {
+    for (const id of ['cost-button', 'history-button', 'log-button', 'errors-button', 'settings-button']) {
         assert.ok(group.includes('id="' + id + '"'), id + ' is in the group');
     }
-    assert.ok(group.indexOf('id="log-button"') < group.indexOf('id="history-button"'));
-    assert.ok(group.indexOf('id="history-button"') < group.indexOf('id="errors-button"'));
+    assert.ok(group.indexOf('id="cost-button"') < group.indexOf('id="history-button"'));
+    assert.ok(group.indexOf('id="history-button"') < group.indexOf('id="log-button"'));
+    assert.ok(group.indexOf('id="log-button"') < group.indexOf('id="errors-button"'));
     assert.ok(group.indexOf('id="errors-button"') < group.indexOf('id="settings-button"'), 'the gear is last');
     const gap = Number(ruleOf('.tools').match(/gap:\s*(\d+)px/)[1]);
     const stripGap = Number(ruleOf('.strip').match(/gap:\s*[0-9]+px\s+(\d+)px/)[1]);
@@ -726,8 +728,8 @@ const MAIN_CHECKBOXES = [
     ['set-showTime', 'Time'], ['set-showPercentage', 'Percentage spent'], ['set-showUsed', 'Amount used'], ['set-showLimit', 'Budget'],
     ['set-showRefresh', 'Refresh button'], ['set-showCountdown', 'Countdown'], ['set-showInterval', 'Interval'],
     ['set-showDeltaUsed', 'Change in the amount used'], ['set-showDeltaTime', 'Time since the previous reading'], ['set-showDuration', 'Request duration'],
-    ['set-showLogIcon', 'Log icon'], ['set-showHistoryIcon', 'History icon'], ['set-showErrorIcon', 'Error log icon'],
-    ['set-showCostIcon', 'Cost icon'],
+    ['set-showCostIcon', 'Cost icon'], ['set-showHistoryIcon', 'History icon'], ['set-showLogIcon', 'Log icon'],
+    ['set-showErrorIcon', 'Error log icon'],
 ];
 
 test('the Main view group has a checkbox for each of the fourteen elements, named as the requirements name them', () => {
@@ -739,7 +741,7 @@ test('the Main view group has a checkbox for each of the fourteen elements, name
 test('the checkboxes are in the order of the row, from left to right', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     const inRow = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"', 'id="refresh"', 'id="countdown"', 'id="interval"', 'id="delta-used"',
-        'id="delta-time"', 'id="duration"', 'id="log-button"', 'id="history-button"', 'id="errors-button"', 'id="cost-button"'].map(id => strip.indexOf(id));
+        'id="delta-time"', 'id="duration"', 'id="cost-button"', 'id="history-button"', 'id="log-button"', 'id="errors-button"'].map(id => strip.indexOf(id));
     const inSettings = MAIN_CHECKBOXES.map(([id]) => MAIN.indexOf('id="' + id + '"'));
     for (const positions of [inRow, inSettings]) {
         assert.ok(positions.every(p => p >= 0));
@@ -951,8 +953,8 @@ test('the cost control: a gray bar with the green of the figures, 14 px tall wit
 test('the open panel button is blue and bigger, whichever panel it is, the cost control included', () => {
     assert.match(ruleOf('.icon.active'), /color:\s*var\(--info\)/);
     assert.ok(html.includes('id="cost-button"') && html.includes('id="cost-view"'));
-    assert.ok(html.indexOf('id="errors-button"') < html.indexOf('id="cost-button"') && html.indexOf('id="cost-button"') < html.indexOf('id="settings-button"'),
-        'after the error log button, before the gear');
+    assert.ok(html.indexOf('id="delta-time"') < html.indexOf('id="cost-button"') && html.indexOf('id="cost-button"') < html.indexOf('id="history-button"'),
+        'the first of the icons, before the history icon (since 0.81; after the error log icon before)');
 });
 
 // ---- version 0.79: the small changes of the page
@@ -1065,7 +1067,7 @@ test('the log has two buttons in the line of the zoom buttons, after them: icons
 
 test('the four checkboxes of the things that show a view say icon, and no other but the refresh one says button', () => {
     const texts = [...MAIN.matchAll(/<input id="set-show[A-Za-z]+" type="checkbox"> ([^<]+)<\/label>/g)].map(m => m[1]);
-    assert.deepEqual(texts.filter(text => /icon$/.test(text)), ['Log icon', 'History icon', 'Error log icon', 'Cost icon']);
+    assert.deepEqual(texts.filter(text => /icon$/.test(text)), ['Cost icon', 'History icon', 'Log icon', 'Error log icon']);
     assert.deepEqual(texts.filter(text => /button/i.test(text)), ['Refresh button'], 'which does something, and shows no view');
     for (const id of ['set-showLogIcon', 'set-showHistoryIcon', 'set-showErrorIcon', 'set-showCostIcon']) {
         const label = html.lastIndexOf('<label', html.indexOf('id="' + id + '"'));
@@ -1126,9 +1128,9 @@ test('the three lists, the copy the table is measured on and the cost control ha
 // ---- version 0.80: a box for each view
 
 test('the panel has a box for each view, in the order of the icons, and each list has its own controls, notes and lines', () => {
-    const boxes = ['<section id="view-log"', '<section id="view-history"', '<section id="view-errors"', '<div id="cost-view"', '<div id="settings-view"'].map(tag => html.indexOf(tag));
+    const boxes = ['<div id="cost-view"', '<section id="view-history"', '<section id="view-log"', '<section id="view-errors"', '<div id="settings-view"'].map(tag => html.indexOf(tag));
     assert.ok(boxes.every(at => at > html.indexOf('<div id="panel"')), 'all in the panel');
-    assert.deepEqual([...boxes].sort((a, b) => a - b), boxes, 'the log, the history, the error log, the cost control, and the settings after them');
+    assert.deepEqual([...boxes].sort((a, b) => a - b), boxes, 'the cost control, the history, the log, the error log (since 0.81), and the settings after them');
     for (const name of ['log', 'history', 'errors']) {
         const box = html.slice(html.indexOf('<section id="view-' + name + '"'), html.indexOf('</section>', html.indexOf('<section id="view-' + name + '"')));
         assert.match(box, new RegExp('^<section id="view-' + name + '" class="view" aria-label="[^"]+" hidden>'), name + ' is hidden until it is shown');

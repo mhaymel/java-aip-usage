@@ -532,7 +532,7 @@ public final class SettingsStore {
     /**
      * What the window showed when the program last stopped: the panel that was open ({@code log}, {@code history}, {@code errors},
      * {@code cost} or {@code settings}), or the views that were open at once, with commas between them and in the order of
-     * their icons, as in {@code history,cost}, and for the settings the tab, the size of the window's content and the place of the window. Each is
+     * their icons, as in {@code cost,history}, and for the settings the tab, the size of the window's content and the place of the window. Each is
      * {@code null} when it was not stored or cannot be. They are in the settings file but are no settings of the settings view.
      */
     public record LastWindow(String panel, String tab, Integer width, Integer height, Integer x, Integer y) {
@@ -553,7 +553,7 @@ public final class SettingsStore {
     }
 
     /** The views, in the order of their icons, which is the order they are stored in. */
-    private static final java.util.List<String> VIEWS = java.util.List.of("log", "history", "errors", "cost");
+    private static final java.util.List<String> VIEWS = java.util.List.of("cost", "history", "log", "errors");
 
     /**
      * The panel that was open as the file names it: {@code settings}, or one view, or several with commas between them.

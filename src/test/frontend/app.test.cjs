@@ -4732,9 +4732,10 @@ test('the links of the log are not built again while the log says the same', asy
 // ---- version 0.80: several views at once
 
 const SEVERAL = withShow(WITH_CHANGE, { historyIcon: true, logIcon: true, errorIcon: true, costIcon: true, severalViews: true });
-const BOX_OF = { log: 'view-log', history: 'view-history', errors: 'view-errors', cost: 'cost-view' };
+// In the order of the icons, since 0.81: the cost control, the history, the log, the error log.
+const BOX_OF = { cost: 'cost-view', history: 'view-history', log: 'view-log', errors: 'view-errors' };
 const shownViews = page => Object.keys(BOX_OF).filter(name => !page.el(BOX_OF[name]).hidden);
-const blueIcons = page => ['log', 'history', 'errors', 'cost'].filter(name => /\bactive\b/.test(page.el(name + '-button').className));
+const blueIcons = page => ['cost', 'history', 'log', 'errors'].filter(name => /\bactive\b/.test(page.el(name + '-button').className));
 const withHeights = (status, heights) => ({ ...status, heights });
 
 test('with several views at once an icon opens its view and leaves the others open, and a blue icon closes its own view alone', async () => {
@@ -4742,8 +4743,8 @@ test('with several views at once an icon opens its view and leaves the others op
 
     await page.click('cost-button');
     await page.click('history-button');
-    assert.deepEqual(shownViews(page), ['history', 'cost'], 'the history is added, the cost control stays');
-    assert.deepEqual(blueIcons(page), ['history', 'cost'], 'both icons are blue');
+    assert.deepEqual(shownViews(page), ['cost', 'history'], 'the history is added, the cost control stays');
+    assert.deepEqual(blueIcons(page), ['cost', 'history'], 'both icons are blue');
     assert.equal(page.el('history-button').title, 'Hide the usage history');
     assert.equal(page.el('cost-button').title, 'Hide the cost control');
     assert.equal(page.el('history-button').attrs['aria-expanded'], 'true');
@@ -4769,10 +4770,10 @@ test('the views are stacked in the order of their icons, whatever order they wer
         await page.click(icon);
     }
 
-    assert.deepEqual(shownViews(page), ['log', 'history', 'errors', 'cost']);
-    assert.equal(page.window.currentView(), 'log+history+errors+cost,', 'and are named in that order to the host');
-    const boxes = INDEX_HTML.indexOf('id="view-log"') < INDEX_HTML.indexOf('id="view-history"') && INDEX_HTML.indexOf('id="view-history"') < INDEX_HTML.indexOf('id="view-errors"')
-        && INDEX_HTML.indexOf('id="view-errors"') < INDEX_HTML.indexOf('id="cost-view"');
+    assert.deepEqual(shownViews(page), ['cost', 'history', 'log', 'errors']);
+    assert.equal(page.window.currentView(), 'cost+history+log+errors,', 'and are named in that order to the host');
+    const boxes = INDEX_HTML.indexOf('id="cost-view"') < INDEX_HTML.indexOf('id="view-history"') && INDEX_HTML.indexOf('id="view-history"') < INDEX_HTML.indexOf('id="view-log"')
+        && INDEX_HTML.indexOf('id="view-log"') < INDEX_HTML.indexOf('id="view-errors"');
     assert.ok(boxes, 'which is the order their boxes have in the page');
 });
 
@@ -4859,8 +4860,8 @@ test('the settings are shown alone, and leaving them gives back every view that 
         assert.equal(page.window.currentView().split(',')[0], 'settings');
 
         await page.click(leave);
-        assert.deepEqual(shownViews(page), ['log', 'cost'], 'both are back after ' + leave);
-        assert.deepEqual(blueIcons(page), ['log', 'cost']);
+        assert.deepEqual(shownViews(page), ['cost', 'log'], 'both are back after ' + leave);
+        assert.deepEqual(blueIcons(page), ['cost', 'log']);
         assert.equal(page.el('panel-lines-log').children.length, 2, 'read afresh');
     }
 });
@@ -4878,7 +4879,7 @@ test('leaving the settings gives back the views that were open, less those whose
     state.status = withShow(WITH_CHANGE, { historyIcon: false, logIcon: true, errorIcon: true, costIcon: true, severalViews: true });
     await page.click('settings-save');
 
-    assert.deepEqual(shownViews(page), ['log', 'cost'], 'the history, whose icon was unchecked, is not given back; the other two are');
+    assert.deepEqual(shownViews(page), ['cost', 'log'], 'the history, whose icon was unchecked, is not given back; the other two are');
 });
 
 test('with the settings shown, a press on the icon of a view leaves them and shows that view with those that were open before', async () => {
@@ -4889,7 +4890,7 @@ test('with the settings shown, a press on the icon of a view leaves them and sho
     await page.click('history-button');
 
     assert.equal(page.el('settings-view').hidden, true);
-    assert.deepEqual(shownViews(page), ['history', 'cost']);
+    assert.deepEqual(shownViews(page), ['cost', 'history']);
 });
 
 test('several views at once switched off in the settings: the first of the views that were open is given back, and no other', async () => {
@@ -4906,7 +4907,7 @@ test('several views at once switched off in the settings: the first of the views
 
     await page.click('settings-save');
 
-    assert.deepEqual(shownViews(page), ['history'], 'the first in the order of the icons');
+    assert.deepEqual(shownViews(page), ['cost'], 'the first in the order of the icons');
 });
 
 test('several views at once switched off from elsewhere while several are shown: the first stays and the others are closed', async () => {
@@ -4919,8 +4920,8 @@ test('several views at once switched off from elsewhere while several are shown:
     state.status = withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: true, severalViews: false });
     await page.firePoll();
 
-    assert.deepEqual(shownViews(page), ['log'], 'the first in the order of the icons, not the first that was opened');
-    assert.deepEqual(blueIcons(page), ['log']);
+    assert.deepEqual(shownViews(page), ['cost'], 'the first in the order of the icons, not the first that was opened');
+    assert.deepEqual(blueIcons(page), ['cost']);
 });
 
 test('the size asked for with several views: as wide as the widest needs, as tall as all of them, and what may be dragged', async () => {
@@ -4931,10 +4932,10 @@ test('the size asked for with several views: as wide as the widest needs, as tal
     await page.click('cost-button');
     // The row is 42 tall; the history alone is ten rows, of which nine are its own; the cost control is as tall as it is, 42 here.
     // The cost control asks for the width of its bars, 948 here, which is more than the history needs.
-    assert.equal(page.window.contentSize(), '948,462,1,history+cost,420', 'the height may be dragged, for the history; after the names, the height the history has alone');
+    assert.equal(page.window.contentSize(), '948,462,1,cost+history,420', 'the height may be dragged, for the history; after the names, the height the history has alone');
 
     await page.click('log-button');
-    assert.equal(page.window.contentSize(), '1200,840,2,log+history+cost,420', 'with the log the width may be dragged too, and the window is three rows wide');
+    assert.equal(page.window.contentSize(), '1200,840,2,cost+history+log,420', 'with the log the width may be dragged too, and the window is three rows wide');
 
     await page.click('history-button');
     await page.click('log-button');
@@ -4947,37 +4948,37 @@ test('a list that has another view below it keeps the height it has alone, and t
     await page.click('history-button');
     await page.click('errors-button');
 
-    assert.equal(page.el('view-log').className, 'view fixed');
-    assert.equal(page.el('view-log').style.height, '458px', 'the height the log was last given, 500, less the row');
     assert.equal(page.el('view-history').className, 'view fixed');
-    assert.equal(page.el('view-history').style.height, '598px');
+    assert.equal(page.el('view-history').style.height, '598px', 'the height the history was last given, 640, less the row');
+    assert.equal(page.el('view-log').className, 'view fixed');
+    assert.equal(page.el('view-log').style.height, '458px');
     assert.equal(page.el('view-errors').className, 'view', 'the lowest list has no height of its own');
     assert.equal(page.el('view-errors').style.height, '');
-    assert.equal(page.window.contentSize(), '1200,' + (42 + 458 + 598 + 378) + ',2,log+history+errors,420', 'the error log is ten rows alone: its height is not remembered');
+    assert.equal(page.window.contentSize(), '1200,' + (42 + 598 + 458 + 378) + ',2,history+log+errors,420', 'the error log is ten rows alone: its height is not remembered');
 
     await page.click('errors-button');
-    assert.equal(page.el('view-history').className, 'view', 'with the error log closed the history is the lowest');
-    assert.equal(page.el('view-history').style.height, '');
-    assert.equal(page.window.contentSize(), '1200,' + (42 + 458 + 598) + ',2,log+history,640', 'and the height it has alone is the one it was last given');
+    assert.equal(page.el('view-log').className, 'view', 'with the error log closed the log is the lowest');
+    assert.equal(page.el('view-log').style.height, '');
+    assert.equal(page.window.contentSize(), '1200,' + (42 + 598 + 458) + ',2,history+log,500', 'and the height it has alone is the one it was last given');
 
     await page.click('log-button');
-    assert.equal(page.el('view-log').className, 'view');
+    assert.equal(page.el('view-history').className, 'view');
     assert.equal(page.window.contentSize(), '400,420,1,history', 'one view asks for ten rows, and the host gives it the height it remembers');
 });
 
 test('the host is given back every view that was open, and opens them again; with several views at once off, the first', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SEVERAL }));
-    assert.equal(page.window.restoreView('history+cost', ''), true);
+    assert.equal(page.window.restoreView('history+cost', ''), true, 'a file of 0.80, in the old order');
     await settle();
-    assert.deepEqual(shownViews(page), ['history', 'cost']);
-    assert.equal(page.window.currentView(), 'history+cost,');
+    assert.deepEqual(shownViews(page), ['cost', 'history'], 'shown in the new order');
+    assert.equal(page.window.currentView(), 'cost+history,');
 
     const one = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: true }) }));
-    one.window.restoreView('cost,history', '');
+    one.window.restoreView('history,cost', '');
     await settle();
-    assert.deepEqual(shownViews(one), ['history'], 'the first in the order of the icons');
+    assert.deepEqual(shownViews(one), ['cost'], 'the first in the order of the icons');
     assert.equal(one.window.restoreView('calendar+nothing', ''), true, 'names that are no views open nothing');
-    assert.deepEqual(shownViews(one), ['history']);
+    assert.deepEqual(shownViews(one), ['cost']);
 });
 
 test('with a list among several views the window has its title bar, and with the cost control alone it has none', async () => {
@@ -5008,11 +5009,11 @@ test('the views that were open at once are restored together, named with commas 
 
     assert.equal(page.window.restoreView('history,cost', ''), true);
     await settle();
-    assert.equal(page.window.currentView(), 'history+cost,', 'both, in the order of the icons');
+    assert.equal(page.window.currentView(), 'cost+history,', 'both, in the order of the icons');
 
-    assert.equal(page.window.restoreView('cost+log+calendar', ''), true, 'a name that is not known is left out');
+    assert.equal(page.window.restoreView('log+cost+calendar', ''), true, 'a name that is not known is left out');
     await settle();
-    assert.equal(page.window.currentView(), 'log+cost,');
+    assert.equal(page.window.currentView(), 'cost+log,');
 });
 
 test('with several views at once switched off, only the first of the views that were stored is restored', async () => {
@@ -5022,5 +5023,5 @@ test('with several views at once switched off, only the first of the views that 
     assert.equal(page.window.restoreView('history,cost', ''), true);
     await settle();
 
-    assert.equal(page.window.currentView(), 'history,');
+    assert.equal(page.window.currentView(), 'cost,', 'the first in the order of the icons');
 });

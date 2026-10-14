@@ -71,7 +71,7 @@ public final class SeveralViewsProbe {
             step("off-settings", "settings-button");
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-severalViews').checked = false;"));
             step("off", "settings-save");
-            step("off-cost", "cost-button");
+            step("off-history", "history-button");
             onFx(() -> window().close());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

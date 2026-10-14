@@ -29,12 +29,11 @@
         <span id="duration" class="delta delta-duration" hidden></span>
 
         <span class="tools">
-        <button id="log-button" class="icon tiny" type="button" aria-label="Show the log" title="Show the log"
+        <button id="cost-button" class="icon tiny" type="button" aria-label="Show the cost control" title="Show the cost control"
                 aria-expanded="false">
             <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M3.5 1.8h6l3 3v9.4h-9z"/>
-                <path d="M9.5 1.8v3h3M5.5 8h5M5.5 10.6h5"/>
+                <path d="M2 5h12M2 11h7"/>
             </svg>
         </button>
         <button id="history-button" class="icon tiny" type="button" aria-label="Show the usage history" title="Show the usage history"
@@ -45,19 +44,20 @@
                 <path d="M2 6.2h12M2 9.8h12M6.4 2.5v11"/>
             </svg>
         </button>
+        <button id="log-button" class="icon tiny" type="button" aria-label="Show the log" title="Show the log"
+                aria-expanded="false">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3.5 1.8h6l3 3v9.4h-9z"/>
+                <path d="M9.5 1.8v3h3M5.5 8h5M5.5 10.6h5"/>
+            </svg>
+        </button>
         <button id="errors-button" class="icon tiny" type="button" aria-label="Show the error log" title="Show the error log"
                 aria-expanded="false">
             <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M8 2L14.5 13.5h-13z"/>
                 <path d="M8 6.5v3.2M8 11.6v.1"/>
-            </svg>
-        </button>
-        <button id="cost-button" class="icon tiny" type="button" aria-label="Show the cost control" title="Show the cost control"
-                aria-expanded="false">
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M2 5h12M2 11h7"/>
             </svg>
         </button>
         <button id="settings-button" class="icon tiny" type="button" aria-label="Show the settings"
@@ -78,7 +78,45 @@
 </div>
 
     <div id="panel" class="panel" hidden>
-        <!-- A box for each view, in the order of the icons: each has its own controls, notes and lines. -->
+        <!-- A box for each view, in the order of the icons (cost control, history, log, error log): each list has its own controls, notes and lines. -->
+        <div id="cost-view" class="cost" hidden>
+            <div id="cost-rows" class="cost-rows"></div>
+            <p id="cost-note" class="panel-note" hidden></p>
+            <p id="cost-error" class="panel-error" role="alert" hidden></p>
+            <p id="panel-error-cost" class="panel-error" role="alert" hidden></p>
+        </div>
+        <section id="view-history" class="view" aria-label="The usage history" hidden>
+        <div id="log-controls-history" class="log-controls">
+            <span class="zoom">
+                <button id="zoom-in-history" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6.8" cy="6.8" r="4.6"/>
+                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4M6.8 4.6v4.4"/>
+                    </svg>
+                </button>
+                <button id="zoom-out-history" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6.8" cy="6.8" r="4.6"/>
+                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4"/>
+                    </svg>
+                </button>
+            </span>
+            <span id="history-choices" class="zoom" hidden>
+                <button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines and the failed lines" title="Hide the zero usage lines and the failed lines" aria-pressed="false">
+                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2 3h12l-4.5 5.5v4.5l-3 1.5v-6z"/>
+                    </svg>
+                </button>
+            </span>
+        </div>
+        <p id="log-error-history" class="panel-error" role="alert" hidden></p>
+        <p id="panel-note-history" class="panel-note" hidden></p>
+        <p id="panel-error-history" class="panel-error" role="alert" hidden></p>
+        <div id="panel-lines-history" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
+        </section>
         <section id="view-log" class="view" aria-label="The log" hidden>
         <div id="log-controls-log" class="log-controls">
             <span id="log-choices" class="log-choices" hidden>
@@ -128,38 +166,6 @@
         <p id="panel-error-log" class="panel-error" role="alert" hidden></p>
         <div id="panel-lines-log" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
         </section>
-        <section id="view-history" class="view" aria-label="The usage history" hidden>
-        <div id="log-controls-history" class="log-controls">
-            <span class="zoom">
-                <button id="zoom-in-history" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="6.8" cy="6.8" r="4.6"/>
-                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4M6.8 4.6v4.4"/>
-                    </svg>
-                </button>
-                <button id="zoom-out-history" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="6.8" cy="6.8" r="4.6"/>
-                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4"/>
-                    </svg>
-                </button>
-            </span>
-            <span id="history-choices" class="zoom" hidden>
-                <button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines and the failed lines" title="Hide the zero usage lines and the failed lines" aria-pressed="false">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M2 3h12l-4.5 5.5v4.5l-3 1.5v-6z"/>
-                    </svg>
-                </button>
-            </span>
-        </div>
-        <p id="log-error-history" class="panel-error" role="alert" hidden></p>
-        <p id="panel-note-history" class="panel-note" hidden></p>
-        <p id="panel-error-history" class="panel-error" role="alert" hidden></p>
-        <div id="panel-lines-history" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
-        </section>
         <section id="view-errors" class="view" aria-label="The error log" hidden>
         <div id="log-controls-errors" class="log-controls">
             <span class="zoom">
@@ -184,12 +190,6 @@
         <p id="panel-error-errors" class="panel-error" role="alert" hidden></p>
         <div id="panel-lines-errors" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
         </section>
-        <div id="cost-view" class="cost" hidden>
-            <div id="cost-rows" class="cost-rows"></div>
-            <p id="cost-note" class="panel-note" hidden></p>
-            <p id="cost-error" class="panel-error" role="alert" hidden></p>
-            <p id="panel-error-cost" class="panel-error" role="alert" hidden></p>
-        </div>
         <div id="settings-view" class="settings" hidden>
             <p id="settings-error" class="panel-error" role="alert" hidden></p>
             <div id="settings-tabs" class="tabs">
@@ -252,10 +252,10 @@
                     <label title="How much the amount used has changed since the reading before this one. 0.00 when it has not changed."><input id="set-showDeltaUsed" type="checkbox"> Change in the amount used</label>
                     <label title="The seconds between this reading and the one before it."><input id="set-showDeltaTime" type="checkbox"> Time since the previous reading</label>
                     <label title="How long the latest usage request to Anthropic took, in milliseconds, and in seconds and milliseconds from one second on."><input id="set-showDuration" type="checkbox"> Request duration</label>
-                    <label title="The icon that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log icon</label>
-                    <label title="The icon that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History icon</label>
-                    <label title="The icon that shows the failed refreshes of this run below the row, and hides it again."><input id="set-showErrorIcon" type="checkbox"> Error log icon</label>
                     <label title="The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again."><input id="set-showCostIcon" type="checkbox"> Cost icon</label>
+                    <label title="The icon that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History icon</label>
+                    <label title="The icon that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log icon</label>
+                    <label title="The icon that shows the failed refreshes of this run below the row, and hides it again."><input id="set-showErrorIcon" type="checkbox"> Error log icon</label>
                 </fieldset>
                 </div>
                 <div id="tab-history" class="tab-page" hidden>

@@ -2398,7 +2398,7 @@ needed: the page measures the table again when it is seen to lack room, as for a
 
 ### 110. The new order of the icons
 
-**Status: planned.** Requirements: The thirteen elements and their names; A checkbox for each element; Several views at once; The
+**Status: built (version 0.81); seen in the real window on Windows by the three window tests.** As built: as below, and one fault of 0.80 found by the new order: a list with another view below it was given its height alone less the row's height only, while as the lowest it loses the message lines, the borders and the room below the views too, so the history above the log was ten pixels taller than as the lowest. `app.js` has `chromeHeight()` for what of the window is no view's, measured from the layout, and both the fixed lists and the total use it; in the real window the history is 446 both above the log and as the lowest. `SeveralViewsWindowTest` now opens the cost control above the history, adds the log as the lowest list, and holds that the history keeps its dragged height above it; with the switch off at the second start the cost control stays, and the history icon takes its place. Requirements: The thirteen elements and their names; A checkbox for each element; Several views at once; The
 window is restored at start.
 
 - **The page.** `index.html`: the four buttons of the row in the order cost, history, log, error log, and the four checkboxes of

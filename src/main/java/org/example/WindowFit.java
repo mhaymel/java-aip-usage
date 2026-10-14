@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  * optionally {@code ,history}, {@code ,log}, {@code ,errors}, {@code ,cost}, {@code ,settings} or {@code ,debug} after that, naming the panel that is open, in CSS pixels, taken from its own
  * content and not from the window, so resizing the window to match never changes
  * the answer. With several views shown at once they are named together, in the order of their icons and joined by
- * {@code +}, as in {@code ,history+cost}, and a number may follow: the height the lowest list of them has when it is
+ * {@code +}, as in {@code ,cost+history}, and a number may follow: the height the lowest list of them has when it is
  * shown alone, row included, from which the host works out what a dragged height is for that list. Everything else is defence: a reading that is not that shape is
  * ignored, a size is kept within sane limits, and a size equal to the one already
  * applied is not applied again.
@@ -106,7 +106,7 @@ final class WindowFit {
     private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(settings|debug|(?:log|history|errors|cost)(?:\\+(?:log|history|errors|cost)){0,3})(?:,(\\d{1,5}))?)?)?");
 
     /** The views in the order of their icons, which is the order the page names them in. */
-    private static final List<String> VIEWS = List.of("log", "history", "errors", "cost");
+    private static final List<String> VIEWS = List.of("cost", "history", "log", "errors");
 
     private WindowFit() {
     }

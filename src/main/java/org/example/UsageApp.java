@@ -557,7 +557,7 @@ public class UsageApp extends Application {
             return;
         }
         String[] parts = lastView.split(",", -1);
-        // Several views are stored with commas between them, as the settings file names them: history,cost.
+        // Several views are stored with commas between them, as the settings file names them: cost,history.
         String panel = parts[0].isEmpty() ? null : parts[0].replace('+', ',');
         String tab = parts.length > 1 && !parts[1].isEmpty() && panel != null ? parts[1] : null;
         runtime.settings().storeLastWindow(new SettingsStore.LastWindow(panel, tab,

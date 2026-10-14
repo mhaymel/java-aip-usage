@@ -637,13 +637,16 @@ class SettingsStoreTest {
     void theViewsThatWereOpenAtOnceAreStoredWithCommasAndReadInTheOrderOfTheIcons() throws IOException {
         SettingsStore store = new SettingsStore(file());
         store.save(Settings.defaults());
-        store.saveLast(new SettingsStore.LastWindow("history,cost", null, 520, 640, 10, 20));
+        store.saveLast(new SettingsStore.LastWindow("cost,history", null, 520, 640, 10, 20));
 
-        assertEquals("history,cost", JsonReader.read(Files.readString(file())).get("lastPanel").asText());
-        assertEquals("history,cost", new SettingsStore(file()).loadLast().panel());
+        assertEquals("cost,history", JsonReader.read(Files.readString(file())).get("lastPanel").asText());
+        assertEquals("cost,history", new SettingsStore(file()).loadLast().panel());
+
+        Files.writeString(file(), "{\"lastPanel\": \"history,cost\"}");
+        assertEquals("cost,history", new SettingsStore(file()).loadLast().panel(), "a file of 0.80, in the old order, is read in the new one");
 
         Files.writeString(file(), "{\"lastPanel\": \"cost,calendar,log,cost\", \"lastTab\": \"general\"}");
-        assertEquals("log,cost", new SettingsStore(file()).loadLast().panel(), "an unknown name is left out, each view once, in the order of the icons");
+        assertEquals("cost,log", new SettingsStore(file()).loadLast().panel(), "an unknown name is left out, each view once, in the order of the icons");
 
         Files.writeString(file(), "{\"lastPanel\": \"history,settings\", \"lastTab\": \"about\"}");
         assertEquals(new SettingsStore.LastWindow("settings", "about", null, null, null, null), new SettingsStore(file()).loadLast(),
@@ -655,10 +658,10 @@ class SettingsStoreTest {
 
     @Test
     void aWindowShowsWhatWasStoredWhenItShowsAllOfItOrTheFirstOfItAlone() {
-        assertTrue(SettingsStore.LastWindow.shows("history,cost", List.of("history", "cost")));
-        assertTrue(SettingsStore.LastWindow.shows("history,cost", List.of("history")), "several views at once are switched off");
-        assertFalse(SettingsStore.LastWindow.shows("history,cost", List.of("cost")));
-        assertFalse(SettingsStore.LastWindow.shows("history,cost", List.of("log", "history", "cost")));
+        assertTrue(SettingsStore.LastWindow.shows("cost,history", List.of("cost", "history")));
+        assertTrue(SettingsStore.LastWindow.shows("cost,history", List.of("cost")), "several views at once are switched off");
+        assertFalse(SettingsStore.LastWindow.shows("cost,history", List.of("history")));
+        assertFalse(SettingsStore.LastWindow.shows("cost,history", List.of("cost", "history", "log")));
         assertTrue(SettingsStore.LastWindow.shows("log", List.of("log")));
         assertTrue(SettingsStore.LastWindow.shows("settings", List.of("settings")));
         assertFalse(SettingsStore.LastWindow.shows("log", List.of()), "nothing is open yet");
