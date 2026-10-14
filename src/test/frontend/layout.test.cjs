@@ -1206,3 +1206,7 @@ test('the program brings Cascadia Mono, with its licence, and names it first', (
     assert.ok(fs.statSync(require('node:path').join(dir, 'CascadiaMono-Regular.ttf')).size > 100000);
     assert.match(fs.readFileSync(require('node:path').join(dir, 'CascadiaMono-LICENSE.txt'), 'utf8'), /SIL Open Font License, Version 1\.1/);
 });
+
+test('the settings beside other views are above them and keep the height of their tab', () => {
+    assert.match(css, /\.panel > \.settings\s*{\s*order:\s*-1;\s*flex:\s*none/);
+});

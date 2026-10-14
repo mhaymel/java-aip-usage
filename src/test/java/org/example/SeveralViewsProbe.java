@@ -57,6 +57,8 @@ public final class SeveralViewsProbe {
             step("history-cost", "log-button");
             step("cost-alone", "history-button");
             step("history-again", "history-button");
+            // The settings beside the two, above them; the program stops with all three shown.
+            step("settings-beside", "settings-button");
             onFx(() -> window().close());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -68,7 +70,7 @@ public final class SeveralViewsProbe {
             Thread.sleep(6000);
             step("restored", null);
             // Switched off while two views are shown: the first of them, in the order of the icons, stays.
-            step("off-settings", "settings-button");
+            // The settings came back beside the views, on General: several views at once is unchecked there and saved.
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-severalViews').checked = false;"));
             step("off", "settings-save");
             step("off-history", "history-button");
@@ -94,8 +96,9 @@ public final class SeveralViewsProbe {
                     // The views that are shown, from the top down, each with its height.
                     + " views:" + view.getEngine().executeScript(
                             "(function () { var out = []; Array.prototype.forEach.call(document.querySelectorAll('#panel > .view, #panel > #cost-view, #panel > #settings-view'), function (v) {"
-                                    + " if (!v.hidden && !document.getElementById('panel').hidden) { out.push(v.id + ':' + Math.round(v.getBoundingClientRect().top) + ':' + Math.round(v.getBoundingClientRect().height)); } });"
-                                    + " return out.join('/'); })()")
+                                    + " if (!v.hidden && !document.getElementById('panel').hidden) { out.push([Math.round(v.getBoundingClientRect().top), v.id + ':' + Math.round(v.getBoundingClientRect().top) + ':' + Math.round(v.getBoundingClientRect().height)]); } });"
+                                    // In the order they are drawn, from the top down, which is not the order of the page for the settings.
+                                    + " out.sort(function (a, b) { return a[0] - b[0]; }); return out.map(function (v) { return v[1]; }).join('/'); })()")
                     + " below:" + view.getEngine().executeScript(
                             "Math.round(window.innerHeight - document.getElementById('app').getBoundingClientRect().bottom)")
                     + " end");

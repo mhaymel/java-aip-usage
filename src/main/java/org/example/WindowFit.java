@@ -103,7 +103,7 @@ final class WindowFit {
 
     static final Size MAX = new Size(2400, 1600);
 
-    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(settings|debug|(?:log|history|errors|cost)(?:\\+(?:log|history|errors|cost)){0,3})(?:,(\\d{1,5}))?)?)?");
+    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(debug|(?:settings\\+)?(?:log|history|errors|cost)(?:\\+(?:log|history|errors|cost)){0,3}|settings)(?:,(\\d{1,5}))?)?)?");
 
     /** The views in the order of their icons, which is the order the page names them in. */
     private static final List<String> VIEWS = List.of("cost", "history", "log", "errors");
@@ -117,7 +117,8 @@ final class WindowFit {
             return true;
         }
         int last = -1;
-        for (String name : panel.split("\\+")) {
+        // The settings, when they are among the views, are named first (since 0.81); the pattern lets them stand nowhere else.
+        for (String name : panel.replaceFirst("^settings\\+", "").split("\\+")) {
             int at = VIEWS.indexOf(name);
             if (at <= last) {
                 return false;

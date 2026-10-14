@@ -4847,22 +4847,25 @@ test('the zoom is in the line of every list and changes the one size of all thre
     }
 });
 
-test('the settings are shown alone, and leaving them gives back every view that was open', async () => {
+test('with several views at once the settings are shown above the views that are open, and leaving them closes them alone', async () => {
     for (const leave of ['settings-cancel', 'settings-save', 'settings-button']) {
         const page = await load(backendOf({ config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: { ...SETTINGS.settings, severalViews: true } } }) }));
         await page.click('log-button');
         await page.click('cost-button');
 
         await page.click('settings-button');
-        assert.deepEqual(shownViews(page), [], 'the settings take the place of every view');
+        assert.deepEqual(shownViews(page), ['cost', 'log'], 'the views stay (since 0.81; in 0.80 the settings took their place)');
         assert.equal(page.el('settings-view').hidden, false);
-        assert.deepEqual(blueIcons(page), [], 'and no icon of a view is blue');
-        assert.equal(page.window.currentView().split(',')[0], 'settings');
+        assert.deepEqual(blueIcons(page), ['cost', 'log'], 'and their icons stay blue');
+        assert.equal(page.window.currentView(), 'settings+cost+log,general', 'the settings named first, with their tab');
+        assert.match(page.window.contentSize(), /^\d+,\d+,2,settings\+cost\+log,\d+$/, 'the log among them: the width and the height may be dragged');
 
         await page.click(leave);
-        assert.deepEqual(shownViews(page), ['cost', 'log'], 'both are back after ' + leave);
+        assert.equal(page.el('settings-view').hidden, true, 'the settings are closed by ' + leave);
+        assert.deepEqual(shownViews(page), ['cost', 'log'], 'and the views stay open after ' + leave);
         assert.deepEqual(blueIcons(page), ['cost', 'log']);
-        assert.equal(page.el('panel-lines-log').children.length, 2, 'read afresh');
+        assert.equal(page.el('panel-lines-log').children.length, 2);
+        assert.equal(page.window.currentView(), 'cost+log,');
     }
 });
 
@@ -4882,15 +4885,70 @@ test('leaving the settings gives back the views that were open, less those whose
     assert.deepEqual(shownViews(page), ['cost', 'log'], 'the history, whose icon was unchecked, is not given back; the other two are');
 });
 
-test('with the settings shown, a press on the icon of a view leaves them and shows that view with those that were open before', async () => {
+test('with the settings beside the views, a press on the icon of a view opens or closes it and leaves the settings open, unsaved', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: { ...SETTINGS.settings, severalViews: true } } }) }));
     await page.click('cost-button');
     await page.click('settings-button');
+    page.el('set-showDeltaUsed').checked = !page.el('set-showDeltaUsed').checked;
+    const typed = page.el('set-showDeltaUsed').checked;
 
     await page.click('history-button');
+    assert.equal(page.el('settings-view').hidden, false, 'the settings stay');
+    assert.deepEqual(shownViews(page), ['cost', 'history'], 'and the history opens below them, with the cost control');
+    assert.equal(settingsPosts(page).length, 0, 'nothing is saved');
+    assert.equal(page.el('set-showDeltaUsed').checked, typed, 'and what was changed in the form is still there');
+
+    await page.click('cost-button');
+    assert.equal(page.el('settings-view').hidden, false);
+    assert.deepEqual(shownViews(page), ['history'], 'the cost control closes, the settings stay');
+    assert.match(page.window.contentSize(), /^\d+,\d+,1,settings\+history,420$/, 'the history is the lowest list, at the height it has alone');
+
+    await page.click('settings-cancel');
+    assert.equal(page.el('settings-view').hidden, true);
+    assert.deepEqual(shownViews(page), ['history']);
+    assert.equal(settingsPosts(page).length, 0, 'Cancel saves nothing');
+});
+
+test('with the settings beside the views, saving closes them alone, and a view whose icon was unchecked with them', async () => {
+    const saved = { ...SETTINGS.settings, severalViews: true };
+    const state = { config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: saved } }) };
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+    await page.click('settings-button');
+    await page.click('log-button');
+    await change(page, 'set-showLogIcon', false);
+
+    state.status = withShow(WITH_CHANGE, { historyIcon: true, logIcon: false, errorIcon: true, costIcon: true, severalViews: true });
+    await page.click('settings-save');
 
     assert.equal(page.el('settings-view').hidden, true);
+    assert.deepEqual(shownViews(page), ['history'], 'the log, whose icon was unchecked, is closed; the history stays');
+});
+
+test('with several views at once off the settings still take the place of the view that is shown, and give it back', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: true, severalViews: false }) }));
+    await page.click('cost-button');
+    await page.click('settings-button');
+    assert.deepEqual(shownViews(page), [], 'as before');
+    assert.equal(page.window.currentView(), 'settings,general');
+    await page.click('settings-cancel');
+    assert.deepEqual(shownViews(page), ['cost']);
+});
+
+test('the settings and the views beside them are restored together, on their tab; with several views at once off, the settings alone', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: { ...SETTINGS.settings, severalViews: true } } }) }));
+    assert.equal(page.window.restoreView('settings,cost,history', 'main'), true);
+    await settle();
+    assert.equal(page.el('settings-view').hidden, false);
     assert.deepEqual(shownViews(page), ['cost', 'history']);
+    assert.equal(page.window.currentView(), 'settings+cost+history,main');
+
+    const one = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { ...ALL_ICONS, costIcon: true, severalViews: false }) }));
+    assert.equal(one.window.restoreView('settings,cost,history', 'main'), true);
+    await settle();
+    assert.equal(one.el('settings-view').hidden, false);
+    assert.deepEqual(shownViews(one), [], 'the settings alone');
+    assert.equal(one.window.currentView(), 'settings,main');
 });
 
 test('several views at once switched off in the settings: the first of the views that were open is given back, and no other', async () => {

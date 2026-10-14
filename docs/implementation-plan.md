@@ -2414,7 +2414,7 @@ window is restored at start.
 
 ### 111. The settings beside the other views
 
-**Status: planned.** Requirements: Several views at once; Settings; The panel buttons while the settings are shown; The window is
+**Status: built (version 0.81); seen in the real window on Windows by `SeveralViewsWindowTest`.** As built: `settingsBeside` in `app.js`, set when the settings are opened with several views at once on and kept until they are left; `leaveForm(name, saved, drop)` closes them alone then, and after a save reads the views that stayed afresh, as views given back are; `keepSwitchedOn` in the place of `dropWhatIsSwitchedOff`; `showViews` loads the form only when the settings are opened, not when a view beside them comes or goes, and keeps the preview; `fillsWindow()` decides `open` and `fit`; `.panel > .settings` has `order: -1` and `flex: none`. `WindowFit` takes `settings` first in a joined list and nowhere else; `SettingsStore` reads `settings,cost,history`. In the real window: the settings at the top (y 37) above the cost control and the history, the history 447 as the lowest list, `settings,cost,history` stored, all three back at the second start at the same height, and with the switch unchecked and saved there, the cost control alone. Requirements: Several views at once; Settings; The panel buttons while the settings are shown; The window is
 restored at start.
 
 - **The page.** `app.js`: with `several()` on, the settings are a view among `openViews` (`settings` first, the others in the

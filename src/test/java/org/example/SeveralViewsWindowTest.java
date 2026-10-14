@@ -82,8 +82,11 @@ class SeveralViewsWindowTest {
         assertTrue(three.group(11).matches("cost-view:\\d+:\\d+/view-history:\\d+:\\d+/view-log:\\d+:\\d+"), all);
         near(historyHeight + 150, Integer.parseInt(three.group(11).split("/")[1].split(":")[2]), "the history above the log keeps its dragged height:\n" + all);
 
-        // The settings replace the views, and give all three back.
-        assertEquals("settings,general", step(all, "settings").group(1), all);
+        // The settings stand above the views, which stay (since 0.81), and leaving them closes them alone.
+        Matcher settings = step(all, "settings");
+        assertEquals("settings+cost+history+log,general", settings.group(1), all);
+        assertTrue(settings.group(11).matches("settings-view:37:\\d+/cost-view:\\d+:\\d+/view-history:\\d+:\\d+/view-log:\\d+:\\d+"),
+                "the settings first, right below the row:\n" + all);
         assertEquals("cost+history+log,", step(all, "settings-left").group(1), all);
 
         // Closed one by one: each icon closes its own view.
@@ -94,7 +97,15 @@ class SeveralViewsWindowTest {
         Matcher again = step(all, "history-again");
         assertEquals(Integer.parseInt(dragged.group(10)), Integer.parseInt(again.group(10)), "the history comes back at the height it was dragged to:\n" + all);
 
-        assertTrue(all.contains("PROBE stored=cost,history|"), "both are stored, with a comma, in the order of the icons:\n" + all);
+        // The settings beside the two: above them, the history the lowest list at the height it has.
+        Matcher beside = step(all, "settings-beside");
+        assertEquals("settings+cost+history,general", beside.group(1), all);
+        assertEquals("true", beside.group(7));
+        assertEquals("h", beside.group(8), "the history's height may be dragged");
+        String[] withSettings = beside.group(11).split("/");
+        assertTrue(withSettings[0].startsWith("settings-view:37:") && withSettings[1].startsWith("cost-view:") && withSettings[2].startsWith("view-history:"), all);
+        near(historyHeight + 150, Integer.parseInt(withSettings[2].split(":")[2]), "the history as tall as it was:\n" + all);
+        assertTrue(all.contains("PROBE stored=settings,cost,history|"), "all three are stored, the settings first, with commas:\n" + all);
 
         // The second start: both come back, at the same height.
         List<String> second = new ArrayList<>();
@@ -102,8 +113,8 @@ class SeveralViewsWindowTest {
         String next = String.join("\n", second);
         System.out.println(next.lines().filter(l -> l.startsWith("PROBE")).reduce("", (a, b) -> a + b + "\n"));
         Matcher restored = step(next, "restored");
-        assertEquals("cost+history,", restored.group(1), next);
-        near(Integer.parseInt(again.group(10)), Integer.parseInt(restored.group(10)), "at the height it had:\n" + next);
+        assertEquals("settings+cost+history,general", restored.group(1), next);
+        near(Integer.parseInt(beside.group(10)), Integer.parseInt(restored.group(10)), "at the height it had:\n" + next);
         assertEquals("cost,", step(next, "off").group(1), "switched off: the first of them stays:\n" + next);
         assertEquals("history,", step(next, "off-history").group(1), "and an icon now takes the place of what is shown:\n" + next);
         assertTrue(!all.contains("PROBE failed") && !next.contains("PROBE failed"), all + "\n" + next);

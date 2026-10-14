@@ -565,10 +565,11 @@ public final class SettingsStore {
             return null;
         }
         java.util.List<String> named = java.util.List.of(node.text().split(","));
-        if (named.contains("settings")) {
-            return "settings";
-        }
         String views = String.join(",", VIEWS.stream().filter(named::contains).toList());
+        if (named.contains("settings")) {
+            // The settings first, and the views that were beside them after (since 0.81).
+            return views.isEmpty() ? "settings" : "settings," + views;
+        }
         return views.isEmpty() ? null : views;
     }
 

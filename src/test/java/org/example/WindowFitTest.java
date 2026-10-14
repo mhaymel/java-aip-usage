@@ -182,4 +182,18 @@ class WindowFitTest {
         assertEquals(true, WindowFit.next("520,720,1,cost+history,500", applied).isPresent());
         assertEquals(true, WindowFit.next("520,640,1,history,420", applied).isPresent(), "a view fewer is a new size");
     }
+
+    @Test
+    void theSettingsMayBeNamedFirstAmongTheViewsAndOnlyThere() {
+        Size beside = WindowFit.parse("520,700,1,settings+cost+history,420").orElseThrow();
+        assertEquals(java.util.List.of("settings", "cost", "history"), beside.panels());
+        assertEquals("history", beside.lowestList(), "the settings are no list");
+        assertEquals(true, beside.several());
+        assertEquals(true, beside.keepsTitleBar());
+        assertEquals(java.util.List.of("settings", "cost"), WindowFit.parse("520,300,3,settings+cost").orElseThrow().panels());
+        assertEquals(WindowFit.Resize.WIDTH, WindowFit.parse("520,300,4,settings+cost").orElseThrow().resize(), "About beside the cost control");
+        assertEquals(Optional.empty(), WindowFit.parse("520,700,1,cost+settings+history,420"), "first or nowhere");
+        assertEquals(Optional.empty(), WindowFit.parse("520,700,1,settings+settings,420"));
+        assertEquals(Optional.empty(), WindowFit.parse("520,700,1,settings+history+cost,420"), "the views still in the order of their icons");
+    }
 }

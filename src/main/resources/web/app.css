@@ -704,6 +704,12 @@ body {
     border-top: 1px solid var(--view-line);
 }
 
+/* The settings beside other views are above them, right below the row, and as tall as their tab: the lists take the rest. */
+.panel > .settings {
+    order: -1;
+    flex: none;
+}
+
 /* A view above another keeps its height; the page says how tall it is. */
 .view.fixed {
     flex: none;

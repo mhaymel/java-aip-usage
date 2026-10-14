@@ -649,8 +649,11 @@ class SettingsStoreTest {
         assertEquals("cost,log", new SettingsStore(file()).loadLast().panel(), "an unknown name is left out, each view once, in the order of the icons");
 
         Files.writeString(file(), "{\"lastPanel\": \"history,settings\", \"lastTab\": \"about\"}");
-        assertEquals(new SettingsStore.LastWindow("settings", "about", null, null, null, null), new SettingsStore(file()).loadLast(),
-                "the settings are shown alone");
+        assertEquals(new SettingsStore.LastWindow("settings,history", "about", null, null, null, null), new SettingsStore(file()).loadLast(),
+                "the settings first, with the views that were beside them (since 0.81), and their tab");
+
+        Files.writeString(file(), "{\"lastPanel\": \"settings\", \"lastTab\": \"cost\"}");
+        assertEquals(new SettingsStore.LastWindow("settings", "cost", null, null, null, null), new SettingsStore(file()).loadLast(), "alone");
 
         Files.writeString(file(), "{\"lastPanel\": \"calendar,\"}");
         assertEquals(SettingsStore.LastWindow.NONE, new SettingsStore(file()).loadLast());
@@ -664,6 +667,8 @@ class SettingsStoreTest {
         assertFalse(SettingsStore.LastWindow.shows("cost,history", List.of("cost", "history", "log")));
         assertTrue(SettingsStore.LastWindow.shows("log", List.of("log")));
         assertTrue(SettingsStore.LastWindow.shows("settings", List.of("settings")));
+        assertTrue(SettingsStore.LastWindow.shows("settings,cost,history", List.of("settings", "cost", "history")));
+        assertTrue(SettingsStore.LastWindow.shows("settings,cost,history", List.of("settings")), "several views at once are switched off");
         assertFalse(SettingsStore.LastWindow.shows("log", List.of()), "nothing is open yet");
         assertFalse(SettingsStore.LastWindow.shows(null, List.of("log")));
     }

@@ -613,18 +613,20 @@ is among them: the height the lowest list has alone, the row included. `371,522,
 the history, the history at 490 with the row, and the two together 522. The width is that of the widest view by its
 own rule, the height the row and every view at the height it has alone; a list that has another view below it is given
 the larger of the height the status says under `heights` and its own ten rows, less what of the window is no view's (the row, its message lines, the borders and the room below the lowest view), so that it is as tall as when it is the lowest. The flag is `1` when a list is among them,
-`2` when the log or the error log is, and `3` when none is. The settings are never named with a view: they replace the
-views. The host gives the window its title bar when any view named is one but `cost`. What of the height is not the
+`2` when the log or the error log is, and `3` when none is. Since version 0.81 the settings may stand beside the views, when
+they were opened with `severalViews` on: they are then named first, `settings+cost+history`, count with their least width and
+the height of their tab, and the flag is `2` with a list on their tab `About`, `4` there with no list (the width free), and
+as above otherwise. With `severalViews` off they replace the views, as before, and are named alone. The host gives the window its title bar when any view named is one but `cost`. What of the height is not the
 lowest list's, the total less the fifth field, stays as the page asked; the lowest list takes what the person drags the
 window to, and when it is the history or the log that height, less the views above it, is what the host remembers for
 it, and gives it when the same list is next the lowest or alone. It never lets the window be dragged lower than the views
-above that list and a row of it. A report that names a view twice, more than four, a name that is no view, or the
-settings with a view is ignored like any other that is not this shape.
+above that list and a row of it. A report that names a view twice, more than four, a name that is no view, the views out
+of the order of their icons, or the settings anywhere but first is ignored like any other that is not this shape.
 
 `window.currentView()` says what is shown, for the host to store when the program stops: `cost+history,` for views, and
-`settings,general` for the settings and their tab. The host stores the views in `lastPanel` of `settings.json` with commas,
-`cost,history` (a file of 0.80, `history,cost`, is read in the new order), and at the next start hands them to `window.restoreView(panel, tab)`, which takes either; it opens every
-view named when `severalViews` is on and the first of them when it is off, leaves out a name it does not know, and
+`settings,general` for the settings and their tab, `settings+cost+history,general` for the settings beside views. The host stores the views in `lastPanel` of `settings.json` with commas,
+`cost,history` or `settings,cost,history` (a file of 0.80, `history,cost`, is read in the new order), and at the next start hands them to `window.restoreView(panel, tab)`, which takes either; it opens every
+view named when `severalViews` is on and the first of them when it is off (the settings alone, when they are named), leaves out a name it does not know, and
 answers `false` while it cannot yet tell, so that the host asks again.
 
 The page exposes nothing else to its host, and the host exposes nothing to the page.

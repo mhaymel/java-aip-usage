@@ -22,6 +22,9 @@
     // are no view among them: they are shown alone, in the place of whatever was shown, and are a state of their own.
     var openViews = [];
     var settingsOpen = false;
+    // Whether the settings stand beside the other views (since 0.81): they were opened with several views at once on, and leaving
+    // them closes them alone. Off, they take the place of the views and give them back (returnTo).
+    var settingsBeside = false;
     // What the page knows of each view while it is shown: whether it is being read, which reading the history is shown up to
     // (a new one means it is read again), what is drawn (to leave it alone when a read finds nothing new), and the rows on
     // show, to tell how many came in above what the person was reading. Each view has its own, so that each keeps up by itself.
@@ -335,12 +338,17 @@
         return Boolean(lastStatus && lastStatus.fake);
     }
 
+    /** Whether the views fill the window: a list is among them, and the settings, if they are shown, stand beside it. */
+    function fillsWindow() {
+        return listOpen() && (!settingsOpen || openViews.length > 0);
+    }
+
     function applyAppClass() {
         // The lists fill the window; the settings and the cost control alone do not, so that the page's own height is the content's.
         $('app').className = (lastStale ? 'stale' : '')
-            + (!settingsOpen && listOpen() ? ' open' : '')
+            + (fillsWindow() ? ' open' : '')
             // The settings and the cost control are as tall as their content, which is the page's own height.
-            + (settingsOpen || (openViews.length > 0 && !listOpen()) ? ' fit' : '')
+            + (anyOpen() && !fillsWindow() ? ' fit' : '')
             // The readings are invented while the fake backend is in use: the red border says so.
             + (fakeInUse() ? ' fake' : '')
             // A window with no title bar has no frame of the system to show where it ends: the page draws one.
@@ -647,10 +655,8 @@
      * open closes it. It goes by the settings as they are saved, which the form was last told, whether this leaving saved
      * them or found nothing to save. Cancel does not ask: it changes nothing, and gives back what was shown.
      */
-    function dropWhatIsSwitchedOff() {
-        if (settingsShown) {
-            returnTo = returnTo.filter(function (name) { return settingsShown[ICON_SETTINGS[name]] !== false; });
-        }
+    function keepSwitchedOn(names) {
+        return settingsShown ? names.filter(function (name) { return settingsShown[ICON_SETTINGS[name]] !== false; }) : names;
     }
 
     /** Save: saves, and then the view closes and the row shows the change at once. */
@@ -658,8 +664,7 @@
         if (settingsShown === null || !(await saveAll(false))) {
             return;
         }
-        dropWhatIsSwitchedOff();
-        leaveForm(null, true);
+        leaveForm(null, true, true);
     }
 
     /**
@@ -667,9 +672,14 @@
      * row keeps what was previewed until the poll brings it back as applied, so that it does not flick to the old state; without one
      * the row is the backend's again.
      */
-    function leaveForm(name, saved) {
+    function leaveForm(name, saved, drop) {
         var applied = saved ? preview : null;
-        var back = returnTo.slice();
+        // Beside the views the settings close alone, and the views stay; else the views they replaced come back.
+        var beside = settingsBeside;
+        var back = beside ? openViews.slice() : returnTo.slice();
+        if (drop) {
+            back = keepSwitchedOn(back);
+        }
         if (name) {
             // The icon of a view was pressed: that view, and with several views at once the ones the settings replaced as well.
             back = several() ? back.concat([name]) : [name];
@@ -682,6 +692,13 @@
         if (saved) {
             preview = applied;
             render();
+            if (beside) {
+                // The views that stayed show what the saved settings changed, as views given back do: they are read afresh.
+                openViews.forEach(function (view) {
+                    resetView(view);
+                    loadPanel(view);
+                });
+            }
             pollNow();
         }
     }
@@ -792,7 +809,7 @@
     /** Cancel: closes the view and changes nothing; it asks nothing, since nothing was sent. It is the one way to leave without saving. */
     function cancelSettings() {
         if (settingsOpen) {
-            leaveForm(null, false);
+            leaveForm(null, false, false);
         }
     }
 
@@ -1436,19 +1453,29 @@
      * Save does, when anything in them was changed. If that fails they stay, with the reason, and the other panel is not shown.
      */
     async function togglePanel(name) {
+        if (settingsOpen && settingsBeside && name !== 'settings') {
+            // Beside the views, an icon opens or closes its view, and the settings stay as they are, unsaved.
+            showViews(isOpen(name) ? openViews.filter(function (open) { return open !== name; }) : openViews.concat([name]), true);
+            return;
+        }
         if (settingsOpen) {
             var form = FORMS.settings;
             var changed = form.changed();
             if (changed && !(await form.save())) {
                 return;
             }
-            dropWhatIsSwitchedOff();
-            leaveForm(name === 'settings' ? null : name, changed);
+            leaveForm(name === 'settings' ? null : name, changed, true);
             return;
         }
         if (name === 'settings') {
-            returnTo = openViews.slice();
-            showViews([], true);
+            if (several()) {
+                // With several views at once the settings are shown with the views that are open, above them.
+                returnTo = [];
+                showViews(openViews, true);
+            } else {
+                returnTo = openViews.slice();
+                showViews([], true);
+            }
             return;
         }
         returnTo = [];
@@ -1552,21 +1579,28 @@
      */
     function showViews(names, settings) {
         var before = openViews;
-        var next = settings ? [] : VIEWS.filter(function (name) { return names.indexOf(name) >= 0; });
+        var wasSettings = settingsOpen;
+        var next = VIEWS.filter(function (name) { return names.indexOf(name) >= 0; });
         var fresh = next.filter(function (name) { return before.indexOf(name) < 0; });
         var gone = before.filter(function (name) { return next.indexOf(name) < 0; });
         openViews = next;
         settingsOpen = Boolean(settings);
+        // The settings stand beside views when they are opened with several views at once on, and stay so until they are left.
+        settingsBeside = settingsOpen && (wasSettings ? settingsBeside : several());
         // A preview belongs to the settings as they were opened: it ends when they are left, and a new one begins with the first click.
-        preview = null;
+        if (!(settingsOpen && wasSettings)) {
+            preview = null;
+        }
         gone.concat(fresh).forEach(resetView);
         VIEWS.forEach(function (name) { show(sectionOf(name).id, isOpen(name)); });
         labelButtons();
         show('panel', anyOpen());
         // The settings are a form in the same place, not lines.
         show('settings-view', settingsOpen);
-        // The settings open on the tab they were left on (see currentTab).
-        if (settingsOpen) {
+        // The settings open on the tab they were left on (see currentTab). A view opened or closed beside them leaves the form as it is.
+        if (settingsOpen && wasSettings) {
+            // Nothing of the form changes.
+        } else if (settingsOpen) {
             showTab(currentTab);
             loadSettings();
         } else {
@@ -1602,8 +1636,8 @@
         if (!config || !anyOpen()) {
             return '';
         }
-        // Several views are named together, in the order of their icons: history+cost.
-        return settingsOpen ? 'settings,' + currentTab : openViews.join('+') + ',';
+        // Several views are named together, in the order of their icons, and the settings first: settings+cost+history,general.
+        return settingsOpen ? ['settings'].concat(openViews).join('+') + ',' + currentTab : openViews.join('+') + ',';
     };
 
     /**
@@ -1619,15 +1653,19 @@
             return false;
         }
         var names = String(panel || '').split(/[+,]/);
+        var known = VIEWS.filter(function (name) { return names.indexOf(name) >= 0; });
         if (names.indexOf('settings') >= 0) {
-            returnTo = openViews.slice();
-            showViews([], true);
+            if (known.length > 0 && !lastStatus) {
+                return false;
+            }
+            // With several views at once the settings come back with the views that were beside them; else alone.
+            returnTo = [];
+            showViews(several() ? known : [], true);
             if (visibleTabs().indexOf(tab) >= 0) {
                 showTab(tab);
             }
             return true;
         }
-        var known = VIEWS.filter(function (name) { return names.indexOf(name) >= 0; });
         if (known.length === 0) {
             return true;
         }
@@ -1680,6 +1718,9 @@
         var edge = fakeInUse() ? 6 : bare() ? 2 : 0;
         var width = Math.ceil(box.width) + edge;
         var height = Math.ceil(box.height) + edge;
+        if (settingsOpen && openViews.length > 0) {
+            return severalSize(width);
+        }
         if (settingsOpen) {
             // As tall as the row, its message lines and the settings need, whole, and never narrower than the settings need
             // for every text to be on one line and the buttons in one row; the flag says it is not resizable, and the name that a panel is open.
@@ -1724,6 +1765,11 @@
     function severalSize(width) {
         var wide = width;
         var total = chromeHeight();
+        if (settingsOpen) {
+            // The settings, above the views: their least width, and the height of the tab that is shown.
+            wide = Math.max(wide, settingsWidth());
+            total += Math.ceil($('settings-view').getBoundingClientRect().height);
+        }
         openViews.forEach(function (name) {
             if (name === 'log') {
                 wide = Math.max(wide, 3 * width + scrollbarWidth);
@@ -1737,8 +1783,11 @@
             total += sectionHeight(name);
         });
         var lowest = lowestList();
-        var flag = lowest === null ? 3 : (isOpen('log') || isOpen('errors') ? 2 : 1);
-        return wide + ',' + Math.ceil(total) + ',' + flag + ',' + openViews.join('+') + (lowest === null ? '' : ',' + aloneHeight(lowest));
+        // The tab About may be dragged wider: with a list among the views the width is free, and without one the width alone.
+        var about = settingsOpen && currentTab === 'about';
+        var flag = lowest === null ? (about ? 4 : 3) : (isOpen('log') || isOpen('errors') || about ? 2 : 1);
+        var named = (settingsOpen ? ['settings'] : []).concat(openViews);
+        return wide + ',' + Math.ceil(total) + ',' + flag + ',' + named.join('+') + (lowest === null ? '' : ',' + aloneHeight(lowest));
     }
 
     // What the list of the history was seen to lack in width, in pixels, and for which table that was: see historyLack.
