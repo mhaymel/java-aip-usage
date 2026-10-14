@@ -219,7 +219,7 @@ public final class PanelProbe {
     private static void historyWithTheTimeChangeLast(WebEngine page, Stage main) {
         page.executeScript(
                 "fetch('/api/settings').then(function (r) { return r.json(); }).then(function (b) { var s = b.settings;"
-                        + " s.historyDeltaUsed = true; s.historyDeltaTime = true; s.historyCurrent = false;"
+                        + " s.historyDeltaUsed = true; s.historyDeltaTime = true; s.historyCurrent = false; s.showStatus = false;"
                         + " return fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) }); })");
         after(1.0, () -> {
             click(page, "history-button");

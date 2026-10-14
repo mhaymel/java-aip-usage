@@ -489,7 +489,8 @@ final class ApiHandler implements HttpHandler {
                 s.cost().source(),
                 s.cost().workdayHours(),
                 s.cost().workdaysTyped(java.time.YearMonth.now()).orElse(null),
-                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder());
+                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder(),
+                s.showStatus(), s.showDayPercentage(), s.showDayUsed(), s.showDayLimit());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -538,7 +539,11 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showCostIcon", current.showCostIcon()),
                     flag(body, "severalViews", current.severalViews()),
                     folderText(body, "logFolder", current.logFolder()),
-                    folderText(body, "historyFolder", current.historyFolder()));
+                    folderText(body, "historyFolder", current.historyFolder()),
+                    flag(body, "showStatus", current.showStatus()),
+                    flag(body, "showDayPercentage", current.showDayPercentage()),
+                    flag(body, "showDayUsed", current.showDayUsed()),
+                    flag(body, "showDayLimit", current.showDayLimit()));
             // A folder that is changed is used at once: its files are moved there before the settings are saved, and a folder
             // that cannot be written refuses the whole of it, with nothing changed.
             moveFolders(given);
@@ -1379,7 +1384,11 @@ final class ApiHandler implements HttpHandler {
             boolean showCostIcon,
             boolean severalViews,
             String logFolder,
-            String historyFolder) {
+            String historyFolder,
+            boolean showStatus,
+            boolean showDayPercentage,
+            boolean showDayUsed,
+            boolean showDayLimit) {
 
         Json toJson() {
             return Json.object()
@@ -1423,7 +1432,11 @@ final class ApiHandler implements HttpHandler {
                     .put("showCostIcon", showCostIcon)
                     .put("severalViews", severalViews)
                     .put("logFolder", logFolder)
-                    .put("historyFolder", historyFolder);
+                    .put("historyFolder", historyFolder)
+                    .put("showStatus", showStatus)
+                    .put("showDayPercentage", showDayPercentage)
+                    .put("showDayUsed", showDayUsed)
+                    .put("showDayLimit", showDayLimit);
         }
     }
 

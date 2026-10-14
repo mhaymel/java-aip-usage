@@ -212,7 +212,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showTitleBar: true, autoInterval: false,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showStatus: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, showTitleBar: true, autoInterval: false,
     costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
     historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
 };
@@ -986,7 +986,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showTitleBar: true, autoInterval: false,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showStatus: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
         historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
     });
@@ -5246,4 +5246,65 @@ test('Working days: Automatic shows the weekdays of the month; unchecked, a numb
     const sent = JSON.parse(settingsPosts(page)[0].body);
     assert.equal(sent.costWorkdays, 20);
     assert.equal(sent.costWorkdayHours, 6);
+});
+
+// ---- version 0.82: the row, the status circle and the figures of the day
+
+const SPENDING = {
+    state: 'red', tooltip: 'Today: over the daily limit: 7.20 of 6.81\nMonth: within the limit and on pace',
+    day: { state: 'red', used: '7.20', limit: '6.81', percent: '106%' },
+    month: { state: 'green', used: '186.02', limit: '1,000.00', percent: '19%' },
+};
+const withSpending = (status, spending) => ({ ...status, spending });
+
+test('the status circle is first in the row, shown by default, in the colour of the state, with the tooltip the backend wrote', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withSpending(SPEND_STATUS, SPENDING) }));
+    assert.equal(page.el('status-dot').hidden, false, 'shown when the backend says nothing of it');
+    assert.equal(page.el('status-dot').className, 'status-dot red');
+    assert.equal(page.el('status-dot').title, SPENDING.tooltip);
+    assert.ok(INDEX_HTML.indexOf('id="status-dot"') < INDEX_HTML.indexOf('id="time"'), 'before the time');
+
+    const none = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    assert.equal(none.el('status-dot').className, 'status-dot gray', 'nothing worked out: gray');
+    const off = await load(backendOf({ config: CONFIG, status: withShow(withSpending(SPEND_STATUS, SPENDING), { status: false }) }));
+    assert.equal(off.el('status-dot').hidden, true, 'switched off');
+});
+
+test('the figures of the day follow those of the month when switched on, red over the daily limit', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withShow(withSpending(SPEND_STATUS, SPENDING), { dayPercentage: true, dayUsed: true, dayLimit: true }) }));
+    assert.equal(page.el('day').hidden, false);
+    assert.equal(page.el('day-percent').textContent, '106%');
+    assert.equal(page.el('day-used').textContent, '7.20');
+    assert.equal(page.el('day-limit').textContent, '6.81');
+    assert.equal(page.el('day-of').hidden, false);
+    assert.match(page.el('day-used').className, /\bover\b/, 'red over the daily limit');
+    assert.match(page.el('day-percent').className, /\bover\b/);
+    assert.doesNotMatch(page.el('used').className, /\bover\b/, 'the month is within its limit: green');
+
+    const hidden = await load(backendOf({ config: CONFIG, status: withSpending(SPEND_STATUS, SPENDING) }));
+    assert.equal(hidden.el('day').hidden, true, 'off by default');
+});
+
+test('over the monthly limit the amount used and its percentage are red; with no daily limit the day\'s figures are gray boxes that say so', async () => {
+    const over = { ...SPENDING, day: { state: 'gray', used: '1.00', limit: null, percent: null }, month: { state: 'red', used: '186.02', limit: '150.00', percent: '124%' } };
+    const page = await load(backendOf({ config: CONFIG, status: withShow(withSpending(SPEND_STATUS, over), { percentage: true, dayPercentage: true, dayUsed: true, dayLimit: true }) }));
+    assert.match(page.el('used').className, /\bover\b/);
+    assert.match(page.el('percent').className, /\bover\b/);
+    assert.match(page.el('day-limit').className, /\bskeleton\b/);
+    assert.equal(page.el('day-limit').title, 'No daily limit is set');
+    assert.match(page.el('day-percent').className, /\bskeleton\b/);
+    assert.equal(page.el('day-used').textContent, '1.00', 'what was spent is still said');
+});
+
+test('the four new checkboxes of Main view preview the row and are sent with the settings', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withSpending(SPEND_STATUS, SPENDING) }));
+    await page.click('settings-button');
+    assert.equal(page.el('set-showStatus').checked, true);
+    assert.equal(page.el('set-showDayUsed').checked, false);
+    await change(page, 'set-showDayUsed', true);
+    assert.equal(page.el('day').hidden, false, 'the row shows it at once');
+    await page.click('settings-save');
+    const sent = JSON.parse(settingsPosts(page)[0].body);
+    assert.equal(sent.showDayUsed, true);
+    assert.equal(sent.showStatus, true);
 });

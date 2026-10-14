@@ -237,6 +237,7 @@
         figure('used', 'used', usedShown, spend && amount(spend.used, variants, 'used', s.currency), spend ? spend.usedTooltip : 'Credits used' + why, spendBoxes);
         figure('limit', 'limit', limitShown, spend && amount(spend.limit, variants, 'limit', s.currency), spend ? spend.limitTooltip : 'Credit budget' + why, spendBoxes);
         show('of', usedShown && limitShown);
+        renderSpending(s, boxes);
 
         // While the server asks us to slow down (HTTP 429) the countdown is red and, hovered, says why in bold red.
         figure('countdown', 'countdown' + (v.countdownAlert ? ' alert' : v.countdownAuto ? ' auto' : ''), on(s.countdown) && (loading || Boolean(v.countdown)),
@@ -258,6 +259,38 @@
         if (settingsOpen && settingsShown !== null && $('set-autoInterval').checked) {
             syncIntervalField();
         }
+    }
+
+    /**
+     * The status circle, the figures of the day and the red of a figure over its limit (since 0.82), from what the backend worked
+     * out (`spending` of the status). With nothing worked out the circle is gray and the figures of the day are gray boxes.
+     */
+    function renderSpending(s, boxes) {
+        var spending = lastStatus && lastStatus.spending;
+        var state = spending ? spending.state : 'gray';
+        show('status-dot', s.status !== false);
+        $('status-dot').className = 'status-dot ' + state;
+        $('status-dot').title = spending ? spending.tooltip : 'No usage has been read yet.';
+        // Over the limit the row shows, the amount used and its percentage are red.
+        var monthOver = Boolean(spending && spending.month.state === 'red');
+        ['used', 'percent'].forEach(function (id) {
+            if (monthOver && !/\bskeleton\b/.test($(id).className)) {
+                $(id).className += ' over';
+            }
+        });
+        var day = spending ? spending.day : null;
+        var noLimit = !day || day.limit === null;
+        var dayOver = Boolean(day && day.state === 'red');
+        var percentShown = Boolean(s.dayPercentage);
+        var usedShown = Boolean(s.dayUsed);
+        var limitShown = Boolean(s.dayLimit);
+        show('day', percentShown || usedShown || limitShown);
+        var why = noLimit ? 'No daily limit is set' : null;
+        figure('day-percent', 'percent' + (dayOver ? ' over' : ''), percentShown, day && day.percent, why || 'Share of the daily limit spent today',
+            boxes || !day || day.percent === null);
+        figure('day-used', dayOver ? 'over' : '', usedShown, day && day.used, 'Spent today', boxes || !day || day.used === null);
+        figure('day-limit', '', limitShown, day && day.limit, why || 'The daily limit in force', boxes || noLimit);
+        show('day-of', usedShown && limitShown);
     }
 
     /**
@@ -397,7 +430,7 @@
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon', cost: 'showCostIcon' };
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
-    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon'];
+    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showStatus', 'showDayPercentage', 'showDayUsed', 'showDayLimit'];
     // The fourteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
@@ -421,7 +454,8 @@
                 interval: checked('showInterval'), deltaUsed: checked('showDeltaUsed'), deltaTime: checked('showDeltaTime'),
                 duration: checked('showDuration'),
                 logIcon: checked('showLogIcon'), historyIcon: checked('showHistoryIcon'), errorIcon: checked('showErrorIcon'),
-                costIcon: checked('showCostIcon')
+                costIcon: checked('showCostIcon'),
+                status: checked('showStatus'), dayPercentage: checked('showDayPercentage'), dayUsed: checked('showDayUsed'), dayLimit: checked('showDayLimit')
             }
         };
         render();

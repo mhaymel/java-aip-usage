@@ -59,7 +59,7 @@ final class StatusDisplay {
             boolean percentage, boolean currency, boolean interval, boolean deltaUsed, boolean deltaTime,
             boolean historyIcon, boolean logIcon, boolean errorIcon, boolean costIcon,
             boolean time, boolean used, boolean limit, boolean refresh, boolean countdown, boolean duration,
-            boolean severalViews) {
+            boolean severalViews, boolean status, boolean dayPercentage, boolean dayUsed, boolean dayLimit) {
 
         Json toJson() {
             return Json.object()
@@ -78,7 +78,11 @@ final class StatusDisplay {
                     .put("refresh", refresh)
                     .put("countdown", countdown)
                     .put("duration", duration)
-                    .put("severalViews", severalViews);
+                    .put("severalViews", severalViews)
+                    .put("status", status)
+                    .put("dayPercentage", dayPercentage)
+                    .put("dayUsed", dayUsed)
+                    .put("dayLimit", dayLimit);
         }
     }
 
@@ -215,7 +219,8 @@ final class StatusDisplay {
                         settings.showPercentage(), settings.showCurrency(), settings.showInterval(), settings.showDeltaUsed(),
                         settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon(), settings.showCostIcon(),
                         settings.showTime(), settings.showUsed(), settings.showLimit(), settings.showRefresh(), settings.showCountdown(),
-                        settings.showDuration(), settings.severalViews()),
+                        settings.showDuration(), settings.severalViews(), settings.showStatus(), settings.showDayPercentage(),
+                        settings.showDayUsed(), settings.showDayLimit()),
                 // Whether the setting gives the window its title bar. The page draws a border round a window that has none,
                 // which is one with this off and no panel open.
                 settings.showTitleBar(),

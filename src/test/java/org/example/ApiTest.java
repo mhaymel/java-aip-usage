@@ -295,7 +295,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(41, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(45, body.get("settings").size(), "the debug settings are not among them");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -3115,5 +3115,20 @@ class ApiTest {
         assertEquals("red", over.at("/month/state").asText(), "186.02 of 150.00");
         assertEquals("red", over.get("state").asText());
         assertTrue(over.get("tooltip").asText().contains("Month: over the monthly limit: 186.02 of 150.00"), over.get("tooltip").asText());
+    }
+
+    @Test
+    void theStatusCircleIsShownByDefaultAndTheFiguresOfTheDayAreNot() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        Json show = json(get(app, "/api/status")).at("/display/show");
+        assertTrue(show.get("status").asBoolean());
+        assertFalse(show.get("dayPercentage").asBoolean());
+        assertFalse(show.get("dayUsed").asBoolean());
+        assertFalse(show.get("dayLimit").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"showStatus\": false, \"showDayUsed\": true}"));
+        show = json(get(app, "/api/status")).at("/display/show");
+        assertFalse(show.get("status").asBoolean());
+        assertTrue(show.get("dayUsed").asBoolean());
     }
 }

@@ -46,7 +46,8 @@
             deltaUsed: d.deltaUsed || null,
             deltaTime: d.deltaTime || null,
             duration: d.duration || null,
-            show: d.show || { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true, costIcon: true },
+            show: d.show || { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true, costIcon: true,
+                status: true, dayPercentage: false, dayUsed: false, dayLimit: false },
             message: d.message || null,
             // What is said of a reading with no spend, while the mouse is on one of its gray boxes; null for any other reading.
             noSpend: d.noSpend || null,

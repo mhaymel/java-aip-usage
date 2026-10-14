@@ -24,6 +24,8 @@
     --list-font: "Cascadia Mono Bundled", ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
     /* The line between the row and a view, and between two views: a middle gray. */
     --view-line: #8c959f;
+    /* What is about to pass a limit: the projection or the pace (since 0.82). */
+    --warn: #bf8700;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -32,6 +34,7 @@
         --bad: #f85149;
         --info: #58a6ff;
         --view-line: #484f58;
+        --warn: #d29922;
     }
 }
 
@@ -245,6 +248,36 @@ body {
 #percent.skeleton { min-width: 3ch; }
 #used.skeleton { min-width: 6ch; }
 #limit.skeleton { min-width: 8ch; }
+
+/*
+ * The status circle, first in the row (since 0.82): a filled dot of 10 pixels, green, amber, red, or gray when there is no limit.
+ */
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--muted);
+}
+
+.status-dot.green { background: var(--ok); }
+.status-dot.amber { background: var(--warn); }
+.status-dot.red { background: var(--bad); }
+
+/* The figures of the day follow those of the month, after a thin gray line (since 0.82). */
+.day {
+    border-left: 1px solid var(--muted);
+    padding-left: 8px;
+}
+
+/* Over its limit a figure is red, the amount used and its percentage, of the month or of the day (since 0.82). */
+.spend .over {
+    color: var(--bad);
+}
+
+#day-percent.skeleton { min-width: 3ch; }
+#day-used.skeleton { min-width: 5ch; }
+#day-limit.skeleton { min-width: 5ch; }
 
 /* Figures that predate a failed refresh are dimmed. */
 .stale .time,

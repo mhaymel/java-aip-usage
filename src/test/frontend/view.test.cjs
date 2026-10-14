@@ -46,7 +46,8 @@ test('a status with no display shows nothing and every optional item off', () =>
 
     assert.equal(v.time, null);
     assert.equal(v.spend, null);
-    assert.deepEqual(v.show, { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true, costIcon: true },
+    assert.deepEqual(v.show, { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true, costIcon: true,
+        status: true, dayPercentage: false, dayUsed: false, dayLimit: false },
         'the buttons are there until the backend says otherwise');
 });
 

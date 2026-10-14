@@ -2581,7 +2581,7 @@ colours, over the limit, the currency symbol); Cost control (`Currency symbol`).
 
 ### 118. The row: the status circle, the figures of the day, red
 
-**Status: planned.** Requirements: The elements of the row; One green, and red over the limit; Limits, projections and the
+**Status: built (version 0.82); seen in the real window on Windows by the three window tests.** As built: the four settings in `Settings` (`withDay`), `SettingsStore`, `ApiHandler` and `StatusDisplay.Show`; `renderSpending` in `app.js` draws the dot, the class `over` on the amount used and the percentage, and the three of the day, gray boxes with `No daily limit is set` when there is none; `--warn` (the amber) on `:root`; the four checkboxes join `MAIN_FLAGS`, so that the button of Main view switches eighteen. Two window tests changed with the row: the title bar test counts ten checkboxes on by default and eighteen in all, and the panel test switches the dot off for its step that pushes the history's lines, since the row with the dot is wider than the table and the list would not lack room. Requirements: The elements of the row; One green, and red over the limit; Limits, projections and the
 status of spending (the circle).
 
 - **The settings.** `showStatus` (on), `showDayPercentage`, `showDayUsed`, `showDayLimit` (off), in `Settings`, `SettingsStore`,

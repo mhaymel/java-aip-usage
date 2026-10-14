@@ -123,6 +123,14 @@ public final class SettingsStore {
 
     static final String LOG_FOLDER_KEY = "logFolder";
 
+    static final String SHOW_STATUS_KEY = "showStatus";
+
+    static final String SHOW_DAY_PERCENTAGE_KEY = "showDayPercentage";
+
+    static final String SHOW_DAY_USED_KEY = "showDayUsed";
+
+    static final String SHOW_DAY_LIMIT_KEY = "showDayLimit";
+
     static final String HISTORY_FOLDER_KEY = "historyFolder";
 
     static final String LAST_PANEL_KEY = "lastPanel";
@@ -241,7 +249,11 @@ public final class SettingsStore {
                 flag(root, SHOW_COST_ICON_KEY, defaults.showCostIcon()),
                 flag(root, SEVERAL_VIEWS_KEY, defaults.severalViews()),
                 folder(root, LOG_FOLDER_KEY),
-                folder(root, HISTORY_FOLDER_KEY));
+                folder(root, HISTORY_FOLDER_KEY),
+                flag(root, SHOW_STATUS_KEY, defaults.showStatus()),
+                flag(root, SHOW_DAY_PERCENTAGE_KEY, defaults.showDayPercentage()),
+                flag(root, SHOW_DAY_USED_KEY, defaults.showDayUsed()),
+                flag(root, SHOW_DAY_LIMIT_KEY, defaults.showDayLimit()));
     }
 
     /**
@@ -737,6 +749,10 @@ public final class SettingsStore {
         root.put(SEVERAL_VIEWS_KEY, settings.severalViews());
         root.put(LOG_FOLDER_KEY, settings.logFolder());
         root.put(HISTORY_FOLDER_KEY, settings.historyFolder());
+        root.put(SHOW_STATUS_KEY, settings.showStatus());
+        root.put(SHOW_DAY_PERCENTAGE_KEY, settings.showDayPercentage());
+        root.put(SHOW_DAY_USED_KEY, settings.showDayUsed());
+        root.put(SHOW_DAY_LIMIT_KEY, settings.showDayLimit());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
         // What the window showed when the program last stopped; only what was stored is written.

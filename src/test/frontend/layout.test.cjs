@@ -845,7 +845,7 @@ test('the percentage, the amounts, the two changes and the request duration are 
     assert.match(ruleOf('.delta-used,\n.delta-time,\n.delta-duration,\n.spend'), /color:\s*var\(--ok\)/);
     assert.deepEqual([...css.matchAll(/--ok:\s*(#[0-9a-f]{6})/g)].map(m => m[1]), ['#1a7f37', '#3fb950'], 'the light theme, then the dark one');
     assert.doesNotMatch(css, /\.sev-/, 'no rule by severity');
-    assert.doesNotMatch(css, /--warn/, 'and no amber');
+    assert.match(css, /--warn:\s*#bf8700/,'amber since 0.82, for a limit about to be passed, never for the severity');
     for (const rule of ['.time', '.countdown', '.delta-interval']) {
         assert.doesNotMatch(ruleOf(rule), /color/, rule + ' stays in the colour of the text');
     }
@@ -1267,4 +1267,20 @@ test('the Cost control tab has Limit counted, the hours of a working day and the
     assert.match(tab, /name="costLimitSource" type="radio" value="monthly"> Monthly limit/);
     assert.match(tab, /title="How long a working day is: today's spend is projected over it\. The default is 8\.">Hours of a working day/);
     assert.match(tab, /title="The working days of this month, Monday to Friday unless a number is typed; a typed number holds for this\s+month only\.">Working days|title="The working days of this month, Monday to Friday unless a number is typed; a typed number holds for this month only\.">Working days/);
+});
+
+test('the row has the status circle first and the figures of the day after the budget, and Main view their checkboxes in that order', () => {
+    const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
+    const order = ['id="status-dot"', 'id="time"', 'id="limit"', 'id="day"', 'id="day-percent"', 'id="day-used"', 'id="day-of"', 'id="day-limit"', 'id="refresh"'].map(id => strip.indexOf(id));
+    assert.ok(order.every(at => at >= 0));
+    assert.deepEqual([...order].sort((a, b) => a - b), order);
+    const main = html.slice(html.indexOf('id="tab-main"'), html.indexOf('id="tab-history"'));
+    const boxes = ['set-showStatus', 'set-showTime', 'set-showLimit', 'set-showDayPercentage', 'set-showDayUsed', 'set-showDayLimit', 'set-showRefresh'].map(id => main.indexOf('id="' + id + '"'));
+    assert.ok(boxes.every(at => at >= 0));
+    assert.deepEqual([...boxes].sort((a, b) => a - b), boxes);
+    assert.match(ruleOf('.status-dot'), /width:\s*10px/);
+    assert.match(ruleOf('.status-dot'), /border-radius:\s*50%/);
+    assert.match(css, /\.status-dot\.amber\s*{\s*background:\s*var\(--warn\)/);
+    assert.match(css, /\.status-dot\.red\s*{\s*background:\s*var\(--bad\)/);
+    assert.match(ruleOf('.spend .over'), /color:\s*var\(--bad\)/);
 });

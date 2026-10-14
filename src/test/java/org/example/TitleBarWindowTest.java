@@ -112,8 +112,8 @@ class TitleBarWindowTest {
         assertEquals("moved:0,0 hasTitleBar:true panel:true", line(all, "drag-with-title-bar").substring("PROBE drag-with-title-bar=".length()), all);
 
         // The button of Main view: a small icon in the line of the heading, which switches every element on, and all off when all are on.
-        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/9 .*"), "some elements are on, and the button is in the middle of its heading:\n" + all);
-        assertTrue(line(all, "settings-all").contains("/14 note:"), "one press: all fourteen on, the cost button among them:\n" + all);
+        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/10 .*"), "some elements are on, the status circle among them since 0.82, and the button is in the middle of its heading:\n" + all);
+        assertTrue(line(all, "settings-all").contains("/18 note:"), "one press: all eighteen on, the status circle and the figures of the day among them (since 0.82):\n" + all);
         assertTrue(line(all, "settings-narrow").contains("/0 note:"), "another: all off:\n" + all);
 
         // The window has the program's icon in its four sizes, with the title bar and without, in each window that took the place of another.
