@@ -282,6 +282,16 @@ body {
 .status-dot.amber { background: var(--warn); box-shadow: 0 0 0 1px var(--warn-text); }
 .status-dot.red { background: var(--bad); }
 
+/* It fades in and out, a slow breath, while it has a colour and Blinks is on (since 0.88); the ring of the orange fades with it.
+ * Only the class of the state changes with the state, so the fade goes on where it was. It stands still while the window is minimized. */
+.status-dot.blink { animation: status-breath 2s ease-in-out infinite; }
+.status-dot.blink.paused { animation-play-state: paused; }
+
+@keyframes status-breath {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
 /*
  * The figures of the day come first, then those of the month after a thin gray line (since 0.83; the other way round in 0.82):
  * the line is there only when both are shown.

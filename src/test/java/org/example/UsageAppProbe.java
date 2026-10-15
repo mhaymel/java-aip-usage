@@ -100,8 +100,8 @@ public final class UsageAppProbe {
             step("history-larger", null);
             onFx(() -> page().getEngine().executeScript("for (var i = 0; i < 8; i++) { document.querySelector('.view:not([hidden]) [id^=zoom-out]').click(); }"));
             step("history-usual", null);
-            // A panel is shown, so the title bar is there: a drag inside the window moves nothing.
-            drag("drag-with-title-bar", "time");
+            // A list has no title bar (since 0.87): a drag from the row moves the window.
+            drag("drag-list", "time");
             // And it selects nothing: not the row it began in, not the lines of the list it went across, and nor does selecting everything.
             select("select-history");
             step("history-closed", "history-button");
@@ -122,7 +122,7 @@ public final class UsageAppProbe {
             // The cost control cannot be resized, so it has no title bar: the window has its border, and is moved by dragging it.
             step("cost-panel", "cost-button");
             drag("drag-cost", "time");
-            // From it to a panel that can be resized, and back: the title bar comes and goes.
+            // From it to a list, and back: neither has the title bar (since 0.87).
             step("cost-to-log", "log-button");
             step("cost-panel-again", "cost-button");
             step("cost-panel-closed", "cost-button");

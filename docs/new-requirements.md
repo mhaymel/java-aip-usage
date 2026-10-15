@@ -1,4 +1,5 @@
-![img_56.png](img_56.png) same path for log and history folder, only one choose and default
 
-when title bar is unchecked, the title bar should not be shown in any view or views. only exception config view
-in this case it should be schown.
+the status indicator green/orange/red circle shoudl blink, fading in and out
+
+a tooltip should stay as long as the mouse is not moved
+

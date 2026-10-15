@@ -89,9 +89,13 @@ class WindowFitTest {
     }
 
     @Test
-    void everyPanelKeepsTheTitleBarButTheCostControlWhichCannotBeResized() {
-        for (String panel : new String[] {"history", "log", "errors", "settings", "debug"}) {
+    void onlyTheSettingsAndTheDebugSettingsKeepTheTitleBar() {
+        for (String panel : new String[] {"settings", "debug"}) {
             assertEquals(true, WindowFit.parse("400,420,2," + panel).orElseThrow().keepsTitleBar(), panel);
+        }
+        // Since 0.87 a list has no title bar either: it has buttons to make it taller and shorter, and is moved by dragging it.
+        for (String panel : new String[] {"history", "log", "errors"}) {
+            assertEquals(false, WindowFit.parse("400,420,2," + panel).orElseThrow().keepsTitleBar(), panel);
         }
         assertEquals(false, WindowFit.parse("400,120,3,cost").orElseThrow().keepsTitleBar(), "the cost control has none, like the row alone");
         assertEquals(false, WindowFit.parse("400,42,0").orElseThrow().keepsTitleBar(), "no panel");
@@ -180,9 +184,10 @@ class WindowFitTest {
     }
 
     @Test
-    void withSeveralViewsTheWindowHasItsTitleBarWheneverOneOfThemCanBeDragged() {
-        assertEquals(true, WindowFit.parse("520,640,1,cost+history,420").orElseThrow().keepsTitleBar(), "the history can be dragged taller");
-        assertEquals(true, WindowFit.parse("1300,900,2,log+errors,420").orElseThrow().keepsTitleBar());
+    void withSeveralViewsTheWindowHasItsTitleBarOnlyWhileTheSettingsAreAmongThem() {
+        assertEquals(false, WindowFit.parse("520,640,1,cost+history,420").orElseThrow().keepsTitleBar(), "a list has none since 0.87");
+        assertEquals(false, WindowFit.parse("1300,900,2,log+errors,420").orElseThrow().keepsTitleBar());
+        assertEquals(true, WindowFit.parse("520,700,1,settings+cost+history,420").orElseThrow().keepsTitleBar());
         assertEquals(false, WindowFit.parse("400,120,3,cost").orElseThrow().keepsTitleBar(), "the cost control alone has none, as before");
     }
 

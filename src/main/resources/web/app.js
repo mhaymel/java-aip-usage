@@ -113,6 +113,8 @@
     var preview = null;
     // Whether the host says the pointer has been outside the window for a moment, and whether the row is away for it (since 0.85).
     var pointerAway = false;
+    // Whether the host says the window is minimized (since 0.88): the status circle then stands still.
+    var windowHidden = false;
     var rowAway = false;
 
     function $(id) {
@@ -276,7 +278,9 @@
         var spending = lastStatus && lastStatus.spending;
         var state = spending ? spending.state : 'gray';
         show('status-dot', s.status !== false);
-        $('status-dot').className = 'status-dot ' + state;
+        // It fades in and out while it has a colour (since 0.88), and stands still while the window is minimized.
+        var blink = s.statusBlink !== false && state !== 'gray';
+        $('status-dot').className = 'status-dot ' + state + (blink ? ' blink' : '') + (blink && windowHidden ? ' paused' : '');
         $('status-dot').title = spending ? spending.tooltip : 'No usage has been read yet.';
         // The amount used and its percentage take the colour of the bar of the month, today's those of the bar of today (since 0.84;
         // red alone in 0.82 and 0.83): red over the limit, orange when it is about to be passed, and green else.
@@ -340,6 +344,16 @@
      */
     window.pointerAway = function (away) {
         pointerAway = Boolean(away);
+        render();
+        return true;
+    };
+
+    /**
+     * The host says whether the window is minimized, or shown again (since 0.88): the status circle stands still while it cannot
+     * be seen, so that nothing is repainted for it.
+     */
+    window.windowHidden = function (hidden) {
+        windowHidden = Boolean(hidden);
         render();
         return true;
     };
@@ -489,9 +503,10 @@
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon', cost: 'showCostIcon' };
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
-    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showStatus', 'showDayPercentage', 'showDayUsed', 'showDayLimit'];
-    // The fourteen elements of the row that have a checkbox: the flags of Main view but the currency symbol, which is a property of the amounts.
-    var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency'; });
+    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showStatus', 'statusBlink', 'showDayPercentage', 'showDayUsed', 'showDayLimit'];
+    // The elements of the row that have a checkbox: the flags of Main view but the currency symbol, a property of the amounts, and
+    // Blinks, a property of the status circle (since 0.88).
+    var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency' && key !== 'statusBlink'; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
     var HISTORY_FLAGS = ['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyMonthly', 'historyDaily', 'historyDailyBy', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent'];
     var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'severalViews', 'costCurrency', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'historyMonthly', 'historyDaily', 'historyDailyBy', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
@@ -514,7 +529,7 @@
                 duration: checked('showDuration'),
                 logIcon: checked('showLogIcon'), historyIcon: checked('showHistoryIcon'), errorIcon: checked('showErrorIcon'),
                 costIcon: checked('showCostIcon'),
-                status: checked('showStatus'), dayPercentage: checked('showDayPercentage'), dayUsed: checked('showDayUsed'), dayLimit: checked('showDayLimit')
+                status: checked('showStatus'), statusBlink: checked('statusBlink'), dayPercentage: checked('showDayPercentage'), dayUsed: checked('showDayUsed'), dayLimit: checked('showDayLimit')
             }
         };
         render();

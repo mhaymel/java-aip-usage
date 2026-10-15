@@ -290,7 +290,10 @@
                             <rect x="2" y="2" width="12" height="12" rx="2"/>
                             <path d="M5 8.2l2.2 2.3L11 5.6"/>
                         </svg></button></legend>
-                    <label title="A dot that says how the day and the month stand against their limits: green, amber when a limit is about to be passed, red when one is passed."><input id="set-showStatus" type="checkbox"> Status</label>
+                    <span class="line">
+                        <label title="A dot that says how the day and the month stand against their limits: green, amber when a limit is about to be passed, red when one is passed."><input id="set-showStatus" type="checkbox"> Status</label>
+                        <label title="The circle fades in and out while it is green, orange or red. Off, it stands still."><input id="set-statusBlink" type="checkbox"> Blinks</label>
+                    </span>
                     <span class="line">
                         <label title="The time of day at which the usage shown was last read from Anthropic."><input id="set-showTime" type="checkbox"> Time</label>
                         <select id="set-timeFormat" aria-label="Time format" title="Whether the time is shown with or without seconds.">

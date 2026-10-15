@@ -117,6 +117,18 @@ class SettingsStoreTest {
     }
 
     @Test
+    void theStatusCircleBlinksByDefaultAlsoForAFileThatSaysNothingOfItAndComesBackAsSaved() throws IOException {
+        Files.writeString(file(), "{\"usageIntervalSeconds\": 90}");
+        SettingsStore store = new SettingsStore(file());
+        assertTrue(store.load().statusBlink(), "a file of 0.87 or before");
+
+        store.save(Settings.defaults().withStatusBlink(false));
+
+        assertFalse(store.load().statusBlink());
+        assertTrue(store.load().showStatus(), "and nothing else changed with it");
+    }
+
+    @Test
     void theTitleBarIsOnByDefaultAlsoForAFileThatSaysNothingOfItAndComesBackAsSaved() throws IOException {
         Files.writeString(file(), "{\"usageIntervalSeconds\": 90}");
         SettingsStore store = new SettingsStore(file());
@@ -186,7 +198,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "dataFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "historyHeight", "logHeight"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -674,17 +686,31 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFoldersAreTextsEmptyForTheProgramsFolder() throws IOException {
+    void theOneFolderIsATextEmptyForTheProgramsFolder() throws IOException {
         assertEquals("", Settings.defaults().logFolder());
         assertEquals("", Settings.defaults().historyFolder());
         SettingsStore store = new SettingsStore(file());
-        store.save(Settings.defaults().withFolders("C:\\logs", "/home/me/history"));
-        assertEquals("C:\\logs", new SettingsStore(file()).load().logFolder());
-        assertEquals("/home/me/history", new SettingsStore(file()).load().historyFolder());
+        store.save(Settings.defaults().withFolders("/home/me/data", "/home/me/data"));
+        Settings read = new SettingsStore(file()).load();
+        assertEquals("/home/me/data", read.logFolder(), "one folder for both since 0.87");
+        assertEquals("/home/me/data", read.historyFolder());
 
-        Files.writeString(file(), "{\"logFolder\": 12, \"historyFolder\": null}");
-        assertEquals("", new SettingsStore(file()).load().logFolder(), "not a text: the program's folder");
-        assertEquals("", new SettingsStore(file()).load().historyFolder());
+        Files.writeString(file(), "{\"dataFolder\": 12}");
+        assertEquals("", new SettingsStore(file()).load().historyFolder(), "not a text: the program's folder");
+    }
+
+    @Test
+    void aFileOfBeforeTakesTheFolderOfTheHistoryForBothAndSaysWhereItsLogWas() throws IOException {
+        Files.writeString(file(), "{\"logFolder\": \"C:\\\\logs\", \"historyFolder\": \"/home/me/history\"}");
+        SettingsStore store = new SettingsStore(file());
+        assertEquals("/home/me/history", store.load().logFolder(), "the history's folder wins");
+        assertEquals("/home/me/history", store.load().historyFolder());
+        assertEquals("C:\\logs", store.oldLogFolder(), "the log is to be moved from there");
+
+        Files.writeString(file(), "{\"logFolder\": \"/same\", \"historyFolder\": \"/same\"}");
+        assertNull(store.oldLogFolder(), "the same folder: nothing to move");
+        Files.writeString(file(), "{\"dataFolder\": \"/data\", \"logFolder\": \"/old\"}");
+        assertNull(store.oldLogFolder(), "a file of 0.87 or later");
     }
 
     @Test

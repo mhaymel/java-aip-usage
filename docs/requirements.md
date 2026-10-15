@@ -482,6 +482,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   | Show the amount used in the row | on, off | on |
   | Show the monthly limit in the row (`Monthly limit`, `Budget` until 0.82) | on, off | on |
   | Show the status circle in the row (`Status`, since version 0.82) | on, off | on |
+  | The status circle blinks (`Blinks`, beside `Status`, since version 0.88) | on, off | on |
   | Show today's percentage, today's spend and the daily limit in the row (three checkboxes, since version 0.82) | on, off | off |
   | Show the refresh button in the row | on, off | on |
   | Show the countdown in the row | on, off | on |
@@ -1058,6 +1059,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
   | Element | Property beside its checkbox |
   | --- | --- |
+  | `Status` | `Blinks`, whether the circle fades in and out (since version 0.88); its tooltip is `The circle fades in and out while it is green, orange or red. Off, it stands still.` |
   | `Time` | the time format, `hh:mm` or `hh:mm:ss` |
   | `Amount used` | `Currency symbol`, which puts the symbol before the amount used and before the budget |
 
@@ -2230,8 +2232,16 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The state of each**, the day and the month: **red** when what is spent is more than its limit; **amber** when not, but
   the day's projection is more than the daily limit, or the month is ahead of its pace; **green** otherwise; **gray** when it
   has no limit.
-- **The status circle does not pulse** (decided in version 0.83, against the note of `docs/img_40.png`): a dot that fades in and
-  out would have the window repaint all the time, which costs the computer more than it is worth. It stands still in its colour.
+- **The status circle blinks** (since version 0.88; decided against in version 0.83, since a dot that fades in and
+  out has the window repaint all the time, and now asked for in `new-requirements.md`): while it is green, orange or red it
+  fades in and out, a slow breath of **2 seconds**, its opacity eased from 100% to 30% and back. **Gray does not blink**: with
+  no limit there is nothing to watch.
+  - **The rhythm is the same for every colour**; a change of state changes the colour at once, and the fade goes on where it was.
+  - **It stops while the window cannot be seen**: when it is minimized the dot stands still, so that
+    nothing is repainted, and blinks again once the window is shown.
+  - **`Blinks` off** (beside the checkbox `Status` in `Main view`, on by default) has it stand still in its colour, as it did
+    until 0.87. The settings preview shows the change at once. `Blinks` can be set while `Status` is off, as `Currency symbol` can while the
+    amount used is hidden.
 - **The status circle** (the element `Status`, the first of the row, shown by default) is a filled dot, 10 pixels: red when
   either is red, amber when either is amber and none red, green when both are green, gray when neither has a limit (one
   without a limit counts as green beside the other). Its tooltip says each, in two lines, then the figures:
@@ -2876,7 +2886,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, `logFolder`, `historyFolder`, and since version 0.82 `showStatus`, `showDayPercentage`, `showDayUsed`, `showDayLimit`, `historyMonthly`, `historyDaily`, `historyDailyBy`, `costLimitSource`, `costWorkdayHours`, `costWorkdays`, `costWorkdaysMonth` and `costCurrency`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, `logFolder`, `historyFolder`, and since version 0.82 `showStatus`, `showDayPercentage`, `showDayUsed`, `showDayLimit`, `historyMonthly`, `historyDaily`, `historyDailyBy`, `costLimitSource`, `costWorkdayHours`, `costWorkdays`, `costWorkdaysMonth` and `costCurrency`, since version 0.88 `statusBlink`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
   `historyHeight` and `logHeight`. The three files, the settings, the log and the usage history, are in the working directory the program was
   started from; where that is for a version started in its usual way is said in its section. Since version 0.81 the log and
   the usage history can be in other folders (see The folders of the log and of the usage history); the settings file stays in

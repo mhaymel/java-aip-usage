@@ -72,7 +72,7 @@ class TitleBarWindowTest {
      */
     @Test
     @Timeout(240)
-    void withTheTitleBarOffTheWindowHasItOnlyWhileAPanelIsOpen() throws Exception {
+    void withTheTitleBarOffTheWindowHasItOnlyWhileTheSettingsAreOpen() throws Exception {
         List<String> output = new ArrayList<>();
         int exit = runProbe(UsageAppProbe.class, output);
         String all = String.join("\n", output.stream().filter(line -> line.startsWith("PROBE")).toList());
@@ -86,8 +86,11 @@ class TitleBarWindowTest {
             assertTrue(line(all, bare).contains("titleBar:false"), bare + ": no panel, no title bar:\n" + all);
             assertTrue(line(all, bare).matches(".* size:\\d+,\\d+,0 .*"), bare + ": the row alone:\n" + all);
         }
-        for (String open : List.of("settings", "history", "log", "errors")) {
-            assertTrue(line(all, open).contains("titleBar:true"), open + ": a panel is open, so the title bar is there:\n" + all);
+        assertTrue(line(all, "settings").contains("titleBar:true"), "the settings are open, so the title bar is there:\n" + all);
+        assertTrue(line(all, "settings").contains(",settings "), "and the page names them:\n" + all);
+        // Since 0.87 a list has no title bar either: it has buttons to make it taller and shorter, and is moved by dragging it.
+        for (String open : List.of("history", "log", "errors")) {
+            assertTrue(line(all, open).contains("titleBar:false"), open + ": a list has no title bar:\n" + all);
             assertTrue(line(all, open).contains("," + open + " "), open + ": and the page names it:\n" + all);
         }
         // The cost control cannot be resized, so it has no title bar: the page draws the border of such a window round it, the
@@ -102,14 +105,14 @@ class TitleBarWindowTest {
             assertTrue(line(all, cost).contains(" overflow:0 gap:0 below:0 "), cost + ": the border is at the edges of the window:\n" + all);
         }
         assertEquals("moved:40,25 hasTitleBar:false panel:true", line(all, "drag-cost").substring("PROBE drag-cost=".length()), all);
-        assertTrue(line(all, "cost-to-log").contains("titleBar:true"), "the log, opened from the cost control, has the title bar:\n" + all);
+        assertTrue(line(all, "cost-to-log").contains("titleBar:false"), "nor has the log, opened from the cost control:\n" + all);
         // With no title bar the window is moved by dragging it, from a figure and from its edge, and not from a button; with
         // the title bar a drag inside it moves nothing.
         assertEquals("moved:40,25 hasTitleBar:false panel:false", line(all, "drag-figure").substring("PROBE drag-figure=".length()), all);
         assertEquals("moved:40,25 hasTitleBar:false panel:false", line(all, "drag-gap").substring("PROBE drag-gap=".length()), all);
         assertTrue(line(all, "drag-button").contains("moved:0,0 "), "a press on the gear begins no move:\n" + all);
         assertTrue(line(all, "drag-refresh").contains("moved:0,0 "), "nor does one on the refresh button:\n" + all);
-        assertEquals("moved:0,0 hasTitleBar:true panel:true", line(all, "drag-with-title-bar").substring("PROBE drag-with-title-bar=".length()), all);
+        assertEquals("moved:40,25 hasTitleBar:false panel:true", line(all, "drag-list").substring("PROBE drag-list=".length()), "a list is moved by dragging it:\n" + all);
 
         // The button of Main view: a small icon in the line of the heading, which switches every element on, and all off when all are on.
         assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/10 .*"), "some elements are on, the status circle among them since 0.82, and the button is in the middle of its heading:\n" + all);
@@ -119,7 +122,7 @@ class TitleBarWindowTest {
         // The window has the program's icon in its four sizes, with the title bar and without, in each window that took the place of another.
         assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" icons:16/32/48/256 ")).count(),
                 "the icon at every step:\n" + all);
-        assertTrue(line(all, "start").contains("titleBar:false") && line(all, "history").contains("titleBar:true"), "both kinds of window were among them:\n" + all);
+        assertTrue(line(all, "start").contains("titleBar:false") && line(all, "settings").contains("titleBar:true"), "both kinds of window were among them:\n" + all);
 
         // The tooltip of the amount used comes when the mouse rests on it, and is 14 pixels.
         assertEquals("PROBE tooltip=shown:[Monthly credit used, in USD|14.0] sheets:1", line(all, "tooltip"), all);

@@ -497,7 +497,7 @@ final class ApiHandler implements HttpHandler {
                 s.cost().workdaysTyped(java.time.YearMonth.now()).orElse(null),
                 s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.historyFolder(),
                 s.showStatus(), s.showDayPercentage(), s.showDayUsed(), s.showDayLimit(),
-                s.historyMonthly(), s.historyDaily(), s.historyDailyBy());
+                s.historyMonthly(), s.historyDaily(), s.historyDailyBy(), s.statusBlink());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -555,7 +555,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showDayLimit", current.showDayLimit()),
                     flag(body, "historyMonthly", current.historyMonthly()),
                     flag(body, "historyDaily", current.historyDaily()),
-                    flag(body, "historyDailyBy", current.historyDailyBy()));
+                    flag(body, "historyDailyBy", current.historyDailyBy()),
+                    flag(body, "statusBlink", current.statusBlink()));
             // A folder that is changed is used at once: its files are moved there before the settings are saved, and a folder
             // that cannot be written refuses the whole of it, with nothing changed.
             moveFolders(given);
@@ -1454,7 +1455,8 @@ final class ApiHandler implements HttpHandler {
             boolean showDayLimit,
             boolean historyMonthly,
             boolean historyDaily,
-            boolean historyDailyBy) {
+            boolean historyDailyBy,
+            boolean statusBlink) {
 
         Json toJson() {
             return Json.object()
@@ -1505,7 +1507,8 @@ final class ApiHandler implements HttpHandler {
                     .put("showDayLimit", showDayLimit)
                     .put("historyMonthly", historyMonthly)
                     .put("historyDaily", historyDaily)
-                    .put("historyDailyBy", historyDailyBy);
+                    .put("historyDailyBy", historyDailyBy)
+                    .put("statusBlink", statusBlink);
         }
     }
 

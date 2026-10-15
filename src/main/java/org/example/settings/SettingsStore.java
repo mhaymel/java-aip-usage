@@ -140,6 +140,7 @@ public final class SettingsStore {
     static final String HISTORY_DAILY_KEY = "historyDaily";
 
     static final String HISTORY_DAILY_BY_KEY = "historyDailyBy";
+    static final String STATUS_BLINK_KEY = "statusBlink";
 
     /** The folder of the usage history until 0.86, which a file of then has its one folder from; never written since 0.87. */
     static final String HISTORY_FOLDER_KEY = "historyFolder";
@@ -268,7 +269,8 @@ public final class SettingsStore {
                 flag(root, SHOW_DAY_LIMIT_KEY, defaults.showDayLimit()),
                 flag(root, HISTORY_MONTHLY_KEY, defaults.historyMonthly()),
                 flag(root, HISTORY_DAILY_KEY, defaults.historyDaily()),
-                flag(root, HISTORY_DAILY_BY_KEY, defaults.historyDailyBy()));
+                flag(root, HISTORY_DAILY_BY_KEY, defaults.historyDailyBy()),
+                flag(root, STATUS_BLINK_KEY, defaults.statusBlink()));
     }
 
     /**
@@ -797,6 +799,7 @@ public final class SettingsStore {
         root.put(HISTORY_MONTHLY_KEY, settings.historyMonthly());
         root.put(HISTORY_DAILY_KEY, settings.historyDaily());
         root.put(HISTORY_DAILY_BY_KEY, settings.historyDailyBy());
+        root.put(STATUS_BLINK_KEY, settings.statusBlink());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
         // What the window showed when the program last stopped; only what was stored is written.

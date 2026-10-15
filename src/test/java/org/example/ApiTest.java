@@ -2975,28 +2975,29 @@ class ApiTest {
         Files.writeString(dir.resolve("java-aip-usage.2026-10-13_14-30-05.log"), "2026-10-13 13:00:00 INFO    [A] an old line\n");
         writeMixedHistory();
         AppRuntime app = start(new FakeFetch());
-        assertEquals("", json(get(app, "/api/settings")).at("/settings/logFolder").asText(), "the program's folder");
-        assertEquals("", json(get(app, "/api/settings")).at("/defaults/historyFolder").asText());
-        Path logs = Files.createDirectory(dir.resolve("logs"));
-        Path histories = Files.createDirectory(dir.resolve("histories"));
+        assertEquals("", json(get(app, "/api/settings")).at("/settings/dataFolder").asText(), "the program's folder");
+        assertEquals("", json(get(app, "/api/settings")).at("/defaults/dataFolder").asText());
+        // One folder for the log and the usage history since 0.87.
+        Path logs = Files.createDirectory(dir.resolve("data"));
+        Path histories = logs;
 
         HttpResponse<String> response = post(app, "/api/settings", allSettings(60, false, "hh:mm")
-                .replace("}", ", \"logFolder\": " + jsonPath(logs) + ", \"historyFolder\": " + jsonPath(histories) + "}"));
+                .replace("}", ", \"dataFolder\": " + jsonPath(logs) + "}"));
 
         assertEquals(200, response.statusCode(), response.body());
-        assertEquals(logs.toString(), json(response).at("/settings/logFolder").asText());
+        assertEquals(logs.toString(), json(response).at("/settings/dataFolder").asText());
         assertTrue(Files.exists(logs.resolve("java-aip-usage.log")), "the log is moved");
         assertTrue(Files.exists(logs.resolve("java-aip-usage.2026-10-13_14-30-05.log")), "and its old log with it");
         assertFalse(Files.exists(dir.resolve("java-aip-usage.log")));
         assertTrue(Files.exists(histories.resolve("java-aip-usage.csv")), "the history is moved");
         assertFalse(Files.exists(dir.resolve("java-aip-usage.csv")));
         assertTrue(Files.exists(dir.resolve("settings.json")), "the settings stay where they are");
-        assertEquals(histories.toString(), JsonReader.read(Files.readString(dir.resolve("settings.json"))).get("historyFolder").asText());
+        assertEquals(histories.toString(), JsonReader.read(Files.readString(dir.resolve("settings.json"))).get("dataFolder").asText());
         assertTrue(historyWith(true, true).get("lines").size() >= 7, "the history is read from where it is now, the readings of this run with it");
         assertTrue(json(get(app, "/api/log")).get("lines").toString().contains("the line of the log"), "and so is the log");
         assertEquals(histories.resolve("java-aip-usage.csv").toAbsolutePath().toString(), json(get(app, "/api/about")).at("/files/history").asText());
 
-        HttpResponse<String> back = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"logFolder\": \"\", \"historyFolder\": \"\"}"));
+        HttpResponse<String> back = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"dataFolder\": \"\"}"));
         assertEquals(200, back.statusCode(), back.body());
         assertTrue(Files.exists(dir.resolve("java-aip-usage.log")), "the empty text is the program's folder again");
         assertTrue(Files.exists(dir.resolve("java-aip-usage.csv")));
@@ -3008,13 +3009,13 @@ class ApiTest {
         AppRuntime app = start(new FakeFetch());
 
         HttpResponse<String> gone = post(app, "/api/settings", allSettings(60, false, "hh:mm")
-                .replace("}", ", \"historyFolder\": " + jsonPath(dir.resolve("not-there")) + "}"));
+                .replace("}", ", \"dataFolder\": " + jsonPath(dir.resolve("not-there")) + "}"));
         assertEquals(400, gone.statusCode());
         assertEquals("The folder cannot be written: the file or its folder is not there.", json(gone).get("error").asText());
         assertTrue(Files.exists(dir.resolve("java-aip-usage.csv")), "nothing is moved");
-        assertEquals("", json(get(app, "/api/settings")).at("/settings/historyFolder").asText(), "and nothing is saved");
+        assertEquals("", json(get(app, "/api/settings")).at("/settings/dataFolder").asText(), "and nothing is saved");
 
-        HttpResponse<String> relative = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"logFolder\": \"logs\"}"));
+        HttpResponse<String> relative = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"dataFolder\": \"logs\"}"));
         assertEquals(400, relative.statusCode());
         assertEquals("The folder cannot be written: it is not a full path.", json(relative).get("error").asText());
     }
@@ -3026,7 +3027,7 @@ class ApiTest {
         Path other = Files.createDirectory(dir.resolve("other"));
         Files.write(other.resolve("java-aip-usage.csv"), List.of(CSV_HEADER, "2026-10-09 09:00:00,20.00,1000.00,USD,start,60,400"));
 
-        assertEquals(200, post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"historyFolder\": " + jsonPath(other) + "}")).statusCode());
+        assertEquals(200, post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"dataFolder\": " + jsonPath(other) + "}")).statusCode());
 
         assertTrue(Files.exists(dir.resolve("java-aip-usage.csv")), "the old one is left where it is");
         assertEquals("09:00:00", times(historyWith(true, true)).get(0), "the one that was there is the history now");
@@ -3047,7 +3048,7 @@ class ApiTest {
         desk.chosen = other;
         assertEquals(other.toAbsolutePath().normalize().toString(), json(post(app, "/api/folder", "{\"start\": \"not a folder\"}")).get("folder").asText());
         assertEquals("choose " + dir.toAbsolutePath(), desk.asked.get(1), "the program's folder for what is not one");
-        assertEquals("", json(get(app, "/api/settings")).at("/settings/logFolder").asText(), "nothing is saved");
+        assertEquals("", json(get(app, "/api/settings")).at("/settings/dataFolder").asText(), "nothing is saved");
         assertEquals(dir.toAbsolutePath().normalize().toString(), json(get(app, "/api/settings")).get("programFolder").asText());
 
         desk.failure = "there is no window to choose a folder in";
@@ -3148,6 +3149,20 @@ class ApiTest {
         show = json(get(app, "/api/status")).at("/display/show");
         assertFalse(show.get("status").asBoolean());
         assertTrue(show.get("dayUsed").asBoolean());
+    }
+
+    @Test
+    void theStatusCircleBlinksByDefaultAndTheSettingSwitchesItOff() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        assertTrue(json(get(app, "/api/status")).at("/display/show").get("statusBlink").asBoolean(), "on by default");
+        assertTrue(json(get(app, "/api/settings")).at("/settings/statusBlink").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"statusBlink\": false}"));
+        assertFalse(json(get(app, "/api/status")).at("/display/show").get("statusBlink").asBoolean());
+        assertFalse(json(get(app, "/api/settings")).at("/settings/statusBlink").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm"));
+        assertFalse(json(get(app, "/api/settings")).at("/settings/statusBlink").asBoolean(), "a POST without it keeps it");
     }
 
     @Test

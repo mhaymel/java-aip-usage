@@ -55,12 +55,13 @@ class SeveralViewsWindowTest {
         assertEquals("false", cost.group(7), "the cost control alone has no title bar");
         assertEquals("", cost.group(8));
 
-        // The history added: both shown, the history above the cost control, the height may be dragged, and there is a title bar.
+        // The history added: both shown, the history above the cost control, the height may be dragged; no title bar, since 0.87
+        // only the settings have one: the window is moved by dragging it, and made taller by the buttons of the list or its edge.
         Matcher both = step(all, "cost-history");
         assertEquals("cost+history,", both.group(1), all);
         assertEquals("1", both.group(4));
         assertEquals("cost+history", both.group(5));
-        assertEquals("true", both.group(7), "something can be dragged: the title bar is there");
+        assertEquals("false", both.group(7), "a list has no title bar (since 0.87)");
         assertEquals("h", both.group(8), "the height, not the width");
         near(Integer.parseInt(both.group(3)), Integer.parseInt(both.group(10)), "the window is as tall as the page asked, but for the pixel a frame rounds up:\n" + all);
         assertEquals("0", both.group(12), "and the page fills it:\n" + all);
@@ -94,8 +95,9 @@ class SeveralViewsWindowTest {
         // The settings stand above the views, which stay (since 0.81), and leaving them closes them alone.
         Matcher settings = step(all, "settings");
         assertEquals("settings+cost+history+log,general", settings.group(1), all);
-        assertTrue(settings.group(11).matches("settings-view:37:\\d+/cost-view:\\d+:\\d+/view-history:\\d+:\\d+/view-log:\\d+:\\d+"),
-                "the settings first, right below the row:\n" + all);
+        // Since 0.86 the cost control is first, right below the row, and the settings below it; the names are unchanged.
+        assertTrue(settings.group(11).matches("cost-view:37:\\d+/settings-view:\\d+:\\d+/view-history:\\d+:\\d+/view-log:\\d+:\\d+"),
+                "the cost control first, right below the row, then the settings:\n" + all);
         assertEquals("cost+history+log,", step(all, "settings-left").group(1), all);
 
         // Closed one by one: each icon closes its own view.
@@ -130,7 +132,7 @@ class SeveralViewsWindowTest {
         assertEquals("true", beside.group(7));
         assertEquals("h", beside.group(8), "the history's height may be dragged");
         String[] withSettings = beside.group(11).split("/");
-        assertTrue(withSettings[0].startsWith("settings-view:37:") && withSettings[1].startsWith("cost-view:") && withSettings[2].startsWith("view-history:"), all);
+        assertTrue(withSettings[0].startsWith("cost-view:37:") && withSettings[1].startsWith("settings-view:") && withSettings[2].startsWith("view-history:"), all);
         near(Integer.parseInt(draggedViews[1].split(":")[2]), Integer.parseInt(withSettings[2].split(":")[2]), "the history as tall as it was:\n" + all);
         // img_50: the elements of the row unchecked but the icons, and saved: the settings close alone.
         assertEquals("cost+history,", step(all, "beside-saved").group(1), "the views beside the settings stay:\n" + all);

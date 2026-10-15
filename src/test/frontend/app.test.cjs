@@ -212,7 +212,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showStatus: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, dataFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showStatus: true, statusBlink: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
     costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
     historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
 };
@@ -986,7 +986,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showStatus: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, dataFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showStatus: true, statusBlink: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
         historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
     });
@@ -2833,16 +2833,19 @@ test('the settings left for the log bring it back with its saved choices, and th
 
 const bareStatus = status => { const s = withDisplay(status); return { ...s, display: { ...s.display, titleBar: false } }; };
 
-test('with the title bar off and no panel the window has its border, and is larger by it; a panel takes it away', async () => {
+test('with the title bar off the window has its border, and is larger by it, a list too; the settings take it away', async () => {
     const page = await load(backendOf({ config: CONFIG, status: bareStatus(SPEND_STATUS) }));
 
     assert.match(page.el('app').className, /\bbare\b/);
     assert.equal(page.window.contentSize(), '402,44,0', '1 pixel of border on every side');
 
-    for (const button of ['history-button', 'log-button', 'errors-button', 'settings-button']) {
+    // Since 0.87 no view has the title bar but the settings: a list keeps the border.
+    for (const button of ['history-button', 'log-button', 'errors-button']) {
         await page.click(button);
-        assert.doesNotMatch(page.el('app').className, /\bbare\b/, button + ': a panel is shown, so the window has its title bar');
+        assert.match(page.el('app').className, /\bbare\b/, button + ': a list has no title bar');
     }
+    await page.click('settings-button');
+    assert.doesNotMatch(page.el('app').className, /\bbare\b/, 'the settings have the title bar');
     await page.click('settings-cancel');
     await page.click('errors-button');
     assert.match(page.el('app').className, /\bbare\b/, 'and it is back when the panel is closed');
@@ -4388,7 +4391,7 @@ test('what the history list lacked is forgotten when the table is another, and i
 
 // ---- version 0.79: the cost control has no title bar when the setting is off
 
-test('with the title bar off the cost control has the border of a window with no title bar, and is larger by it; every other panel takes it away', async () => {
+test('with the title bar off the cost control has the border of a window with no title bar, and is larger by it; the lists too, the settings take it away', async () => {
     const page = await load(backendOf({ config: CONFIG, status: bareStatus(SPEND_STATUS) }));
 
     await page.click('cost-button');
@@ -4402,7 +4405,11 @@ test('with the title bar off the cost control has the border of a window with no
 
     for (const button of ['log-button', 'history-button', 'errors-button', 'settings-button']) {
         await page.click(button);
-        assert.doesNotMatch(page.el('app').className, /\bbare\b/, button + ': a panel that can be resized, so the title bar is there');
+        if (button === 'settings-button') {
+            assert.doesNotMatch(page.el('app').className, /\bbare\b/, 'the settings have the title bar');
+        } else {
+            assert.match(page.el('app').className, /\bbare\b/, button + ': a list has none since 0.87');
+        }
         if (button === 'settings-button') {
             await page.click('settings-cancel');
         } else {
@@ -5028,7 +5035,7 @@ test('a list that has another view below it keeps the height it has alone, and t
 
     await page.click('log-button');
     assert.equal(page.el('view-history').className, 'view');
-    assert.equal(page.window.contentSize(), '400,420,1,history', 'one view asks for ten rows, and the host gives it the height it remembers');
+    assert.equal(page.window.contentSize(), '400,640,1,history', 'one view asks for the height it has alone, as remembered (since 0.87)');
 });
 
 test('the host is given back every view that was open, and opens them again; with several views at once off, the first', async () => {
@@ -5046,12 +5053,12 @@ test('the host is given back every view that was open, and opens them again; wit
     assert.deepEqual(shownViews(one), ['cost']);
 });
 
-test('with a list among several views the window has its title bar, and with the cost control alone it has none', async () => {
+test('with a list among several views the window has no title bar either, and with the settings among them it has one', async () => {
     const page = await load(backendOf({ config: CONFIG, status: withShow(bareStatus(WITH_CHANGE), { ...ALL_ICONS, costIcon: true, severalViews: true }) }));
     await page.click('cost-button');
     assert.match(page.el('app').className, /\bbare\b/);
     await page.click('history-button');
-    assert.doesNotMatch(page.el('app').className, /\bbare\b/, 'a list can be dragged, so the title bar is there');
+    assert.match(page.el('app').className, /\bbare\b/, 'a list has no title bar since 0.87');
     assert.match(page.el('app').className, /\bopen\b/, 'and the page fills the window');
     await page.click('history-button');
     assert.match(page.el('app').className, /\bbare\b/);
@@ -5095,18 +5102,20 @@ test('with several views at once switched off, only the first of the views that 
 
 const WITH_PROGRAM = () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip' } });
 
-test('the group Files shows each folder, the program\'s in gray while it is the default, and Default can then not be pressed', async () => {
+test('the group Files shows the one folder of the log and the usage history, the program\'s in gray while it is the default, and Default can then not be pressed', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS,
-        settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip', settings: { ...SETTINGS.settings, logFolder: 'D:\\logs' } } }) }));
+        settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip', settings: { ...SETTINGS.settings, dataFolder: 'D:\\data' } } }) }));
     await page.click('settings-button');
+    assert.equal(page.el('set-dataFolder').textContent, 'D:\\data');
+    assert.equal(page.el('set-dataFolder').className, 'folder-path');
+    assert.ok(!('disabled' in page.el('default-dataFolder').attrs));
 
-    assert.equal(page.el('set-logFolder').textContent, 'D:\\logs');
-    assert.equal(page.el('set-logFolder').className, 'folder-path');
-    assert.ok(!('disabled' in page.el('default-logFolder').attrs));
-    assert.equal(page.el('set-historyFolder').textContent, 'Program folder', 'the program\'s folder is named, not written out (since 0.84)');
-    assert.equal(page.el('set-historyFolder').title, 'C:\\aip', 'its path is the tooltip');
-    assert.equal(page.el('set-historyFolder').className, 'folder-path default');
-    assert.ok('disabled' in page.el('default-historyFolder').attrs, 'it is the default already');
+    const other = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: WITH_PROGRAM }));
+    await other.click('settings-button');
+    assert.equal(other.el('set-dataFolder').textContent, 'Program folder', 'the program\'s folder is named, not written out (since 0.84)');
+    assert.equal(other.el('set-dataFolder').title, 'C:\\aip', 'its path is the tooltip');
+    assert.equal(other.el('set-dataFolder').className, 'folder-path default');
+    assert.ok('disabled' in other.el('default-dataFolder').attrs, 'it is the default already');
 });
 
 test('Choose… asks for a folder, opened at the one shown, and puts what was chosen in the form; cancelled, nothing changes', async () => {
@@ -5115,32 +5124,33 @@ test('Choose… asks for a folder, opened at the one shown, and puts what was ch
     await page.click('settings-button');
 
     state.folder = () => ({ status: 200, body: { folder: null } });
-    await page.click('choose-historyFolder');
-    assert.equal(page.el('set-historyFolder').textContent, 'Program folder', 'cancelled');
+    await page.click('choose-dataFolder');
+    assert.equal(page.el('set-dataFolder').textContent, 'Program folder', 'cancelled');
     assert.deepEqual(JSON.parse(page.calls.filter(c => c.url === '/api/folder').pop().body), { start: 'C:\\aip' });
 
-    state.folder = () => ({ status: 200, body: { folder: 'E:\\history' } });
-    await page.click('choose-historyFolder');
-    assert.equal(page.el('set-historyFolder').textContent, 'E:\\history');
+    state.folder = () => ({ status: 200, body: { folder: 'E:\\data' } });
+    await page.click('choose-dataFolder');
+    assert.equal(page.el('set-dataFolder').textContent, 'E:\\data');
     assert.equal(settingsPosts(page).length, 0, 'nothing is saved by choosing');
 
     await page.click('settings-save');
     const sent = JSON.parse(settingsPosts(page)[0].body);
-    assert.equal(sent.historyFolder, 'E:\\history', 'it is saved with the settings');
-    assert.equal(sent.logFolder, '', 'and the other is the program\'s');
+    assert.equal(sent.dataFolder, 'E:\\data', 'it is saved with the settings');
+    assert.equal(sent.logFolder, undefined, 'the two keys of before are not sent');
+    assert.equal(sent.historyFolder, undefined);
 });
 
 test('Default puts back the program\'s folder, which is sent as the empty text', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS,
-        settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip', settings: { ...SETTINGS.settings, logFolder: 'D:\\logs' } } }) }));
+        settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip', settings: { ...SETTINGS.settings, dataFolder: 'D:\\data' } } }) }));
     await page.click('settings-button');
 
-    await page.click('default-logFolder');
-    assert.equal(page.el('set-logFolder').textContent, 'Program folder', 'named, its path the tooltip (since 0.84)');
-    assert.equal(page.el('set-logFolder').title, 'C:\\aip');
+    await page.click('default-dataFolder');
+    assert.equal(page.el('set-dataFolder').textContent, 'Program folder', 'named, its path the tooltip (since 0.84)');
+    assert.equal(page.el('set-dataFolder').title, 'C:\\aip');
 
     await page.click('settings-save');
-    assert.equal(JSON.parse(settingsPosts(page)[0].body).logFolder, '');
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).dataFolder, '');
 });
 
 test('a folder that cannot be written is said in red under the group Files, and the settings stay open', async () => {
@@ -5149,7 +5159,7 @@ test('a folder that cannot be written is said in red under the group Files, and 
         postSettings: () => ({ status: 400, body: { error: 'The folder cannot be written: the file or its folder is not there.' } }) };
     const page = await load(backendOf(state));
     await page.click('settings-button');
-    await page.click('choose-logFolder');
+    await page.click('choose-dataFolder');
 
     await page.click('settings-save');
 
@@ -5163,7 +5173,7 @@ test('a folder picker that cannot be shown is said in red under the group Files'
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: WITH_PROGRAM,
         folder: () => ({ status: 500, body: { error: 'The folder could not be chosen: there is no window to choose a folder in' } }) }));
     await page.click('settings-button');
-    await page.click('choose-logFolder');
+    await page.click('choose-dataFolder');
     assert.equal(page.el('folder-error').textContent, 'The folder could not be chosen: there is no window to choose a folder in');
 });
 
@@ -5267,7 +5277,7 @@ const withSpending = (status, spending) => ({ ...status, spending });
 test('the status circle is first in the row, shown by default, in the colour of the state, with the tooltip the backend wrote', async () => {
     const page = await load(backendOf({ config: CONFIG, status: withSpending(SPEND_STATUS, SPENDING) }));
     assert.equal(page.el('status-dot').hidden, false, 'shown when the backend says nothing of it');
-    assert.equal(page.el('status-dot').className, 'status-dot red');
+    assert.equal(page.el('status-dot').className, 'status-dot red blink');
     assert.equal(page.el('status-dot').title, SPENDING.tooltip);
     assert.ok(INDEX_HTML.indexOf('id="status-dot"') < INDEX_HTML.indexOf('id="time"'), 'before the time');
 
@@ -5275,6 +5285,31 @@ test('the status circle is first in the row, shown by default, in the colour of 
     assert.equal(none.el('status-dot').className, 'status-dot gray', 'nothing worked out: gray');
     const off = await load(backendOf({ config: CONFIG, status: withShow(withSpending(SPEND_STATUS, SPENDING), { status: false }) }));
     assert.equal(off.el('status-dot').hidden, true, 'switched off');
+});
+
+// ---- version 0.88: the status circle blinks
+
+test('the status circle blinks while it is green, orange or red, not gray, and not with Blinks off', async () => {
+    for (const state of ['green', 'amber', 'red']) {
+        const page = await load(backendOf({ config: CONFIG, status: withSpending(SPEND_STATUS, { ...SPENDING, state }) }));
+        assert.equal(page.el('status-dot').className, 'status-dot ' + state + ' blink', state);
+    }
+    const gray = await load(backendOf({ config: CONFIG, status: withSpending(SPEND_STATUS, { ...SPENDING, state: 'gray' }) }));
+    assert.equal(gray.el('status-dot').className, 'status-dot gray', 'gray stands still');
+    const still = await load(backendOf({ config: CONFIG, status: withShow(withSpending(SPEND_STATUS, SPENDING), { statusBlink: false }) }));
+    assert.equal(still.el('status-dot').className, 'status-dot red', 'Blinks off');
+});
+
+test('the status circle stands still while the window is minimized, and blinks again when it is shown', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withSpending(SPEND_STATUS, SPENDING) }));
+    assert.equal(page.window.windowHidden(true), true);
+    assert.equal(page.el('status-dot').className, 'status-dot red blink paused');
+    page.window.windowHidden(false);
+    assert.equal(page.el('status-dot').className, 'status-dot red blink');
+});
+
+test('Blinks is beside Status, with its tooltip, left alone by the button that selects every element', () => {
+    assert.match(INDEX_HTML, /<span class="line">\s*<label title="A dot that says[^"]*"><input id="set-showStatus" type="checkbox"> Status<\/label>\s*<label title="The circle fades in and out while it is green, orange or red\. Off, it stands still\."><input id="set-statusBlink" type="checkbox"> Blinks<\/label>\s*<\/span>/);
 });
 
 test('the figures of the day follow those of the month when switched on, red over the daily limit', async () => {
@@ -5489,9 +5524,10 @@ test('a list keeps the height it has with the row, and so do several views, whil
     const page = await load(backendOf({ config: CONFIG, status: awayStatus({}, false) }));
     await page.click('history-button');
     page.window.pointerAway(true);
-    assert.equal(page.window.contentSize(), '400,420,1,history,-41');
+    // The title bar is off, and since 0.87 a list has none: its border makes it two pixels wider.
+    assert.equal(page.window.contentSize(), '402,420,1,history,-41');
     page.window.pointerAway(false);
-    assert.equal(page.window.contentSize(), '400,420,1,history');
+    assert.equal(page.window.contentSize(), '402,420,1,history');
 });
 
 test('the row stays with nothing open, with the title bar on, and with any figure of the row on', async () => {

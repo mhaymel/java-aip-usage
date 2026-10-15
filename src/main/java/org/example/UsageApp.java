@@ -104,6 +104,8 @@ public class UsageApp extends Application {
 
     /** What the page was last told of the pointer, so that it is told only when that changes; null until it has been told. */
     private Boolean awayTold;
+    /** Whether the page was last told the window is minimized; null until it has taken it. */
+    private Boolean minimizedTold;
 
     /** Where the pointer is on the screen; made on the toolkit's thread the first time it is needed. */
     private Robot robot;
@@ -352,12 +354,33 @@ public class UsageApp extends Application {
         // The title bar and the stage are looked at on the same tick: the window may be another one from one tick to the next.
         fitTimer = new Timeline(new KeyFrame(FIT_INTERVAL, event -> {
             followPointer(webView);
+            followMinimized(webView);
             fit(webView, stage);
             followTitleBar();
             followStayOnTop();
         }));
         fitTimer.setCycleCount(Animation.INDEFINITE);
         fitTimer.play();
+    }
+
+    /**
+     * Tells the page when the window is minimized and when it is shown again (since 0.88), so that the status circle stands still
+     * while it cannot be seen. Read on the tick, not listened for, since the stage may be another one from one tick to the next;
+     * a page that is not ready yet is told on a later tick.
+     */
+    private void followMinimized(WebView webView) {
+        boolean minimized = stage.isIconified();
+        if (minimizedTold != null && minimizedTold == minimized) {
+            return;
+        }
+        try {
+            Object told = webView.getEngine().executeScript("typeof window.windowHidden === 'function' ? window.windowHidden(" + minimized + ") : false");
+            if (Boolean.TRUE.equals(told)) {
+                minimizedTold = minimized;
+            }
+        } catch (RuntimeException e) {
+            // The page is not ready: the next tick tries again.
+        }
     }
 
     /**

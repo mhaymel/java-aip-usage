@@ -759,11 +759,12 @@ test('each checkbox of the Main view has a tooltip on its text that says what th
     assert.match(MAIN, /<select id="set-timeFormat"[^>]*title="[^"]{20,}"/);
 });
 
-test('the time format is beside the Time checkbox and the currency symbol beside Amount used, each in one line', () => {
+test('Blinks is beside Status, the time format beside Time and the currency symbol beside Amount used, each in one line', () => {
     const lines = [...MAIN.matchAll(/<span class="line">([\s\S]*?)<\/span>/g)].map(m => m[1]);
-    assert.equal(lines.length, 2);
-    assert.ok(lines[0].indexOf('id="set-showTime"') >= 0 && lines[0].indexOf('id="set-showTime"') < lines[0].indexOf('id="set-timeFormat"'));
-    assert.ok(lines[1].indexOf('id="set-showUsed"') >= 0 && lines[1].indexOf('id="set-showUsed"') < lines[1].indexOf('id="set-showCurrency"'));
+    assert.equal(lines.length, 3);
+    assert.ok(lines[0].indexOf('id="set-showStatus"') >= 0 && lines[0].indexOf('id="set-showStatus"') < lines[0].indexOf('id="set-statusBlink"'));
+    assert.ok(lines[1].indexOf('id="set-showTime"') >= 0 && lines[1].indexOf('id="set-showTime"') < lines[1].indexOf('id="set-timeFormat"'));
+    assert.ok(lines[2].indexOf('id="set-showUsed"') >= 0 && lines[2].indexOf('id="set-showUsed"') < lines[2].indexOf('id="set-showCurrency"'));
     assert.match(ruleOf('.settings .line'), /display:\s*flex/);
     assert.match(ruleOf('.settings .line'), /align-items:\s*center/);
 });
@@ -1006,7 +1007,7 @@ test('the tooltips of the settings are the texts the requirements give, with the
         'set-restoreWindow': 'Opens the window at the next start as it was when the program was stopped: the same panel, the same size and the same place.',
         'set-severalViews': 'Lets more than one view be shown at the same time: an icon opens its view and leaves the others open. Off, opening a view closes the one that is shown.',
         'set-logResponse': 'Writes the JSON of every usage response to the log. Anything shaped like a credential is masked.',
-        'set-showTitleBar': 'Shows the title bar of the window. Off, the window is the row alone; the title bar comes back for as long as a panel that can be resized is open, so open one to close the window.',
+        'set-showTitleBar': 'Shows the title bar of the window. Off, no view has one; it comes back for as long as the settings are open, so open them to close the window.',
         'set-showCostIcon': 'The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.',
         'set-historyDate': 'Shows the date before the time of each line.',
         'set-historyZeroLines': 'Shows the lines whose amount used is that of the reading before. Off, they are left out, and the lines of failed requests with them.',
@@ -1215,13 +1216,13 @@ test('the settings beside other views are above them and keep the height of thei
     assert.match(css, /\.panel > \.settings\s*{\s*order:\s*-1;\s*flex:\s*none/);
 });
 
-test('the group Files is in General after Window, a line for each folder with its path as text, Choose… and Default, and their tooltips', () => {
+test('the group Files is in General after Window, one line for the one folder with its path as text, Choose… and Default, and their tooltips', () => {
     const general = html.slice(html.indexOf('<legend>Window</legend>'), html.indexOf('<legend>Log</legend>'));
     const group = general.slice(general.indexOf('<legend>Files</legend>'));
     assert.ok(general.indexOf('<legend>Files</legend>') > 0, 'after Window, before Log');
+    assert.equal(group.split('<div class="folder-line"').length - 1, 1, 'one folder for the log and the usage history since 0.87');
     for (const [key, label, tip] of [
-        ['logFolder', 'Log folder', 'The folder the log and its old logs are kept in. The default is the program\'s folder.'],
-        ['historyFolder', 'History folder', 'The folder the usage history is kept in. The default is the program\'s folder.']]) {
+        ['dataFolder', 'Log and history folder', 'The folder the log, its old logs and the usage history are kept in. The default is the program\'s folder.']]) {
         const line = group.slice(group.lastIndexOf('<div class="folder-line"', group.indexOf('id="set-' + key + '"')), group.indexOf('</div>', group.indexOf('id="set-' + key + '"')));
         assert.match(line, new RegExp('title="' + tip.replace(/[.()]/g, '\\$&') + '"'), key);
         assert.match(line, new RegExp('<span class="folder-label">' + label + '</span>'));
@@ -1314,12 +1315,17 @@ test('the checkbox of the row\'s limit is Monthly limit, with its tooltip', () =
     assert.match(html, /<label title="The monthly limit counted: the one the server sends, or the one typed under Cost control\."><input id="set-showLimit" type="checkbox"> Monthly limit<\/label>/);
 });
 
-test('the orange is #ff9900 on both themes, a darker one for text, the orange circle ringed, and the circle stands still', () => {
+test('the orange is #ff9900 on both themes, a darker one for text, the orange circle ringed', () => {
     assert.deepEqual(css.match(/--warn:\s*(#[0-9a-f]{6})/g), ['--warn: #ff9900'], 'orange since 0.85, the bright yellow #ffff33 in 0.84');
     assert.match(css, /--warn-text:\s*#c26a00/);
     assert.match(css, /\.status-dot\.amber\s*{\s*background:\s*var\(--warn\);\s*box-shadow:\s*0 0 0 1px var\(--warn-text\)/);
-    assert.doesNotMatch(ruleOf('.status-dot'), /animation/, 'no pulse: it would have the window repaint all the time');
-    assert.doesNotMatch(css, /.status-dot[^{]*{[^}]*animation/, 'nor any of its colours');
+});
+
+test('the status circle breathes in two seconds to 30% and back while it blinks, and is paused while the window is minimized', () => {
+    assert.doesNotMatch(ruleOf('.status-dot'), /animation/, 'not without the class blink');
+    assert.match(css, /\.status-dot\.blink\s*{\s*animation:\s*status-breath 2s ease-in-out infinite;?\s*}/);
+    assert.match(css, /\.status-dot\.blink\.paused\s*{\s*animation-play-state:\s*paused;?\s*}/);
+    assert.match(css, /@keyframes status-breath\s*{\s*0%,\s*100%\s*{\s*opacity:\s*1;\s*}\s*50%\s*{\s*opacity:\s*0\.3;\s*}\s*}/);
 });
 
 test('the grid of the cost control has the label, the bar and four columns of figures; the amounts at the right, of in the middle', () => {

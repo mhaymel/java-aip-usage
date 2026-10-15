@@ -2801,8 +2801,13 @@ at once (the order).
 
 ### 129. Version 0.87: one folder, and no title bar but the settings'
 
-**Status: built (version 0.87); no test was run, by request, and none was written or changed: the Java was compiled and the page
-script parsed, nothing more.** The notes of `new-requirements.md` (the ninth round, `img_56`), decided in three rounds of
+**Status: built (version 0.87); its tests brought up to date with phase 130, and they pass (the window tests not run).** Built
+with no test run, by request; with phase 130 the tests listed under *Not done* were rewritten for one folder and for a list
+with no title bar: `SettingsStoreTest` (the key `dataFolder`, a file of 0.86 and `oldLogFolder`), `ApiTest` (the four tests of
+the folders), `WindowFitTest` (`keepsTitleBar` for the settings and the debug settings alone), `app.test.cjs` (the fixture,
+the group `Files`, the border with a list open, the height a list alone asks for) and `layout.test.cjs` (the tooltip of
+`Title bar`, the one line of `Files`). No test was added for the buttons `Taller` and `Shorter`, `POST /api/height`, the
+scrollbars that do not move the window, or the move of the old log at the start. The notes of `new-requirements.md` (the ninth round, `img_56`), decided in three rounds of
 questions. `AppInfo.VERSION = "0.87"`. Requirements: The folders of the log and of the usage history; Settings, The title bar;
 A border round the window that has no title bar; Dragging the window that has no title bar; Taller and shorter by buttons.
 
@@ -2825,6 +2830,35 @@ A border round the window that has no title bar; Dragging the window that has no
 
 **By eye**: the move of a 0.86 settings file with two folders; a list with no title bar, its border, moving it by its lines and
 not by its scrollbar, the two buttons, and the height kept for the next start.
+
+### 130. Version 0.88: the circle blinks
+
+**Status: built (version 0.88); `./gradlew build frontendTest` passes, the tests that open a real window (`TitleBarWindowTest`,
+opt-in) not run, by request.** The note of `new-requirements.md` (the tenth round), decided in one round of questions; it takes
+back "the circle does not pulse" of phase 121. `AppInfo.VERSION = "0.88"`. Requirements: Limits, projections and the status of
+spending (The status circle blinks); Settings (the table); A checkbox for each element (the property beside `Status`).
+
+- **The setting.** `Settings`: `statusBlink`, the last component, on by default, `withStatusBlink`; `SettingsStore`: the key
+  `statusBlink` after `historyDailyBy`, a file without it reads as on. `ApiHandler`: in and out of `/api/settings`, optional in
+  a `POST`. `StatusDisplay.Show`: `statusBlink`, so that the row knows it without the settings.
+- **The page.** `index.html`: `set-statusBlink`, `Blinks`, in a `span.line` with `set-showStatus`, and its tooltip. `app.js`:
+  `statusBlink` among `MAIN_FLAGS` (so read, sent and previewed as the others) but not among `ELEMENT_FLAGS`, so the button that
+  selects every element leaves it, as it leaves the currency symbol. `renderSpending` gives the dot the class `blink` when
+  `statusBlink` is not off and the state is not `gray`.
+- **The fade.** `app.css`: `.status-dot.blink` runs `status-breath`, opacity 1 → 0.3 → 1 in 2 s, `ease-in-out`, infinite. Only
+  the class changes with the state, so the fade goes on; the ring of the orange fades with the dot.
+- **Minimized.** `UsageApp.followMinimized`, on the tick that follows the pointer: `stage.isIconified()` told to the page by
+  `window.windowHidden(…)` when it changes, and again until the page takes it, so a start minimized is told once the page is
+  loaded. The page adds `paused` to a blinking dot; `.status-dot.blink.paused { animation-play-state: paused }`. Read on the
+  tick rather than listened for, since the stage may be swapped.
+- **Tests.** `SettingsStoreTest`: on for a file that says nothing, saved and read back, the key in the file. `ApiTest`: on by
+  default in `/api/settings` and in `display.show`, switched off, kept by a `POST` without it. `StatusDisplayTest`: the new
+  member of `Show`. `app.test.cjs`: `blink` for green, amber and red, not gray, not with `Blinks` off; `windowHidden` pauses
+  and lets go; the checkbox beside `Status`. `layout.test.cjs`: three lines with a property, the animation and the paused rule;
+  the test that said the circle has no animation now says it has none without `blink`.
+
+**By eye**: the breath on both themes, the orange with its ring; that it does not distract; that it stands still while the
+window is minimized and blinks again when it is brought back; how much of the processor the window uses while it blinks.
 
 ## Implementation notes, as built
 

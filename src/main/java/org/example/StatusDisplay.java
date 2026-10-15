@@ -53,13 +53,14 @@ final class StatusDisplay {
 
     /**
      * Which elements of the row are switched on; all twelve can be hidden, and {@code currency} is the symbol of the amounts.
-     * {@code severalViews} is no element of the row: it says whether an icon leaves the other views open.
+     * {@code severalViews} is no element of the row: it says whether an icon leaves the other views open. Nor is
+     * {@code statusBlink}, whether the status circle fades in and out (since 0.88).
      */
     record Show(
             boolean percentage, boolean currency, boolean interval, boolean deltaUsed, boolean deltaTime,
             boolean historyIcon, boolean logIcon, boolean errorIcon, boolean costIcon,
             boolean time, boolean used, boolean limit, boolean refresh, boolean countdown, boolean duration,
-            boolean severalViews, boolean status, boolean dayPercentage, boolean dayUsed, boolean dayLimit) {
+            boolean severalViews, boolean status, boolean dayPercentage, boolean dayUsed, boolean dayLimit, boolean statusBlink) {
 
         Json toJson() {
             return Json.object()
@@ -82,7 +83,8 @@ final class StatusDisplay {
                     .put("status", status)
                     .put("dayPercentage", dayPercentage)
                     .put("dayUsed", dayUsed)
-                    .put("dayLimit", dayLimit);
+                    .put("dayLimit", dayLimit)
+                    .put("statusBlink", statusBlink);
         }
     }
 
@@ -220,7 +222,7 @@ final class StatusDisplay {
                         settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon(), settings.showCostIcon(),
                         settings.showTime(), settings.showUsed(), settings.showLimit(), settings.showRefresh(), settings.showCountdown(),
                         settings.showDuration(), settings.severalViews(), settings.showStatus(), settings.showDayPercentage(),
-                        settings.showDayUsed(), settings.showDayLimit()),
+                        settings.showDayUsed(), settings.showDayLimit(), settings.statusBlink()),
                 // Whether the setting gives the window its title bar. The page draws a border round a window that has none,
                 // which is one with this off and no panel open.
                 settings.showTitleBar(),
