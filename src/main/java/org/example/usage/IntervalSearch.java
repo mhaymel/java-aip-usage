@@ -50,6 +50,9 @@ public final class IntervalSearch {
     /** Whether the search has been told of an answer yet, so that {@link #decayFrom} is a time. */
     private boolean timed;
 
+    /** How the last answer moved the search, as the log says it, or null when it moved nothing (since 0.89). */
+    private String lastReason;
+
     private IntervalSearch(int interval, int refused) {
         this.interval = interval;
         this.refused = refused;
@@ -98,24 +101,43 @@ public final class IntervalSearch {
      * @param nowNanos the time of the answer, on a clock that only goes forward
      */
     public void succeeded(long nowNanos) {
+        lastReason = null;
         if (!timed) {
             timed = true;
             decayFrom = nowNanos;
         }
+        int before = interval;
         if (refused == 0) {
             // A tenth less, rounded up to the next 5, and never less than 5 below where it was.
-            interval = Math.max(MIN_SECONDS, Math.min(roundUp((interval * 9L + 9) / 10), interval - STEP_SECONDS));
+            int wanted = Math.min(roundUp((interval * 9L + 9) / 10), interval - STEP_SECONDS);
+            interval = Math.max(MIN_SECONDS, wanted);
+            if (interval != before) {
+                lastReason = "no refusal yet, a tenth shorter rounded up to a multiple of 5, not below " + MIN_SECONDS + " s"
+                        + (wanted < MIN_SECONDS ? held(MIN_SECONDS) : "");
+            }
             return;
         }
+        java.util.List<String> reasons = new java.util.ArrayList<>();
         if (++stepCount >= ANSWERS_PER_STEP) {
             stepCount = 0;
-            interval = Math.min(interval, Math.max(Math.max(MIN_SECONDS, refused + STEP_SECONDS), interval - STEP_SECONDS));
+            int floor = Math.max(MIN_SECONDS, refused + STEP_SECONDS);
+            interval = Math.min(interval, Math.max(floor, interval - STEP_SECONDS));
+            if (interval != before) {
+                reasons.add(ANSWERS_PER_STEP + " answers in a row without a refusal, " + STEP_SECONDS + " s shorter, not below "
+                        + floor + " s (refused at " + refused + " s)" + (before - STEP_SECONDS < MIN_SECONDS ? held(MIN_SECONDS) : ""));
+            }
         }
         // One step for one answer, however long it is since the last: only an answer of Anthropic moves the search.
         if (nowNanos - decayFrom >= DECAY_NANOS) {
             decayFrom = nowNanos;
             refused = refused - STEP_SECONDS < MIN_SECONDS ? 0 : refused - STEP_SECONDS;
+            reasons.add("10 minutes without a refusal, " + (refused == 0 ? "the refused interval forgotten" : "the refused interval lowered to " + refused + " s"));
         }
+        lastReason = reasons.isEmpty() ? null : String.join("; ", reasons);
+    }
+
+    private static String held(int seconds) {
+        return ", held at " + seconds + " s";
     }
 
     /**
@@ -131,14 +153,27 @@ public final class IntervalSearch {
         stepCount = 0;
         timed = true;
         decayFrom = nowNanos;
-        interval = Math.min(MAX_SECONDS, Math.max(roundUp((refused * 11L + 9) / 10), refused + STEP_SECONDS));
+        int longer = Math.max(roundUp((refused * 11L + 9) / 10), refused + STEP_SECONDS);
+        interval = Math.min(MAX_SECONDS, longer);
+        lastReason = "refused at " + refused + " s, a tenth longer rounded up to a multiple of 5, at least " + (refused + STEP_SECONDS) + " s"
+                + (longer > MAX_SECONDS ? held(MAX_SECONDS) : "");
         if (serverSeconds > interval) {
-            interval = Math.min(MAX_SECONDS, roundUp(serverSeconds));
+            int wait = roundUp(serverSeconds);
+            interval = Math.min(MAX_SECONDS, wait);
+            lastReason = "the server asked to wait " + serverSeconds + " s, refused at " + refused + " s" + (wait > MAX_SECONDS ? held(MAX_SECONDS) : "");
         }
     }
 
     /** As the log says it: {@code 35 s (refused at 31 s)}, or {@code 35 s (no refusal yet)}. */
     public String describe() {
         return interval + " s (" + (refused == 0 ? "no refusal yet" : "refused at " + refused + " s") + ")";
+    }
+
+    /**
+     * How the last answer moved the search, as the log says it (since 0.89): {@code 110 s, calculated: refused at 100 s, a tenth
+     * longer rounded up to a multiple of 5, at least 105 s}; null when the answer moved nothing, as with a search that has settled.
+     */
+    public String lastStep() {
+        return lastReason == null ? null : interval + " s, calculated: " + lastReason;
     }
 }

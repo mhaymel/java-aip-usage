@@ -92,7 +92,12 @@ final class ApiHandler implements HttpHandler {
                 if (e.allow != null) {
                     exchange.getResponseHeaders().set("Allow", e.allow);
                 }
-                send(exchange, e.status, Json.object().put("error", Failure.of(e)));
+                Json error = Json.object().put("error", Failure.of(e));
+                // The setting that was refused, so that the page puts the focus on its field (since 0.89).
+                if (e.field != null) {
+                    error.put("field", e.field);
+                }
+                send(exchange, e.status, error);
             } catch (RuntimeException e) {
                 LOG.warning("API request failed: " + exchange.getRequestURI().getPath(), e);
                 send(exchange, 500, Json.object().put("error", "Internal error; see the log."));
@@ -176,7 +181,10 @@ final class ApiHandler implements HttpHandler {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
                 }
-                send(exchange, 200, cost().toJson());
+                // With the columns of figures the settings switch on (since 0.89), so that the page draws them without the settings.
+                CostControl figures = settings.current().cost();
+                send(exchange, 200, cost().toJson().put("show", Json.object()
+                        .put("used", figures.showUsed()).put("limit", figures.showLimit()).put("percent", figures.showPercent())));
             }
             case "/api/about" -> {
                 if (!method.equals("GET")) {
@@ -390,8 +398,8 @@ final class ApiHandler implements HttpHandler {
      * as an empty text is no limit; one given as an amount, a number or the text of one, is that amount.
      */
     private static CostControl costOf(Json body, CostControl kept) {
-        Long monthly = body.has("costMonthlyLimit") ? limitOf(body.get("costMonthlyLimit")) : kept.monthlyCents();
-        Long daily = body.has("costDailyLimit") ? limitOf(body.get("costDailyLimit")) : kept.dailyCents();
+        Long monthly = body.has("costMonthlyLimit") ? limitOf(body.get("costMonthlyLimit"), "costMonthlyLimit") : kept.monthlyCents();
+        Long daily = body.has("costDailyLimit") ? limitOf(body.get("costDailyLimit"), "costDailyLimit") : kept.dailyCents();
         Json automatic = body.get("costDailyAutomatic");
         if (automatic != null && !automatic.isNull() && !automatic.isBool()) {
             throw new InvalidSettingException("The setting costDailyAutomatic must be true or false.");
@@ -411,7 +419,7 @@ final class ApiHandler implements HttpHandler {
         Json givenHours = body.get("costWorkdayHours");
         if (givenHours != null && !givenHours.isNull()) {
             if (!givenHours.fitsInt() || givenHours.intValue() < 1 || givenHours.intValue() > 24) {
-                throw new InvalidSettingException("The hours of a working day must be a whole number from 1 to 24.");
+                throw new InvalidSettingException("The hours of a working day must be a whole number from 1 to 24.", "costWorkdayHours");
             }
             hours = givenHours.intValue();
         }
@@ -423,21 +431,24 @@ final class ApiHandler implements HttpHandler {
                 days = null;
                 daysMonth = null;
             } else if (!givenDays.fitsInt() || givenDays.intValue() < 1 || givenDays.intValue() > 31) {
-                throw new InvalidSettingException("The working days must be a whole number from 1 to 31.");
+                throw new InvalidSettingException("The working days must be a whole number from 1 to 31.", "costWorkdays");
             } else {
                 // A number typed holds for the month it is typed in.
                 days = givenDays.intValue();
                 daysMonth = java.time.YearMonth.now().toString();
             }
         }
-        wanted = wanted.withCounting(source, hours, days, daysMonth);
+        wanted = wanted.withCounting(source, hours, days, daysMonth)
+                // The columns of figures of the panel (since 0.89), each optional.
+                .withFigures(flag(body, "costShowUsed", kept.showUsed()), flag(body, "costShowLimit", kept.showLimit()),
+                        flag(body, "costShowPercent", kept.showPercent()));
         wanted.fault().ifPresent(fault -> {
-            throw new InvalidSettingException(fault);
+            throw new InvalidSettingException(fault, "costDailyLimit");
         });
         return wanted;
     }
 
-    private static Long limitOf(Json value) {
+    private static Long limitOf(Json value, String key) {
         if (value == null || value.isNull() || (value.isText() && value.text().isBlank())) {
             return null;
         }
@@ -446,12 +457,12 @@ final class ApiHandler implements HttpHandler {
                 return Amount.parse(value.numberText()).exactCents();
             }
             if (value.isText()) {
-                return CostControl.cents(value.text()).orElseThrow(() -> new InvalidSettingException(CostControl.AMOUNT_FAULT));
+                return CostControl.cents(value.text()).orElseThrow(() -> new InvalidSettingException(CostControl.AMOUNT_FAULT, key));
             }
         } catch (ArithmeticException | NumberFormatException e) {
             // More than two decimals.
         }
-        throw new InvalidSettingException(CostControl.AMOUNT_FAULT);
+        throw new InvalidSettingException(CostControl.AMOUNT_FAULT, key);
     }
 
     /**
@@ -497,7 +508,8 @@ final class ApiHandler implements HttpHandler {
                 s.cost().workdaysTyped(java.time.YearMonth.now()).orElse(null),
                 s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.historyFolder(),
                 s.showStatus(), s.showDayPercentage(), s.showDayUsed(), s.showDayLimit(),
-                s.historyMonthly(), s.historyDaily(), s.historyDailyBy(), s.statusBlink());
+                s.historyMonthly(), s.historyDaily(), s.historyDailyBy(), s.statusBlink(),
+                s.cost().showUsed(), s.cost().showLimit(), s.cost().showPercent());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -507,7 +519,7 @@ final class ApiHandler implements HttpHandler {
         try {
             Long usage = seconds(body, USAGE_KEY, IntervalRange.USAGE);
             if (usage == null) {
-                throw new InvalidSettingException("The setting " + USAGE_KEY + " is missing.");
+                throw new InvalidSettingException("The setting " + USAGE_KEY + " is missing.", USAGE_KEY);
             }
             Settings current = settings.current();
             // The log and the usage history are kept in one folder (since 0.87): the settings hold it twice, the same.
@@ -566,7 +578,7 @@ final class ApiHandler implements HttpHandler {
             settings.apply(given.withDebug(kept.fakeBackend(), kept.fakeScenario(), kept.fakeToken()).withLog(kept.logLevel(), kept.logDate())
                     .withListFontSize(kept.listFontSize()));
         } catch (InvalidSettingException e) {
-            throw new ApiException(400, Failure.of(e), null);
+            throw new ApiException(400, Failure.of(e), null, e.field());
         } catch (SettingsException e) {
             throw new ApiException(500, Failure.of(e), null);
         }
@@ -584,7 +596,7 @@ final class ApiHandler implements HttpHandler {
         }
         String folder = value.text().strip();
         if (!folder.isEmpty() && !java.nio.file.Path.of(folder).isAbsolute()) {
-            throw new InvalidSettingException("The folder cannot be written: it is not a full path.");
+            throw new InvalidSettingException("The folder cannot be written: it is not a full path.", "dataFolder");
         }
         return folder;
     }
@@ -601,7 +613,7 @@ final class ApiHandler implements HttpHandler {
             sources.moveFolders(log, history);
         } catch (IOException | RuntimeException e) {
             LOG.warning("Could not change the folders of the log and the history", e);
-            throw new InvalidSettingException("The folder cannot be written: " + Failure.of(e) + ".");
+            throw new InvalidSettingException("The folder cannot be written: " + Failure.of(e) + ".", "dataFolder");
         }
     }
 
@@ -638,7 +650,7 @@ final class ApiHandler implements HttpHandler {
             return null;
         }
         if (!value.fitsLong()) {
-            throw new InvalidSettingException(range.describeLimit());
+            throw new InvalidSettingException(range.describeLimit(), key);
         }
         return value.longValue();
     }
@@ -1017,9 +1029,10 @@ final class ApiHandler implements HttpHandler {
                 tips.add("The daily limit in force when the reading was made");
             }
             if (now.historyDailyBy()) {
-                columns.add("by");
+                // In words since 0.89, where it was `by`, `auto` and `set`; the file keeps those.
+                columns.add("daily limit is");
                 kinds.add("dailyBy");
-                tips.add("Whether the daily limit was worked out (auto) or typed (set)");
+                tips.add("Whether the daily limit in force at the reading was worked out from the monthly limit, or typed");
             }
             if (now.historyDeltaUsed()) {
                 columns.add("\u0394 used");
@@ -1041,7 +1054,7 @@ final class ApiHandler implements HttpHandler {
                 // is nothing a line could show. That is said, and not how many lines are shown, under which there would be none.
                 return new HistoryBody(
                         sources.history().getFileName().toString(), true, columns, kinds, tips, now.historyDate(),
-                        NO_HISTORY_COLUMN, true, table.total(), now.historyZeroLines(), List.of());
+                        NO_HISTORY_COLUMN, null, true, table.total(), now.historyZeroLines(), List.of());
             }
             List<HistoryLine> lines = new java.util.ArrayList<>();
             for (int i = 0; i < table.rows().size(); i++) {
@@ -1066,7 +1079,7 @@ final class ApiHandler implements HttpHandler {
                     cells.add(row.get(8));
                 }
                 if (now.historyDailyBy()) {
-                    cells.add(row.get(9));
+                    cells.add(dailyByWords(row.get(9)));
                 }
                 if (now.historyDeltaUsed()) {
                     // The history shows every change but one of 0.00: a rise with its plus, a fall with its minus.
@@ -1079,11 +1092,14 @@ final class ApiHandler implements HttpHandler {
                 if (now.historyCurrent()) {
                     cells.add(Formatting.historyCurrency(row.get(3)));
                 }
-                lines.add(new HistoryLine(cells, start, failed, start ? START_TOOLTIP : ""));
+                // The earliest line of its local date among those shown, newest first: the next one shown is of another day, or
+                // there is none (since 0.89). The page underlines it, so that the days are told apart.
+                boolean firstOfDay = i + 1 == table.rows().size() || !day(row.get(0)).equals(day(table.rows().get(i + 1).get(0)));
+                lines.add(new HistoryLine(cells, start, failed, start ? START_TOOLTIP : "", firstOfDay));
             }
             return new HistoryBody(
                     sources.history().getFileName().toString(), table.exists(), columns, kinds, tips, now.historyDate(),
-                    historyNote(table), historyNoteHighlighted(table), table.total(), now.historyZeroLines(), lines);
+                    historyNote(table), historyNoteTooltip(table), historyNoteHighlighted(table), table.total(), now.historyZeroLines(), lines);
         } catch (IOException e) {
             LOG.warning("Could not read the usage history", e);
             throw new ApiException(500, "The usage history could not be read.", null);
@@ -1120,6 +1136,30 @@ final class ApiHandler implements HttpHandler {
             parts.add(count(older) + " older not shown");
         }
         return "Showing " + count(table.rows().size()) + " of " + count(table.total()) + " lines: " + String.join(", ", parts) + ".";
+    }
+
+    /** The date of a time of the file, {@code 2026-10-08} of {@code 2026-10-08 14:00:00}; the whole text when it is not of that shape. */
+    private static String day(String raw) {
+        return raw.length() >= 10 ? raw.substring(0, 10) : raw;
+    }
+
+    /**
+     * The tooltip of the note that says what is left out (since 0.89), with the parts that apply; {@code null} with any other note,
+     * or none.
+     */
+    static String historyNoteTooltip(HistoryReader.Table table) {
+        if (!historyNoteHighlighted(table)) {
+            return null;
+        }
+        StringBuilder tip = new StringBuilder("The history shows at most the newest " + count(HISTORY_ROWS) + " lines of the file.");
+        if (table.hiddenZero() + table.hiddenFailed() > 0) {
+            tip.append(" Lines with no change in the amount used and failed requests are hidden by the filter button at the right of"
+                    + " this line; press it to show them.");
+        }
+        if (table.visible() - table.rows().size() > 0) {
+            tip.append(" Older lines are not shown here, but stay in the file.");
+        }
+        return tip.toString();
     }
 
     /** Whether the note says that not everything is shown, which the window shows in blue; the notes about there being no history are not. */
@@ -1289,16 +1329,33 @@ final class ApiHandler implements HttpHandler {
         }
     }
 
+    /** How the history says the way a daily limit came about (since 0.89): the file's {@code auto} and {@code set} in words. */
+    static String dailyByWords(String cell) {
+        return switch (cell) {
+            case "auto" -> "worked out";
+            case "set" -> "typed";
+            default -> cell;
+        };
+    }
+
     private static final class ApiException extends RuntimeException {
 
         final int status;
 
         final String allow;
 
+        /** The key of the setting that was refused, or {@code null} (since 0.89). */
+        final String field;
+
         ApiException(int status, String message, String allow) {
+            this(status, message, allow, null);
+        }
+
+        ApiException(int status, String message, String allow, String field) {
             super(message);
             this.status = status;
             this.allow = allow;
+            this.field = field;
         }
     }
 
@@ -1456,7 +1513,10 @@ final class ApiHandler implements HttpHandler {
             boolean historyMonthly,
             boolean historyDaily,
             boolean historyDailyBy,
-            boolean statusBlink) {
+            boolean statusBlink,
+            boolean costShowUsed,
+            boolean costShowLimit,
+            boolean costShowPercent) {
 
         Json toJson() {
             return Json.object()
@@ -1508,7 +1568,10 @@ final class ApiHandler implements HttpHandler {
                     .put("historyMonthly", historyMonthly)
                     .put("historyDaily", historyDaily)
                     .put("historyDailyBy", historyDailyBy)
-                    .put("statusBlink", statusBlink);
+                    .put("statusBlink", statusBlink)
+                    .put("costShowUsed", costShowUsed)
+                    .put("costShowLimit", costShowLimit)
+                    .put("costShowPercent", costShowPercent);
         }
     }
 
@@ -1644,10 +1707,12 @@ final class ApiHandler implements HttpHandler {
     }
 
     /** One line of the history table, finished: what its cells say, and whether it begins a run, whether it is a failed one, and its hover text. */
-    record HistoryLine(List<String> cells, boolean start, boolean failed, String title) {
+    /** @param firstOfDay whether it is the earliest line of its local date among those shown (since 0.89) */
+    record HistoryLine(List<String> cells, boolean start, boolean failed, String title, boolean firstOfDay) {
 
         Json toJson() {
-            return Json.object().put("cells", Json.texts(cells)).put("start", start).put("failed", failed).put("title", title);
+            return Json.object().put("cells", Json.texts(cells)).put("start", start).put("failed", failed).put("title", title)
+                    .put("firstOfDay", firstOfDay);
         }
     }
 
@@ -1658,7 +1723,8 @@ final class ApiHandler implements HttpHandler {
      * @param zeroLines whether the zero usage lines are shown as the setting has it, which is what is saved, not what a request asked for
      */
     record HistoryBody(
-            String file, boolean exists, List<String> columns, List<String> kinds, List<String> columnTitles, boolean wide, String note, boolean noteHighlight, int total,
+            String file, boolean exists, List<String> columns, List<String> kinds, List<String> columnTitles, boolean wide, String note, String noteTooltip,
+            boolean noteHighlight, int total,
             boolean zeroLines, List<HistoryLine> lines) {
 
         Json toJson() {
@@ -1674,6 +1740,7 @@ final class ApiHandler implements HttpHandler {
                     .put("columnTitles", Json.texts(columnTitles))
                     .put("wide", wide)
                     .put("note", note)
+                    .put("noteTooltip", noteTooltip)
                     .put("noteHighlight", noteHighlight)
                     .put("total", total)
                     .put("zeroLines", zeroLines)

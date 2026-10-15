@@ -2860,6 +2860,112 @@ spending (The status circle blinks); Settings (the table); A checkbox for each e
 **By eye**: the breath on both themes, the orange with its ring; that it does not distract; that it stands still while the
 window is minimized and blinks again when it is brought back; how much of the processor the window uses while it blinks.
 
+### 131. Version 0.89: the bottom edge, the figures of the cost control, the day's line, the zoom, the reasons in the log
+
+**Status: built (version 0.89); `./gradlew build frontendTest -Daipusage.windows=true` passes, the window tests
+included.** The notes of `new-requirements.md` (the eleventh round, `img_57` to `img_63`; `img_59` is the same picture
+as `img_58`, read as the column `by`), decided in two rounds of questions, and a third before building: the grip of the bottom
+edge on hover, the zoom at the start too, the whole suite run with the window tests (`-Daipusage.windows=true`), and one commit
+once it passes.
+
+**As built, where it differs from the plan below:**
+- **The bottom edge** (part 4) needs no `edgeDragged` and no `POST /api/height` from the page: `UsageApp` sets the window's height
+  while the edge is dragged (`edgeDrag`, `edgeHeight`, clamped by the limits of the last fit, `WindowFit.MAX` and the screen),
+  and the height is remembered by the path a frame drag already takes (`watchHeight` → `heightSettled` →
+  `rememberDraggedHeight`). `resizeList`, `errorsHeight` and `LIST_HEIGHT_MAX` are gone from the page; `/api/height` stays, unused
+  by the page. The cursor is the strip's CSS `ns-resize`, which the WebView shows; no scene cursor was needed. A height that
+  cannot be saved is logged, as with the frame.
+- **The step of the search** (part 1): no `Step` record; `IntervalSearch.lastStep()` gives the line, null when nothing moved.
+  `held at 10 s` can never be said of a step down with no refusal (it then moves nothing), only `held at 300 s` after a 429.
+- **The columns of figures** (part 8) are three components of `CostControl`, beside its `currency`, not of `Settings`; `/api/cost`
+  sends them as `show`.
+- **The zoom** (part 10): `Locator` makes a new transparent stage for each zoom, owned by the window, marked by `setUserData`
+  so that `Desk` and the probes never take it for the program's window; focus changes are ignored while it is drawn and for
+  400 ms after, and while the folder picker is open and 400 ms after (`Desk.pickerBusy`).
+- **The dark gray of the day's line** is `#3d444d`: `#30363d` is a colour an old test keeps out of the style sheet (the start
+  line's background of before 0.80).
+- **Tests added**: `IntervalSearchTest` (each step and its line), `ApiTest` (the day's first line with lines hidden, the note's
+  tooltip, the cost columns, `field` in a 400), `SettingsStoreTest` (the cost columns), `app.test.cjs` (eight), `layout.test.cjs`
+  (four), and in the window, `UsageAppProbe` `drag-edge`: the bottom edge makes the history 60 pixels taller and moves nothing.
+  Changed: the log lines in `UsageServiceTest`, the `by` column, the settings count, unchecking `Automatic` (page and window). `AppInfo.VERSION = "0.89"`. Requirements: Taller and
+shorter by the bottom edge; Dragging the window that has no title bar; The automatic interval (the log); Cost control (unchecking
+`Automatic`, `Figures`); The cost control panel (each column); Settings (a wrong field gets the focus); Usage history (the column
+`daily limit is`, the tooltip of the note); The first reading of a day is underlined in the history; The window shows where it is
+when it comes to the front. Eleven parts, in the order they are best built:
+
+1. **The reasons in the log.** `IntervalSearch`: each step returns what it did, a small `Step` (the kind: `REFUSED`,
+   `SERVER_WAIT`, `FASTER`, `FASTER_UNREFUSED`, `R_LOWERED`, `R_FORGOTTEN`; the old and new interval, `R`, the wait, whether
+   10 or 300 held it) in the place of the boolean it gives now; `Step.describe()` writes the line of the requirements.
+   `UsageService` logs `"Automatic interval: " + step.describe()` at 511 and 520, and the lines of switching on and off at 263.
+   `describe()` of the search stays for `Automatic interval on: …`.
+2. **Unchecking `Automatic`.** `app.js`: the handlers of `set-costDailyAutomatic` and `set-costWorkdaysAuto` leave the field's
+   value when it is unchecked, where they now put back the typed value (or empty it). Checking again shows the worked-out one,
+   as now.
+3. **The scrollbars on macOS.** `dragStartsAt`: besides `clientWidth`/`clientHeight`, a press within 16 CSS pixels of the
+   right edge of a `.panel-lines` whose `scrollHeight > clientHeight`, or of its bottom edge when `scrollWidth > clientWidth`,
+   is no drag. Overlay scrollbars have `clientWidth === offsetWidth`, which is why the check of 0.87 let them through.
+4. **The bottom edge.** `index.html`: the buttons `taller-<list>` and `shorter-<list>` gone, and their handlers and
+   `resizeList` in `app.js`. `dragStartsAt` returns `false` in the bottom 6 pixels while `bare()` and a list is shown; a new
+   `window.edgeAt(x, y)` says `'s'` there, else `''`. `WindowDrag` (Java): on a press where `edgeAt` says `'s'`, a resize in
+   place of a move: the stage's height follows the pointer, and the page is asked for nothing until the release, when it is
+   told `window.edgeDragged(height)`; the page then works the lowest list's height alone out of it, clamped to `panelHeight`
+   and `LIST_HEIGHT_MAX`, posts `/api/height` for the history and the log (as `resizeList` did) or keeps `errorsHeight`, and
+   lays the views out; a refused post is the red line, the height kept for the run. The cursor: `#app.bare.open` gets a
+   `::after` strip of 6 pixels at the bottom with `cursor: ns-resize`, and the host sets `Cursor.V_RESIZE` on the scene while
+   the pointer is over it (WebView does not pass CSS cursors to an undecorated stage on every system; check on Windows and
+   macOS). **The grip** (decided before building: on hover, not always and not the cursor alone): `#edge-grip`, absolutely
+   placed, 24×2, `border-radius: 1px`, `var(--muted)`, `hidden` unless the pointer's `clientY` is within 16 pixels of the
+   window's bottom (`mousemove` on the document, `mouseleave` hides it), and `pointer-events: none`. `UsageAppProbe` keeps its
+   steps; the window tests check the strip and a drag of it.
+5. **The column `daily limit is`.** `ApiHandler` (1068): `auto` written `worked out`, `set` `typed`, other text as it is; the
+   title `daily limit is` and its tooltip where the column titles are made. `app.js`/`app.css`: the width of `dailyBy` 14
+   characters, and `padding-left: 1ch` on its cells and title. `index.html`: the checkbox's text and tooltip.
+6. **The tooltip of the note.** `ApiHandler` (1120, where the parts of the note are made): `noteTooltip` from the same counts,
+   in `HistoryBody`; `app.js` puts it on the note's `title`, and none with another note.
+7. **The day's line.** `ApiHandler`, in the loop over the shown rows (1047), newest first: a row is `firstOfDay` when the next
+   row shown has another local date or there is none; `HistoryLine` gets the field. `app.js`: the class `day-first` on such a
+   row; `app.css`: `tr.day-first td { border-bottom: 1px solid var(--grid) }`, `--grid` `#d0d7de` / `#30363d` if there is none.
+8. **The figures of the cost control.** `Settings`: `costShowUsed`, `costShowLimit`, `costShowPercent`, on by default, with
+   `withCostFigures`; `SettingsStore`, `ApiHandler` (in and out, optional in a `POST`). `CostPanel`/`/api/cost`: the three
+   flags with the rows, so the page knows them without the settings. `index.html`: the line `Figures` after `Currency
+   symbol` in the tab `Cost control`, three checkboxes. `app.js` (1578): the cells of `cost-used`, `cost-of`, `cost-limit`,
+   `cost-percent` only as the flags say, `of` only with both amounts, `·` only after something; the grid's columns by what is
+   shown; the preview from the form while the settings are open, as `previewNow` does for the row. The panel's width follows,
+   as it is measured.
+9. **A wrong field gets the focus.** `InvalidSettingException` gets an optional `field` (the key of the setting) and every
+   `throw` that knows its setting gives it (the interval, the limits, the hours, the working days, the folder); `ApiException`
+   and `send` put `field` beside `error` in the `400`. `app.js`: the page's own checks (831 and the cost fields) name their
+   field too; one `focusField(key)` shows the tab whose section holds `set-<key>` (the folder: `choose-dataFolder`), focuses
+   it, selects its text, and adds the class `invalid`, taken away on its next `input`/`change`. `app.css`: `.invalid {
+   border-color: var(--bad); outline: none }`.
+10. **The zoom.** A new class `Locator`: one `Stage` of `StageStyle.TRANSPARENT`, `UTILITY` owner so it has no taskbar entry,
+    always on top, `setFocusable`-free (it is never `requestFocus`ed, and shown with `show()` after the main window has its
+    focus, then the main window's focus is kept). A `Rectangle` with no fill, stroke 3 px `#0969da`, arcs 12; a `Timeline` of
+    0.6 s with `Interpolator.EASE_OUT` from the centred 60 % of the screen (`Screen.getScreensForRectangle` of the window) to
+    the window's bounds, then a fade of 0.15 s, and `hide()`. The stage covers the screen's visual bounds and its scene is
+    `mouseTransparent`; a transparent pixel takes no click on Windows and macOS, and the line is only there for 0.75 s.
+    `UsageApp`: on the tick that follows the pointer, `stage.isFocused()` compared with the last tick, as `followMinimized`
+    does with being minimized (the stage may be another one from tick to tick, so it is read, not listened for); a rise plays
+    the zoom, unless the folder picker was open since the last tick (`Desk` sets a flag while its dialog is shown). At the
+    start it plays once the window is shown. A failure to make a transparent stage is logged once at the debug level, and
+    nothing is drawn after.
+11. **The version and the docs.** `AppInfo.VERSION = "0.89"`; the README if it names the buttons of the lists.
+
+- **Tests.** `IntervalSearchTest`: each kind of step and its line, the holds at 10 and 300. `UsageServiceTest`: the lines in the
+  log. `ApiTest`: `worked out`/`typed` and the title; `noteTooltip` with each part; `firstOfDay` with lines hidden and across a
+  day; the three cost flags in and out and in `/api/cost`; `field` in a `400` for each refused setting. `SettingsStoreTest`:
+  the three keys and their defaults. `app.test.cjs`: unchecking keeps the figure, both checkboxes; no buttons of the lists;
+  `dragStartsAt` near the edge of a list that scrolls with overlay scrollbars and at the bottom edge; `edgeAt`;
+  `edgeDragged` posts the height, keeps it on a refusal; the cost columns and `of`/`·`, with the preview; `focusField` for a
+  page check and for a backend `field`, the tab, the class and its removal; the note's tooltip; `day-first`.
+  `layout.test.cjs`: the `by` width and its room, the strip and its cursor, `.invalid`, `tr.day-first`, the line `Figures`.
+  `WindowFitTest`/window tests: the bottom edge resizes the lowest list and the height is stored; the zoom is not tested in a
+  window beyond that `Locator` is made and hidden again (its look is by eye).
+
+**By eye**: the zoom on Windows and macOS, from the taskbar, from minimized, with Alt-Tab, and that it takes no click and no
+focus; the bottom edge's cursor on both; the scrollbar of a list on macOS not moving the window; the day's line on both themes;
+the cost control with columns off; the red frame of a wrong field; the lines of the log after a 429 and after a long quiet.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.77; written at version 0.37, and the part about the backend brought up

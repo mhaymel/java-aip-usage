@@ -470,6 +470,12 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   is changed; it asks nothing and takes back the preview. **There is no `Restore defaults`** (since version 0.64). If the backend refuses a
   value, or the settings cannot be saved, the view stays open and shows a brief message in red; nothing
   is changed.
+- **A field that is wrong or empty when the settings are saved gets the focus** (since version 0.89, `docs/img_61.png`): the
+  view switches to the tab the field is on, puts the cursor in it and selects its text, so that it can be typed over at once,
+  and gives it a **red frame** (`#cf222e` / `#f85149`, 1 pixel, where its border is) until it is changed. The red message stays
+  as it is. With more than one wrong field the first in the order of the tabs and, within a tab, from the top, is the one; the
+  backend names the setting it refused (`docs/api.md`), so a value it refuses is found as well as one the page refuses. A
+  failure that is no field's, a settings file that cannot be written, focuses nothing.
 - The settings, with their defaults:
 
   | Setting | Values | Default |
@@ -556,8 +562,8 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   - **Since version 0.87 only the settings bring the title bar back** (the rest of this point, and the next, held until version
     0.86). With the setting off no view has a title bar, the lists as little as the cost control, alone or several together: the
     window has its border and is moved by dragging it (see A border round the window that has no title bar and Dragging the
-    window that has no title bar), and each list has two buttons of its own to make it taller and shorter (see Taller and shorter
-    by buttons). The settings, alone or beside views, and their tab `Debug`, have the title bar whatever the setting says, so
+    window that has no title bar), and a list is made taller and shorter by the bottom edge of the window (since version 0.89;
+    by two buttons of its own in 0.87 and 0.88; see Taller and shorter by the bottom edge). The settings, alone or beside views, and their tab `Debug`, have the title bar whatever the setting says, so
     that the window can be closed there.
   - **While a panel that can be resized is shown the title bar is there**, whatever the setting says: the log and the error log,
     which can be dragged in height and in width, the usage history, in height, and the settings, whose tab `About` can be dragged
@@ -728,7 +734,12 @@ The history is shown inside the main window, not in a window of its own.
   or as the person dragged it, and the panel takes up the difference.
 - **Since version 0.82 the history has three more columns, after `limit`**: `month`, the configured monthly limit counted
   when the reading was made; `day`, the daily limit in force then; and `by`, `auto` when that daily limit was worked out and
-  `set` when it was typed. `limit` stays the limit the server sent. Each has a checkbox in `History view`, after `limit`, **off by
+  `set` when it was typed. **Since version 0.89 that column says it in words** (`docs/img_59.png`): its title is `daily limit
+  is` and its cells `worked out` and `typed`, so that a line reads `45.45 worked out`; its checkbox in `History view` is `daily
+  limit is`, its tooltip `Whether the daily limit in force at the reading was worked out from the monthly limit, or typed`. The
+  file keeps `auto` and `set` (`daily_auto`); only the view words them. Its width is 14 characters. **It stands one character
+  further from `day`** (`docs/img_58.png`: the right-aligned figures of `day` touched the left-aligned words): its cells and
+  its title have one character of room at the left. `limit` stays the limit the server sent. Each has a checkbox in `History view`, after `limit`, **off by
   default**, saved under `historyMonthly`, `historyDaily` and `historyDailyBy`; a row written before 0.82 has empty cells there.
   Widths, in characters: `month` 10, `day` 10, `by` 4. Tooltips of the titles: `The monthly limit counted when the reading was
   made`, `The daily limit in force when the reading was made`, `Whether the daily limit was worked out (auto) or typed (set)`.
@@ -776,7 +787,11 @@ The history is shown inside the main window, not in a window of its own.
   The file itself is not touched.
 - **When not all the data is shown, the panel says so.** One line above the table, written by the backend, says how many lines there are,
   how many are shown, and why the others are not: hidden zero usage lines, hidden failed lines, and older lines beyond the newest 1,000. For example
-  `Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.` It is there whenever anything is left out, and not
+  `Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.` **It has a tooltip** (since version 0.89,
+  `docs/img_60.png`), written by the backend with the parts that apply: `The history shows at most the newest 1,000 lines of
+  the file.` then, with lines hidden, ` Lines with no change in the amount used and failed requests are hidden by the filter
+  button at the right of this line; press it to show them.` and, with older lines left out, ` Older lines are not shown here,
+  but stay in the file.` It is there whenever anything is left out, and not
   otherwise; it replaces the line that said how many of the lines were shown. The window shows it as received. **It is blue** (about `#0969da` on the
   light theme and `#58a6ff` on the dark one), in the panel's own small text, **and bold** (weight 700, since version 0.80; until then regular), so that it stands out as the sign that not everything is shown. **The error log's `There are no errors in this run.` is blue as well**,
   the same blue, since it too is a line that tells the person something about what they are looking at; the other notes (no history yet, no rows yet, no log yet) keep their gray and their regular weight. **Every blue note is bold**: this line of the history, the log's
@@ -1225,7 +1240,11 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **Anywhere else inside the border begins a drag**: the figures, the gray boxes, the room between the elements, a
   message line, and the border itself, the red one of the fake backend included. Since version 0.87, with a list shown and no
   title bar, its lines and its line of controls as well; **the scrollbars of a list do not**: a press on one scrolls the list as
-  always, and the wheel scrolls it.
+  always, and the wheel scrolls it. **Since version 0.89 also where the scrollbar takes no room** (a fault of 0.87 and 0.88 seen
+  on macOS, whose scrollbars lie over the lines and appear only while the list is scrolled): a press within 16 pixels of the
+  right edge of a list that scrolls in height, or of the bottom edge of one that scrolls in width, is a press on its scrollbar
+  and moves the slider, never the window, whether the scrollbar is drawn at that moment or not. **Nor does the bottom edge of the
+  window** while a list is shown: it makes the list taller and shorter (see Taller and shorter by the bottom edge).
 - **The left mouse button only.** Another button moves nothing.
 - **While the window is dragged the page is not told of the moves**, so the text of the row is not selected by a drag
   that moves the window; the press and the release reach it as always.
@@ -1236,21 +1255,28 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   was is not remembered for the next start: the program starts where it always does. (Remembering the position was
   considered and decided against.)
 
-### Taller and shorter by buttons
+### Taller and shorter by the bottom edge
 
-- **Since version 0.87 each list has two buttons to make it taller and shorter** while the setting `Title bar` is off, as it is
-  saved: the usage history, the log and the error log. A window with no title bar has no frame to drag, so they take its place.
-  With the title bar on they are not there, and the window is dragged larger by its frame as before.
-- **Where.** In the list's line of controls, after its zoom: `Taller by five lines` and `Shorter by five lines`, which are also
-  their tooltips, an arrow up and an arrow down over a line, the size of the zoom's icons.
-- **A press changes the list's height by five of its lines**, at the size of the text the lists have; the height of the list
-  alone, row included, is what changes, also when it is among several views, where the others keep theirs. Never shorter than
-  the height a list opens with, ten times the row's, and never taller than the program makes a window (1,600 pixels) or the
-  screen has room for; a press that would change nothing does nothing.
-- **The height is remembered** for the usage history and for the log, as a dragged one is (see Remembered heights), and the list
-  opens at it the next time; the error log's holds for the run, as its dragged one did not.
-- **The width stays**: the log and the error log keep the width they open with.
-- A height that cannot be saved is said in the list's red line, `The height could not be saved: <reason>`, and nothing changes.
+- **Since version 0.89 a list is made taller and shorter by dragging the bottom edge of the window** while the setting `Title
+  bar` is off, as it is saved (`docs/img_57.png`): the usage history, the log and the error log, alone or among several views.
+  **The two buttons `Taller by five lines` and `Shorter by five lines`** that 0.87 and 0.88 had in each list's line of controls
+  **are gone**, in every view. With the title bar on the window is dragged larger by its frame, as before.
+- **The edge** is the bottom 6 pixels of the window, the border the page draws included. While the pointer is there it is the
+  cursor of a vertical resize; a press there and a drag changes the height and never moves the window (see Dragging the window
+  that has no title bar). The page draws it; the window has no frame of the system to drag.
+- **A grip shows while the pointer is near it**: a short bar, 24 by 2 pixels with rounded ends, centred 2 pixels above the
+  bottom edge, in the muted gray (`#8a8f98`). It appears when the pointer is in the edge or within 10 pixels above it, and goes
+  when the pointer leaves, so that the edge can be found where the cursor does not change. It takes no room and no click of its
+  own: a press on it is a press on the edge.
+- **The height that changes is that of the lowest list**, as when the window is dragged by its frame: the views above keep
+  theirs. Never shorter than the height a list opens with, ten times the row's, and never taller than the program makes a window
+  (1,600 pixels) or the screen has room for.
+- **The height is remembered** for the usage history and for the log, as one dragged by the frame is (see Remembered heights),
+  and the list opens at it the next time; the error log's holds while it stays open, as a dragged one does.
+- **The width stays**: the log and the error log keep the width they open with; there is no edge to drag at the right.
+- **Only with a list shown.** The row alone, the cost control alone and the settings have no such edge: their height is their
+  content's.
+- A height that cannot be saved is logged, as one dragged by the frame is, and the list keeps the height it was dragged to.
 
 ### The row goes while the pointer is outside the window
 
@@ -1488,9 +1514,22 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   the keys `autoIntervalSeconds` and `autoRefusedSeconds` (`R`, a whole number from 10 to 300, or the key left out for none), and the next start goes on from them.
   Values in the file that are not whole seconds from 10 to 300 are as if there were none, so the search begins at 60 with no `R`; an interval that is not a multiple of 5 is rounded up to the next one, and one at or below `R` is raised to `R + 5` (a saved `R` is rounded up as well).
   The keys `autoLowerSeconds` and `autoUpperSeconds` of earlier versions are read no more and are not written again. Switching `Automatic` off and on again goes on from what was saved.
-- **The log says each step**, at the information level: `Automatic interval: <N> s (refused at <R> s)`, or `Automatic interval: <N> s (no refusal yet)`. A search that has
-  settled, and whose interval an answer leaves as it is, writes nothing. Switching it on writes the same
-  line with where the search is, and switching it off `Automatic interval off: the usage fetch interval is <N> s`.
+- **The log says each step, and how the new interval was calculated** (since version 0.89; until then only `Automatic interval: <N> s
+  (refused at <R> s)` or `(no refusal yet)`), at the information level, so that it is clear the interval is the program's and not
+  the configured one. Every line begins `Automatic interval: <N> s, calculated: ` and then says the reason, with the figures:
+  - after an HTTP 429: `refused at <R> s, a tenth longer rounded up to a multiple of 5, at least <R + 5> s` (`<R>` is the
+    interval that was refused, which `R` now is);
+  - after a 429 whose `Retry-After` is longer: `the server asked to wait <W> s, refused at <R> s`;
+  - after 8 answers in a row without a 429, with a refused interval known: `8 answers in a row without a refusal, 5 s shorter,
+    not below <R + 5> s (refused at <R> s)`;
+  - with none known: `no refusal yet, a tenth shorter rounded up to a multiple of 5, not below 10 s`;
+  - when `R` is lowered by time: `10 minutes without a refusal, the refused interval lowered to <R> s` (or `the refused interval
+    forgotten` when it falls below 10); the interval in the line is then the one in force, unchanged;
+  - a step that the least or the most holds says so at the end: `, held at 10 s` or `, held at 300 s`.
+  For example `Automatic interval: 110 s, calculated: refused at 100 s, a tenth longer rounded up to a multiple of 5, at least
+  105 s`. A search that has settled, and whose interval an answer leaves as it is, writes nothing. Switching it on writes
+  `Automatic interval on: <N> s, calculated (refused at <R> s)` or `(no refusal yet)`, and switching it off `Automatic interval
+  off: the usage fetch interval is <N> s, configured`.
 - **A change of the configured interval while `Automatic` is on** is saved and waits: it is in force when `Automatic` is
   switched off.
 - **The usage history** records for each row the interval in force, which with `Automatic` on is that of the search.
@@ -1742,8 +1781,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The daily limit is worked out by the program, not by the page**: when a monthly limit is typed, the page asks what
   follows from it and shows the answer, and an answer that arrives after the field was changed again is not shown.
   Until a monthly limit is an amount there is nothing to show.
-- **What was typed as the daily limit is kept while it is worked out**: unchecking `Automatic` brings it back, and it is
-  saved with the settings either way.
+- **Unchecking `Automatic` leaves the figure in the field** (since version 0.89, `new-requirements.md`; until then it brought
+  back what was typed before, and an empty field when nothing was): the daily limit that was worked out stays, and can be typed
+  over. With no monthly limit, and so nothing worked out, the field is empty as before. Checking `Automatic` again shows the
+  worked-out limit; what was typed is kept in the settings while it is worked out, and saved with them either way.
 - **A limit that is not given in a request stays as it is**, so settings saved by something that knows nothing of cost
   control leave the limits alone.
 - **In the file a limit there is none of is written as `null`**, so the three keys are always there.
@@ -1765,13 +1806,20 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   - **`Working days`**: the number of working days of the current month, which the daily limit worked out and the month's pace
     go by. Beside it a checkbox `Automatic`, on by default: on, the field is disabled and shows the days from Monday to Friday
     of the month; off, a whole number from 1 to 31 is typed, and **it holds for the month it was typed in**: when a new month
-    begins it is Automatic again. Keys `costWorkdays` (the number, or `null`) and `costWorkdaysMonth` (`2026-10`, the month it is
-    for). Its tooltip: `The working days of this month, Monday to Friday unless a number is typed; a typed number holds for this
+    begins it is Automatic again. **Unchecking `Automatic` leaves the number in the field** (since version 0.89): the days from
+    Monday to Friday stay, and can be typed over; it is not emptied. Keys `costWorkdays` (the number, or `null`) and
+    `costWorkdaysMonth` (`2026-10`, the month it is for). Its tooltip: `The working days of this month, Monday to Friday unless a number is typed; a typed number holds for this
     month only.`
   - **`Currency symbol`**: whether the figures of the cost control have the currency symbol before the amounts, **off by
     default** (until 0.81 they followed the row's `Currency symbol`). Key `costCurrency`. Its tooltip: `Puts the currency symbol
     before the amounts of the cost control.`
 - **The daily limit worked out** is the monthly limit counted divided by the working days of the month, by the setting above.
+- **Since version 0.89 the tab has a line `Figures`** (`docs/img_63.png`), after `Currency symbol`: three checkboxes, `Spent`,
+  `Limit` and `Percentage`, **all on by default**, which say which columns of figures the cost control panel shows (see The cost
+  control panel). Keys `costShowUsed`, `costShowLimit` and `costShowPercent`. Tooltips: `Shows what is spent, today and this
+  month, in the cost control.`, `Shows the daily and the monthly limit in the cost control.` and `Shows the share of each limit
+  that is spent, in the cost control.` They are previewed in the cost control panel while it is shown beside the settings, as
+  the checkboxes of `Main view` are in the row, and take effect when the settings are saved.
 
 ### The cost control panel: two bars
 
@@ -1809,6 +1857,12 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The figures are four columns** (since version 0.83; `docs/img_41.png`), shared by the two rows: the amount spent, right-aligned;
   `of`, centred; the limit, right-aligned; and `· <percent>%`, right-aligned; so that the decimal points of each column are under
   one another. A row with no limit has its amount in the first column and `· no limit set` in the rest of the line.
+- **Each column can be switched off** (since version 0.89, `docs/img_63.png`) by the checkboxes `Spent`, `Limit` and
+  `Percentage` of the tab `Cost control`; the others close up, and the panel is narrower by what is gone. **`of` is shown only
+  when both the amount spent and the limit are**, as in the row; the `·` before the percentage only when something stands before
+  it. A row with no limit writes `no limit set` in the place of the limit, or of the percentage when the limit is off, and
+  nothing when both are off. With all three off the panel is the labels and the bars alone. The tooltips of the bars keep every
+  figure.
 - **The figures** are written `<used> of <limit> · <percent>%`, for example `12.40 of 25.00 · 50%`: the amount used, the limit, both in the form of the amounts of the row (two decimals, the currency symbol when `Currency symbol` is on), and the percentage, a
   whole number, rounded to the nearer and upwards at half. The amount is the one of the figures, so it is `$` for US dollars with the symbol on and the plain number with it off, as the row writes it.
 - **The monthly bar**: the amount used of the newest reading, against the monthly limit of the cost control. **The daily bar**: the amount spent today against the daily limit in force this month (the typed one, or the one worked out from the monthly limit, see Cost control).
@@ -2112,6 +2166,18 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   the history's columns, which are in characters, are as they were.
 - **The copy the history's table is measured on has the same typefaces**, so that the window is as wide as the table is.
 
+### The first reading of a day is underlined in the history
+
+- **Since version 0.89 the first reading of each day has a light gray line under it** (`docs/img_62.png`): a line of 1 pixel
+  across the whole row of the table, in the gray of the grid, `#d0d7de` on the light theme and `#3d444d` on the dark one. As the
+  history is newest first, the first reading of a day is the lowest line of that day, and the line stands between two days.
+- **With lines hidden** (zero usage, failed) **the line goes under the earliest line of the day that is shown**, so that the
+  days are told apart in what is shown; a day with no line shown has none. The oldest day of the 1,000 lines shown is marked as
+  well, though older lines of it may not be shown.
+- **The day is the local date of the reading.** The backend says of each line whether it is the first of its day among those
+  shown (`firstOfDay`, `docs/api.md`); the page draws the line.
+- **A line that is both** the start of a run and the first of a day has both marks.
+
 ### A tooltip for each column title of the usage history
 
 - **Each title of the history's table has a tooltip** (since version 0.80), which says what the column is:
@@ -2262,6 +2328,21 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **A list that is given less than its height alone** keeps the height it has alone remembered as it was: the sharing is not
   a height the person gave it.
 - **Dragging the window** taller or shorter still changes the lowest list alone.
+
+### The window shows where it is when it comes to the front
+
+- **Since version 0.89, whenever the window becomes the active window, a rectangle zooms onto it**, so that it is found at
+  once (`new-requirements.md`): when it is brought up from the taskbar or the Dock, restored from minimized, chosen with
+  Alt-Tab or Cmd-Tab, clicked while another window was active, and at the start. **Not** when the active window was one of the
+  program's own, the folder picker of the settings, and focus comes back from it.
+- **How it looks.** An outline of 3 pixels in the blue of the notes, `#0969da`, with rounded corners of 6 pixels, starts around
+  the middle of the screen the window is on, 60 % of the screen's width and height, and in **0.6 seconds** shrinks and moves
+  until it lies exactly on the window's edges, easing out; it then fades in 0.15 seconds and is gone. A second activation while
+  it runs starts it again from the beginning.
+- **It is drawn by a window of its own**, transparent, above all others, which takes no focus, no click and no place in the
+  taskbar; the program's window is not moved or changed by it. Where the system cannot draw a transparent window, nothing is
+  drawn.
+- **It is not a setting.**
 
 ## Debug mode
 
@@ -2886,7 +2967,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, `logFolder`, `historyFolder`, and since version 0.82 `showStatus`, `showDayPercentage`, `showDayUsed`, `showDayLimit`, `historyMonthly`, `historyDaily`, `historyDailyBy`, `costLimitSource`, `costWorkdayHours`, `costWorkdays`, `costWorkdaysMonth` and `costCurrency`, since version 0.88 `statusBlink`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, `logFolder`, `historyFolder`, and since version 0.82 `showStatus`, `showDayPercentage`, `showDayUsed`, `showDayLimit`, `historyMonthly`, `historyDaily`, `historyDailyBy`, `costLimitSource`, `costWorkdayHours`, `costWorkdays`, `costWorkdaysMonth` and `costCurrency`, since version 0.88 `statusBlink`, since version 0.89 `costShowUsed`, `costShowLimit` and `costShowPercent`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
   `historyHeight` and `logHeight`. The three files, the settings, the log and the usage history, are in the working directory the program was
   started from; where that is for a version started in its usual way is said in its section. Since version 0.81 the log and
   the usage history can be in other folders (see The folders of the log and of the usage history); the settings file stays in

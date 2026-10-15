@@ -102,6 +102,8 @@ public final class UsageAppProbe {
             step("history-usual", null);
             // A list has no title bar (since 0.87): a drag from the row moves the window.
             drag("drag-list", "time");
+            // The bottom edge of a list with no title bar makes it taller, and moves nothing (since 0.89).
+            dragEdge("drag-edge");
             // And it selects nothing: not the row it began in, not the lines of the list it went across, and nor does selecting everything.
             select("select-history");
             step("history-closed", "history-button");
@@ -214,7 +216,7 @@ public final class UsageAppProbe {
         }
         onFx(() -> {
             // The windows of the program: a tooltip is a window of the toolkit too, and is none of them.
-            List<Window> showing = Window.getWindows().stream().filter(w -> w instanceof Stage && w.isShowing()).toList();
+            List<Window> showing = Window.getWindows().stream().filter(w -> w instanceof Stage && w.isShowing() && !Locator.isLocator(w)).toList();
             System.out.println("PROBE " + name + "=titleBar:" + StageSwap.hasTitleBar(window())
                     + " windows:" + showing.size()
                     + " size:" + page().getEngine().executeScript("window.contentSize()")
@@ -342,6 +344,38 @@ public final class UsageAppProbe {
             System.out.println("PROBE " + name + "=moved:" + Math.round(window().getX() - before[0]) + "," + Math.round(window().getY() - before[1])
                     + " hasTitleBar:" + StageSwap.hasTitleBar(window())
                     + " panel:" + page().getEngine().executeScript("!document.getElementById('panel').hidden"));
+            System.out.flush();
+        });
+    }
+
+    /** Drags the bottom edge of the window 60 pixels down, and says how far the window moved and how much taller it is. */
+    private static void dragEdge(String name) throws InterruptedException {
+        double[] before = new double[3];
+        onFx(() -> {
+            WebView view = page();
+            Object at = view.getEngine().executeScript(
+                    "(function () { var e = document.getElementById('edge'); if (e.hidden) { return ''; } var b = e.getBoundingClientRect();"
+                            + " return Math.round(b.left + b.width / 2) + ',' + Math.floor(b.top + b.height / 2); })()");
+            before[0] = window().getX();
+            before[1] = window().getY();
+            before[2] = window().getHeight();
+            if (at == null || at.toString().isEmpty()) {
+                return;
+            }
+            double x = Double.parseDouble(at.toString().split(",")[0]);
+            double y = Double.parseDouble(at.toString().split(",")[1]);
+            javafx.geometry.Point2D screen = view.localToScreen(x, y);
+            fire(view, javafx.scene.input.MouseEvent.MOUSE_PRESSED, x, y, screen.getX(), screen.getY(), true);
+            for (int i = 1; i <= 3; i++) {
+                double dy = 60.0 * i / 3;
+                fire(view, javafx.scene.input.MouseEvent.MOUSE_DRAGGED, x, y + dy, screen.getX(), screen.getY() + dy, true);
+            }
+            fire(view, javafx.scene.input.MouseEvent.MOUSE_RELEASED, x, y + 60, screen.getX(), screen.getY() + 60, false);
+        });
+        Thread.sleep(500);
+        onFx(() -> {
+            System.out.println("PROBE " + name + "=moved:" + Math.round(window().getX() - before[0]) + "," + Math.round(window().getY() - before[1])
+                    + " grew:" + Math.round(window().getHeight() - before[2]) + " hasTitleBar:" + StageSwap.hasTitleBar(window()));
             System.out.flush();
         });
     }
@@ -504,7 +538,7 @@ public final class UsageAppProbe {
 
     private static Stage window() {
         // A tooltip is a window too, and not this one.
-        return (Stage) Window.getWindows().stream().filter(window -> window.isShowing() && window instanceof Stage).findFirst().orElseThrow();
+        return (Stage) Window.getWindows().stream().filter(window -> window.isShowing() && window instanceof Stage && !Locator.isLocator(window)).findFirst().orElseThrow();
     }
 
     private static WebView page() {

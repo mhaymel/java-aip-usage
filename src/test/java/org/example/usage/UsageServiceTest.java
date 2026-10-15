@@ -1138,8 +1138,10 @@ class UsageServiceTest {
 
             assertEquals(List.of("200 s (refused at 190 s)"), saved, "a step of the refused interval alone is given to be saved");
             assertEquals(200, service.effectiveIntervalSeconds(), "the interval follows by its own steps, of eight answers");
-            assertEquals(List.of("Automatic interval: 200 s (refused at 195 s)", "Automatic interval: 200 s (refused at 190 s)"),
-                    lines.stream().filter(line -> line.startsWith("Automatic interval:")).toList(), "the log says where the search is when it is switched on, and then the step");
+            assertEquals(List.of("Automatic interval on: 200 s, calculated (refused at 195 s)",
+                            "Automatic interval: 200 s, calculated: 10 minutes without a refusal, the refused interval lowered to 190 s"),
+                    lines.stream().filter(line -> line.startsWith("Automatic interval")).toList(),
+                    "the log says where the search is when it is switched on, and then the step and how it was calculated (since 0.89)");
 
             for (int n = 4; n <= 8; n++) {
                 int wanted = n;

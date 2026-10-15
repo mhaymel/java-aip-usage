@@ -148,7 +148,10 @@
                 // Not JSON; the status code below is all there is to report.
             }
             if (!response.ok) {
-                throw new Error(body && body.error ? body.error : 'The application answered HTTP ' + response.status + '.');
+                var failure = new Error(body && body.error ? body.error : 'The application answered HTTP ' + response.status + '.');
+                // The setting the backend refused, when it names one (since 0.89): its field gets the focus.
+                failure.field = body && typeof body.field === 'string' ? body.field : null;
+                throw failure;
             }
             return body;
         } finally {
@@ -211,6 +214,10 @@
             return;
         }
         var v = view.describeStatus(lastStatus);
+        // The cost control follows the columns of figures the form says while the settings are open, and the backend's after.
+        if (lastCost && isOpen('cost')) {
+            showCost(lastCost);
+        }
         // The settings view shows a change in the row before it is applied; then its switches count, not the backend's.
         var s = preview ? preview.show : v.show;
         var variants = preview && v.variants ? v.variants : null;
@@ -254,8 +261,11 @@
         setNote('hover-note', onBox && v.noSpend ? v.noSpend : '', 'note note-info');
         renderOptional('interval', s.interval, v.interval, 'Time between usage requests');
         renderButtons(s);
-        // The buttons that make a list taller and shorter are there while the title bar is off, as saved (since 0.87).
-        LISTS.forEach(function (name) { show('size-' + name, noTitleBar()); });
+        // The bottom edge makes a list taller and shorter while the title bar is off, as saved (since 0.89; buttons in 0.87 and 0.88).
+        show('edge', hasEdge());
+        if (!hasEdge()) {
+            show('edge-grip', false);
+        }
         renderOptional('delta-used', s.deltaUsed, v.deltaUsed, 'Change in the amount used since the previous reading');
         renderOptional('delta-time', s.deltaTime, v.deltaTime, 'Time since the previous reading');
         renderOptional('duration', s.duration, v.duration, 'How long the latest usage request took');
@@ -509,7 +519,10 @@
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency' && key !== 'statusBlink'; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
     var HISTORY_FLAGS = ['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyMonthly', 'historyDaily', 'historyDailyBy', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent'];
-    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'severalViews', 'costCurrency', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'historyMonthly', 'historyDaily', 'historyDailyBy', 'logResponse', 'autoInterval', 'costDailyAutomatic']);
+    var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'severalViews', 'costCurrency', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'historyMonthly', 'historyDaily', 'historyDailyBy', 'logResponse', 'autoInterval', 'costDailyAutomatic',
+        'costShowUsed', 'costShowLimit', 'costShowPercent']);
+    // The columns of figures of the cost control (since 0.89), previewed in the panel while the settings are open.
+    var COST_FIGURES = ['costShowUsed', 'costShowLimit', 'costShowPercent'];
 
     /**
      * Shows in the row what the main-view part of the form says, at once and before Save, so that it can be seen which element a
@@ -602,7 +615,58 @@
         $('set-usageIntervalSeconds').value = String(current);
     }
 
+    // The tab each field that can be refused is on (since 0.89), and the field that was refused last, framed in red until changed.
+    var FIELD_TABS = { usageIntervalSeconds: 'general', dataFolder: 'general', costMonthlyLimit: 'cost', costDailyLimit: 'cost',
+        costWorkdayHours: 'cost', costWorkdays: 'cost' };
+    var invalidId = null;
+
+    /**
+     * Puts the focus on the field of a setting that is wrong or empty (since 0.89): its tab is shown, the cursor put in it, its text
+     * selected so that it can be typed over, and a red frame round it until it is changed. The folder has no field: its Choose…
+     * button is the one.
+     */
+    function focusField(key) {
+        var id = key === 'dataFolder' ? 'choose-dataFolder' : 'set-' + key;
+        var field = $(id);
+        if (!field) {
+            return;
+        }
+        clearInvalid();
+        var tab = FIELD_TABS[key];
+        if (!tab && field.closest) {
+            var page = field.closest('.tab-page');
+            tab = page && page.id ? page.id.replace(/^tab-/, '') : null;
+        }
+        if (tab) {
+            showTab(tab);
+        }
+        invalidId = id;
+        field.className = (field.className ? field.className + ' ' : '') + 'invalid';
+        if (field.focus) {
+            field.focus();
+        }
+        if (field.select) {
+            field.select();
+        }
+    }
+
+    /** Takes the red frame off the field that had it. */
+    function clearInvalid() {
+        if (invalidId !== null && $(invalidId)) {
+            $(invalidId).className = String($(invalidId).className || '').replace(/\s*\binvalid\b/g, '');
+        }
+        invalidId = null;
+    }
+
+    /** A field was typed in or changed: the one in red is right again, or will be said so on the next save. */
+    function fieldEdited(event) {
+        if (invalidId !== null && event && event.target && event.target.id === invalidId) {
+            clearInvalid();
+        }
+    }
+
     function fillForm(values) {
+        clearInvalid();
         SETTING_FLAGS.forEach(function (key) {
             $('set-' + key).checked = Boolean(values[key]);
         });
@@ -643,7 +707,8 @@
     /** A choice of 0.82 was changed: the fields follow, and the daily limit is worked out again. */
     function countingChanged() {
         // What the field holds is what was typed, while it was not showing the weekdays: it is kept, as the daily limit's is.
-        if (!workdaysShownAuto) {
+        // Automatic just unchecked: the weekdays it showed stay in the field, to be typed over (since 0.89; it was emptied).
+        if (!workdaysShownAuto || !$('set-costWorkdaysAutomatic').checked) {
             workdaysTyped = String($('set-costWorkdays').value).trim();
         }
         syncCounting();
@@ -691,13 +756,17 @@
         }
     }
 
-    /** The checkbox Automatic of the daily limit was changed: what was typed is kept, and the field shows the one or the other. */
+    /**
+     * The checkbox Automatic of the daily limit was changed. Checked, what was typed is kept and the worked-out limit shown;
+     * unchecked, the worked-out limit stays in the field, to be typed over (since 0.89; it brought back what was typed before).
+     */
     function dailyAutomaticChanged() {
         if ($('set-costDailyAutomatic').checked) {
             costDailyTyped = String($('set-costDailyLimit').value).trim();
             syncDailyLimit();
             return workOutDailyLimit();
         }
+        costDailyTyped = String($('set-costDailyLimit').value).trim();
         syncDailyLimit();
         return undefined;
     }
@@ -829,6 +898,7 @@
         // Only that it is a number is checked here; whether it is in range is the backend's to say.
         if (!$('set-autoInterval').checked && !/^\d+$/.test($('set-usageIntervalSeconds').value.trim())) {
             setNote('settings-error', 'The interval must be a whole number of seconds.');
+            focusField('usageIntervalSeconds');
             return false;
         }
         try {
@@ -839,6 +909,9 @@
         } catch (e) {
             // A folder that cannot be written is said under the group Files, where it was chosen.
             setNote(/^The folder cannot be written/.test(e.message) ? 'folder-error' : 'settings-error', e.message);
+            if (e.field) {
+                focusField(e.field);
+            }
             return false;
         }
     }
@@ -1510,6 +1583,9 @@
         }
         shown.rows.forEach(function (row, i) {
             var line = cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide, shown.markClass, shown.kinds);
+            if (shown.dayFirst && shown.dayFirst[i]) {
+                line.className += ' day-first';
+            }
             if (shown.links && shown.links[i] && shown.links[i].length > 0) {
                 linkPaths(line.children[0], row[0], shown.links[i]);
             }
@@ -1527,6 +1603,7 @@
         show('panel-lines-' + name, shown.rows.length > 0);
         // A note that says something is left out, or that there is nothing to see, is in the info colour.
         setNote('panel-note-' + name, shown.note, 'panel-note' + (shown.noteHighlight ? ' highlight' : ''));
+        $('panel-note-' + name).title = shown.noteTooltip || '';
     }
 
     // What the cost control shows now, as JSON, so that it is drawn again only when it changed.
@@ -1538,15 +1615,47 @@
     // The room the cost control keeps at its left and right (`.cost`), which is the 8 pixels at the right of the figures.
     var COST_PADDING = 16;
 
+    // What the cost control was last given, to draw again when the columns of figures change in the form (since 0.89).
+    var lastCost = null;
+    // How many columns of figures the cost control shows now, from 0 to 4: the amount, of, the limit and the percentage.
+    var costColumns = 4;
+
+    /** The columns of figures to show (since 0.89): as the form says while the settings are open, else as the backend says. */
+    function costFigures(shown) {
+        if (settingsOpen && settingsShown !== null) {
+            return { used: Boolean($('set-costShowUsed').checked), limit: Boolean($('set-costShowLimit').checked),
+                percent: Boolean($('set-costShowPercent').checked) };
+        }
+        return shown.show || { used: true, limit: true, percent: true };
+    }
+
     /** Draws the two bars: a label, a bar with its share, red and full over the limit, and the figures; and the note under them. */
     function showCost(shown) {
         setNote('cost-error', '');
-        var key = JSON.stringify(shown);
+        lastCost = shown;
+        var figures = costFigures(shown);
+        var key = JSON.stringify([shown, figures]);
         if (key === costKey) {
             return;
         }
         costKey = key;
+        // The columns that are on, the others closed up (since 0.89): `of` only between two amounts, as in the row.
+        var kinds = [];
+        if (figures.used) {
+            kinds.push('used');
+        }
+        if (figures.used && figures.limit) {
+            kinds.push('of');
+        }
+        if (figures.limit) {
+            kinds.push('limit');
+        }
+        if (figures.percent) {
+            kinds.push('percent');
+        }
+        costColumns = kinds.length;
         var box = $('cost-rows');
+        box.style.gridTemplateColumns = 'max-content minmax(120px, 1fr)' + ' max-content'.repeat(kinds.length);
         box.replaceChildren();
         shown.rows.forEach(function (row) {
             var line = document.createElement('div');
@@ -1575,15 +1684,29 @@
                 return part;
             };
             if (row.used !== null && row.used !== undefined && row.limit !== null && row.limit !== undefined) {
-                cell('cost-used', row.used);
-                cell('cost-of', 'of');
-                cell('cost-limit', row.limit);
-                cell('cost-percent', '\u00b7 ' + row.percent);
+                kinds.forEach(function (kind, i) {
+                    if (kind === 'used') {
+                        cell('cost-used', row.used);
+                    } else if (kind === 'of') {
+                        cell('cost-of', 'of');
+                    } else if (kind === 'limit') {
+                        cell('cost-limit', row.limit);
+                    } else {
+                        // The dot only after something (since 0.89).
+                        cell('cost-percent', (i > 0 ? '\u00b7 ' : '') + row.percent);
+                    }
+                });
             } else if (row.used !== null && row.used !== undefined) {
-                cell('cost-used', row.used);
-                cell('cost-rest', '\u00b7 no limit set');
-            } else {
-                cell('cost-text', row.text);
+                // No limit: the amount, and `no limit set` over the rest, in the place of the limit or the percentage.
+                if (figures.used) {
+                    cell('cost-used', row.used);
+                }
+                var rest = kinds.length - (figures.used ? 1 : 0);
+                if (rest > 0) {
+                    cell('cost-rest', (figures.used ? '\u00b7 ' : '') + 'no limit set').style.gridColumn = 'span ' + rest;
+                }
+            } else if (kinds.length > 0) {
+                cell('cost-text', row.text).style.gridColumn = 'span ' + kinds.length;
             }
             // A row is no box of its own in the grid, so each of its cells says the tooltip of the row.
             label.title = row.tooltip;
@@ -1612,18 +1735,21 @@
         // The figures (since 0.83): a row of four cells has four columns, each as wide as the widest of such rows, with their
         // gaps; a row of fewer has cells over several columns, and needs its own cells and the gaps between them.
         var cellWidth = function (part) { return Math.ceil(part.getBoundingClientRect().width); };
-        var four = lines.filter(function (line) { return line.children.length === 6; });
-        var columns = [2, 3, 4, 5].map(function (i) {
-            return four.reduce(function (most, line) { return Math.max(most, cellWidth(line.children[i])); }, 0);
-        });
-        var figures = four.length > 0 ? columns.reduce(function (sum, w) { return sum + w; }, 0) + 3 * COST_GAP : 0;
-        lines.filter(function (line) { return line.children.length < 6; }).forEach(function (line) {
+        // As many columns as are switched on (since 0.89; four until then).
+        var full = 2 + costColumns;
+        var four = lines.filter(function (line) { return line.children.length === full; });
+        var columns = [];
+        for (var c = 2; c < full; c++) {
+            columns.push(four.reduce(function (most, line) { return Math.max(most, cellWidth(line.children[c])); }, 0));
+        }
+        var figures = four.length > 0 && costColumns > 0 ? columns.reduce(function (sum, w) { return sum + w; }, 0) + (costColumns - 1) * COST_GAP : 0;
+        lines.filter(function (line) { return line.children.length < full && line.children.length > 2; }).forEach(function (line) {
             var cells = Array.prototype.slice.call(line.children, 2);
             figures = Math.max(figures, cells.reduce(function (sum, part) { return sum + cellWidth(part); }, 0) + (cells.length - 1) * COST_GAP);
         });
         // 16 px is the panel's own padding, as for the history, and 16 more the cost control's own, which until 0.83 was not counted
-        // and left the figures cut at the window's edge (img_53).
-        return widest(0) + COST_BAR_MIN + figures + 2 * COST_GAP + 16 + COST_PADDING;
+        // and left the figures cut at the window's edge (img_53). No gap after the bar when there are no figures.
+        return widest(0) + COST_BAR_MIN + figures + (costColumns > 0 ? 2 : 1) * COST_GAP + 16 + COST_PADDING;
     }
 
     /**
@@ -1775,51 +1901,38 @@
      * one the person last gave it, less the row. The last of the lists has no height of its own: it takes what the window has.
      */
     function aloneHeight(name) {
-        // The error log's height is not remembered: what its buttons gave it holds for the run (since 0.87).
-        var kept = name === 'errors' ? errorsHeight : lastStatus && lastStatus.heights ? lastStatus.heights[name] : 0;
+        // The error log's height is not remembered.
+        var kept = name === 'errors' ? 0 : lastStatus && lastStatus.heights ? lastStatus.heights[name] : 0;
         return Math.max(panelHeight, typeof kept === 'number' ? kept : 0);
     }
 
-    // The height the buttons of the error log gave it alone, row included, or 0 (since 0.87).
-    var errorsHeight = 0;
-    // The most height a list alone is given by its buttons: the most the program makes a window.
-    var LIST_HEIGHT_MAX = 1600;
-
-    /** Whether the title bar is switched off, as saved: the lists then have buttons to make them taller and shorter (since 0.87). */
+    /** Whether the title bar is switched off, as saved: a list is then made taller and shorter by the bottom edge (since 0.89). */
     function noTitleBar() {
         return Boolean(lastStatus && lastStatus.display && lastStatus.display.titleBar === false);
     }
 
-    /**
-     * Makes a list taller (1) or shorter (-1) by five of its lines, while the window has no title bar to drag (since 0.87). Its
-     * height alone is what changes, never below the one it opens with; the history's and the log's is remembered by the backend,
-     * as a dragged one is, before the page asks for it, so that the host takes it and does not put back the one it had.
-     */
-    async function resizeList(name, by) {
-        var now = aloneHeight(name);
-        var next = Math.max(panelHeight, Math.min(LIST_HEIGHT_MAX, now + by * Math.round(5 * listSize * 1.25)));
-        if (next === now) {
-            return;
-        }
-        if (name !== 'errors') {
-            try {
-                await postJson('/api/height', { panel: name, pixels: next });
-            } catch (e) {
-                setNote('log-error-' + name, 'The height could not be saved: ' + e.message, 'panel-error');
-                return;
-            }
-            var heights = {};
-            Object.keys((lastStatus && lastStatus.heights) || {}).forEach(function (key) { heights[key] = lastStatus.heights[key]; });
-            heights[name] = next;
-            if (lastStatus) {
-                lastStatus.heights = heights;
-            }
-        } else {
-            errorsHeight = next;
-        }
-        setNote('log-error-' + name, '');
-        layoutViews();
+    /** Whether the window has the bottom edge that makes the lowest list taller and shorter: no title bar, and a list shown. */
+    function hasEdge() {
+        return noTitleBar() && !settingsOpen && listOpen();
     }
+
+    // How near the bottom of the window the pointer brings the grip of the edge, in CSS pixels: the edge and 10 above it.
+    var GRIP_NEAR = 16;
+
+    /** Shows the grip of the bottom edge while the pointer is near it, so that the edge can be found where the cursor does not change. */
+    function followGrip(event) {
+        show('edge-grip', hasEdge() && event && typeof event.clientY === 'number' && window.innerHeight - event.clientY <= GRIP_NEAR);
+    }
+
+    /**
+     * Whether a press at this place of the page is on an edge of the window that resizes it (since 0.89): {@code 's'} for the
+     * bottom edge, which makes the lowest list taller and shorter while there is no title bar, and {@code ''} elsewhere. The
+     * host asks before a press begins a move, and resizes the window in its place.
+     */
+    window.edgeAt = function (x, y) {
+        var at = document.elementFromPoint(x, y);
+        return at && at.id === 'edge' && hasEdge() ? 's' : '';
+    };
 
     function sectionHeight(name) {
         return name === 'cost' ? Math.ceil(sectionOf('cost').getBoundingClientRect().height) : aloneHeight(name) - chromeHeight();
@@ -2024,9 +2137,13 @@
      * that is pressed for its own sake, a button of the row or a control, and the scrollbars of a list, which scroll it (since
      * 0.87, when a list is shown with no title bar). A press there does what it always did.
      */
+    // How wide the strip along the edge of a list is that counts as its scrollbar, in CSS pixels (since 0.89).
+    var SCROLLBAR_STRIP = 16;
+
     window.dragStartsAt = function (x, y) {
         var at = document.elementFromPoint(x, y);
-        if (at && at.closest && at.closest('button, select, input, textarea, label, a')) {
+        // The bottom edge resizes the window, and moves nothing (since 0.89).
+        if (at && (at.id === 'edge' || (at.closest && at.closest('button, select, input, textarea, label, a')))) {
             return false;
         }
         var lines = at && at.closest ? at.closest('.panel-lines') : null;
@@ -2034,6 +2151,12 @@
             // The box of the lines less its scrollbars: what is right of its content or below it is a scrollbar.
             var box = lines.getBoundingClientRect();
             if (x >= box.left + (lines.clientLeft || 0) + lines.clientWidth || y >= box.top + (lines.clientTop || 0) + lines.clientHeight) {
+                return false;
+            }
+            // A scrollbar that takes no room, as macOS draws them over the lines and only while they scroll (since 0.89): the
+            // strip along the edge of a list that scrolls is its scrollbar, drawn or not.
+            if ((lines.scrollHeight > lines.clientHeight && x >= box.right - SCROLLBAR_STRIP)
+                    || (lines.scrollWidth > lines.clientWidth && y >= box.bottom - SCROLLBAR_STRIP)) {
                 return false;
             }
         }
@@ -2279,10 +2402,12 @@
         LISTS.forEach(function (name) {
             $('zoom-in-' + name).addEventListener('click', function () { zoomLists(1, name); });
             $('zoom-out-' + name).addEventListener('click', function () { zoomLists(-1, name); });
-            $('taller-' + name).addEventListener('click', function () { return resizeList(name, 1); });
-            $('shorter-' + name).addEventListener('click', function () { return resizeList(name, -1); });
         });
         $('zero-lines').addEventListener('click', toggleZeroLines);
+        document.addEventListener('mousemove', followGrip);
+        document.addEventListener('input', fieldEdited, true);
+        document.addEventListener('change', fieldEdited, true);
+        document.addEventListener('mouseleave', function () { show('edge-grip', false); });
         FOLDERS.forEach(function (key) {
             $('choose-' + key).addEventListener('click', function () { chooseFolder(key); });
             $('default-' + key).addEventListener('click', function () { defaultFolder(key); });
@@ -2352,6 +2477,7 @@
         });
         $('settings-cancel').addEventListener('click', cancelSettings);
         MAIN_FLAGS.forEach(function (key) { $('set-' + key).addEventListener('change', previewNow); });
+        COST_FIGURES.forEach(function (key) { $('set-' + key).addEventListener('change', render); });
         $('set-timeFormat').addEventListener('change', previewNow);
         $('refresh').addEventListener('click', async function () {
             try {

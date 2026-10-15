@@ -101,6 +101,9 @@ public final class SettingsStore {
     static final String COST_DAILY_AUTOMATIC_KEY = "costDailyAutomatic";
 
     static final String COST_CURRENCY_KEY = "costCurrency";
+    static final String COST_SHOW_USED_KEY = "costShowUsed";
+    static final String COST_SHOW_LIMIT_KEY = "costShowLimit";
+    static final String COST_SHOW_PERCENT_KEY = "costShowPercent";
 
     static final String COST_LIMIT_SOURCE_KEY = "costLimitSource";
 
@@ -404,11 +407,14 @@ public final class SettingsStore {
                 .withCounting(source != null && source.isText() ? source.text() : CostControl.MONTHLY,
                         hours != null && hours.fitsInt() ? hours.intValue() : CostControl.DEFAULT_WORKDAY_HOURS,
                         days != null && days.fitsInt() ? Integer.valueOf(days.intValue()) : null,
-                        daysMonth != null && daysMonth.isText() && daysMonth.text().matches("\\d{4}-\\d{2}") ? daysMonth.text() : null);
+                        daysMonth != null && daysMonth.isText() && daysMonth.text().matches("\\d{4}-\\d{2}") ? daysMonth.text() : null)
+                // The columns of figures of the panel (since 0.89), all shown by default.
+                .withFigures(flag(root, COST_SHOW_USED_KEY, true), flag(root, COST_SHOW_LIMIT_KEY, true), flag(root, COST_SHOW_PERCENT_KEY, true));
         if (read.fault().isPresent()) {
             LOG.warning("Ignoring " + COST_DAILY_KEY + " in " + file + ": " + read.fault().get());
             return new CostControl(monthly, null, automatic, currency)
-                    .withCounting(read.source(), read.workdayHours(), read.workdays(), read.workdaysMonth());
+                    .withCounting(read.source(), read.workdayHours(), read.workdays(), read.workdaysMonth())
+                    .withFigures(read.showUsed(), read.showLimit(), read.showPercent());
         }
         return read;
     }
@@ -779,6 +785,9 @@ public final class SettingsStore {
         root.put(COST_WORKDAY_HOURS_KEY, cost.workdayHours());
         root.put(COST_WORKDAYS_KEY, cost.workdays() == null ? Json.NULL : Json.number(String.valueOf(cost.workdays())));
         root.put(COST_WORKDAYS_MONTH_KEY, cost.workdaysMonth() == null ? Json.NULL : Json.text(cost.workdaysMonth()));
+        root.put(COST_SHOW_USED_KEY, cost.showUsed());
+        root.put(COST_SHOW_LIMIT_KEY, cost.showLimit());
+        root.put(COST_SHOW_PERCENT_KEY, cost.showPercent());
         root.put(AUTO_SECONDS_KEY, search.interval());
         if (search.refused() != null) {
             root.put(AUTO_REFUSED_KEY, search.refused().intValue());

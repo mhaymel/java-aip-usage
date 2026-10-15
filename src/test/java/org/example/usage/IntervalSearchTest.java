@@ -354,4 +354,46 @@ class IntervalSearchTest {
         // A step with the first answer after each ten minutes, which at these intervals is every third answer, some fifteen minutes.
         assertTrue(search.refused() == null || search.refused() <= 210, "the refused interval is far below it: " + search.refused());
     }
+
+    // ---- version 0.89: each step says how it was calculated
+
+    @Test
+    void eachStepSaysHowTheNewIntervalWasCalculated() {
+        IntervalSearch fresh = IntervalSearch.fresh();
+        fresh.succeeded(0);
+        assertEquals("55 s, calculated: no refusal yet, a tenth shorter rounded up to a multiple of 5, not below 10 s", fresh.lastStep());
+
+        IntervalSearch low = IntervalSearch.of(15, null);
+        low.succeeded(0);
+        assertEquals("10 s, calculated: no refusal yet, a tenth shorter rounded up to a multiple of 5, not below 10 s", low.lastStep());
+        low.succeeded(1);
+        assertNull(low.lastStep(), "at 10 nothing moves, and nothing is said");
+
+        IntervalSearch refused = IntervalSearch.of(100, null);
+        refused.rateLimited(0, 0);
+        assertEquals("110 s, calculated: refused at 100 s, a tenth longer rounded up to a multiple of 5, at least 105 s", refused.lastStep());
+        IntervalSearch waited = IntervalSearch.of(100, null);
+        waited.rateLimited(200, 0);
+        assertEquals("200 s, calculated: the server asked to wait 200 s, refused at 100 s", waited.lastStep());
+        IntervalSearch top = IntervalSearch.of(295, null);
+        top.rateLimited(0, 0);
+        assertEquals("300 s, calculated: refused at 295 s, a tenth longer rounded up to a multiple of 5, at least 300 s, held at 300 s", top.lastStep());
+
+        IntervalSearch faster = IntervalSearch.of(120, 100);
+        for (int i = 1; i < 8; i++) {
+            faster.succeeded(i);
+            assertNull(faster.lastStep(), "answer " + i + " moves nothing");
+        }
+        faster.succeeded(8);
+        assertEquals("115 s, calculated: 8 answers in a row without a refusal, 5 s shorter, not below 105 s (refused at 100 s)", faster.lastStep());
+
+        IntervalSearch decayed = IntervalSearch.of(120, 100);
+        decayed.succeeded(0);
+        decayed.succeeded(IntervalSearch.DECAY_NANOS);
+        assertEquals("120 s, calculated: 10 minutes without a refusal, the refused interval lowered to 95 s", decayed.lastStep());
+        IntervalSearch forgotten = IntervalSearch.of(30, 10);
+        forgotten.succeeded(0);
+        forgotten.succeeded(IntervalSearch.DECAY_NANOS);
+        assertEquals("30 s, calculated: 10 minutes without a refusal, the refused interval forgotten", forgotten.lastStep());
+    }
 }

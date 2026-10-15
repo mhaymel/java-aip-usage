@@ -177,7 +177,7 @@ public final class IntervalSettings {
      */
     public synchronized void updateUsage(long seconds) {
         if (!IntervalRange.USAGE.contains(seconds)) {
-            throw new InvalidSettingException(IntervalRange.USAGE.describeLimit());
+            throw new InvalidSettingException(IntervalRange.USAGE.describeLimit(), "usageIntervalSeconds");
         }
         apply(current().withUsageIntervalSeconds((int) seconds));
     }
@@ -192,7 +192,7 @@ public final class IntervalSettings {
      */
     public synchronized void apply(Settings settings) {
         if (!IntervalRange.USAGE.contains(settings.usageIntervalSeconds())) {
-            throw new InvalidSettingException(IntervalRange.USAGE.describeLimit());
+            throw new InvalidSettingException(IntervalRange.USAGE.describeLimit(), "usageIntervalSeconds");
         }
         if (!settings.equals(saved)) {
             try {

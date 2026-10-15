@@ -1299,7 +1299,8 @@ test('History view has the three columns of the limits after limit, and the tabl
     assert.ok(order.every(at => at > 0));
     assert.deepEqual([...order].sort((a, b) => a - b), order);
     assert.match(css, /\.panel-lines \.columns > \.c-monthly,\s*\.panel-lines \.columns > \.c-daily\s*{\s*width:\s*10ch/);
-    assert.match(ruleOf('.panel-lines .columns > .c-dailyBy'), /width:\s*4ch/);
+    assert.match(ruleOf('.panel-lines .columns > .c-dailyBy'), /width:\s*15ch/, 'daily limit is, and a character of room (since 0.89)');
+    assert.match(ruleOf('.panel-lines .columns > .c-dailyBy'), /padding-left:\s*1ch/, 'one character from the figures of day');
 });
 
 // ---- version 0.83: the row
@@ -1358,4 +1359,37 @@ test('one view alone has no line below the row, the cost control is first, and h
     assert.match(css, /\.panel > \.cost\s*{\s*order:\s*-2/, 'before the settings, whose order is -1');
     assert.match(css, /\.panel > \.settings\s*{\s*order:\s*-1/);
     assert.match(ruleOf('.top.away ~ .panel > .cost'), /padding-top:\s*8px/, '6 pixels more than its own 2');
+});
+
+// ---- version 0.89
+
+test('the bottom edge is 6 pixels across the bottom with the cursor of a vertical resize, and its grip a short muted bar that takes no click', () => {
+    assert.match(ruleOf('.edge'), /position:\s*fixed/);
+    assert.match(ruleOf('.edge'), /bottom:\s*0/);
+    assert.match(ruleOf('.edge'), /height:\s*6px/);
+    assert.match(ruleOf('.edge'), /cursor:\s*ns-resize/);
+    assert.match(ruleOf('.edge-grip'), /width:\s*24px/);
+    assert.match(ruleOf('.edge-grip'), /height:\s*2px/);
+    assert.match(ruleOf('.edge-grip'), /background:\s*var\(--muted\)/);
+    assert.match(ruleOf('.edge-grip'), /pointer-events:\s*none/);
+    assert.match(html, /<div id="edge" class="edge" aria-hidden="true" hidden><\/div>/);
+    assert.match(html, /<div id="edge-grip" class="edge-grip" aria-hidden="true" hidden><\/div>/);
+});
+
+test('the first reading of a day has a light gray line under it, on both themes', () => {
+    assert.match(ruleOf('.panel-lines .day-first'), /border-bottom:\s*1px solid var\(--grid\)/);
+    assert.match(css, /--grid:\s*#d0d7de/);
+    assert.match(css, /--grid:\s*#3d444d/);
+});
+
+test('a refused field has a red frame', () => {
+    assert.match(css, /\.settings input\.invalid,\s*\.settings button\.invalid\s*{[^}]*border-color:\s*var\(--bad\)/);
+});
+
+test('the tab Cost control has the line Figures after Currency symbol, with Spent, Limit and Percentage and their tooltips', () => {
+    const tab = html.slice(html.indexOf('id="tab-cost"'), html.indexOf('id="tab-debug"'));
+    assert.ok(tab.indexOf('set-costCurrency') < tab.indexOf('Figures'), 'after Currency symbol');
+    assert.match(tab, /<label title="Shows what is spent, today and this month, in the cost control\."><input id="set-costShowUsed" type="checkbox"> Spent<\/label>/);
+    assert.match(tab, /<label title="Shows the daily and the monthly limit in the cost control\."><input id="set-costShowLimit" type="checkbox"> Limit<\/label>/);
+    assert.match(tab, /<label title="Shows the share of each limit that is spent, in the cost control\."><input id="set-costShowPercent" type="checkbox"> Percentage<\/label>/);
 });

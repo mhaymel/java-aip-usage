@@ -107,6 +107,12 @@ public class UsageApp extends Application {
     /** Whether the page was last told the window is minimized; null until it has taken it. */
     private Boolean minimizedTold;
 
+    /** Draws where the window is when it comes to the front (since 0.89). */
+    private final Locator locator = new Locator();
+
+    /** Whether the window had the focus at the last tick. */
+    private boolean focusedBefore;
+
     /** Where the pointer is on the screen; made on the toolkit's thread the first time it is needed. */
     private Robot robot;
 
@@ -211,6 +217,12 @@ public class UsageApp extends Application {
     private WindowDrag drag;
 
     /**
+     * The resize by the bottom edge that is under way (since 0.89): where the mouse was down the screen at the press, and the
+     * height the window had then; {@code null} when there is none.
+     */
+    private double[] edgeDrag;
+
+    /**
      * Lets a window with no title bar be moved by dragging it: the button pressed anywhere in it but on a button, and the
      * mouse moved with the button held. A window with its title bar is moved by that, and a drag inside it moves nothing.
      * The page says whether a press is on something of its own to press, so a button does what it does and begins no move.
@@ -220,11 +232,28 @@ public class UsageApp extends Application {
     private void letTheWindowBeDragged(WebView webView) {
         webView.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
             drag = null;
-            if (event.getButton() == MouseButton.PRIMARY && !StageSwap.hasTitleBar(stage) && beginsADrag(webView, event.getX(), event.getY())) {
+            edgeDrag = null;
+            if (event.getButton() != MouseButton.PRIMARY || StageSwap.hasTitleBar(stage)) {
+                return;
+            }
+            if (onTheBottomEdge(webView, event.getX(), event.getY())) {
+                // The bottom edge makes the lowest list taller and shorter: the window is resized, not moved (since 0.89). A
+                // height the person settles on is remembered as one dragged by the frame is.
+                edgeDrag = new double[] {event.getScreenY(), stage.getHeight()};
+            } else if (beginsADrag(webView, event.getX(), event.getY())) {
                 drag = new WindowDrag(event.getScreenX(), event.getScreenY(), stage.getX(), stage.getY());
             }
         });
         webView.addEventFilter(MouseEvent.MOUSE_DRAGGED, event -> {
+            if (edgeDrag != null) {
+                if (StageSwap.hasTitleBar(stage)) {
+                    edgeDrag = null;
+                    return;
+                }
+                stage.setHeight(edgeHeight(edgeDrag[1] + event.getScreenY() - edgeDrag[0]));
+                event.consume();
+                return;
+            }
             // The title bar may have come meanwhile, with a panel: the move ends there.
             if (drag == null || StageSwap.hasTitleBar(stage)) {
                 drag = null;
@@ -235,7 +264,33 @@ public class UsageApp extends Application {
             stage.setY(place.y());
             event.consume();
         });
-        webView.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> drag = null);
+        webView.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> {
+            drag = null;
+            edgeDrag = null;
+        });
+    }
+
+    /**
+     * The height the bottom edge may give the window: never less than the window may be (the list's opening height, which
+     * the limits of the last fit say) and never more than they allow, the most the program makes a window, or the screen has
+     * room for below the window's top.
+     */
+    private double edgeHeight(double wanted) {
+        Rectangle2D screen = Screen.getScreensForRectangle(stage.getX(), stage.getY(), 1, 1).stream().findFirst()
+                .orElse(Screen.getPrimary()).getVisualBounds();
+        double most = Math.min(stage.getMaxHeight(), Math.min(WindowFit.MAX.height() + (Double.isNaN(decorationHeight) ? 0 : decorationHeight),
+                screen.getMaxY() - stage.getY()));
+        return Math.max(stage.getMinHeight(), Math.min(most, wanted));
+    }
+
+    /** Whether a press at this place of the page is on its bottom edge, which resizes the window (since 0.89). */
+    private static boolean onTheBottomEdge(WebView webView, double x, double y) {
+        try {
+            return "s".equals(webView.getEngine().executeScript(
+                    "typeof window.edgeAt === 'function' ? window.edgeAt(" + x + ", " + y + ") : ''"));
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /** Whether a press at this place of the page begins a move of the window; it does not where the page has something to press. */
@@ -355,12 +410,31 @@ public class UsageApp extends Application {
         fitTimer = new Timeline(new KeyFrame(FIT_INTERVAL, event -> {
             followPointer(webView);
             followMinimized(webView);
+            followFocus();
             fit(webView, stage);
             followTitleBar();
             followStayOnTop();
         }));
         fitTimer.setCycleCount(Animation.INDEFINITE);
         fitTimer.play();
+    }
+
+    /** How long after the outline or the folder picker is gone the focus it gives back is no activation, in milliseconds. */
+    private static final long FOCUS_QUIET_MILLIS = 400;
+
+    /**
+     * Zooms an outline onto the window whenever it becomes the active window (since 0.89): from the taskbar or the Dock, restored
+     * from minimized, by Alt-Tab, by a click while another window was active, and at the start. Not when the focus comes back from
+     * the folder picker of the settings, nor from the outline's own window. Read on the tick, since the stage may be another one
+     * from one tick to the next.
+     */
+    private void followFocus() {
+        boolean focused = stage.isFocused();
+        boolean rose = focused && !focusedBefore;
+        focusedBefore = focused;
+        if (rose && !locator.busy(FOCUS_QUIET_MILLIS) && !Desk.pickerBusy(FOCUS_QUIET_MILLIS)) {
+            locator.zoomOnto(stage);
+        }
     }
 
     /**

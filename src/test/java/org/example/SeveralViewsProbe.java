@@ -155,7 +155,7 @@ public final class SeveralViewsProbe {
     }
 
     private static Stage window() {
-        return (Stage) Window.getWindows().stream().filter(window -> window.isShowing() && window instanceof Stage).findFirst().orElseThrow();
+        return (Stage) Window.getWindows().stream().filter(window -> window.isShowing() && window instanceof Stage && !Locator.isLocator(window)).findFirst().orElseThrow();
     }
 
     private static WebView page() {

@@ -260,8 +260,9 @@ public final class UsageService implements AutoCloseable {
             return Duration.ofNanos(schedule.interval()).toSeconds();
         });
         LOG.info(from == null
-                ? "Automatic interval off: the usage fetch interval is " + seconds + " s"
-                : "Automatic interval: " + from.describe());
+                ? "Automatic interval off: the usage fetch interval is " + seconds + " s, configured"
+                : "Automatic interval on: " + from.interval() + " s, calculated ("
+                        + (from.refused() == null ? "no refusal yet" : "refused at " + from.refused() + " s") + ")");
     }
 
     /**
@@ -501,23 +502,23 @@ public final class UsageService implements AutoCloseable {
         if (search == null) {
             return outcome;
         }
-        String before = search.describe();
         if (outcome.rateLimited()) {
             long retryAfter = Math.min(outcome.retryAfter().toNanos(), MAX_RETRY_AFTER.toNanos());
             // In whole seconds, rounded up: a wait of 2.5 seconds is not over after 2.
             search.rateLimited((retryAfter + 999_999_999L) / 1_000_000_000L, searchClock.getAsLong());
             long next = Duration.ofSeconds(search.interval()).toNanos();
             schedule.setInterval(next);
-            LOG.info("Automatic interval: " + search.describe());
+            LOG.info("Automatic interval: " + search.lastStep());
             searchMoved = true;
             return outcome;
         }
         if (outcome.snapshot() != null) {
             search.succeeded(searchClock.getAsLong());
             schedule.setInterval(Duration.ofSeconds(search.interval()).toNanos());
-            if (!search.describe().equals(before)) {
+            String step = search.lastStep();
+            if (step != null) {
                 // A search that has settled says nothing more: nothing of it has changed.
-                LOG.info("Automatic interval: " + search.describe());
+                LOG.info("Automatic interval: " + step);
                 searchMoved = true;
             }
         }

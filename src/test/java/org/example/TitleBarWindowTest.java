@@ -113,6 +113,8 @@ class TitleBarWindowTest {
         assertTrue(line(all, "drag-button").contains("moved:0,0 "), "a press on the gear begins no move:\n" + all);
         assertTrue(line(all, "drag-refresh").contains("moved:0,0 "), "nor does one on the refresh button:\n" + all);
         assertEquals("moved:40,25 hasTitleBar:false panel:true", line(all, "drag-list").substring("PROBE drag-list=".length()), "a list is moved by dragging it:\n" + all);
+        // And made taller by the bottom edge, which moves nothing (since 0.89).
+        assertEquals("moved:0,0 grew:60 hasTitleBar:false", line(all, "drag-edge").substring("PROBE drag-edge=".length()), "the bottom edge makes the list taller:\n" + all);
 
         // The button of Main view: a small icon in the line of the heading, which switches every element on, and all off when all are on.
         assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/10 .*"), "some elements are on, the status circle among them since 0.82, and the button is in the middle of its heading:\n" + all);
@@ -217,7 +219,8 @@ class TitleBarWindowTest {
         String fromServer = org.example.settings.CostControl.text(org.example.settings.CostControl.dailyFor(100_000, java.time.YearMonth.now()));
         assertTrue(line(all, "settings").contains(" cost:[|" + fromServer + "|true|true|"), all);
         assertTrue(line(all, "cost").contains(" cost:[440|" + daily + "|true|true|"), "440 over the weekdays of this month is " + daily + ":\n" + all);
-        assertTrue(line(all, "cost-typed").contains(" cost:[440||false|false|"), all);
+        // Unchecked, the worked-out limit stays in the field, to be typed over (since 0.89; it was emptied).
+        assertTrue(line(all, "cost-typed").contains(" cost:[440|" + daily + "|false|false|"), all);
         assertTrue(line(all, "cost-none").contains(" cost:[|" + fromServer + "|true|true|"), all);
         assertTrue(line(all, "cost").matches(".* cost:\\[[^]]*\\|[0-6]] .*"), "the checkbox is in the line of the field:\n" + all);
 

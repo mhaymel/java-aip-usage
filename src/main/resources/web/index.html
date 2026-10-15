@@ -108,20 +108,6 @@
                     </svg>
                 </button>
             </span>
-            <span id="size-history" class="zoom" hidden>
-                <button id="taller-history" class="icon tiny" type="button" aria-label="Taller by five lines" title="Taller by five lines">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M2 14h12M8 11V2M5 5l3-3 3 3"/>
-                    </svg>
-                </button>
-                <button id="shorter-history" class="icon tiny" type="button" aria-label="Shorter by five lines" title="Shorter by five lines">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M2 14h12M8 2v9M5 8l3 3 3-3"/>
-                    </svg>
-                </button>
-            </span>
             <span id="history-choices" class="zoom" hidden>
                 <button id="zero-lines" class="icon tiny" type="button" aria-label="Hide the zero usage lines and the failed lines" title="Hide the zero usage lines and the failed lines" aria-pressed="false">
                     <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -164,20 +150,6 @@
                     </svg>
                 </button>
             </span>
-            <span id="size-log" class="zoom" hidden>
-                <button id="taller-log" class="icon tiny" type="button" aria-label="Taller by five lines" title="Taller by five lines">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M2 14h12M8 11V2M5 5l3-3 3 3"/>
-                    </svg>
-                </button>
-                <button id="shorter-log" class="icon tiny" type="button" aria-label="Shorter by five lines" title="Shorter by five lines">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M2 14h12M8 2v9M5 8l3 3 3-3"/>
-                    </svg>
-                </button>
-            </span>
             <span id="log-files" class="zoom" hidden>
                 <button id="log-reset" class="icon tiny" type="button" aria-label="Reset the log: the file is kept under a name with the date and time, and a new one is started"
                         title="Reset the log: the file is kept under a name with the date and time, and a new one is started">
@@ -214,20 +186,6 @@
                          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="6.8" cy="6.8" r="4.6"/>
                         <path d="M10.2 10.2L14 14M4.6 6.8h4.4"/>
-                    </svg>
-                </button>
-            </span>
-            <span id="size-errors" class="zoom" hidden>
-                <button id="taller-errors" class="icon tiny" type="button" aria-label="Taller by five lines" title="Taller by five lines">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M2 14h12M8 11V2M5 5l3-3 3 3"/>
-                    </svg>
-                </button>
-                <button id="shorter-errors" class="icon tiny" type="button" aria-label="Shorter by five lines" title="Shorter by five lines">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M2 14h12M8 2v9M5 8l3 3 3-3"/>
                     </svg>
                 </button>
             </span>
@@ -338,7 +296,7 @@
                     <label title="The column with the budget."><input id="set-historyLimit" type="checkbox"> limit</label>
                     <label title="The column with the monthly limit counted when the reading was made."><input id="set-historyMonthly" type="checkbox"> month</label>
                     <label title="The column with the daily limit in force when the reading was made."><input id="set-historyDaily" type="checkbox"> day</label>
-                    <label title="The column that says whether that daily limit was worked out (auto) or typed (set)."><input id="set-historyDailyBy" type="checkbox"> by</label>
+                    <label title="The column that says whether the daily limit in force at the reading was worked out from the monthly limit, or typed."><input id="set-historyDailyBy" type="checkbox"> daily limit is</label>
                     <label title="The column with the change in the amount used since the last earlier reading: a rise with a plus, a fall with a minus. It is empty when nothing changed."><input id="set-historyDeltaUsed" type="checkbox"> Δ used</label>
                     <label title="The column with the seconds since the previous line that is shown."><input id="set-historyDeltaTime" type="checkbox"> Δ time</label>
                     <label title="The column with the currency: the dollar sign for US dollars, the code for any other."><input id="set-historyCurrent" type="checkbox"> Cur.</label>
@@ -366,6 +324,12 @@
                         <label title="Counts the working days of this month from Monday to Friday."><input id="set-costWorkdaysAutomatic" type="checkbox"> Automatic</label>
                     </span>
                     <label title="Puts the currency symbol before the amounts of the cost control."><input id="set-costCurrency" type="checkbox"> Currency symbol</label>
+                    <span class="line figures-line">
+                        <span class="figures-label">Figures</span>
+                        <label title="Shows what is spent, today and this month, in the cost control."><input id="set-costShowUsed" type="checkbox"> Spent</label>
+                        <label title="Shows the daily and the monthly limit in the cost control."><input id="set-costShowLimit" type="checkbox"> Limit</label>
+                        <label title="Shows the share of each limit that is spent, in the cost control."><input id="set-costShowPercent" type="checkbox"> Percentage</label>
+                    </span>
                 </fieldset>
                 </div>
                 <div id="tab-debug" class="tab-page" hidden>
@@ -458,6 +422,9 @@
         </div>
     </div>
 </div>
+<!-- The bottom edge of a window with no title bar, which makes the lowest list taller and shorter, and its grip. -->
+<div id="edge" class="edge" aria-hidden="true" hidden></div>
+<div id="edge-grip" class="edge-grip" aria-hidden="true" hidden></div>
 <!-- Measured, never seen: the table's own width, to size the history window to. -->
 <div id="table-probe" class="panel-lines table-probe" aria-hidden="true"></div>
 <script src="view.js"></script>

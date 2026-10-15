@@ -143,6 +143,10 @@ text for none, or an amount, as a number or the text of one, from 0.01 to 1,000,
 monthly limit.`, when the daily limit is typed in and above the monthly one; `The setting costDailyAutomatic must be true
 or false.`
 
+Since version 0.89 three more, each optional in a `POST` and `true` by default: `costShowUsed`, `costShowLimit` and
+`costShowPercent`, which columns of figures the cost control panel shows. A `400` that refuses one setting names it in `field`, the key
+of the setting, beside `error`, so that the page can put the focus on its field.
+
 Since version 0.82 four more, each optional in a `POST`: `costCurrency` (`false` by default), whether the figures of the cost
 control have the currency symbol; `costLimitSource`, `"monthly"` (default) or `"server"`, which limit is counted as the monthly
 one (the server's while none is typed, with `monthly`); `costWorkdayHours`, a whole number from 1 to 24, 8 by default; and
@@ -474,7 +478,9 @@ not have the size, and saving them leaves it as it is. Any other method is `405`
 ## `POST /api/height`
 
 Since version 0.87. Remembers the height of the usage history or the log alone, row included, which the buttons `Taller by five
-lines` and `Shorter by five lines` of the list change while the window has no title bar: `{"panel": "history", "pixels": 480}`,
+lines` and `Shorter by five lines` of the list changed in 0.87 and 0.88. **Since version 0.89 the page sends it no more**: the
+bottom edge of the window takes the place of the buttons, and the host remembers the height it is dragged to as one dragged by
+the frame. It is kept for what else may send it: `{"panel": "history", "pixels": 480}`,
 a whole number of pixels from 50 to 1600. It is stored as a dragged height is, under `historyHeight` or `logHeight`, and the
 answer is what is stored, `{"panel": "history", "pixels": 480}`; `GET /api/status` says it under `heights` from then on. A
 `panel` that is not `history` or `log` is `400` with `The panel must be history or log.`, and `pixels` that are missing, not a
@@ -567,7 +573,7 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
 }
 ```
 
-- `kinds`: what each column is, in the order of `columns`, by a fixed name: `time`, `used`, `limit`, `monthly`, `daily`, `dailyBy` (the three since version 0.82, after `limit`, titled `month`, `day` and `by`, with the settings `historyMonthly`, `historyDaily` and `historyDailyBy`, off by default and optional in a `POST`; a row written before 0.82 has those cells empty), `deltaUsed`, `deltaTime` or `currency`. A column is known by this, not by its title or its place: the page gives it its width by it,
+- `kinds`: what each column is, in the order of `columns`, by a fixed name: `time`, `used`, `limit`, `monthly`, `daily`, `dailyBy` (the three since version 0.82, after `limit`, titled `month`, `day` and `by` (`daily limit is` since version 0.89, its cells `worked out` and `typed` where the file has `auto` and `set`), with the settings `historyMonthly`, `historyDaily` and `historyDailyBy`, off by default and optional in a `POST`; a row written before 0.82 has those cells empty), `deltaUsed`, `deltaTime` or `currency`. A column is known by this, not by its title or its place: the page gives it its width by it,
   and puts the red of a failed line on the cell of `used`.
 - `columnTitles`: the tooltip of each title, in the order of `columns`, written by the backend: what the column is. With the date the first is `The date and time at which the usage was read`. The page puts each on its title as it is given.
 - `columns`: the titles, in the order of the `cells`: the time (`time`, or `date time` when the date setting is on), `used`, `limit`, when their settings are on `\u0394 used` and `\u0394 time`, and
@@ -575,12 +581,14 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
 - `lines`: the newest 1,000 of the lines that are shown, **sorted by the date and time, latest first** (not merely the file reversed, so a file that is out of order is still right; of two
   with the same time, the one written later is first). Each has `cells` (the strings of the table, an empty cell empty: the time as the setting says, `failed` in the place of the amount of a
   failed line, `\u0394 used` with its sign, `+0.05` for a rise and `-0.14` for a fall, and empty for a change of 0.00 and for a line with no amount, `\u0394 time` in whole seconds, `63 s`, never minutes), `start` (it is the first line of a run),
-  `failed` (it is the line of a failed query) and `title` (the hover text, `The program started here` for a start, else empty). A line of the file without the columns (a row from before the
+  `failed` (it is the line of a failed query), `title` (the hover text, `The program started here` for a start, else empty) and, since version
+  0.89, `firstOfDay` (it is the earliest line of its local date among the lines that are shown, which the page underlines). A line of the file without the columns (a row from before the
   currency was one, with three, is given an empty currency), and the header, are not lines.
 - **Hidden lines.** The settings `historyZeroLines` and `historyFailedLines` (both on unless switched off) say whether the **zero usage lines** (a line whose change in the amount used is 0.00: the change of its `\u0394 used`, against the last earlier line that has an amount, whatever lies between; a startup line is a line like any other in this; never a failed line, and a failed startup line is a failed line) and the **failed lines** are shown; since version 0.81 the failed lines go with the zero usage lines, so a failed line is shown only when both are on (and when the query shows the zero usage lines). The changes of the lines that are shown (`\u0394 used`,
   `\u0394 time`) are worked out against the previous line that is shown in the same run, so with lines hidden they span them; a row that begins a run begins it even if it is hidden.
 - `note`: one line for the page to show above the table, or `null` when everything is shown: `There is no usage history yet.`, `The history has no rows yet.`, `No column of the history is switched on. Switch one on in the settings, under History view.` when the file has rows and every column is switched off (`columns` and `lines` are then empty, and `noteHighlight` is `true`), or `Showing N of M lines:` with the zero usage and failed
   lines hidden and the older lines beyond the newest 1,000 that are not shown (counts with a comma for thousands).
+- `noteTooltip` (since version 0.89): the tooltip of the note that starts `Showing`, with the parts that apply, or `null` with any other note.
 - `noteHighlight`: `true` when the note says that lines are left out (the one that starts `Showing`), which the window shows in blue; `false` for the notes about there being no history, and `false` when there is no note.
 - `wide`: whether the times have the date, so the first column is wider.
 - `total`: how many rows the file has; `exists`: `false`, with no lines, when there is no history yet.

@@ -117,6 +117,21 @@ class SettingsStoreTest {
     }
 
     @Test
+    void theColumnsOfFiguresOfTheCostControlAreAllShownByDefaultAndComeBackAsSaved() throws IOException {
+        Files.writeString(file(), "{\"usageIntervalSeconds\": 90}");
+        SettingsStore store = new SettingsStore(file());
+        CostControl read = store.load().cost();
+        assertTrue(read.showUsed() && read.showLimit() && read.showPercent(), "a file of 0.88 or before");
+
+        store.save(Settings.defaults().withCost(CostControl.NONE.withFigures(true, false, true)));
+
+        CostControl back = store.load().cost();
+        assertTrue(back.showUsed());
+        assertFalse(back.showLimit());
+        assertTrue(back.showPercent());
+    }
+
+    @Test
     void theStatusCircleBlinksByDefaultAlsoForAFileThatSaysNothingOfItAndComesBackAsSaved() throws IOException {
         Files.writeString(file(), "{\"usageIntervalSeconds\": 90}");
         SettingsStore store = new SettingsStore(file());
@@ -198,7 +213,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "dataFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "dataFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "historyHeight", "logHeight"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }

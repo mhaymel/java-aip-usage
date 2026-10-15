@@ -79,7 +79,7 @@ public final class TitleBarProbe {
 
     private static void report(String name, Stage stage, WebView view) {
         Scene scene = stage.getScene();
-        long windows = Window.getWindows().stream().filter(Window::isShowing).count();
+        long windows = Window.getWindows().stream().filter(w -> w.isShowing() && !Locator.isLocator(w)).count();
         System.out.println("PROBE " + name + "=titleBar:" + StageSwap.hasTitleBar(stage)
                 + " mark:" + view.getEngine().executeScript("window.__probeMark")
                 + " loads:" + loads

@@ -265,7 +265,7 @@ public final class PanelProbe {
     }
 
     private static void report(Stage main) {
-        long others = Window.getWindows().stream().filter(w -> w instanceof Stage && w != main && w.isShowing()).count();
+        long others = Window.getWindows().stream().filter(w -> w instanceof Stage && w != main && w.isShowing() && !Locator.isLocator(w)).count();
         System.out.println("PROBE other-windows=" + others);
         System.out.flush();
         main.close();

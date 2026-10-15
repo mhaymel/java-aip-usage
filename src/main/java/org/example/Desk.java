@@ -45,6 +45,23 @@ interface Desk {
         throw new Fault("there is no window to choose a folder in");
     }
 
+    /**
+     * Whether the folder picker is shown, or was closed less than {@code quietMillis} ago (since 0.89): the window that comes to
+     * the front after it shows no outline of where it is.
+     */
+    static boolean pickerBusy(long quietMillis) {
+        long since = Picker.since;
+        return since == Long.MAX_VALUE || System.currentTimeMillis() - since < quietMillis;
+    }
+
+    /** When the folder picker was last closed, or {@link Long#MAX_VALUE} while it is shown; 0 before it ever was. */
+    final class Picker {
+        static volatile long since;
+
+        private Picker() {
+        }
+    }
+
     /** The desktop of the machine the program runs on. */
     Desk SYSTEM = new Desk() {
 
@@ -61,8 +78,16 @@ interface Desk {
                             chooser.setInitialDirectory(start.toFile());
                         }
                         javafx.stage.Window owner = javafx.stage.Window.getWindows().stream()
-                                .filter(window -> window.isShowing() && window instanceof javafx.stage.Stage).findFirst().orElse(null);
-                        java.io.File chosen = chooser.showDialog(owner);
+                                .filter(window -> window.isShowing() && window instanceof javafx.stage.Stage && !Locator.isLocator(window))
+                                .findFirst().orElse(null);
+                        // While it is shown, and a moment after, the focus that comes back from it is no activation (since 0.89).
+                        Picker.since = Long.MAX_VALUE;
+                        java.io.File chosen;
+                        try {
+                            chosen = chooser.showDialog(owner);
+                        } finally {
+                            Picker.since = System.currentTimeMillis();
+                        }
                         done.complete(chosen == null ? java.util.Optional.empty() : java.util.Optional.of(chosen.toPath().toAbsolutePath()));
                     } catch (RuntimeException e) {
                         done.completeExceptionally(e);

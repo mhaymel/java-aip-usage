@@ -136,6 +136,8 @@
             note: data.note || null,
             // The backend says whether the note is the one that tells something is left out.
             noteHighlight: Boolean(data.noteHighlight),
+            // What the note means, in full, as the backend wrote it (since 0.89).
+            noteTooltip: data.noteTooltip || null,
             header: lines.length > 0 ? data.columns : null,
             // What each column is, as the backend names it: a column has its width by that, whichever columns are shown beside it.
             kinds: data.kinds || null,
@@ -148,7 +150,9 @@
             // The first line of a run is drawn in green text, with no background of its own.
             markClass: 'start',
             failed: lines.map(function (line) { return Boolean(line.failed); }),
-            titles: lines.map(function (line) { return line.title || ''; })
+            titles: lines.map(function (line) { return line.title || ''; }),
+            // The earliest line of each day among those shown, which is underlined (since 0.89).
+            dayFirst: lines.map(function (line) { return Boolean(line.firstOfDay); })
         };
     }
 
@@ -190,7 +194,13 @@
                 percent: typeof row.percent === 'string' ? row.percent : null
             };
         });
-        return { rows: rows, note: data.note || null };
+        // Which columns of figures the settings switch on (since 0.89); a backend that says nothing of them shows all three.
+        var show = data.show || {};
+        return {
+            rows: rows,
+            note: data.note || null,
+            show: { used: show.used !== false, limit: show.limit !== false, percent: show.percent !== false }
+        };
     }
 
     root.UsageView = {

@@ -20,9 +20,12 @@ import java.util.Optional;
  * @param workdayHours how long a working day is, in hours, from 1 to 24: what today's spend is projected over (since 0.82)
  * @param workdays the working days typed for a month, or {@code null} for Monday to Friday; they count for {@code workdaysMonth} alone
  * @param workdaysMonth the month the typed working days are for, as {@code 2026-10}, or {@code null}
+ * @param showUsed whether the cost control panel shows what is spent (since 0.89; on by default)
+ * @param showLimit whether it shows the limits (since 0.89; on by default)
+ * @param showPercent whether it shows the share of each limit that is spent (since 0.89; on by default)
  */
 public record CostControl(Long monthlyCents, Long dailyCents, boolean dailyAutomatic, boolean currency, String source, int workdayHours,
-        Integer workdays, String workdaysMonth) {
+        Integer workdays, String workdaysMonth, boolean showUsed, boolean showLimit, boolean showPercent) {
 
     public static final String SERVER = "server";
 
@@ -40,6 +43,12 @@ public record CostControl(Long monthlyCents, Long dailyCents, boolean dailyAutom
         }
     }
 
+    /** The choices of 0.82, with every column of figures shown, as it is by default. */
+    public CostControl(Long monthlyCents, Long dailyCents, boolean dailyAutomatic, boolean currency, String source, int workdayHours,
+            Integer workdays, String workdaysMonth) {
+        this(monthlyCents, dailyCents, dailyAutomatic, currency, source, workdayHours, workdays, workdaysMonth, true, true, true);
+    }
+
     public CostControl(Long monthlyCents, Long dailyCents, boolean dailyAutomatic, boolean currency) {
         this(monthlyCents, dailyCents, dailyAutomatic, currency, MONTHLY, DEFAULT_WORKDAY_HOURS, null, null);
     }
@@ -53,12 +62,17 @@ public record CostControl(Long monthlyCents, Long dailyCents, boolean dailyAutom
     }
 
     public CostControl withCurrency(boolean on) {
-        return new CostControl(monthlyCents, dailyCents, dailyAutomatic, on, source, workdayHours, workdays, workdaysMonth);
+        return new CostControl(monthlyCents, dailyCents, dailyAutomatic, on, source, workdayHours, workdays, workdaysMonth, showUsed, showLimit, showPercent);
     }
 
     /** These limits with the choices of 0.82 as given: the limit counted, the hours of a working day and the working days typed. */
     public CostControl withCounting(String counted, int hours, Integer days, String daysMonth) {
-        return new CostControl(monthlyCents, dailyCents, dailyAutomatic, currency, counted, hours, days, daysMonth);
+        return new CostControl(monthlyCents, dailyCents, dailyAutomatic, currency, counted, hours, days, daysMonth, showUsed, showLimit, showPercent);
+    }
+
+    /** These limits with the columns of figures of the cost control panel switched as given (since 0.89). */
+    public CostControl withFigures(boolean used, boolean limit, boolean percent) {
+        return new CostControl(monthlyCents, dailyCents, dailyAutomatic, currency, source, workdayHours, workdays, workdaysMonth, used, limit, percent);
     }
 
     /** Whether the server's limit is counted as the monthly one, whatever is typed. */

@@ -295,7 +295,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(48, body.get("settings").size(), "the debug settings are not among them");
+        assertEquals(51, body.get("settings").size(), "the debug settings are not among them; the three columns of the cost control since 0.89");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -3188,8 +3188,96 @@ class ApiTest {
         Json on = historyWith(true, true);
         assertEquals(List.of("time", "used", "limit", "monthly", "daily", "dailyBy"),
                 on.get("kinds").items().stream().map(Json::asText).toList().subList(0, 6), "after the limit");
-        assertEquals(List.of("month", "day", "by"), on.get("columns").items().stream().map(Json::asText).toList().subList(3, 6));
+        assertEquals(List.of("month", "day", "daily limit is"), on.get("columns").items().stream().map(Json::asText).toList().subList(3, 6),
+                "in words since 0.89, where it was by");
         Json oldest = on.get("lines").items().getLast();
-        assertEquals(List.of("150.00", "6.81", "auto"), oldest.get("cells").items().stream().map(Json::asText).toList().subList(3, 6));
+        assertEquals(List.of("150.00", "6.81", "worked out"), oldest.get("cells").items().stream().map(Json::asText).toList().subList(3, 6),
+                "the file's auto in words");
+        assertEquals("typed", ApiHandler.dailyByWords("set"));
+        assertEquals("", ApiHandler.dailyByWords(""), "a row of before 0.82 has nothing there");
+    }
+
+    // ---- version 0.89
+
+    /** The line of the history whose time cell is this, by its time alone. */
+    private static Json lineAt(Json history, String time) {
+        return history.get("lines").items().stream().filter(line -> line.get("cells").items().get(0).asText().equals(time)).findFirst().orElseThrow();
+    }
+
+    @Test
+    void theEarliestLineOfEachDayShownIsTheFirstOfItsDayAlsoWithLinesHidden() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-07 09:00:00,9.00,1000.00,USD,start,60,400",
+                "2026-10-07 17:00:00,9.50,1000.00,USD,,60,400",
+                "2026-10-08 08:00:00,9.50,1000.00,USD,,60,400",
+                "2026-10-08 08:01:00,,,,failed,60,5000",
+                "2026-10-08 09:00:00,10.00,1000.00,USD,,60,400");
+        Json all = historyWith(true, true);
+        java.util.List<Json> lines = all.get("lines").items();
+        java.util.List<String> firsts = lines.stream().filter(line -> line.get("firstOfDay").asBoolean())
+                .map(line -> line.get("cells").items().get(0).asText()).toList();
+        assertTrue(firsts.contains("08:00:00"), "the earliest of the 8th: " + firsts);
+        assertFalse(firsts.contains("17:00:00"), "not the latest of the 7th: " + firsts);
+        assertTrue(lines.getLast().get("firstOfDay").asBoolean(), "the oldest line shown is the first of its day");
+        assertFalse(lineAt(all, "08:01:00").get("firstOfDay").asBoolean());
+
+        // With the zero line and the failed line of the 8th hidden, its 09:00 is the earliest of it that is shown.
+        Json hidden = historyWith(false, false);
+        java.util.List<Json> shown = hidden.get("lines").items().stream()
+                .filter(line -> !line.get("cells").items().get(0).asText().isEmpty()).toList();
+        java.util.List<Boolean> marks = shown.stream().map(line -> line.get("firstOfDay").asBoolean()).toList();
+        java.util.List<String> times = shown.stream().map(line -> line.get("cells").items().get(0).asText()).toList();
+        int nineOfThe8th = times.indexOf("09:00:00");
+        assertTrue(marks.get(nineOfThe8th), "the earliest shown of the 8th: " + times + " " + marks);
+        assertFalse(marks.get(times.indexOf("17:00:00")), "the latest of the 7th: " + times + " " + marks);
+        assertTrue(marks.getLast(), "the 09:00 of the 7th, the oldest shown");
+    }
+
+    @Test
+    void theNoteThatSaysWhatIsLeftOutHasATooltipWithThePartsThatApply() throws Exception {
+        writeMixedHistory();
+        Json hidden = historyWith(false, false);
+        assertEquals("The history shows at most the newest 1,000 lines of the file. Lines with no change in the amount used and failed requests"
+                + " are hidden by the filter button at the right of this line; press it to show them.", hidden.get("noteTooltip").asText());
+        Json all = historyWith(true, true);
+        assertTrue(all.get("noteTooltip").isNull(), "nothing left out: no note, no tooltip");
+    }
+
+    @Test
+    void theColumnsOfFiguresOfTheCostControlAreSettingsAllOnByDefault() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        Json settingsNow = json(get(app, "/api/settings")).get("settings");
+        assertTrue(settingsNow.get("costShowUsed").asBoolean());
+        assertTrue(settingsNow.get("costShowLimit").asBoolean());
+        assertTrue(settingsNow.get("costShowPercent").asBoolean());
+        Json show = json(get(app, "/api/cost")).get("show");
+        assertTrue(show.get("used").asBoolean() && show.get("limit").asBoolean() && show.get("percent").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costShowLimit\": false}"));
+        assertFalse(json(get(app, "/api/settings")).at("/settings/costShowLimit").asBoolean());
+        assertFalse(json(get(app, "/api/cost")).at("/show/limit").asBoolean(), "the cost control knows it without the settings");
+        assertTrue(json(get(app, "/api/cost")).at("/show/used").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm"));
+        assertFalse(json(get(app, "/api/settings")).at("/settings/costShowLimit").asBoolean(), "a POST without it keeps it");
+    }
+
+    @Test
+    void aRefusedSettingIsNamedSoThatItsFieldGetsTheFocus() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        HttpResponse<String> days = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costWorkdays\": 0}"));
+        assertEquals(400, days.statusCode());
+        assertEquals("costWorkdays", json(days).get("field").asText());
+        HttpResponse<String> monthly = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"abc\"}"));
+        assertEquals("costMonthlyLimit", json(monthly).get("field").asText());
+        HttpResponse<String> hours = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costWorkdayHours\": 30}"));
+        assertEquals("costWorkdayHours", json(hours).get("field").asText());
+        HttpResponse<String> interval = post(app, "/api/settings", allSettings(2, false, "hh:mm"));
+        assertEquals("usageIntervalSeconds", json(interval).get("field").asText());
+        HttpResponse<String> folder = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"dataFolder\": \"relative\"}"));
+        assertEquals("dataFolder", json(folder).get("field").asText());
+        HttpResponse<String> flag = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"severalViews\": 3}"));
+        assertEquals(400, flag.statusCode());
+        assertNull(json(flag).get("field"), "a setting that has no field of its own is named by none");
     }
 }

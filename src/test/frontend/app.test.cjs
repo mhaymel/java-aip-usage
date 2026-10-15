@@ -212,7 +212,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, dataFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showStatus: true, statusBlink: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, dataFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, costShowUsed: true, costShowLimit: true, costShowPercent: true, showStatus: true, statusBlink: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
     costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
     historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
 };
@@ -986,7 +986,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, dataFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, showStatus: true, statusBlink: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, dataFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, costShowUsed: true, costShowLimit: true, costShowPercent: true, showStatus: true, statusBlink: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
         historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
     });
@@ -3630,7 +3630,7 @@ test('a monthly limit that is typed is sent as typed, and the backend is asked w
     assert.equal(costPosts(page)[0].costDailyAutomatic, true);
 });
 
-test('with Automatic unchecked the daily limit is typed in and sent, and checking it again shows the worked-out one and keeps what was typed', async () => {
+test('with Automatic unchecked the worked-out daily limit stays in the field, can be typed over and is sent', async () => {
     const state = { config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: WITH_LIMITS }),
         costDaily: () => ({ status: 200, body: { daily: '11.36', weekdays: 22 } }) };
     const page = await load(backendOf(state));
@@ -3638,7 +3638,7 @@ test('with Automatic unchecked the daily limit is typed in and sent, and checkin
 
     await change(page, 'set-costDailyAutomatic', false);
     assert.equal(page.el('set-costDailyLimit').attrs.disabled, undefined, 'it can be typed in');
-    assert.equal(page.el('set-costDailyLimit').value, '', 'nothing was typed before');
+    assert.equal(page.el('set-costDailyLimit').value, '11.36', 'the worked-out limit stays (since 0.89; it was emptied)');
     page.type('set-costDailyLimit', '9.5');
 
     await change(page, 'set-costDailyAutomatic', true);
@@ -3646,7 +3646,8 @@ test('with Automatic unchecked the daily limit is typed in and sent, and checkin
     assert.equal(page.el('set-costDailyLimit').value, '11.36', 'the one worked out again');
 
     await change(page, 'set-costDailyAutomatic', false);
-    assert.equal(page.el('set-costDailyLimit').value, '9.5', 'and what was typed is back');
+    assert.equal(page.el('set-costDailyLimit').value, '11.36', 'unchecked again, the worked-out one stays once more');
+    page.type('set-costDailyLimit', '9.5');
 
     await page.click('settings-save');
     assert.equal(costPosts(page)[0].costDailyAutomatic, false);
@@ -5253,6 +5254,8 @@ test('Working days: Automatic shows the weekdays of the month; unchecked, a numb
 
     page.el('set-costWorkdaysAutomatic').checked = false;
     await page.el('set-costWorkdaysAutomatic').listeners.change.call(page.el('set-costWorkdaysAutomatic'));
+    assert.equal(page.el('set-costWorkdays').value, '22', 'unchecked, the weekdays stay in the field (since 0.89)');
+    assert.equal(page.el('set-costWorkdays').attrs.disabled, undefined);
     page.el('set-costWorkdays').value = '20';
     await page.el('set-costWorkdays').listeners.change.call(page.el('set-costWorkdays'));
     await settle();
@@ -5592,4 +5595,129 @@ test('the row comes back when the last view is closed', async () => {
     await page.click('cost-button');
     assert.ok(!isAway(page));
     assert.match(page.window.contentSize(), /^\d+,\d+,0$/);
+});
+
+// ---- version 0.89
+
+const COST_FOUR = { rows: [
+    { label: 'Today', text: '38.89 of 45.45 · 86%', tooltip: 'Today: 38.89 of 45.45 (86%)', fraction: 0.86, over: false, noLimit: false, state: 'green',
+        used: '38.89', limit: '45.45', percent: '86%' },
+    { label: 'Month', text: '236.56 · no limit set', tooltip: 'Month: 236.56, no limit set', fraction: 0, over: false, noLimit: true, state: 'gray',
+        used: '236.56', limit: null, percent: null },
+], note: null };
+
+test('the cost control shows the columns of figures the settings switch on, of only between the two amounts, the dot only after something', async () => {
+    const noLimit = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, cost: () => ({ status: 200, body: { ...COST_FOUR, show: { used: true, limit: false, percent: true } } }) }));
+    await noLimit.click('cost-button');
+    let [day, month] = rowsOf(noLimit);
+    assert.deepEqual(day.figures.map(cell => cell.className), ['cost-used', 'cost-percent'], 'no limit and no of');
+    assert.deepEqual(day.figures.map(cell => cell.textContent), ['38.89', '· 86%']);
+    assert.deepEqual(month.figures.map(cell => cell.textContent), ['236.56', '· no limit set'], 'in the place of the percentage');
+    assert.equal(noLimit.el('cost-rows').style.gridTemplateColumns, 'max-content minmax(120px, 1fr) max-content max-content');
+
+    const percent = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, cost: () => ({ status: 200, body: { ...COST_FOUR, show: { used: false, limit: false, percent: true } } }) }));
+    await percent.click('cost-button');
+    [day, month] = rowsOf(percent);
+    assert.deepEqual(day.figures.map(cell => cell.textContent), ['86%'], 'nothing before it, so no dot');
+    assert.deepEqual(month.figures.map(cell => cell.textContent), ['no limit set']);
+
+    const none = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, cost: () => ({ status: 200, body: { ...COST_FOUR, show: { used: false, limit: false, percent: false } } }) }));
+    await none.click('cost-button');
+    [day, month] = rowsOf(none);
+    assert.equal(day.figures.length, 0, 'the labels and the bars alone');
+    assert.equal(month.figures.length, 0);
+    assert.equal(day.tooltip, 'Today: 38.89 of 45.45 (86%)', 'the tooltip keeps every figure');
+
+    const all = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, cost: () => ({ status: 200, body: COST_FOUR }) }));
+    await all.click('cost-button');
+    assert.deepEqual(rowsOf(all)[0].figures.map(cell => cell.textContent), ['38.89', 'of', '45.45', '· 86%'], 'a backend that says nothing shows all four');
+});
+
+test('the columns of figures are three checkboxes in the line Figures of the Cost control tab, sent with the settings, and previewed', async () => {
+    const saved = { ...SETTINGS.settings, severalViews: true };
+    const state = { config: CONFIG, status: SEVERAL, cost: () => ({ status: 200, body: COST_FOUR }),
+        settings: () => ({ status: 200, body: { ...SETTINGS, settings: saved } }) };
+    const page = await load(backendOf(state));
+    await page.click('cost-button');
+    await page.click('settings-button');
+    assert.equal(page.el('set-costShowPercent').checked, true);
+    page.el('set-costShowPercent').checked = false;
+    page.el('set-costShowPercent').listeners.change();
+    assert.deepEqual(rowsOf(page)[0].figures.map(cell => cell.textContent), ['38.89', 'of', '45.45'], 'previewed in the panel beside the settings');
+    await page.click('settings-save');
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).costShowPercent, false);
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).costShowUsed, true);
+});
+
+test('a setting the backend refuses gets the focus: its tab, the cursor, its text selected, and a red frame until it is changed', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS,
+        postSettings: () => ({ status: 400, body: { error: 'The working days must be a whole number from 1 to 31.', field: 'costWorkdays' } }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    let selected = false;
+    page.el('set-costWorkdays').select = () => { selected = true; };
+    await page.click('settings-save');
+    assert.equal(page.el('settings-error').textContent, 'The working days must be a whole number from 1 to 31.', 'the message stays');
+    assert.equal(page.el('tab-cost').hidden, false, 'its tab is shown');
+    assert.equal(page.el('set-costWorkdays').focused, true);
+    assert.equal(selected, true);
+    assert.match(page.el('set-costWorkdays').className, /\binvalid\b/);
+    global.document.listeners.input({ target: { id: 'set-costWorkdays' } });
+    assert.doesNotMatch(page.el('set-costWorkdays').className, /\binvalid\b/, 'changed: the frame goes');
+});
+
+test('the own check of the interval puts the focus on its field too', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    page.el('set-usageIntervalSeconds').value = 'abc';
+    await page.click('settings-save');
+    assert.equal(page.el('tab-general').hidden, false);
+    assert.equal(page.el('set-usageIntervalSeconds').focused, true);
+    assert.match(page.el('set-usageIntervalSeconds').className, /\binvalid\b/);
+});
+
+test('the first reading of a day is underlined in the history, and the note that says what is left out has its tooltip', async () => {
+    const history = { ...HISTORY, note: 'Showing 2 of 5,000 lines: 4,998 older not shown.', noteHighlight: true,
+        noteTooltip: 'The history shows at most the newest 1,000 lines of the file. Older lines are not shown here, but stay in the file.',
+        lines: [line(['09:00:00', '10.00', '1000.00', 'USD'], { firstOfDay: true }), line(['17:00:00', '9.50', '1000.00', 'USD'])] };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) }));
+    await page.click('history-button');
+    const drawn = page.el('panel-lines').children.filter(row => !/\bhead\b/.test(row.className));
+    assert.match(drawn[0].className, /\bday-first\b/);
+    assert.doesNotMatch(drawn[1].className, /\bday-first\b/);
+    assert.equal(page.el('panel-note').title, history.noteTooltip);
+});
+
+test('with no title bar and a list shown the bottom edge resizes the window, with a grip near it; the buttons of 0.87 are gone', async () => {
+    assert.ok(!INDEX_HTML.includes('taller-') && !INDEX_HTML.includes('shorter-'), 'no Taller and Shorter buttons in any view');
+    const page = await load(backendOf({ config: CONFIG, status: bareStatus(SPEND_STATUS), history: () => ({ status: 200, body: HISTORY }) }));
+    assert.equal(page.el('edge').hidden, true, 'the row alone has no edge');
+    await page.click('history-button');
+    assert.equal(page.el('edge').hidden, false);
+    global.document.elementFromPoint = () => page.el('edge');
+    assert.equal(page.window.edgeAt(100, 418), 's');
+    assert.equal(page.window.dragStartsAt(100, 418), false, 'a press on the edge moves nothing');
+    global.window.innerHeight = 420;
+    global.document.listeners.mousemove({ clientY: 410 });
+    assert.equal(page.el('edge-grip').hidden, false, 'the grip near the edge');
+    global.document.listeners.mousemove({ clientY: 300 });
+    assert.equal(page.el('edge-grip').hidden, true, 'and not further up');
+
+    const titled = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: HISTORY }) }));
+    await titled.click('history-button');
+    assert.equal(titled.el('edge').hidden, true, 'with the title bar the frame resizes the window');
+    global.document.elementFromPoint = () => titled.el('edge');
+    assert.equal(titled.window.edgeAt(100, 418), '');
+});
+
+test('a press along the edge of a list that scrolls is on its scrollbar, also where the scrollbar takes no room', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    const lines = { clientLeft: 0, clientTop: 0, clientWidth: 400, clientHeight: 300, scrollHeight: 900, scrollWidth: 400,
+        getBoundingClientRect: () => ({ left: 0, top: 50, right: 400, bottom: 350 }) };
+    global.document.elementFromPoint = () => ({ closest: selector => (selector === '.panel-lines' ? lines : null) });
+    assert.equal(page.window.dragStartsAt(390, 200), false, 'within 16 pixels of the right edge of a list that scrolls in height');
+    assert.equal(page.window.dragStartsAt(380, 200), true, 'further in');
+    assert.equal(page.window.dragStartsAt(200, 345), true, 'it does not scroll in width');
+    lines.scrollHeight = 300;
+    assert.equal(page.window.dragStartsAt(390, 200), true, 'a list that does not scroll has no scrollbar');
 });

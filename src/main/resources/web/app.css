@@ -31,6 +31,8 @@
     --warn: #ff9900;
     /* The darker orange of the ring round the circle (since 0.84; orange since 0.85; the figures' too in 0.85). */
     --warn-text: #c26a00;
+    /* The light gray of the line under the first reading of a day in the history (since 0.89). */
+    --grid: #d0d7de;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -39,6 +41,7 @@
         --bad: #f85149;
         --info: #58a6ff;
         --view-line: #484f58;
+        --grid: #3d444d;
     }
 }
 
@@ -978,14 +981,18 @@ body {
     width: 10ch;
 }
 
-/* The limits at each reading (since 0.82): two amounts, and auto or set. */
+/* The limits at each reading (since 0.82): two amounts, and how the daily one came about. */
 .panel-lines .columns > .c-monthly,
 .panel-lines .columns > .c-daily {
     width: 10ch;
 }
 
 .panel-lines .columns > .c-dailyBy {
-    width: 4ch;
+    /* `daily limit is` over `worked out` or `typed` (since 0.89; `by` over `auto` or `set`, 4 characters), one character from
+       the right-aligned figures of `day`, which it touched. */
+    box-sizing: border-box;
+    width: 15ch;
+    padding-left: 1ch;
 }
 
 .panel-lines .columns > .c-deltaUsed {
@@ -1035,6 +1042,11 @@ body {
  */
 .panel-lines .start {
     color: var(--info);
+}
+
+/* The first reading of a day in the history has a light gray line under it, between it and the day before (since 0.89). */
+.panel-lines .day-first {
+    border-bottom: 1px solid var(--grid);
 }
 
 /* A row of a query that did not succeed says so in red, in the place of its amount. */
@@ -1241,3 +1253,40 @@ body {
     grid-column: span 3;
 }
 
+
+/*
+ * The bottom edge of a window with no title bar, which makes the lowest list taller and shorter (since 0.89; buttons in 0.87 and
+ * 0.88): 6 pixels across the bottom, over the border the page draws, with the cursor of a vertical resize. The host resizes the
+ * window by it. Its grip shows while the pointer is near, a short bar in the muted gray that takes no click of its own.
+ */
+.edge {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 6px;
+    cursor: ns-resize;
+    z-index: 20;
+}
+
+.edge-grip {
+    position: fixed;
+    left: 50%;
+    bottom: 2px;
+    width: 24px;
+    height: 2px;
+    margin-left: -12px;
+    border-radius: 1px;
+    background: var(--muted);
+    pointer-events: none;
+    z-index: 21;
+}
+
+
+/* A field that is wrong or empty when the settings are saved has a red frame until it is changed (since 0.89). */
+.settings input.invalid,
+.settings button.invalid {
+    border-color: var(--bad);
+    outline: 1px solid var(--bad);
+    outline-offset: 0;
+}
