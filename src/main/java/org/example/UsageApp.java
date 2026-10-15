@@ -174,6 +174,8 @@ public class UsageApp extends Application {
     @Override
     public void start(Stage stage) throws Exception {
         LOG.info("Starting java-aip-usage v" + AppInfo.VERSION);
+        // The version of Claude Code, at every start, whatever the source of the readings.
+        logClaudeVersionOnce();
         // Main has already checked these, so they are fine. They are read here, from the launch
         // arguments, which is how JavaFX hands a window what the command line said.
         LaunchOptions options = LaunchOptions.parse(getParameters().getRaw());
@@ -201,6 +203,7 @@ public class UsageApp extends Application {
             stage.initStyle(StageStyle.UNDECORATED);
         }
         Scene scene = new Scene(webView, INITIAL_WIDTH, INITIAL_HEIGHT);
+        keepTooltipsAsSet(webView);
         // What the window draws outside the page, the tooltips, has its style here. The scene is the same one when the
         // window is exchanged for the title bar, so it is given once.
         scene.getStylesheets().add(WINDOW_STYLE);
@@ -223,8 +226,9 @@ public class UsageApp extends Application {
     private WindowDrag drag;
 
     /**
-     * The resize by the bottom edge that is under way (since 0.89): where the mouse was down the screen at the press, and the
-     * height the window had then; {@code null} when there is none.
+     * The resize by an edge that is under way: where the mouse was at the press (down the screen for the bottom edge, since 0.89,
+     * across it for the right one, since 0.91), the height or the width the window had then, and 0 for the bottom edge or 1 for
+     * the right one; {@code null} when there is none.
      */
     private double[] edgeDrag;
 
@@ -244,10 +248,15 @@ public class UsageApp extends Application {
             if (event.getButton() != MouseButton.PRIMARY || StageSwap.hasTitleBar(stage)) {
                 return;
             }
-            if (onTheBottomEdge(webView, event.getX(), event.getY())) {
+            String edge = edgeAt(webView, event.getX(), event.getY());
+            if ("s".equals(edge)) {
                 // The bottom edge makes the lowest list taller and shorter: the window is resized, not moved (since 0.89). A
                 // height the person settles on is remembered as one dragged by the frame is.
-                edgeDrag = new double[] {event.getScreenY(), stage.getHeight()};
+                edgeDrag = new double[] {event.getScreenY(), stage.getHeight(), 0};
+            } else if ("e".equals(edge)) {
+                // The right edge makes the window wider and narrower while the log is shown (since 0.91); the width is kept as one
+                // dragged by the frame is.
+                edgeDrag = new double[] {event.getScreenX(), stage.getWidth(), 1};
             } else if (beginsADrag(webView, event.getX(), event.getY())) {
                 drag = new WindowDrag(event.getScreenX(), event.getScreenY(), stage.getX(), stage.getY());
             }
@@ -258,7 +267,11 @@ public class UsageApp extends Application {
                     edgeDrag = null;
                     return;
                 }
-                stage.setHeight(edgeHeight(edgeDrag[1] + event.getScreenY() - edgeDrag[0]));
+                if (edgeDrag[2] == 1) {
+                    stage.setWidth(edgeWidth(edgeDrag[1] + event.getScreenX() - edgeDrag[0]));
+                } else {
+                    stage.setHeight(edgeHeight(edgeDrag[1] + event.getScreenY() - edgeDrag[0]));
+                }
                 event.consume();
                 return;
             }
@@ -291,13 +304,25 @@ public class UsageApp extends Application {
         return Math.max(stage.getMinHeight(), Math.min(most, wanted));
     }
 
-    /** Whether a press at this place of the page is on its bottom edge, which resizes the window (since 0.89). */
-    private static boolean onTheBottomEdge(WebView webView, double x, double y) {
+    /** The width the right edge may give the window: within the limits of the last fit and the screen's room at the right. */
+    private double edgeWidth(double wanted) {
+        Rectangle2D screen = Screen.getScreensForRectangle(stage.getX(), stage.getY(), 1, 1).stream().findFirst()
+                .orElse(Screen.getPrimary()).getVisualBounds();
+        double most = Math.min(stage.getMaxWidth(), screen.getMaxX() - stage.getX());
+        return Math.max(stage.getMinWidth(), Math.min(most, wanted));
+    }
+
+    /**
+     * Which edge of the page a press at this place is on, which resizes the window: {@code s}, the bottom (since 0.89), {@code e},
+     * the right (since 0.91), or the empty text.
+     */
+    private static String edgeAt(WebView webView, double x, double y) {
         try {
-            return "s".equals(webView.getEngine().executeScript(
-                    "typeof window.edgeAt === 'function' ? window.edgeAt(" + x + ", " + y + ") : ''"));
+            Object edge = webView.getEngine().executeScript(
+                    "typeof window.edgeAt === 'function' ? window.edgeAt(" + x + ", " + y + ") : ''");
+            return edge == null ? "" : edge.toString();
         } catch (RuntimeException e) {
-            return false;
+            return "";
         }
     }
 
@@ -335,21 +360,35 @@ public class UsageApp extends Application {
             }
             URI base = options.baseUrl().orElse(UsageClient.DEFAULT_BASE_URL);
             TokenProvider tokens = fakeToken ? new PlaceholderTokenProvider() : ClaudeTokenProvider.create();
-            if (!fakeToken) {
-                logClaudeVersionOnce();
-            }
             return new UsageSources.Source(
                     new UsageFetcher(tokens, UsageClient.create(UsageClient.usageUri(base), responseLog)), false, Optional.of(base), null);
             }
         };
     }
 
+    /** The key under which the toolkit keeps the tooltip it installs on a node, the page's own included. */
+    private static final String TOOLTIP_KEY = "javafx.scene.control.Tooltip";
+
+    /**
+     * Keeps every tooltip of the page for as long as the setting says (since 0.91): the toolkit shows a page's titles with a
+     * tooltip it installs on the view, each time with the text of the element under the pointer, and hides it after 5 seconds
+     * unless told otherwise. 0 keeps it until the pointer leaves the element, when the page takes it away.
+     */
+    private void keepTooltipsAsSet(WebView webView) {
+        webView.getProperties().addListener((javafx.collections.MapChangeListener<Object, Object>) change -> {
+            if (change.wasAdded() && TOOLTIP_KEY.equals(change.getKey()) && change.getValueAdded() instanceof javafx.scene.control.Tooltip tip) {
+                int millis = runtime == null ? 0 : runtime.settings().current().tooltipMillis();
+                tip.setShowDuration(millis == 0 ? Duration.INDEFINITE : Duration.millis(millis));
+            }
+        });
+    }
+
     /** Whether the version of Claude Code has been asked for in this run. */
     private static final java.util.concurrent.atomic.AtomicBoolean claudeVersionAsked = new java.util.concurrent.atomic.AtomicBoolean();
 
     /**
-     * Logs the version of Claude Code, once in a run, when Claude Code is to be used (since 0.90): not with the fake backend nor
-     * with the placeholder token. In the background, so that the window does not wait for it.
+     * Logs the version of Claude Code, once in a run, at the start (since 0.90), with the fake backend and the placeholder token
+     * too, so that the log always says which version is installed. In the background, so that the window does not wait for it.
      */
     private static void logClaudeVersionOnce() {
         if (!claudeVersionAsked.compareAndSet(false, true)) {
@@ -461,11 +500,33 @@ public class UsageApp extends Application {
         boolean focused = stage.isFocused();
         boolean rose = focused && !focusedBefore;
         focusedBefore = focused;
-        // Only when the setting says so, off by default (since 0.90), and not for a window that was clicked into.
+        // Only when the setting says so (on by default since 0.91), and not for a window that was clicked into (0.90).
         boolean wanted = runtime != null && runtime.settings().current().locateWindow();
         boolean clicked = Math.abs(System.currentTimeMillis() - pressedAt) < CLICK_MILLIS;
-        if (rose && wanted && !clicked && !locator.busy(FOCUS_QUIET_MILLIS) && !Desk.pickerBusy(FOCUS_QUIET_MILLIS)) {
+        // Nor for a click on the title bar, which the program is not told of (since 0.91): after the first rise of the run, the start,
+        // only while the pointer is outside the window, as it is on the taskbar or the Dock.
+        boolean first = !roseBefore;
+        if (rose) {
+            roseBefore = true;
+        }
+        if (rose && wanted && !clicked && (first || !pointerOnWindow()) && !locator.busy(FOCUS_QUIET_MILLIS) && !Desk.pickerBusy(FOCUS_QUIET_MILLIS)) {
             locator.zoomOnto(stage);
+        }
+    }
+
+    /** Whether the window has come to the front before in this run. */
+    private boolean roseBefore;
+
+    /** Whether the pointer is on the window, its title bar and frame included; false when it cannot be read. */
+    private boolean pointerOnWindow() {
+        try {
+            if (robot == null) {
+                robot = new Robot();
+            }
+            Point2D at = robot.getMousePosition();
+            return PointerAway.inside(at.getX(), at.getY(), stage.getX(), stage.getY(), stage.getWidth(), stage.getHeight());
+        } catch (RuntimeException e) {
+            return false;
         }
     }
 

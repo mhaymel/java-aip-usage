@@ -58,14 +58,14 @@ test('the base text is a sans-serif font', () => {
 test('the controls come in the required order, in one strip', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     // Time first, then the percentage, the two amounts, the refresh button, the countdown, the two
-    // changes, and the cost control, history, log and error log buttons (in this order since 0.81), the gear last.
+    // changes, and the cost control, history and log buttons (in this order since 0.81; the error log's is gone since 0.91), the gear last.
     const order = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"',
         'id="refresh"', 'id="countdown"', 'id="delta-used"', 'id="delta-time"',
-        'id="cost-button"', 'id="history-button"', 'id="log-button"', 'id="errors-button"', 'id="settings-button"'];
+        'id="cost-button"', 'id="history-button"', 'id="log-button"', 'id="settings-button"'];
     const positions = order.map(marker => strip.indexOf(marker));
     positions.forEach((position, i) => assert.ok(position >= 0, 'missing ' + order[i] + ' in the strip'));
     assert.deepEqual([...positions].sort((a, b) => a - b), positions,
-        'the order is time, percentage, used, limit, refresh, countdown, changes, cost, history, log, error log, settings');
+        'the order is time, percentage, used, limit, refresh, countdown, changes, cost, history, log, settings');
 });
 
 test('the time is the very first thing in the strip', () => {
@@ -215,7 +215,7 @@ test('the panel is below the strip and below every message line, and closed at t
     assert.match(html, /<div id="panel"[^>]*\shidden/);
     assert.match(html, /id="history-button"[^>]*aria-expanded="false"/);
     assert.match(html, /id="log-button"[^>]*aria-expanded="false"/);
-    for (const name of ['log', 'history', 'errors', 'cost']) {
+    for (const name of ['log', 'history', 'cost']) {
         assert.match(html, new RegExp('id="panel-error-' + name + '"[^>]*role="alert"'), 'each view has its own red line: ' + name);
     }
 });
@@ -330,8 +330,8 @@ test('the line at the top of a list has two buttons that make its text larger an
     assert.match(line, /<button id="zoom-in-log" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">/);
     assert.match(line, /<button id="zoom-out-log" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">/);
     assert.ok(line.indexOf('id="zoom-in-log"') < line.indexOf('id="zoom-out-log"'));
-    // The history and the error log have the two buttons too, each in its own line, drawn the same.
-    for (const name of ['history', 'errors']) {
+    // The history has the two buttons too, in its own line, drawn the same (the error log, which had them too, is gone since 0.91).
+    for (const name of ['history']) {
         const own = html.slice(html.indexOf('<div id="log-controls-' + name + '"'), html.indexOf('<p id="log-error-' + name + '"'));
         assert.equal(own.slice(own.indexOf('<span class="zoom">'), own.indexOf('</span>')).split('-' + name).join('-log'),
             line.slice(line.indexOf('<span class="zoom">'), line.indexOf('</span>', line.indexOf('<span class="zoom">'))), 'the zoom of ' + name);
@@ -508,7 +508,7 @@ test('the row has its own width, which the window follows: it wraps at 900 px, a
 // The width a kind of column has, in characters, with or without the date.
 const widthOf = (kind, date) => Number(ruleOf('.panel-lines .columns' + (date ? '.date' : '') + ' > .c-' + kind).match(/width:\s*(\d+)ch/)[1]);
 
-test('the history is a table of fixed columns, the time at the left and the others right-aligned, with the spare width shared out between them', () => {
+test('the history is a table of fixed columns, every one centred (since 0.91), with the spare width shared out between them', () => {
     const table = ruleOf('.panel-lines .columns');
     assert.match(table, /display:\s*grid/);
     assert.match(table, /grid-auto-flow:\s*column/, 'the columns that are shown, one after another');
@@ -521,9 +521,9 @@ test('the history is a table of fixed columns, the time at the left and the othe
     const amounts = ruleOf('.panel-lines .columns > .c-used,\n.panel-lines .columns > .c-limit').match(/width:\s*(\d+)ch/);
     assert.ok(Number(amounts[1]) >= '9999999.99'.length, 'used and limit hold the amounts the requirements name');
     assert.ok(widthOf('currency') >= 'USD'.length && widthOf('currency') >= 'Cur.'.length, 'wide enough for the code and its short title');
-    assert.match(ruleOf('.panel-lines .columns > *'), /text-align:\s*right/, 'the others are at the right of their columns');
-    assert.match(ruleOf('.panel-lines .columns > .c-time'), /text-align:\s*left/, 'the time at the left');
-    assert.ok(css.indexOf('.panel-lines .columns > .c-time {') > css.indexOf('.panel-lines .columns > * {'), 'which comes after, to win');
+    assert.match(ruleOf('.panel-lines .columns > *'), /text-align:\s*center/, 'every column is centred since 0.91, where they were at the right');
+    assert.doesNotMatch(ruleOf('.panel-lines .columns > .c-time'), /text-align/, 'the time too: it is no longer at the left (since 0.91)');
+    assert.doesNotMatch(ruleOf('.panel-lines .columns.date > .c-time'), /text-align/);
 });
 
 test('a column of the history has its width by what it is, not by its place: no rule by the number of columns is left', () => {
@@ -564,26 +564,20 @@ test('the settings never scroll: the window is as tall as they need', () => {
     assert.doesNotMatch(ruleOf('.settings'), /flex:\s*1/);
 });
 
-test('the four icon buttons sit close together in one group, much nearer than the strip\'s gap', () => {
+test('the icon buttons sit close together in one group, much nearer than the strip\'s gap', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     const group = strip.slice(strip.indexOf('class="tools"'));
-    for (const id of ['cost-button', 'history-button', 'log-button', 'errors-button', 'settings-button']) {
+    // Three icons and the gear since 0.91, when the error log went.
+    for (const id of ['cost-button', 'history-button', 'log-button', 'settings-button']) {
         assert.ok(group.includes('id="' + id + '"'), id + ' is in the group');
     }
+    assert.ok(!html.includes('id="errors-button"'), 'the error log has no button since 0.91');
     assert.ok(group.indexOf('id="cost-button"') < group.indexOf('id="history-button"'));
     assert.ok(group.indexOf('id="history-button"') < group.indexOf('id="log-button"'));
-    assert.ok(group.indexOf('id="log-button"') < group.indexOf('id="errors-button"'));
-    assert.ok(group.indexOf('id="errors-button"') < group.indexOf('id="settings-button"'), 'the gear is last');
+    assert.ok(group.indexOf('id="log-button"') < group.indexOf('id="settings-button"'), 'the gear is last');
     const gap = Number(ruleOf('.tools').match(/gap:\s*(\d+)px/)[1]);
     const stripGap = Number(ruleOf('.strip').match(/gap:\s*[0-9]+px\s+(\d+)px/)[1]);
     assert.ok(gap <= 2 && gap < stripGap, 'the group gap ' + gap + ' px is less than the strip\'s ' + stripGap + ' px');
-});
-
-test('the error log button is an icon with an accessible name', () => {
-    const button = html.match(/<button[^>]*id="errors-button"[\s\S]*?<\/button>/)[0];
-    assert.match(button, /aria-label="Show the error log"/);
-    assert.match(button, /title="Show the error log"/);
-    assert.match(button, /<svg/);
 });
 
 test('the countdown is red during a back-off, and its message is bold red under the row', () => {
@@ -595,12 +589,6 @@ test('the countdown is red during a back-off, and its message is bold red under 
 test('a history table wider than the panel scrolls sideways: rows are never narrower than their content, and the box scrolls on x only when needed', () => {
     assert.match(ruleOf('.panel-lines .columns'), /min-width:\s*max-content/);
     assert.match(ruleOf('.panel-lines'), /overflow-x:\s*auto/, 'only when needed: no room is reserved for it');
-});
-
-test('the error log rows have the time and the message, which is not wrapped', () => {
-    const rule = ruleOf('.panel-lines .cols-2');
-    assert.match(rule, /display:\s*grid/);
-    assert.match(rule, /grid-template-columns:\s*\d+ch max-content/);
 });
 
 test('nothing in the window can be selected but what is typed in the field of the interval', () => {
@@ -689,7 +677,7 @@ test('the active button is no bigger than the refresh button, which sets the hei
 });
 
 test('the gear is drawn on a grid of 24 units and the other icons of 16, which is why its line is heavier', () => {
-    for (const id of ['log-button', 'history-button', 'errors-button']) {
+    for (const id of ['log-button', 'history-button']) {
         assert.match(html.match(new RegExp('<button[^>]*id="' + id + '"[\\s\\S]*?</button>'))[0], /viewBox="0 0 16 16"/, id);
     }
     assert.match(html.match(/<button[^>]*id="settings-button"[\s\S]*?<\/button>/)[0], /viewBox="0 0 24 24"/);
@@ -734,10 +722,11 @@ const MAIN_CHECKBOXES = [
     ['set-showRefresh', 'Refresh button'], ['set-showCountdown', 'Countdown'], ['set-showInterval', 'Interval'],
     ['set-showDeltaUsed', 'Change in the amount used'], ['set-showDeltaTime', 'Time since the previous reading'], ['set-showDuration', 'Request duration'],
     ['set-showCostIcon', 'Cost'], ['set-showHistoryIcon', 'History'], ['set-showLogIcon', 'Log'],
-    ['set-showErrorIcon', 'Error log'],
 ];
 
-test('the Main view group has a checkbox for each of the fourteen elements, named as the requirements name them', () => {
+test('the Main view group has a checkbox for each of the sixteen elements, named as the requirements name them (the error log\'s is gone since 0.91)', () => {
+    assert.equal(MAIN_CHECKBOXES.length, 16);
+    assert.ok(!html.includes('set-showErrorIcon'), 'no checkbox for the error log');
     for (const [id, text] of MAIN_CHECKBOXES) {
         assert.ok(MAIN.includes('<input id="' + id + '" type="checkbox"> ' + text + '</label>'), id);
     }
@@ -746,7 +735,7 @@ test('the Main view group has a checkbox for each of the fourteen elements, name
 test('the checkboxes are in the order of the row, from left to right', () => {
     const strip = html.slice(html.indexOf('class="strip"'), html.indexOf('id="note"'));
     const inRow = ['id="time"', 'id="percent"', 'id="used"', 'id="limit"', 'id="refresh"', 'id="countdown"', 'id="interval"', 'id="delta-used"',
-        'id="delta-time"', 'id="duration"', 'id="cost-button"', 'id="history-button"', 'id="log-button"', 'id="errors-button"'].map(id => strip.indexOf(id));
+        'id="delta-time"', 'id="duration"', 'id="cost-button"', 'id="history-button"', 'id="log-button"'].map(id => strip.indexOf(id));
     const inSettings = MAIN_CHECKBOXES.map(([id]) => MAIN.indexOf('id="' + id + '"'));
     for (const positions of [inRow, inSettings]) {
         assert.ok(positions.every(p => p >= 0));
@@ -1080,15 +1069,16 @@ test('the log has two buttons in the line of the zoom buttons, after them: icons
 
 // ---- version 0.80: the small changes of the page
 
-test('the four checkboxes of the icons are the group Icons, without the word icon, each with its icon beside it; only the refresh one says button', () => {
+test('the three checkboxes of the icons are the group Icons, without the word icon and with no icon beside them (since 0.91); only the refresh one says button', () => {
     const texts = [...MAIN.matchAll(/<input id="set-show[A-Za-z]+" type="checkbox"> ([^<]+)<\/label>/g)].map(m => m[1]);
     assert.deepEqual(texts.filter(text => /icon$/i.test(text)), [], 'the word icon is gone since 0.90');
     const icons = html.slice(html.indexOf('<legend>Icons'), html.indexOf('</fieldset>', html.indexOf('<legend>Icons')));
-    assert.deepEqual([...icons.matchAll(/<input id="set-(show[A-Za-z]+)" type="checkbox"> ([^<]+)<\/label>\s*<button id="glyph-\1" class="icon tiny glyph"/g)].map(m => m[2]),
-        ['Cost', 'History', 'Log', 'Error log']);
+    assert.deepEqual([...icons.matchAll(/<input id="set-(show[A-Za-z]+)" type="checkbox"> ([^<]+)<\/label>/g)].map(m => m[2]),
+        ['Cost', 'History', 'Log'], 'three since 0.91: the error log is gone');
+    assert.ok(!html.includes('id="glyph-'), 'and the icons that stood beside them are gone (since 0.91)');
     assert.match(icons, /<button id="set-all-icons" class="select-all"[^>]*title="Checks every icon, or none when every one is checked\."/);
     assert.deepEqual(texts.filter(text => /button/i.test(text)), ['Refresh button'], 'which does something, and shows no view');
-    for (const id of ['set-showLogIcon', 'set-showHistoryIcon', 'set-showErrorIcon', 'set-showCostIcon']) {
+    for (const id of ['set-showLogIcon', 'set-showHistoryIcon', 'set-showCostIcon']) {
         const label = html.lastIndexOf('<label', html.indexOf('id="' + id + '"'));
         assert.match(html.slice(label, html.indexOf('>', label)), /title="The icon that shows /, id);
     }
@@ -1147,10 +1137,11 @@ test('the three lists, the copy the table is measured on and the cost control ha
 // ---- version 0.80: a box for each view
 
 test('the panel has a box for each view, in the order of the icons, and each list has its own controls, notes and lines', () => {
-    const boxes = ['<div id="cost-view"', '<section id="view-history"', '<section id="view-log"', '<section id="view-errors"', '<div id="settings-view"'].map(tag => html.indexOf(tag));
+    const boxes = ['<div id="cost-view"', '<section id="view-history"', '<section id="view-log"', '<div id="settings-view"'].map(tag => html.indexOf(tag));
     assert.ok(boxes.every(at => at > html.indexOf('<div id="panel"')), 'all in the panel');
-    assert.deepEqual([...boxes].sort((a, b) => a - b), boxes, 'the cost control, the history, the log, the error log (since 0.81), and the settings after them');
-    for (const name of ['log', 'history', 'errors']) {
+    assert.deepEqual([...boxes].sort((a, b) => a - b), boxes, 'the cost control, the history, the log (since 0.81; the error log is gone since 0.91), and the settings after them');
+    assert.ok(!html.includes('view-errors'), 'no box for the error log');
+    for (const name of ['log', 'history']) {
         const box = html.slice(html.indexOf('<section id="view-' + name + '"'), html.indexOf('</section>', html.indexOf('<section id="view-' + name + '"')));
         assert.match(box, new RegExp('^<section id="view-' + name + '" class="view" aria-label="[^"]+" hidden>'), name + ' is hidden until it is shown');
         const parts = ['log-controls-', 'log-error-', 'panel-note-', 'panel-error-', 'panel-lines-'].map(part => box.indexOf('id="' + part + name + '"'));
@@ -1174,10 +1165,12 @@ test('a view fills what the panel leaves it, and one that has another below it k
     assert.match(ruleOf('.view.fixed'), /flex:\s*none/, 'the page says how tall it is');
 });
 
-test('the checkbox Several views at once is after the one that restores the window, and Show where the window is after it since 0.90', () => {
+test('the checkbox Several views at once is after the one that restores the window, Show where the window is after it since 0.90, and the tooltip duration last since 0.91', () => {
     const group = html.slice(html.indexOf('<legend>Window</legend>'), html.indexOf('</fieldset>', html.indexOf('<legend>Window</legend>')));
     const ids = [...group.matchAll(/<input id="(set-[A-Za-z]+)"/g)].map(m => m[1]);
-    assert.deepEqual(ids, ['set-showTitleBar', 'set-stayOnTop', 'set-restoreWindow', 'set-severalViews', 'set-locateWindow']);
+    assert.deepEqual(ids, ['set-showTitleBar', 'set-stayOnTop', 'set-restoreWindow', 'set-severalViews', 'set-locateWindow', 'set-tooltipMillis']);
+    assert.match(group, /<label title="How long a tooltip stays, in milliseconds: 0 keeps it for as long as the pointer is on it, or from 500 to 3,600,000\.">Tooltip duration\s*<input id="set-tooltipMillis"[^>]*type="text"[^>]*> ms<\/label>/,
+        'a text field in milliseconds, with its tooltip on the label');
     assert.match(group, /<label title="When the window comes to the front, a rectangle zooms onto it so that it is found at once\. Not when you click into the window\."><input id="set-locateWindow" type="checkbox"> Show where the window is<\/label>/);
     assert.match(group, /<input id="set-severalViews" type="checkbox"> Several views at once<\/label>/);
 });
@@ -1255,7 +1248,7 @@ test('each list has its folder in the group Files of its tab again since 0.90, w
 
 test('the icons of the line at the top of a list stand at its right end, the log\'s choices at the left', () => {
     assert.match(css, /\.log-controls > \.zoom:not\(\[id\]\)\s*{\s*margin-left:\s*auto/);
-    for (const name of ['history', 'log', 'errors']) {
+    for (const name of ['history', 'log']) {
         const line = html.slice(html.indexOf('<div id="log-controls-' + name + '"'), html.indexOf('</div>', html.indexOf('<div id="log-controls-' + name + '"')));
         const zoom = line.indexOf('<span class="zoom">');
         assert.ok(zoom > 0, name + ' has the zoom without an id, which the rule finds');
@@ -1393,10 +1386,26 @@ test('the bottom edge is 6 pixels across the bottom with the cursor of a vertica
     assert.match(html, /<div id="edge-grip" class="edge-grip" aria-hidden="true" hidden><\/div>/);
 });
 
-test('the first reading of a day has a light gray line under it, on both themes', () => {
-    assert.match(ruleOf('.panel-lines .day-first'), /border-bottom:\s*1px solid var\(--grid\)/);
-    assert.match(css, /--grid:\s*#d0d7de/);
-    assert.match(css, /--grid:\s*#3d444d/);
+test('the first reading of a day has a line of three pixels in the blue of the notes under it (since 0.91; one of light gray before)', () => {
+    assert.match(ruleOf('.panel-lines .day-first'), /border-bottom:\s*3px solid var\(--info\)/);
+    assert.doesNotMatch(ruleOf('.panel-lines .day-first'), /var\(--grid\)/, 'the light gray is gone');
+});
+
+// ---- version 0.91
+
+test('the lines of the log are red for an error and in the warning colour for a warning', () => {
+    assert.match(ruleOf('.panel-lines .level-error'), /color:\s*var\(--bad\)/);
+    assert.match(ruleOf('.panel-lines .level-warning'), /color:\s*var\(--warn-text\)/);
+});
+
+test('the right edge is 6 pixels down the right side with the cursor of a horizontal resize, and has a grip of its own', () => {
+    assert.match(ruleOf('.edge-right'), /position:\s*fixed/);
+    assert.match(ruleOf('.edge-right'), /right:\s*0/);
+    assert.match(ruleOf('.edge-right'), /width:\s*6px/);
+    assert.match(ruleOf('.edge-right'), /cursor:\s*ew-resize/);
+    assert.match(ruleOf('.edge-right-grip'), /background:\s*var\(--muted\)/);
+    assert.match(html, /<div id="edge-right" class="edge-right" aria-hidden="true" hidden><\/div>/);
+    assert.match(html, /<div id="edge-right-grip" class="edge-right-grip" aria-hidden="true" hidden><\/div>/);
 });
 
 test('a refused field has a red frame', () => {

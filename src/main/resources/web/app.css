@@ -959,16 +959,16 @@ body {
     min-width: max-content;
 }
 
-/* The figures are at the right of their columns, so that they line up by their last digit, and their titles with them. */
+/* Every column is centred since 0.91 (img_73), its title and its cells; until then the figures were at the right of their
+   columns, so that they lined up by their last digit. */
 .panel-lines .columns > * {
     display: block;
-    text-align: right;
+    text-align: center;
 }
 
-/* The time is at the left, 8 characters, or 19 with the date. */
+/* The time, 8 characters, or 19 with the date; centred like the others since 0.91. */
 .panel-lines .columns > .c-time {
     width: 8ch;
-    text-align: left;
 }
 
 .panel-lines .columns.date > .c-time {
@@ -1048,7 +1048,17 @@ body {
 
 /* The first reading of a day in the history has a light gray line under it, between it and the day before (since 0.89). */
 .panel-lines .day-first {
-    border-bottom: 1px solid var(--grid);
+    /* 3 pixels of the blue of the notes since 0.91, where it was 1 pixel of light gray. */
+    border-bottom: 3px solid var(--info);
+}
+
+/* In the log, an error is red and a warning orange, the whole line (since 0.91, in the place of the error log). */
+.panel-lines .level-error {
+    color: var(--bad);
+}
+
+.panel-lines .level-warning {
+    color: var(--warn-text);
 }
 
 /* A row of a query that did not succeed says so in red, in the place of its amount. */
@@ -1311,7 +1321,26 @@ body {
     overflow-wrap: anywhere;
 }
 
-/* The icon beside a checkbox of the group Icons, as the row draws it, in the muted gray: a click checks the checkbox (since 0.90). */
-.icon.glyph {
-    color: var(--muted);
+/* The right edge of a window with no title bar, while the log is shown, which makes it wider and narrower (since 0.91), and its grip. */
+.edge-right {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: ew-resize;
+    z-index: 20;
+}
+
+.edge-right-grip {
+    position: fixed;
+    top: 50%;
+    right: 2px;
+    width: 2px;
+    height: 24px;
+    margin-top: -12px;
+    border-radius: 1px;
+    background: var(--muted);
+    pointer-events: none;
+    z-index: 21;
 }

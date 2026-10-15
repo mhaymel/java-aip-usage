@@ -76,7 +76,7 @@ class SettingsStoreTest {
     @Test
     void everySettingComesBackAsSaved() throws IOException {
         SettingsStore store = new SettingsStore(file());
-        Settings all = new Settings(120, true, true, true, false, false, false, true, true, true, TimeFormat.HOURS_MINUTES_SECONDS, true, true, true, false, false);
+        Settings all = new Settings(120, true, true, true, false, false, true, true, true, true, TimeFormat.HOURS_MINUTES_SECONDS, true, true, true, false, false);
 
         store.save(all);
 
@@ -210,10 +210,10 @@ class SettingsStoreTest {
         Json content = JsonReader.read(Files.readString(file()));
 
         assertEquals(
-                List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
+                List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "tooltipMillis", "historyHeight", "logHeight"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -730,12 +730,15 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theRectangleThatShowsWhereTheWindowIsIsOffByDefaultAndComesBackAsSaved() throws IOException {
+    void theRectangleThatShowsWhereTheWindowIsIsOnByDefaultAndComesBackAsSavedAndSoDoesTheTooltipDuration() throws IOException {
         Files.writeString(file(), "{\"usageIntervalSeconds\": 90}");
         SettingsStore store = new SettingsStore(file());
+        assertTrue(store.load().locateWindow(), "on by default since 0.91");
+        store.save(Settings.defaults().withLocateWindow(false));
         assertFalse(store.load().locateWindow());
-        store.save(Settings.defaults().withLocateWindow(true));
-        assertTrue(store.load().locateWindow());
+        assertEquals(0, store.load().tooltipMillis(), "a tooltip stays for as long as the pointer is on it");
+        store.save(Settings.defaults().withTooltipMillis(15000));
+        assertEquals(15000, store.load().tooltipMillis());
     }
 
     @Test

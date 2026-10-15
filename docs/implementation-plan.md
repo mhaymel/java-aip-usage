@@ -3035,9 +3035,10 @@ click into the window; the line of the Claude Code version in the log on Windows
 **As built, where it differs from the plan above:**
 - **The move of the log of 0.86 at the start is gone** (`Main.moveOldLog`, `SettingsStore.oldLogFolder`): with a folder each again a
   file of 0.86 means what it says, and a file of 0.87 to 0.89 gives its one folder to both, so there is nothing to move.
-- **The version of Claude Code** is asked for by `UsageApp`'s factory of sources, where a real token provider is made (not with the
-  fake backend nor the placeholder token), once in a run on a daemon thread; not in `AppRuntime`, whose many test starts would
-  each run the real `claude --version`. `ClaudeTokenProvider.isWindows` is package-visible for it.
+- **The version of Claude Code** is asked for by `UsageApp.start`, right after its first line, once in a run on a daemon thread,
+  whatever the source (asked for after building: at every start, the fake backend and the placeholder token included; it was
+  first left out with them); not in `AppRuntime`, whose many test starts would each run the real `claude --version`.
+  `ClaudeTokenProvider.isWindows` is package-visible for it.
 - **`Show where the window is`** is the one checkbox that starts with `Show`: the old rule of the texts makes it its exception.
 - **A refused folder** names `logFolder` or `historyFolder` by which of the two changed; `dataFolder` sent alone (a page of 0.89)
   still sets both, and is named `dataFolder` when it is refused.
@@ -3046,6 +3047,83 @@ click into the window; the line of the Claude Code version in the log on Windows
   `dataFolder` alone, a refused `historyFolder`); `app.test.cjs` (five: the glyph, a view closed in the row, the log's folder and
   its red line, `locateWindow`, the paths filled on opening). Rewritten: the layout tests of the tabs, the groups, the About view,
   the paths, the icons and the folders; the select-all tests for the two buttons; the folder tests for the history's folder.
+
+### 133. Version 0.91: the error log into the log, the right edge, the tooltips' duration, and smaller things
+
+**Status: built (version 0.91); the Java and frontend tests pass, the window tests not run, by request.** The notes of `new-requirements.md` (the thirteenth round, `img_69` to `img_73`), decided in two rounds of
+questions, and a third before building: the page's own tooltips should the toolkit give no handle on its own; the Java and
+frontend tests without the window tests; one commit once they pass, with the Claude version at every start, without the notes and
+images of `docs/`; the gap after the level of a log line stays as it is, by request. Also in it, built already and not committed: the
+version of Claude Code logged at every start, the fake backend and the placeholder token included (`UsageApp.start` calls
+`logClaudeVersionOnce`, the factory of sources no longer does). `AppInfo.VERSION = "0.91"`. Requirements: Version 0.91: the error log
+goes into the log, and smaller things; The window shows where it is (on by default, not after a click on the title bar); The first
+reading of a day (3 px, blue); Bigger tooltips (their duration). Ten parts:
+
+1. **The zoom on by default.** `Settings`: `locateWindow` `true` in the defaults; `SettingsStore` reads a missing key as on. The
+   page's fixture and the tests that assume it off.
+2. **Not after a click on the title bar.** `UsageApp.followFocus`: besides the press of the mouse, a rise of the focus counts only
+   when the pointer is outside the window's bounds, title bar and frame included (`robot.getMousePosition()` as `followPointer`
+   reads it, against `stage.getX/Y/Width/Height`), or on the first rise of the run (the start). `PointerAway.inside` does the test.
+3. **The error log goes.** The page: `errors-button`, `view-errors` and their lines, `set-showErrorIcon` (and its line in `Icons`),
+   `'errors'` out of `VIEWS` and `LISTS`, `ICON_FLAGS`, `MAIN_FLAGS`, `contentSize` (the `only === 'errors'` branch), the
+   restore of views (a stored `errors` name is skipped by `restoreView`, which already skips names that are no views). Java:
+   `/api/errors`, `ErrorsBody`, `ErrorEntryBody`, `StatusDisplay.Show.errorIcon`, `Settings.showErrorIcon` (kept in the record and
+   read, no longer written, so that the record's many `with…` stay as they are), `WindowFit`'s `errors` in the panels it knows
+   and `lowestList`. `UsageService.errors()` and `ErrorLog` stay only if something else reads them; else they go.
+4. **Every failed refresh at `ERROR`.** `UsageService`: `LOG.warning("Usage refresh failed: …")` and the unexpected one at
+   `LOG.error`; the HTTP 429 of the automatic search stays at `INFO` (it is logged by the search). `Log` has `error`, used already.
+5. **Red and orange in the log viewer.** `view.js` `describeLog`: a `levels` array beside the lines, the level read from the
+   line (`ERROR`, `WARNING` after the time); `app.js` `showPanel`: the class `level-error` or `level-warning` on the row; `app.css`:
+   `.panel-lines .level-error { color: var(--bad) }`, `.level-warning { color: var(--warn-text) }`.
+6. **The log larger.** `app.js` `contentSize`: the log alone `Math.ceil(4.5 * width)` wide where it was `3 * width`, and its height
+   alone `3 * panelHeight` where nothing is remembered (`aloneHeight('log')`), within the screen (`screenRoom`, as now); a
+   remembered height still wins. With other views the log's share is as before.
+7. **No icons in `Icons`.** `index.html`: the `glyph-…` buttons out; `app.js`: their handlers; `app.css`: `.icon.glyph`.
+8. **The right edge.** As the bottom edge of 0.89: `#edge-right` (6 px, `cursor: ew-resize`) and `#edge-right-grip` (2×24, on
+   hover within 16 px of the right), shown while `noTitleBar() && !settingsOpen` and the log is open (its width is the person's);
+   `edgeAt` says `'e'` there; `UsageApp`: a press where it says `'e'` starts a width drag (`stage.setWidth`, clamped by the stage's
+   min and max width and the screen), which `fit` keeps as a width the person gave (`keepWidth`, as the frame does).
+9. **The paths in `Log` and `History`.** `showFolder`: the full path always, `programFolder` while it is the default, with the class
+   `default` (gray) then; `showPath`: a mode that shows the file's name alone as the link's text (`about-log`, `about-history`;
+   the settings' line in General keeps the full path), the full path still in `title` and on the copy button.
+10. **The day's line, the columns, the tooltips.** `app.css`: `.panel-lines .day-first { border-bottom: 3px solid var(--info) }`; every
+    `.panel-lines .columns > .c-*` and the title row `text-align: center`. The tooltip's duration: `Settings.tooltipMillis` (0 by
+    default; 0 or 500–3,600,000, else refused with `field`), `SettingsStore` key `tooltipMillis`, `ApiHandler` in and out, the page's
+    field `set-tooltipMillis` in `Window` after `Show where the window is`, with its tooltip, in `FIELD_TABS` as `general`. In
+    `UsageApp`, on the tick, the `Tooltip` the WebView installs on itself (found in `webView.getProperties()` under the key the
+    toolkit uses, or by `Tooltip`'s `install` being watched through a listener on the node's properties) gets `setShowDuration`:
+    `Duration.INDEFINITE` for 0, else the millis; `setHideDelay` short. **Where the toolkit gives no handle** (decided before building), the page draws its own
+    tooltips: a `div.tip` of the window's tooltip look (14 px, the system's colours as near as CSS has them), shown after the
+    toolkit's delay at the pointer for the element's `title` (moved to `data-tip` while the page's tooltips are in use, so that
+    the toolkit shows none), and hidden when the pointer leaves or after the setting's time. The window grows for no tooltip: one
+    that would reach beyond the window is placed inside it.
+
+- **Tests.** `SettingsStoreTest`/`ApiTest`: `locateWindow` on by default, `tooltipMillis` and its range, `showErrorIcon` no longer
+  written, `/api/errors` gone (404), the settings count. `UsageServiceTest`: a failed refresh logged at `ERROR`. `app.test.cjs`:
+  no error log anywhere (icon, view, checkbox), a stored `errors` view skipped, the log's size alone, the levels' classes, the
+  glyphs gone, the right edge and its grip, `edgeAt` `'e'`, the folder's full path and the file's name, `tooltipMillis` sent and
+  refused with focus. `layout.test.cjs`: the day's line, the centred columns, the edge, no `errors` ids. Window tests: the probe's
+  steps of the error log out, a drag of the right edge, the log's opening size; `TitleBarWindowTest`'s expectations of the error
+  log rewritten. The whole suite with the window tests.
+
+**By eye**: the zoom not after a click on the title bar, and still from the taskbar; how long a tooltip stays (and whether the toolkit
+honours it); the log's red and orange on both themes; the right edge's cursor on Windows and macOS.
+
+**As built, where it differs from the plan above:**
+- **The tooltips are the toolkit's still**: it gives a handle after all. The WebView installs one `Tooltip` on itself for the page's
+  titles, under the property key `javafx.scene.control.Tooltip`; a listener on `webView.getProperties()` sets its `showDuration`
+  each time it is installed (`Duration.INDEFINITE` for 0). The page's own tooltips were not needed. Whether it holds is by eye.
+- **`ErrorLog` and `UsageService.errors()` stay**, unread by the page: the record of a run's failures costs nothing and its tests
+  stay; only `/api/errors`, its bodies, the page's view and the icon go. `Settings.showErrorIcon` stays in the record, is read and
+  no longer written or sent; a `POST` that sends it keeps it. `StatusDisplay.Show.errorIcon` and `WindowFit`'s name `errors` stay,
+  unused.
+- **The 429 of the automatic search** is logged `Usage refresh refused: …` at `INFO`; any other failure `Usage refresh failed: …` at
+  `ERROR` (`SEVERE` in the file, which is what the viewer colours red).
+- **The right edge** shares `edgeDrag` with the bottom one (a third field says which); `edgeAt` says `'e'` for it.
+- **The log's levels** are read from the line in `view.js` (`SEVERE` or `WARNING` after the date and time), and an entry's following
+  lines take its level.
+- **Tests**: `UsageServiceTest` (a failed refresh at `SEVERE`), `ApiTest` (the error log's endpoint gone, a token problem and a 429 kept
+  as failures, `locateWindow` on by default, `tooltipMillis` and its refusals), `SettingsStoreTest` (both, and the file's keys).
 
 ## Implementation notes, as built
 

@@ -57,14 +57,6 @@
                 <path d="M9.5 1.8v3h3M5.5 8h5M5.5 10.6h5"/>
             </svg>
         </button>
-        <button id="errors-button" class="icon tiny" type="button" aria-label="Show the error log" title="Show the error log"
-                aria-expanded="false">
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
-                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M8 2L14.5 13.5h-13z"/>
-                <path d="M8 6.5v3.2M8 11.6v.1"/>
-            </svg>
-        </button>
         <button id="settings-button" class="icon tiny" type="button" aria-label="Show the settings"
                 title="Show the settings" aria-expanded="false">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"
@@ -171,30 +163,6 @@
         <p id="panel-error-log" class="panel-error" role="alert" hidden></p>
         <div id="panel-lines-log" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
         </section>
-        <section id="view-errors" class="view" aria-label="The error log" hidden>
-        <div id="log-controls-errors" class="log-controls">
-            <span class="zoom">
-                <button id="zoom-in-errors" class="icon tiny" type="button" aria-label="Larger text" title="Larger text">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="6.8" cy="6.8" r="4.6"/>
-                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4M6.8 4.6v4.4"/>
-                    </svg>
-                </button>
-                <button id="zoom-out-errors" class="icon tiny" type="button" aria-label="Smaller text" title="Smaller text">
-                    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="6.8" cy="6.8" r="4.6"/>
-                        <path d="M10.2 10.2L14 14M4.6 6.8h4.4"/>
-                    </svg>
-                </button>
-            </span>
-        </div>
-        <p id="log-error-errors" class="panel-error" role="alert" hidden></p>
-        <p id="panel-note-errors" class="panel-note" hidden></p>
-        <p id="panel-error-errors" class="panel-error" role="alert" hidden></p>
-        <div id="panel-lines-errors" class="panel-lines" tabindex="0" aria-label="Newest first"></div>
-        </section>
         <div id="settings-view" class="settings" hidden>
             <p id="settings-error" class="panel-error" role="alert" hidden></p>
             <div id="settings-tabs" class="tabs">
@@ -217,6 +185,8 @@
                     <label title="Opens the window at the next start as it was when the program was stopped: the same panel, the same size and the same place."><input id="set-restoreWindow" type="checkbox"> Restore the window at start</label>
                     <label title="Lets more than one view be shown at the same time: an icon opens its view and leaves the others open. Off, opening a view closes the one that is shown."><input id="set-severalViews" type="checkbox"> Several views at once</label>
                     <label title="When the window comes to the front, a rectangle zooms onto it so that it is found at once. Not when you click into the window."><input id="set-locateWindow" type="checkbox"> Show where the window is</label>
+                    <label title="How long a tooltip stays, in milliseconds: 0 keeps it for as long as the pointer is on it, or from 500 to 3,600,000.">Tooltip duration
+                        <input id="set-tooltipMillis" class="number" type="text" inputmode="numeric" autocomplete="off" aria-label="Tooltip duration in milliseconds, 0 or from 500 to 3600000"> ms</label>
                 </fieldset>
                 <fieldset>
                     <legend>Files</legend>
@@ -278,45 +248,9 @@
                             <rect x="2" y="2" width="12" height="12" rx="2"/>
                             <path d="M5 8.2l2.2 2.3L11 5.6"/>
                         </svg></button></legend>
-                    <span class="line">
-                        <label title="The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again."><input id="set-showCostIcon" type="checkbox"> Cost</label>
-                        <button id="glyph-showCostIcon" class="icon tiny glyph" type="button" aria-label="Check Cost" title="The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.">
-                            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M2 5h12M2 11h7"/>
-                            </svg>
-                        </button>
-                    </span>
-                    <span class="line">
-                        <label title="The icon that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History</label>
-                        <button id="glyph-showHistoryIcon" class="icon tiny glyph" type="button" aria-label="Check History" title="The icon that shows the usage history, one line for each reading, below the row, and hides it again.">
-                            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <rect x="2" y="2.5" width="12" height="11" rx="1"/>
-                                <path d="M2 6.2h12M2 9.8h12M6.4 2.5v11"/>
-                            </svg>
-                        </button>
-                    </span>
-                    <span class="line">
-                        <label title="The icon that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log</label>
-                        <button id="glyph-showLogIcon" class="icon tiny glyph" type="button" aria-label="Check Log" title="The icon that shows the log of the program below the row, and hides it again.">
-                            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M3.5 1.8h6l3 3v9.4h-9z"/>
-                                <path d="M9.5 1.8v3h3M5.5 8h5M5.5 10.6h5"/>
-                            </svg>
-                        </button>
-                    </span>
-                    <span class="line">
-                        <label title="The icon that shows the failed refreshes of this run below the row, and hides it again."><input id="set-showErrorIcon" type="checkbox"> Error log</label>
-                        <button id="glyph-showErrorIcon" class="icon tiny glyph" type="button" aria-label="Check Error log" title="The icon that shows the failed refreshes of this run below the row, and hides it again.">
-                            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M8 2L14.5 13.5h-13z"/>
-                                <path d="M8 6.5v3.2M8 11.6v.1"/>
-                            </svg>
-                        </button>
-                    </span>
+                    <label title="The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again."><input id="set-showCostIcon" type="checkbox"> Cost</label>
+                    <label title="The icon that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History</label>
+                    <label title="The icon that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log</label>
                 </fieldset>
                 </div>
                 <div id="tab-history" class="tab-page" hidden>
@@ -491,6 +425,8 @@
 <!-- The bottom edge of a window with no title bar, which makes the lowest list taller and shorter, and its grip. -->
 <div id="edge" class="edge" aria-hidden="true" hidden></div>
 <div id="edge-grip" class="edge-grip" aria-hidden="true" hidden></div>
+<div id="edge-right" class="edge-right" aria-hidden="true" hidden></div>
+<div id="edge-right-grip" class="edge-right-grip" aria-hidden="true" hidden></div>
 <!-- Measured, never seen: the table's own width, to size the history window to. -->
 <div id="table-probe" class="panel-lines table-probe" aria-hidden="true"></div>
 <script src="view.js"></script>

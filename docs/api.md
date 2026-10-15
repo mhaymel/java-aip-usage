@@ -143,6 +143,9 @@ text for none, or an amount, as a number or the text of one, from 0.01 to 1,000,
 monthly limit.`, when the daily limit is typed in and above the monthly one; `The setting costDailyAutomatic must be true
 or false.`
 
+Since version 0.91 `tooltipMillis`, a whole number, 0 (the default: as long as the pointer is on it) or from 500 to 3,600,000,
+optional in a `POST`; `locateWindow` is `true` by default; `showErrorIcon` is no longer sent, and is ignored in a `POST`.
+
 Since version 0.90 `locateWindow` (`false` by default, optional in a `POST`), whether a rectangle zooms onto the window when
 it comes to the front; and `logFolder` and `historyFolder` again, each a full path or the empty text for the program's folder,
 in the place of `dataFolder`, which a `POST` may still send for both. A refused folder names its key in `field`.
@@ -607,6 +610,9 @@ a file that cannot be written is `500` with `The history settings could not be s
 Any other method on `/api/history` is `405` with `Allow: GET, POST`; `/api/errors` is `GET` only.
 
 ## `GET /api/errors`
+
+**Gone since version 0.91** (`404`): the error log is no more, and every failed refresh is in the log at `ERROR` (`SEVERE` in the file).
+What follows held until 0.90.
 
 Read-only. The errors of this run, for the error log panel: one for each failed refresh, an HTTP 429 and a problem
 with the token included. They are kept in memory only and are gone when the program stops. Nothing here is a

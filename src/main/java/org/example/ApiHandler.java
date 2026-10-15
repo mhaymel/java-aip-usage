@@ -212,12 +212,6 @@ final class ApiHandler implements HttpHandler {
                 }
                 send(exchange, 200, dailyLimit(exchange.getRequestURI().getQuery()).toJson());
             }
-            case "/api/errors" -> {
-                if (!method.equals("GET")) {
-                    throw new ApiException(405, "Use GET.", "GET");
-                }
-                send(exchange, 200, errors().toJson());
-            }
             case "/api/history" -> {
                 if (method.equals("GET")) {
                     send(exchange, 200, history(zeroLinesAsked(exchange.getRequestURI().getQuery())).toJson());
@@ -495,7 +489,7 @@ final class ApiHandler implements HttpHandler {
 
     private static SettingValues toBody(Settings s) {
         return new SettingValues(s.usageIntervalSeconds(), s.logResponse(), s.showPercentage(), s.showCurrency(), s.showHistoryIcon(), s.showLogIcon(),
-                s.showErrorIcon(), s.showInterval(), s.showDeltaUsed(),
+                s.showInterval(), s.showDeltaUsed(),
                 s.showDeltaTime(), s.timeFormat().json(), s.historyDeltaUsed(), s.historyDeltaTime(), s.historyDate(),
                 s.historyZeroLines(), s.historyFailedLines(), s.showTime(), s.showUsed(), s.showLimit(), s.showRefresh(), s.showCountdown(),
                 s.showDuration(), s.stayOnTop(), s.showTitleBar(), s.autoInterval(),
@@ -509,7 +503,7 @@ final class ApiHandler implements HttpHandler {
                 s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder(),
                 s.showStatus(), s.showDayPercentage(), s.showDayUsed(), s.showDayLimit(),
                 s.historyMonthly(), s.historyDaily(), s.historyDailyBy(), s.statusBlink(),
-                s.cost().showUsed(), s.cost().showLimit(), s.cost().showPercent(), s.locateWindow());
+                s.cost().showUsed(), s.cost().showLimit(), s.cost().showPercent(), s.locateWindow(), s.tooltipMillis());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -534,7 +528,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "showCurrency"),
                     flag(body, "showHistoryIcon"),
                     flag(body, "showLogIcon"),
-                    flag(body, "showErrorIcon"),
+                    // The error log is gone since 0.91: what a page of before sends of its icon is kept, and nothing else changes it.
+                    flag(body, "showErrorIcon", current.showErrorIcon()),
                     flag(body, "showInterval"),
                     flag(body, "showDeltaUsed"),
                     flag(body, "showDeltaTime"),
@@ -572,7 +567,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "historyDaily", current.historyDaily()),
                     flag(body, "historyDailyBy", current.historyDailyBy()),
                     flag(body, "statusBlink", current.statusBlink()),
-                    flag(body, "locateWindow", current.locateWindow()));
+                    flag(body, "locateWindow", current.locateWindow()),
+                    tooltipMillis(body, current.tooltipMillis()));
             // A folder that is changed is used at once: its files are moved there before the settings are saved, and a folder
             // that cannot be written refuses the whole of it, with nothing changed.
             moveFolders(given);
@@ -621,6 +617,19 @@ final class ApiHandler implements HttpHandler {
             throw new InvalidSettingException("The folder cannot be written: " + Failure.of(e) + ".",
                     log.equals(files.logFolder()) ? "historyFolder" : "logFolder");
         }
+    }
+
+    /** How long a tooltip stays, which may be left out and then keeps what the settings have (since 0.91). */
+    private static int tooltipMillis(Json body, int current) {
+        Json value = body.get("tooltipMillis");
+        if (value == null || value.isNull()) {
+            return current;
+        }
+        if (!value.fitsInt() || !Settings.isTooltipMillis(value.intValue())) {
+            throw new InvalidSettingException("The tooltip duration must be 0, for as long as the pointer is on it, or a whole number of"
+                    + " milliseconds from 500 to 3600000.", "tooltipMillis");
+        }
+        return value.intValue();
     }
 
     /** A flag that may be left out, which keeps what the settings have. */
@@ -1179,14 +1188,7 @@ final class ApiHandler implements HttpHandler {
         return String.format(Locale.US, "%,d", n);
     }
 
-    // ---- /api/errors: the errors of this run, newest first
-
-    private ErrorsBody errors() {
-        ZoneId zone = ZoneId.systemDefault();
-        return new ErrorsBody(service.errors().newestFirst().stream()
-                .map(e -> new ErrorEntryBody(Formatting.time(e.at(), TimeFormat.HOURS_MINUTES_SECONDS, zone), e.message()))
-                .toList());
-    }
+    // ---- /api/errors is gone since 0.91: the errors of a run are in the log, at the level ERROR.
 
     // ---- /api/status
 
@@ -1478,7 +1480,6 @@ final class ApiHandler implements HttpHandler {
             boolean showCurrency,
             boolean showHistoryIcon,
             boolean showLogIcon,
-            boolean showErrorIcon,
             boolean showInterval,
             boolean showDeltaUsed,
             boolean showDeltaTime,
@@ -1524,7 +1525,8 @@ final class ApiHandler implements HttpHandler {
             boolean costShowUsed,
             boolean costShowLimit,
             boolean costShowPercent,
-            boolean locateWindow) {
+            boolean locateWindow,
+            int tooltipMillis) {
 
         Json toJson() {
             return Json.object()
@@ -1534,7 +1536,6 @@ final class ApiHandler implements HttpHandler {
                     .put("showCurrency", showCurrency)
                     .put("showHistoryIcon", showHistoryIcon)
                     .put("showLogIcon", showLogIcon)
-                    .put("showErrorIcon", showErrorIcon)
                     .put("showInterval", showInterval)
                     .put("showDeltaUsed", showDeltaUsed)
                     .put("showDeltaTime", showDeltaTime)
@@ -1581,7 +1582,8 @@ final class ApiHandler implements HttpHandler {
                     .put("costShowUsed", costShowUsed)
                     .put("costShowLimit", costShowLimit)
                     .put("costShowPercent", costShowPercent)
-                    .put("locateWindow", locateWindow);
+                    .put("locateWindow", locateWindow)
+                    .put("tooltipMillis", tooltipMillis);
         }
     }
 
@@ -1755,24 +1757,6 @@ final class ApiHandler implements HttpHandler {
                     .put("total", total)
                     .put("zeroLines", zeroLines)
                     .put("lines", all);
-        }
-    }
-
-    record ErrorEntryBody(String time, String message) {
-
-        Json toJson() {
-            return Json.object().put("time", time).put("message", message);
-        }
-    }
-
-    record ErrorsBody(List<ErrorEntryBody> entries) {
-
-        Json toJson() {
-            Json all = Json.array();
-            for (ErrorEntryBody entry : entries) {
-                all.add(entry.toJson());
-            }
-            return Json.object().put("entries", all);
         }
     }
 

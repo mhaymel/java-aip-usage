@@ -401,8 +401,13 @@ public final class UsageService implements AutoCloseable {
         }
         Outcome outcome = settleInterval(answered);
         if (outcome.error() != null) {
-            // The message the window shows in its message line, once, when it appears.
-            LOG.warning("Usage refresh failed: " + outcome.error());
+            // The message the window shows in its message line, once, when it appears. At the level ERROR since 0.91, where the error
+            // log had it; a 429 while the program searches for the interval is part of the search, and stays at INFO.
+            if (outcome.rateLimited() && search != null) {
+                LOG.info("Usage refresh refused: " + outcome.error());
+            } else {
+                LOG.error("Usage refresh failed: " + outcome.error());
+            }
             errors.add(Instant.now(), outcome.error());
         }
         // The interval and the countdown first, then the state: an answer is not to be seen with the interval of the one
@@ -436,7 +441,7 @@ public final class UsageService implements AutoCloseable {
             // These messages are written for the user and carry no credentials.
             return Outcome.failure(Failure.of(e));
         } catch (RuntimeException e) {
-            LOG.warning("Usage refresh failed unexpectedly", e);
+            LOG.error("Usage refresh failed unexpectedly", e);
             return Outcome.failure("Unexpected error; start the program with --debug to see on the console where it came from.");
         }
     }

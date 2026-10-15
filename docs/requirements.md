@@ -74,7 +74,8 @@ The client must obtain an OAuth access token before it can fetch usage data.
   `claude --version` (the request said `claude -version`, which the CLI does not take) and logs `Claude Code version: <what it
   printed, the first line>`. It is run in the background, so that the window does not wait for it, and with a time limit of 10
   seconds. When it cannot be run, or does not answer in time, one line at the information level says so: `Claude Code version
-  could not be read: <reason>`. Not with the fake backend in use, nor with the placeholder token, where Claude Code is not used.
+  could not be read: <reason>`. **At every start, whatever the source of the readings**, the fake backend and the placeholder token
+  included, so that the log always says which version is installed (first written to leave those out).
 - **What is kept after each outcome.** A failure that is not a 401, whatever it is (another status, the network, a response that cannot be read), keeps the token for the next refresh and is not tried again within the refresh. On a 401 the rejected token is dropped before a fresh one is asked for, so that it is never sent again: if getting the fresh one fails, the refresh fails with the message of the token flow and the next refresh starts the flow anew. If the retry is rejected with a 401 as well, no token is kept, and every later refresh runs the token flow until one is accepted. If the retry fails in any other way, that failure is reported as it is and the fresh token is kept; a 429 answered to the retry is treated as any 429 (see Refresh behavior).
 - If the user is not logged in or the token is unavailable, the application should show a clear user-facing message instead of failing silently. The same goes when `claude` cannot be found on the `PATH` (the message says what to do, including that a changed `PATH` needs a restart) and when it is found but cannot be run.
 - If `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is set, `claude` would send that credential instead of its OAuth login token, so the application does not capture one: it shows a message naming the variable, never its value, and asks for it to be unset and the application restarted.
@@ -1425,7 +1426,14 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **Every tooltip of the window is 14 pixels**, the size of the message lines (since version 0.50; it was about 11 before): those of the row's
   figures, gray boxes and buttons, those of the settings and the debug settings, and those of the lines of the history.
-- The texts of the tooltips are unchanged, and so is when a tooltip appears and goes.
+- The texts of the tooltips are unchanged, and so is when a tooltip appears and goes. **Since version 0.91 how long a tooltip
+  stays is a setting**: `Tooltip duration`, a field in milliseconds in the group `Window` of `General`, after `Show where the
+  window is`, saved under `tooltipMillis`. **0, the default, keeps a tooltip for as long as the pointer is on what it belongs to**
+  (the toolkit's 5 seconds were too short); any other value is a whole number from 500 to 3,600,000. Its tooltip: `How long a
+  tooltip stays, in milliseconds: 0 keeps it for as long as the pointer is on it, or from 500 to 3,600,000.` A wrong value is
+  refused as the other fields are, with the focus on it. It takes effect when the settings are saved, for every tooltip of the
+  window. **Should the toolkit of the window give no way to keep its tooltips that long, the page draws its own**, in the same
+  look and size, so that the setting always holds; a tooltip of the page never reaches beyond the window.
 - A tooltip may reach beyond the window, as before: the window is often no larger than the row.
 - **The tooltips are drawn by the window, not by the page**: the page says their text, and the size is a style of the
   window. Their typeface, their colours and their frame are the system's, as before.
@@ -2179,6 +2187,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### The first reading of a day is underlined in the history
 
+- **Since version 0.91 the line is 3 pixels and blue**, in the blue of the notes, `#0969da` on the light theme and `#58a6ff` on
+  the dark one, where it was 1 pixel of light gray; the rest of this section holds.
 - **Since version 0.89 the first reading of each day has a light gray line under it** (`docs/img_62.png`): a line of 1 pixel
   across the whole row of the table, in the gray of the grid, `#d0d7de` on the light theme and `#3d444d` on the dark one. As the
   history is newest first, the first reading of a day is the lowest line of that day, and the line stands between two days.
@@ -2391,13 +2401,42 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   taskbar; the program's window is not moved or changed by it. Where the system cannot draw a transparent window, nothing is
   drawn.
 - **It is not a setting.** (Until version 0.89; see below.)
-- **Since version 0.90 it is a setting, off by default**: `Show where the window is`, a checkbox in the group `Window` of the
+- **Since version 0.90 it is a setting, off by default** (**on by default since version 0.91**, `docs/img_69.png`): `Show where the window is`, a checkbox in the group `Window` of the
   tab `General`, after `Several views at once`, saved under `locateWindow`. Its tooltip: `When the window comes to the front, a
   rectangle zooms onto it so that it is found at once. Not when you click into the window.` It takes effect when the settings
   are saved.
 - **Not when the window is clicked into** (since version 0.90): an activation that comes with a press of the mouse inside the
   window, within half a second, shows nothing; the taskbar, the Dock, Alt-Tab or Cmd-Tab, a restore from minimized and the start
   still do.
+- **Not when the title bar is clicked either** (since version 0.91): a click on the title bar of the system is no press the program
+  is told of, so **the rectangle is shown only when the pointer is outside the window as it becomes the active window** (the
+  taskbar, the Dock, a restore from minimized) or at the start. Alt-Tab or Cmd-Tab with the pointer over the window shows nothing
+  then; that is the price of telling a click on the title bar apart.
+
+### Version 0.91: the error log goes into the log, and smaller things
+
+- **The error log is gone** (`new-requirements.md`): its icon, the triangle, its view, its checkbox `Error log` in the group `Icons`
+  and the setting `showErrorIcon` (still read in a file, and ignored). What this document says of the error log, its panel, its
+  width, its height and its notes holds no more. A file of 0.90 that stored the error log among the views shown at the start opens
+  without it.
+- **Every failed refresh is written to the log at the level `ERROR`**, with the message the row showed for it (where some were
+  `WARNING` until 0.90), so that the log holds what the error log held; an HTTP 429 with the automatic interval, which is part of
+  how the search works, stays at `INFO`.
+- **The log viewer shows the lines of `ERROR` in red** (`#cf222e` on the light theme, `#f85149` on the dark one) **and those of
+  `WARNING` in orange** (`#c26a00`, the darker orange of the status circle, readable as text on both themes), the whole line, its
+  time and level included. The gap between the level and the text stays as the file has it (`INFO    [`).
+- **The log opens larger**: 30 of its lines tall where it was 10, and half again as wide, within the screen; a height dragged to is
+  still remembered and wins, as before.
+- **The icons in the group `Icons` are gone** (`docs/img_71.png`): the checkboxes `Cost`, `History` and `Log` stand alone, and a click
+  on an icon checks nothing, there being none.
+- **A right edge, like the bottom one** (see Taller and shorter by the bottom edge): while the title bar is off and a view whose
+  width the person may change is shown, the log alone or among others, the right 6 pixels of the window make it wider and narrower,
+  with the cursor of a horizontal resize and a grip on hover (2 by 24 pixels, centred, in the muted gray). The width is kept as one
+  dragged by the frame is. The history alone has none: its width is its table's.
+- **The paths in `Log` and `History`** (`docs/img_72.png`): the line of the folder shows the folder in full, the program's folder too
+  (its path in gray while it is the default, where it said `Program folder`); the line of the file shows the file's name alone,
+  still a link that opens its folder, with the button that copies the full path.
+- **Every column of the history is centred** (`docs/img_73.png`), its title and its cells, as `daily limit is` is since 0.90.
 
 ## Debug mode
 
@@ -3022,7 +3061,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, `logFolder`, `historyFolder`, and since version 0.82 `showStatus`, `showDayPercentage`, `showDayUsed`, `showDayLimit`, `historyMonthly`, `historyDaily`, `historyDailyBy`, `costLimitSource`, `costWorkdayHours`, `costWorkdays`, `costWorkdaysMonth` and `costCurrency`, since version 0.88 `statusBlink`, since version 0.89 `costShowUsed`, `costShowLimit` and `costShowPercent`, since version 0.90 `locateWindow` (and `logFolder` and `historyFolder` again in the place of `dataFolder`), the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, `logFolder`, `historyFolder`, and since version 0.82 `showStatus`, `showDayPercentage`, `showDayUsed`, `showDayLimit`, `historyMonthly`, `historyDaily`, `historyDailyBy`, `costLimitSource`, `costWorkdayHours`, `costWorkdays`, `costWorkdaysMonth` and `costCurrency`, since version 0.88 `statusBlink`, since version 0.89 `costShowUsed`, `costShowLimit` and `costShowPercent`, since version 0.90 `locateWindow` (and `logFolder` and `historyFolder` again in the place of `dataFolder`), since version 0.91 `tooltipMillis` (and `showErrorIcon` no more), the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
   `historyHeight` and `logHeight`. The three files, the settings, the log and the usage history, are in the working directory the program was
   started from; where that is for a version started in its usual way is said in its section. Since version 0.81 the log and
   the usage history can be in other folders (see The folders of the log and of the usage history); the settings file stays in

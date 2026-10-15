@@ -889,6 +889,28 @@ class UsageServiceTest {
         }
     }
 
+    @Test
+    void aFailedRefreshIsLoggedAtTheLevelErrorSince091() {
+        List<String> lines = new CopyOnWriteArrayList<>();
+        org.example.log.Log.Sink capture = entry -> lines.add(entry.level().word() + " " + entry.message());
+        org.example.log.Log.addSink(capture);
+        try {
+            AtomicInteger calls = new AtomicInteger();
+            UsageService service = start(() -> {
+                calls.incrementAndGet();
+                throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
+            }, HOUR);
+            await(() -> calls.get() == 1 && !service.state().refreshing());
+            await(() -> lines.stream().anyMatch(line -> line.contains("Usage refresh failed")));
+
+            assertEquals(List.of("SEVERE Usage refresh failed: Anthropic returned HTTP 503."),
+                    lines.stream().filter(line -> line.contains("Usage refresh failed")).toList(),
+                    "at ERROR, where the error log had it; the log writes ERROR as SEVERE");
+        } finally {
+            org.example.log.Log.removeSink(capture);
+        }
+    }
+
     // ---- one loop that owns everything, and questions that never wait for it
 
     @Test

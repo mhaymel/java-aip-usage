@@ -16,8 +16,9 @@
     var lastStale = false;
     // The views there are, in the order of their icons, which is the order they are stacked in; and those of them that are lists.
     // In the order of the icons (since 0.81: before, the log, the history, the error log and the cost control).
-    var VIEWS = ['cost', 'history', 'log', 'errors'];
-    var LISTS = ['history', 'log', 'errors'];
+    // The error log is gone since 0.91: its errors are in the log, at the level ERROR.
+    var VIEWS = ['cost', 'history', 'log'];
+    var LISTS = ['history', 'log'];
     // Which of them are shown below the strip, in that order: none, one, or, with several views at once, more. The settings
     // are no view among them: they are shown alone, in the place of whatever was shown, and are a state of their own.
     var openViews = [];
@@ -266,6 +267,11 @@
         if (!hasEdge()) {
             show('edge-grip', false);
         }
+        // And the right edge, while a view whose width is the person's is shown: the log (since 0.91).
+        show('edge-right', hasRightEdge());
+        if (!hasRightEdge()) {
+            show('edge-right-grip', false);
+        }
         renderOptional('delta-used', s.deltaUsed, v.deltaUsed, 'Change in the amount used since the previous reading');
         renderOptional('delta-time', s.deltaTime, v.deltaTime, 'Time since the previous reading');
         renderOptional('duration', s.duration, v.duration, 'How long the latest usage request took');
@@ -424,7 +430,7 @@
      * button that is switched off is never taken away from a panel that is open.
      */
     function renderButtons(show) {
-        var flags = { history: show.historyIcon, log: show.logIcon, errors: show.errorIcon, cost: show.costIcon };
+        var flags = { history: show.historyIcon, log: show.logIcon, cost: show.costIcon };
         Object.keys(flags).forEach(function (name) {
             var on = flags[name] !== false;
             $(PANELS[name].button).hidden = !(on || isOpen(name) || settingsOpen);
@@ -511,15 +517,15 @@
     var currentTab = TABS[0];
 
     // The setting that switches the icon of each view on and off; the settings have none, as their icon is always there.
-    var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', errors: 'showErrorIcon', cost: 'showCostIcon' };
+    var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', cost: 'showCostIcon' };
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
-    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon', 'showStatus', 'statusBlink', 'showDayPercentage', 'showDayUsed', 'showDayLimit'];
+    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showStatus', 'statusBlink', 'showDayPercentage', 'showDayUsed', 'showDayLimit'];
     // The elements of the row that have a checkbox: the flags of Main view but the currency symbol, a property of the amounts, and
     // Blinks, a property of the status circle (since 0.88).
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency' && key !== 'statusBlink'; });
     // The four icons of the views, a group of their own since 0.90, with a button of its own that selects them all, or none.
-    var ICON_FLAGS = ['showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon'];
+    var ICON_FLAGS = ['showCostIcon', 'showHistoryIcon', 'showLogIcon'];
     // The elements of the group Main, which its button selects: every element but the icons.
     var MAIN_ELEMENT_FLAGS = ELEMENT_FLAGS.filter(function (key) { return ICON_FLAGS.indexOf(key) < 0; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
@@ -545,7 +551,7 @@
                 limit: checked('showLimit'), refresh: checked('showRefresh'), countdown: checked('showCountdown'),
                 interval: checked('showInterval'), deltaUsed: checked('showDeltaUsed'), deltaTime: checked('showDeltaTime'),
                 duration: checked('showDuration'),
-                logIcon: checked('showLogIcon'), historyIcon: checked('showHistoryIcon'), errorIcon: checked('showErrorIcon'),
+                logIcon: checked('showLogIcon'), historyIcon: checked('showHistoryIcon'),
                 costIcon: checked('showCostIcon'),
                 status: checked('showStatus'), statusBlink: checked('statusBlink'), dayPercentage: checked('showDayPercentage'), dayUsed: checked('showDayUsed'), dayLimit: checked('showDayLimit')
             }
@@ -622,7 +628,7 @@
 
     // The tab each field that can be refused is on (since 0.89), and the field that was refused last, framed in red until changed.
     // The interval is in Cost control since 0.90, and each folder in the tab of its list.
-    var FIELD_TABS = { usageIntervalSeconds: 'cost', logFolder: 'log', historyFolder: 'history', costMonthlyLimit: 'cost', costDailyLimit: 'cost',
+    var FIELD_TABS = { tooltipMillis: 'general', usageIntervalSeconds: 'cost', logFolder: 'log', historyFolder: 'history', costMonthlyLimit: 'cost', costDailyLimit: 'cost',
         costWorkdayHours: 'cost', costWorkdays: 'cost' };
     var invalidId = null;
 
@@ -678,6 +684,7 @@
         });
         $('set-timeFormat').value = values.timeFormat;
         $('set-usageIntervalSeconds').value = String(values.usageIntervalSeconds);
+        $('set-tooltipMillis').value = String(typeof values.tooltipMillis === 'number' ? values.tooltipMillis : 0);
         $('set-costMonthlyLimit').value = values.costMonthlyLimit || '';
         costDailyTyped = values.costDailyLimit || '';
         var server = values.costLimitSource === 'server';
@@ -797,8 +804,8 @@
     function showFolder(key) {
         var value = folderChoice[key];
         var shown = $('set-' + key);
-        // The program's folder is named, not written out (since 0.84): a path is shown only for a folder that was chosen.
-        shown.textContent = value || 'Program folder';
+        // The folder in full since 0.91, the program's too, in gray while it is the default (0.84 to 0.90 said Program folder).
+        shown.textContent = value || programFolder || 'Program folder';
         shown.title = value || programFolder;
         shown.className = 'folder-path' + (value ? '' : ' default');
         if (value) {
@@ -845,6 +852,8 @@
         values.costLimitSource = $('set-costLimitSource-server').checked ? 'server' : 'monthly';
         values.costWorkdayHours = Number(String($('set-costWorkdayHours').value).trim());
         values.costWorkdays = $('set-costWorkdaysAutomatic').checked ? null : Number(String($('set-costWorkdays').value).trim());
+        // How long a tooltip stays (since 0.91); whether it is in range is the backend's to say.
+        values.tooltipMillis = Number(String($('set-tooltipMillis').value).trim());
         FOLDERS.forEach(function (key) {
             values[key] = folderChoice[key];
         });
@@ -917,6 +926,11 @@
         if (!$('set-autoInterval').checked && !/^\d+$/.test($('set-usageIntervalSeconds').value.trim())) {
             setNote('settings-error', 'The interval must be a whole number of seconds.');
             focusField('usageIntervalSeconds');
+            return false;
+        }
+        if (!/^\d+$/.test(String($('set-tooltipMillis').value).trim())) {
+            setNote('settings-error', 'The tooltip duration must be a whole number of milliseconds: 0, or from 500 to 3,600,000.');
+            focusField('tooltipMillis');
             return false;
         }
         try {
@@ -1076,7 +1090,12 @@
         var cut = Math.max(text.lastIndexOf('/'), text.lastIndexOf('\\')) + 1;
         var folders = document.createElement('span');
         folders.className = 'about-folders';
-        folders.textContent = text.slice(0, cut);
+        // The log's and the history's lines show the file's name alone (since 0.91): their folder is the line above. The full
+        // path is the link's tooltip, and what its button copies.
+        folders.textContent = id === 'about-settings' ? text.slice(0, cut) : '';
+        if (id !== 'about-settings') {
+            $(id).title = 'Open the folder of this file: ' + text;
+        }
         var name = document.createElement('span');
         name.className = 'about-file';
         name.textContent = text.slice(cut);
@@ -1239,14 +1258,6 @@
             button: 'settings-button',
             show: 'Show the settings',
             hide: 'Hide the settings'
-        },
-        errors: {
-            button: 'errors-button',
-            path: '/api/errors',
-            describe: view.describeErrors,
-            show: 'Show the error log',
-            hide: 'Hide the error log',
-            failure: 'The error log could not be read: '
         },
         cost: {
             button: 'cost-button',
@@ -1606,6 +1617,9 @@
             if (shown.dayFirst && shown.dayFirst[i]) {
                 line.className += ' day-first';
             }
+            if (shown.levels && shown.levels[i]) {
+                line.className += ' level-' + shown.levels[i];
+            }
             if (shown.links && shown.links[i] && shown.links[i].length > 0) {
                 linkPaths(line.children[0], row[0], shown.links[i]);
             }
@@ -1922,7 +1936,7 @@
      */
     function aloneHeight(name) {
         // The error log's height is not remembered.
-        var kept = name === 'errors' ? 0 : lastStatus && lastStatus.heights ? lastStatus.heights[name] : 0;
+        var kept = lastStatus && lastStatus.heights ? lastStatus.heights[name] : 0;
         return Math.max(panelHeight, typeof kept === 'number' ? kept : 0);
     }
 
@@ -1939,9 +1953,15 @@
     // How near the bottom of the window the pointer brings the grip of the edge, in CSS pixels: the edge and 10 above it.
     var GRIP_NEAR = 16;
 
-    /** Shows the grip of the bottom edge while the pointer is near it, so that the edge can be found where the cursor does not change. */
+    /** Whether the window has the right edge that makes it wider and narrower: no title bar, and the log shown (since 0.91). */
+    function hasRightEdge() {
+        return noTitleBar() && !settingsOpen && isOpen('log');
+    }
+
+    /** Shows the grip of an edge while the pointer is near it, so that the edge can be found where the cursor does not change. */
     function followGrip(event) {
         show('edge-grip', hasEdge() && event && typeof event.clientY === 'number' && window.innerHeight - event.clientY <= GRIP_NEAR);
+        show('edge-right-grip', hasRightEdge() && event && typeof event.clientX === 'number' && window.innerWidth - event.clientX <= GRIP_NEAR);
     }
 
     /**
@@ -1951,6 +1971,9 @@
      */
     window.edgeAt = function (x, y) {
         var at = document.elementFromPoint(x, y);
+        if (at && at.id === 'edge-right' && hasRightEdge()) {
+            return 'e';
+        }
         return at && at.id === 'edge' && hasEdge() ? 's' : '';
     };
 
@@ -2092,7 +2115,7 @@
     // ---- the window host
 
     /**
-     * What the window shows, for the host to store when the program stops: `panel,tab`. The panel is `log`, `history`, `errors`, `cost` or
+     * What the window shows, for the host to store when the program stops: `panel,tab`. The panel is `log`, `history`, `cost` or
      * `settings`; the tab is the one shown of the settings, `main`, `history`, `cost`, `debug`, `general` or `about`, and empty for any
      * other panel. It is the empty text when nothing is open, and when the page is not ready yet: it is safe to ask at any time.
      */
@@ -2163,7 +2186,7 @@
     window.dragStartsAt = function (x, y) {
         var at = document.elementFromPoint(x, y);
         // The bottom edge resizes the window, and moves nothing (since 0.89).
-        if (at && (at.id === 'edge' || (at.closest && at.closest('button, select, input, textarea, label, a')))) {
+        if (at && (at.id === 'edge' || at.id === 'edge-right' || (at.closest && at.closest('button, select, input, textarea, label, a')))) {
             return false;
         }
         var lines = at && at.closest ? at.closest('.panel-lines') : null;
@@ -2243,16 +2266,18 @@
         // A list alone asks for the height it has alone (since 0.87; ten rows until then, the host putting the remembered one in
         // their place): the same where nothing was remembered, and what the buttons of a list give it.
         if (only === 'log') {
-            return (3 * width + scrollbarWidth) + ',' + aloneHeight('log') + ',2,log';
+            // Larger since 0.91: half again as wide, and three times as tall where no height was remembered, within the screen.
+            var remembered = lastStatus && lastStatus.heights && typeof lastStatus.heights.log === 'number' && lastStatus.heights.log > 0;
+            var tall = remembered ? aloneHeight('log') : 3 * panelHeight;
+            if (screenRoomPx > 0) {
+                tall = Math.min(tall, screenRoomPx);
+            }
+            return (Math.ceil(4.5 * width) + scrollbarWidth) + ',' + tall + ',2,log';
         }
         if (only === 'history') {
             // As wide as the table needs (16 px is the panel's padding), never narrower than the row, and wider by what the
             // list was seen to lack at that width.
             return (Math.max(width, currentTableWidth() + 16) + scrollbarWidth + historyLack(width)) + ',' + aloneHeight('history') + ',1,history';
-        }
-        if (only === 'errors') {
-            // Half as wide as the log; a long message scrolls sideways.
-            return (Math.ceil(1.5 * width) + scrollbarWidth) + ',' + aloneHeight('errors') + ',2,errors';
         }
         return width + ',' + height + ',0';
     }
@@ -2282,8 +2307,6 @@
                 wide = Math.max(wide, 3 * width + scrollbarWidth);
             } else if (name === 'history') {
                 wide = Math.max(wide, Math.max(width, currentTableWidth() + 16) + scrollbarWidth + historyLack(width));
-            } else if (name === 'errors') {
-                wide = Math.max(wide, Math.ceil(1.5 * width) + scrollbarWidth);
             } else {
                 wide = Math.max(wide, costWidth() + (fakeInUse() ? 6 : bare() ? 2 : 0));
             }
@@ -2300,7 +2323,7 @@
         }
         // The tab About may be dragged wider: with a list among the views the width is free, and without one the width alone.
         var about = settingsOpen && currentTab === 'about';
-        var flag = lowest === null ? (about ? 4 : 3) : (isOpen('log') || isOpen('errors') || about ? 2 : 1);
+        var flag = lowest === null ? (about ? 4 : 3) : (isOpen('log') || about ? 2 : 1);
         var named = (settingsOpen ? ['settings'] : []).concat(openViews);
         return wide + ',' + Math.ceil(total) + ',' + flag + ',' + named.join('+') + (lowest === null || shared !== null ? '' : ',' + aloneHeight(lowest));
     }
@@ -2429,7 +2452,7 @@
         document.addEventListener('mousemove', followGrip);
         document.addEventListener('input', fieldEdited, true);
         document.addEventListener('change', fieldEdited, true);
-        document.addEventListener('mouseleave', function () { show('edge-grip', false); });
+        document.addEventListener('mouseleave', function () { show('edge-grip', false); show('edge-right-grip', false); });
         FOLDERS.forEach(function (key) {
             $('choose-' + key).addEventListener('click', function () { chooseFolder(key); });
             $('default-' + key).addEventListener('click', function () { defaultFolder(key); });
@@ -2448,7 +2471,6 @@
         $('history-button').addEventListener('click', function () { togglePanel('history'); });
         $('settings-button').addEventListener('click', function () { togglePanel('settings'); });
         $('settings-save').addEventListener('click', applySettings);
-        $('errors-button').addEventListener('click', function () { togglePanel('errors'); });
         $('cost-button').addEventListener('click', function () { togglePanel('cost'); });
         $('countdown').addEventListener('mouseenter', function () { hoveringCountdown = true; render(); });
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
@@ -2465,13 +2487,6 @@
         });
         $('set-all').addEventListener('click', function () { selectAllOrNone(MAIN_ELEMENT_FLAGS); });
         $('set-all-icons').addEventListener('click', function () { selectAllOrNone(ICON_FLAGS); });
-        // A click on the icon beside a checkbox of the group Icons checks it, and never unchecks it (since 0.90).
-        ICON_FLAGS.forEach(function (key) {
-            $('glyph-' + key).addEventListener('click', function () {
-                $('set-' + key).checked = true;
-                previewNow();
-            });
-        });
         $('set-all-history').addEventListener('click', function () { selectAllOrNone(HISTORY_FLAGS); });
         ['settings', 'log', 'history'].forEach(function (name) {
             $('about-' + name).addEventListener('click', function (event) {

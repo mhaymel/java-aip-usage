@@ -295,7 +295,7 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(53, body.get("settings").size(), "the debug settings are not among them; the two folders and locateWindow since 0.90");
+        assertEquals(53, body.get("settings").size(), "the debug settings are not among them; since 0.91 tooltipMillis in, showErrorIcon out");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -1222,38 +1222,21 @@ class ApiTest {
     }
 
     @Test
-    void theErrorLogListsEveryFailedRefreshNewestFirstWithTheTimeAndTheMessage() throws Exception {
+    void theErrorLogIsGoneSince091AndEveryFailedRefreshIsStillKeptForTheLog() throws Exception {
         FakeFetch fetch = new FakeFetch();
         fetch.answer = () -> {
             throw new UsageFetchException("Anthropic returned HTTP 503.", 503);
         };
         AppRuntime app = start(fetch);
         await(() -> app.service().state().error() != null);
-        post(app, "/api/refresh", "{}");
-        await(() -> app.service().errors().newestFirst().size() >= 2);
+        await(() -> !app.service().errors().newestFirst().isEmpty());
 
-        Json errors = json(get(app, "/api/errors")).get("entries");
-
-        assertTrue(errors.size() >= 2);
-        assertTrue(errors.get(0).get("time").asText().matches("\\d{2}:\\d{2}:\\d{2}"), "hh:mm:ss, with seconds, whatever the time format setting");
-        assertEquals("Anthropic returned HTTP 503.", errors.get(0).get("message").asText());
+        assertEquals("Anthropic returned HTTP 503.", app.service().errors().newestFirst().get(0).message());
+        assertEquals(404, get(app, "/api/errors").statusCode(), "no endpoint of its own: the failures are in the log, at ERROR");
     }
 
     @Test
-    void theErrorLogIsEmptyWhenNothingHasFailedAndPollingAddsNothing() throws Exception {
-        AppRuntime app = start(new FakeFetch());
-        await(() -> app.service().state().snapshot() != null);
-
-        for (int i = 0; i < 3; i++) {
-            get(app, "/api/status");
-        }
-
-        assertEquals(0, json(get(app, "/api/errors")).get("entries").size());
-        assertEquals(405, post(app, "/api/errors", "{}").statusCode(), "read-only");
-    }
-
-    @Test
-    void aProblemWithTheTokenIsInTheErrorLog() throws Exception {
+    void aProblemWithTheTokenIsAFailedRefreshLikeAnyOther() throws Exception {
         FakeFetch fetch = new FakeFetch();
         fetch.answer = () -> {
             throw new org.example.token.TokenException(
@@ -1262,7 +1245,7 @@ class ApiTest {
         AppRuntime app = start(fetch);
         await(() -> !app.service().errors().newestFirst().isEmpty());
 
-        assertTrue(json(get(app, "/api/errors")).at("/entries/0/message").asText().contains("not logged in"));
+        assertTrue(app.service().errors().newestFirst().get(0).message().contains("not logged in"));
     }
 
     @Test
@@ -1284,7 +1267,7 @@ class ApiTest {
     }
 
     @Test
-    void anHttp429IsInTheErrorLogAndHasNoMessageInTheStatusDisplay() throws Exception {
+    void anHttp429IsAFailedRefreshAndHasNoMessageInTheStatusDisplay() throws Exception {
         FakeFetch fetch = new FakeFetch();
         fetch.answer = () -> {
             throw new UsageFetchException("Anthropic is rate limiting usage requests (HTTP 429).", 429);
@@ -1297,7 +1280,7 @@ class ApiTest {
         assertTrue(status.at("/display/message").isNull());
         assertTrue(status.at("/display/countdownAlert").asText().contains("HTTP 429"));
         assertFalse(status.get("stale").asBoolean());
-        assertTrue(json(get(app, "/api/errors")).at("/entries/0/message").asText().contains("HTTP 429"));
+        assertTrue(app.service().errors().newestFirst().get(0).message().contains("HTTP 429"));
     }
 
     // ---- hiding lines: the zero usage and the failed ones
@@ -2646,13 +2629,27 @@ class ApiTest {
     // ---- version 0.90
 
     @Test
-    void theRectangleThatShowsWhereTheWindowIsIsASettingOffByDefault() throws Exception {
+    void theRectangleThatShowsWhereTheWindowIsIsASettingOnByDefault() throws Exception {
         AppRuntime app = start(new FakeFetch());
+        assertTrue(json(get(app, "/api/settings")).at("/settings/locateWindow").asBoolean(), "on by default since 0.91");
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"locateWindow\": false}"));
         assertFalse(json(get(app, "/api/settings")).at("/settings/locateWindow").asBoolean());
-        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"locateWindow\": true}"));
-        assertTrue(json(get(app, "/api/settings")).at("/settings/locateWindow").asBoolean());
         post(app, "/api/settings", allSettings(60, false, "hh:mm"));
-        assertTrue(json(get(app, "/api/settings")).at("/settings/locateWindow").asBoolean(), "a POST without it keeps it");
+        assertFalse(json(get(app, "/api/settings")).at("/settings/locateWindow").asBoolean(), "a POST without it keeps it");
+    }
+
+    @Test
+    void howLongATooltipStaysIsASettingZeroForAsLongAsThePointerIsOnIt() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        assertEquals(0, json(get(app, "/api/settings")).at("/settings/tooltipMillis").asInt());
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"tooltipMillis\": 20000}"));
+        assertEquals(20000, json(get(app, "/api/settings")).at("/settings/tooltipMillis").asInt());
+        for (String wrong : new String[] {"100", "3600001", "-1", "\"abc\""}) {
+            HttpResponse<String> refused = post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"tooltipMillis\": " + wrong + "}"));
+            assertEquals(400, refused.statusCode(), wrong);
+            assertEquals("tooltipMillis", json(refused).get("field").asText(), wrong);
+        }
+        assertFalse(json(get(app, "/api/settings")).get("settings").has("showErrorIcon"), "the icon of the error log is gone (since 0.91)");
     }
 
     @Test

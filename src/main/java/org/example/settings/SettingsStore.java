@@ -145,6 +145,7 @@ public final class SettingsStore {
     static final String HISTORY_DAILY_BY_KEY = "historyDailyBy";
     static final String STATUS_BLINK_KEY = "statusBlink";
     static final String LOCATE_WINDOW_KEY = "locateWindow";
+    static final String TOOLTIP_MILLIS_KEY = "tooltipMillis";
 
     /** The folder of the usage history until 0.86, which a file of then has its one folder from; never written since 0.87. */
     static final String HISTORY_FOLDER_KEY = "historyFolder";
@@ -275,7 +276,8 @@ public final class SettingsStore {
                 flag(root, HISTORY_DAILY_KEY, defaults.historyDaily()),
                 flag(root, HISTORY_DAILY_BY_KEY, defaults.historyDailyBy()),
                 flag(root, STATUS_BLINK_KEY, defaults.statusBlink()),
-                flag(root, LOCATE_WINDOW_KEY, defaults.locateWindow()));
+                flag(root, LOCATE_WINDOW_KEY, defaults.locateWindow()),
+                tooltipMillis(root, defaults.tooltipMillis()));
     }
 
     /**
@@ -659,6 +661,19 @@ public final class SettingsStore {
         return name != null && TABS.contains(name);
     }
 
+    /** How long a tooltip stays, as the file says it; a value that is no whole number in its range is the default (since 0.91). */
+    private int tooltipMillis(Json root, int fallback) {
+        Json node = root.get(TOOLTIP_MILLIS_KEY);
+        if (node == null || node.isNull()) {
+            return fallback;
+        }
+        if (!node.fitsInt() || !Settings.isTooltipMillis(node.intValue())) {
+            LOG.warning("Ignoring " + TOOLTIP_MILLIS_KEY + " in " + file + ": not 0 or a whole number from 500 to 3600000");
+            return fallback;
+        }
+        return node.intValue();
+    }
+
     /** A folder as the file names it, a full path; anything but a text is the program's folder, the empty text. */
     private static String folder(Json root, String key) {
         Json node = root.get(key);
@@ -732,7 +747,7 @@ public final class SettingsStore {
         root.put(SHOW_CURRENCY_KEY, settings.showCurrency());
         root.put(SHOW_HISTORY_ICON_KEY, settings.showHistoryIcon());
         root.put(SHOW_LOG_ICON_KEY, settings.showLogIcon());
-        root.put(SHOW_ERROR_ICON_KEY, settings.showErrorIcon());
+        // The icon of the error log is no longer written (since 0.91); a file of before keeps the key, which is read and unused.
         root.put(SHOW_INTERVAL_KEY, settings.showInterval());
         root.put(SHOW_DELTA_USED_KEY, settings.showDeltaUsed());
         root.put(SHOW_DELTA_TIME_KEY, settings.showDeltaTime());
@@ -799,6 +814,7 @@ public final class SettingsStore {
         root.put(HISTORY_DAILY_BY_KEY, settings.historyDailyBy());
         root.put(STATUS_BLINK_KEY, settings.statusBlink());
         root.put(LOCATE_WINDOW_KEY, settings.locateWindow());
+        root.put(TOOLTIP_MILLIS_KEY, settings.tooltipMillis());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
         // What the window showed when the program last stopped; only what was stored is written.

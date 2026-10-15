@@ -94,8 +94,12 @@
         data.lines.forEach(function (line, index) {
             var item = { text: line, index: index };
             if (beginsEntry(line) || entries.length === 0) {
+                // The level of an entry, which its following lines (a stack trace) share (since 0.91).
+                var level = /^\S+ \S+ (SEVERE|WARNING)\b/.exec(line);
+                item.level = level ? (level[1] === 'SEVERE' ? 'error' : 'warning') : null;
                 entries.push([item]);
             } else {
+                item.level = entries[entries.length - 1][0].level;
                 entries[entries.length - 1].push(item);
             }
         });
@@ -120,7 +124,9 @@
             links: ordered.map(linksOf),
             marks: ordered.map(function (item) { return isRunStart(item.text); }),
             // The log's start line has a light gray background; the history's is in green text (see describeHistory).
-            markClass: 'mark'
+            markClass: 'mark',
+            // An error is red and a warning orange (since 0.91), in the place of the error log: 'error', 'warning' or null.
+            levels: ordered.map(function (item) { return item.level; })
         };
     }
 
