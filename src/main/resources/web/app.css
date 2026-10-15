@@ -993,6 +993,8 @@ body {
     box-sizing: border-box;
     width: 15ch;
     padding-left: 1ch;
+    /* Centred since 0.90 (img_68): it stood at the right. */
+    text-align: center;
 }
 
 .panel-lines .columns > .c-deltaUsed {
@@ -1289,4 +1291,27 @@ body {
     border-color: var(--bad);
     outline: 1px solid var(--bad);
     outline-offset: 0;
+}
+
+/*
+ * The path of a file in the settings (since 0.90; the About view had the three): its label, then the link and the button that
+ * copies it. A long path breaks, and does not widen the view.
+ */
+.path-line {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: center;
+    column-gap: 6px;
+    width: 0;
+    min-width: 100%;
+    margin-top: 2px;
+}
+
+.path-line .about-path {
+    overflow-wrap: anywhere;
+}
+
+/* The icon beside a checkbox of the group Icons, as the row draws it, in the muted gray: a click checks the checkbox (since 0.90). */
+.icon.glyph {
+    color: var(--muted);
 }

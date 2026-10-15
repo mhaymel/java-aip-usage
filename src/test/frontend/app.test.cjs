@@ -212,7 +212,7 @@ const DEFAULT_SETTINGS = {
     usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, dataFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, costShowUsed: true, costShowLimit: true, costShowPercent: true, showStatus: true, statusBlink: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
+    showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, costShowUsed: true, costShowLimit: true, costShowPercent: true, showStatus: true, statusBlink: true, locateWindow: false, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
     costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
     historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
 };
@@ -986,7 +986,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
         usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
-        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, dataFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, costShowUsed: true, costShowLimit: true, costShowPercent: true, showStatus: true, statusBlink: true, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
+        showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, costShowUsed: true, costShowLimit: true, costShowPercent: true, showStatus: true, statusBlink: true, locateWindow: false, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
         historyTime: true, historyUsed: true, historyLimit: true, historyCurrent: true,
     });
@@ -2086,7 +2086,9 @@ test('a click on the checkbox of a panel button dims the button, or brings it ba
 
     await page.click('set-all');
     await page.click('set-all');
-    assert.deepEqual(dimmed(page), ['log-button', 'history-button', 'errors-button', 'cost-button'], 'the button of Main view dims all four');
+    assert.deepEqual(dimmed(page), [], 'the button of Main leaves the icons alone since 0.90');
+    await page.click('set-all-icons');
+    assert.deepEqual(dimmed(page), ['log-button', 'history-button', 'errors-button', 'cost-button'], 'the button of Icons dims all four: they were all on');
     assert.equal(page.el('refresh').hidden, true, 'the refresh button still goes with its checkbox: only the panel buttons stay');
     assert.equal(page.el('time').hidden, true, 'and so do the figures');
     assert.equal(settingsPosts(page).length, 0, 'a preview sends nothing');
@@ -2896,19 +2898,23 @@ test('a drag may begin anywhere but on a button or a control', async () => {
 
 // ---- the button of Main view that selects every element of the row, or none
 
+// The elements of the group Main that its button takes; the icons are a group of their own since 0.90, with a button of its own.
 const ELEMENTS = ['showTime', 'showPercentage', 'showUsed', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed',
-    'showDeltaTime', 'showDuration', 'showLogIcon', 'showHistoryIcon', 'showErrorIcon', 'showCostIcon'];
+    'showDeltaTime', 'showDuration'];
+const ICONS = ['showLogIcon', 'showHistoryIcon', 'showErrorIcon', 'showCostIcon'];
 const checkedOf = page => ELEMENTS.filter(key => page.el('set-' + key).checked);
 
 test('the button switches every element on when not all are on, and all off when all are, and leaves the two properties alone', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
-    assert.ok(checkedOf(page).length > 0 && checkedOf(page).length < 14, 'some are on at the start');
+    assert.ok(checkedOf(page).length > 0 && checkedOf(page).length < ELEMENTS.length, 'some are on at the start');
+    const icons = ICONS.map(key => page.el('set-' + key).checked);
     const currency = page.el('set-showCurrency').checked;
     const format = page.el('set-timeFormat').value;
 
     await page.click('set-all');
-    assert.deepEqual(checkedOf(page), ELEMENTS, 'all fourteen on');
+    assert.deepEqual(checkedOf(page), ELEMENTS, 'all on');
+    assert.deepEqual(ICONS.map(key => page.el('set-' + key).checked), icons, 'the icons are left as they were');
 
     await page.click('set-all');
     assert.deepEqual(checkedOf(page), [], 'all on, so all off');
@@ -2936,6 +2942,8 @@ test('what the button does is shown in the row at once, saved with the view, and
     assert.equal(page.el('delta-used').hidden, false);
 
     await page.click('set-all');
+    // The icons were all on: one press of the button of Icons switches them all off.
+    await page.click('set-all-icons');
     for (const id of ['time', 'spend', 'refresh', 'countdown', 'interval', 'delta-used', 'delta-time', 'duration']) {
         assert.equal(page.el(id).hidden, true, id + ' is gone from the row');
     }
@@ -3351,7 +3359,7 @@ test('About is the last tab and shows what the backend says of the program', asy
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
     assert.equal(page.el('about-view').hidden, true, 'the settings open on the first tab');
-    assert.equal(page.calls.filter(c => c.url === '/api/about').length, 0, 'nothing is asked before the tab is');
+    assert.equal(page.calls.filter(c => c.url === '/api/about').length, 1, 'asked when the settings open, for the paths in General, History and Log (since 0.90)');
 
     await page.click('tabbtn-about');
 
@@ -3738,15 +3746,15 @@ test('there are no arrows: a tab is reached by its title, and the tab shown is m
     assert.deepEqual(seen, ['history', 'cost', 'general', 'about', 'main']);
 });
 
-test('in debug mode the Debug tab is between Cost control and General', async () => {
+test('in debug mode the Debug tab is there, and each title shows its own tab', async () => {
     const page = await load(backendOf({ config: DEBUG_CONFIG, status: SPEND_STATUS }));
     await page.click('settings-button');
     const order = [];
-    for (const tab of ['history', 'cost', 'debug', 'general', 'about']) {
+    for (const tab of ['history', 'cost', 'general', 'about', 'debug']) {
         await page.click('tabbtn-' + tab);
         order.push(shownTabs(page)[0]);
     }
-    assert.deepEqual(order, ['history', 'cost', 'debug', 'general', 'about']);
+    assert.deepEqual(order, ['history', 'cost', 'general', 'about', 'debug']);
 });
 
 test('the settings open on the tab they were left on, however they were left', async () => {
@@ -5103,20 +5111,20 @@ test('with several views at once switched off, only the first of the views that 
 
 const WITH_PROGRAM = () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip' } });
 
-test('the group Files shows the one folder of the log and the usage history, the program\'s in gray while it is the default, and Default can then not be pressed', async () => {
+test('the group Files of History shows the history\'s folder, the program\'s in gray while it is the default, and Default can then not be pressed', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS,
-        settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip', settings: { ...SETTINGS.settings, dataFolder: 'D:\\data' } } }) }));
+        settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip', settings: { ...SETTINGS.settings, historyFolder: 'D:\\data' } } }) }));
     await page.click('settings-button');
-    assert.equal(page.el('set-dataFolder').textContent, 'D:\\data');
-    assert.equal(page.el('set-dataFolder').className, 'folder-path');
-    assert.ok(!('disabled' in page.el('default-dataFolder').attrs));
+    assert.equal(page.el('set-historyFolder').textContent, 'D:\\data');
+    assert.equal(page.el('set-historyFolder').className, 'folder-path');
+    assert.ok(!('disabled' in page.el('default-historyFolder').attrs));
 
     const other = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: WITH_PROGRAM }));
     await other.click('settings-button');
-    assert.equal(other.el('set-dataFolder').textContent, 'Program folder', 'the program\'s folder is named, not written out (since 0.84)');
-    assert.equal(other.el('set-dataFolder').title, 'C:\\aip', 'its path is the tooltip');
-    assert.equal(other.el('set-dataFolder').className, 'folder-path default');
-    assert.ok('disabled' in other.el('default-dataFolder').attrs, 'it is the default already');
+    assert.equal(other.el('set-historyFolder').textContent, 'Program folder', 'the program\'s folder is named, not written out (since 0.84)');
+    assert.equal(other.el('set-historyFolder').title, 'C:\\aip', 'its path is the tooltip');
+    assert.equal(other.el('set-historyFolder').className, 'folder-path default');
+    assert.ok('disabled' in other.el('default-historyFolder').attrs, 'it is the default already');
 });
 
 test('Choose… asks for a folder, opened at the one shown, and puts what was chosen in the form; cancelled, nothing changes', async () => {
@@ -5125,33 +5133,33 @@ test('Choose… asks for a folder, opened at the one shown, and puts what was ch
     await page.click('settings-button');
 
     state.folder = () => ({ status: 200, body: { folder: null } });
-    await page.click('choose-dataFolder');
-    assert.equal(page.el('set-dataFolder').textContent, 'Program folder', 'cancelled');
+    await page.click('choose-historyFolder');
+    assert.equal(page.el('set-historyFolder').textContent, 'Program folder', 'cancelled');
     assert.deepEqual(JSON.parse(page.calls.filter(c => c.url === '/api/folder').pop().body), { start: 'C:\\aip' });
 
     state.folder = () => ({ status: 200, body: { folder: 'E:\\data' } });
-    await page.click('choose-dataFolder');
-    assert.equal(page.el('set-dataFolder').textContent, 'E:\\data');
+    await page.click('choose-historyFolder');
+    assert.equal(page.el('set-historyFolder').textContent, 'E:\\data');
     assert.equal(settingsPosts(page).length, 0, 'nothing is saved by choosing');
 
     await page.click('settings-save');
     const sent = JSON.parse(settingsPosts(page)[0].body);
-    assert.equal(sent.dataFolder, 'E:\\data', 'it is saved with the settings');
-    assert.equal(sent.logFolder, undefined, 'the two keys of before are not sent');
-    assert.equal(sent.historyFolder, undefined);
+    assert.equal(sent.historyFolder, 'E:\\data', 'it is saved with the settings');
+    assert.equal(sent.logFolder, '', 'and the log\'s is its own, the program\'s');
+    assert.equal(sent.dataFolder, undefined, 'the one folder of 0.87 to 0.89 is not sent');
 });
 
 test('Default puts back the program\'s folder, which is sent as the empty text', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS,
-        settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip', settings: { ...SETTINGS.settings, dataFolder: 'D:\\data' } } }) }));
+        settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip', settings: { ...SETTINGS.settings, historyFolder: 'D:\\data' } } }) }));
     await page.click('settings-button');
 
-    await page.click('default-dataFolder');
-    assert.equal(page.el('set-dataFolder').textContent, 'Program folder', 'named, its path the tooltip (since 0.84)');
-    assert.equal(page.el('set-dataFolder').title, 'C:\\aip');
+    await page.click('default-historyFolder');
+    assert.equal(page.el('set-historyFolder').textContent, 'Program folder', 'named, its path the tooltip (since 0.84)');
+    assert.equal(page.el('set-historyFolder').title, 'C:\\aip');
 
     await page.click('settings-save');
-    assert.equal(JSON.parse(settingsPosts(page)[0].body).dataFolder, '');
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).historyFolder, '');
 });
 
 test('a folder that cannot be written is said in red under the group Files, and the settings stay open', async () => {
@@ -5160,12 +5168,12 @@ test('a folder that cannot be written is said in red under the group Files, and 
         postSettings: () => ({ status: 400, body: { error: 'The folder cannot be written: the file or its folder is not there.' } }) };
     const page = await load(backendOf(state));
     await page.click('settings-button');
-    await page.click('choose-dataFolder');
+    await page.click('choose-historyFolder');
 
     await page.click('settings-save');
 
-    assert.equal(page.el('folder-error').textContent, 'The folder cannot be written: the file or its folder is not there.');
-    assert.equal(page.el('folder-error').hidden, false);
+    assert.equal(page.el('folder-error-history').textContent, 'The folder cannot be written: the file or its folder is not there.');
+    assert.equal(page.el('folder-error-history').hidden, false);
     assert.equal(page.el('settings-error').hidden, true, 'not at the top of the view');
     assert.equal(page.el('settings-view').hidden, false, 'the settings stay');
 });
@@ -5174,8 +5182,8 @@ test('a folder picker that cannot be shown is said in red under the group Files'
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, settings: WITH_PROGRAM,
         folder: () => ({ status: 500, body: { error: 'The folder could not be chosen: there is no window to choose a folder in' } }) }));
     await page.click('settings-button');
-    await page.click('choose-dataFolder');
-    assert.equal(page.el('folder-error').textContent, 'The folder could not be chosen: there is no window to choose a folder in');
+    await page.click('choose-historyFolder');
+    assert.equal(page.el('folder-error-history').textContent, 'The folder could not be chosen: there is no window to choose a folder in');
 });
 
 test('the cost control has its own currency symbol, a checkbox in its tab, off by default, sent with the settings', async () => {
@@ -5671,7 +5679,7 @@ test('the own check of the interval puts the focus on its field too', async () =
     await page.click('settings-button');
     page.el('set-usageIntervalSeconds').value = 'abc';
     await page.click('settings-save');
-    assert.equal(page.el('tab-general').hidden, false);
+    assert.equal(page.el('tab-cost').hidden, false, 'the interval is in Cost control since 0.90');
     assert.equal(page.el('set-usageIntervalSeconds').focused, true);
     assert.match(page.el('set-usageIntervalSeconds').className, /\binvalid\b/);
 });
@@ -5720,4 +5728,64 @@ test('a press along the edge of a list that scrolls is on its scrollbar, also wh
     assert.equal(page.window.dragStartsAt(200, 345), true, 'it does not scroll in width');
     lines.scrollHeight = 300;
     assert.equal(page.window.dragStartsAt(390, 200), true, 'a list that does not scroll has no scrollbar');
+});
+
+// ---- version 0.90
+
+test('a click on the icon beside a checkbox of the group Icons checks it and previews it, and a second click leaves it checked', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    await change(page, 'set-showLogIcon', false);
+    assert.match(page.el('log-button').className, /\boff\b/, 'unchecked: dimmed in the row');
+    await page.click('glyph-showLogIcon');
+    assert.equal(page.el('set-showLogIcon').checked, true, 'the icon checks it');
+    assert.doesNotMatch(page.el('log-button').className, /\boff\b/, 'and the row shows it at once');
+    await page.click('glyph-showLogIcon');
+    assert.equal(page.el('set-showLogIcon').checked, true, 'a click never unchecks it');
+    assert.equal(settingsPosts(page).length, 0, 'nothing is sent by it');
+});
+
+test('closing a view by its icon in the row leaves its checkbox as it was', async () => {
+    const saved = { ...SETTINGS.settings, severalViews: true };
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL, history: () => ({ status: 200, body: HISTORY }),
+        settings: () => ({ status: 200, body: { ...SETTINGS, settings: saved } }) }));
+    await page.click('history-button');
+    await page.click('settings-button');
+    assert.equal(page.el('set-showHistoryIcon').checked, true);
+    await page.click('history-button');
+    await page.click('settings-button');
+    assert.equal(page.el('set-showHistoryIcon').checked, true, 'the checkbox says whether the icon is in the row, not whether its view is open');
+});
+
+test('each list has its own folder again: the log\'s in Log, the history\'s in History, each sent, each with its own red line', async () => {
+    const state = { config: CONFIG, status: SPEND_STATUS, settings: () => ({ status: 200, body: { ...SETTINGS, programFolder: 'C:\\aip' } }) };
+    const page = await load(backendOf(state));
+    await page.click('settings-button');
+    state.folder = () => ({ status: 200, body: { folder: 'D:\\logs' } });
+    await page.click('choose-logFolder');
+    assert.equal(page.el('set-logFolder').textContent, 'D:\\logs');
+    assert.equal(page.el('set-historyFolder').textContent, 'Program folder', 'the other is its own');
+    state.postSettings = () => ({ status: 400, body: { error: 'The folder cannot be written: access is denied.', field: 'logFolder' } });
+    await page.click('settings-save');
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).logFolder, 'D:\\logs');
+    assert.equal(page.el('folder-error-log').textContent, 'The folder cannot be written: access is denied.');
+    assert.equal(page.el('folder-error-history').hidden, true);
+    assert.equal(page.el('tab-log').hidden, false, 'its tab is shown');
+    assert.equal(page.el('choose-logFolder').focused, true, 'with the focus on its Choose…');
+});
+
+test('Show where the window is is off by default and sent with the settings', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    assert.equal(page.el('set-locateWindow').checked, false);
+    page.el('set-locateWindow').checked = true;
+    await page.click('settings-save');
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).locateWindow, true);
+});
+
+test('the paths are filled when the settings are opened, in General, History and Log', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('settings-button');
+    await settle();
+    assert.ok(page.calls.some(c => c.url === '/api/about'), 'the About view is not needed for them');
 });

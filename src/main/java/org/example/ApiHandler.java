@@ -506,10 +506,10 @@ final class ApiHandler implements HttpHandler {
                 s.cost().source(),
                 s.cost().workdayHours(),
                 s.cost().workdaysTyped(java.time.YearMonth.now()).orElse(null),
-                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.historyFolder(),
+                s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder(),
                 s.showStatus(), s.showDayPercentage(), s.showDayUsed(), s.showDayLimit(),
                 s.historyMonthly(), s.historyDaily(), s.historyDailyBy(), s.statusBlink(),
-                s.cost().showUsed(), s.cost().showLimit(), s.cost().showPercent());
+                s.cost().showUsed(), s.cost().showLimit(), s.cost().showPercent(), s.locateWindow());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -522,8 +522,11 @@ final class ApiHandler implements HttpHandler {
                 throw new InvalidSettingException("The setting " + USAGE_KEY + " is missing.", USAGE_KEY);
             }
             Settings current = settings.current();
-            // The log and the usage history are kept in one folder (since 0.87): the settings hold it twice, the same.
-            String dataFolder = folderText(body, "dataFolder", current.historyFolder());
+            // A folder each for the log and the usage history again since 0.90; dataFolder, the one folder of 0.87 to 0.89, is
+            // taken for both when it is sent alone.
+            String dataFolder = body.has("logFolder") || body.has("historyFolder") ? null : folderText(body, "dataFolder", null);
+            String logFolder = dataFolder != null ? dataFolder : folderText(body, "logFolder", current.logFolder());
+            String historyFolder = dataFolder != null ? dataFolder : folderText(body, "historyFolder", current.historyFolder());
             Settings given = new Settings(
                     usage.intValue(),
                     flag(body, "logResponse"),
@@ -559,8 +562,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "restoreWindow", current.restoreWindow()),
                     flag(body, "showCostIcon", current.showCostIcon()),
                     flag(body, "severalViews", current.severalViews()),
-                    dataFolder,
-                    dataFolder,
+                    logFolder,
+                    historyFolder,
                     flag(body, "showStatus", current.showStatus()),
                     flag(body, "showDayPercentage", current.showDayPercentage()),
                     flag(body, "showDayUsed", current.showDayUsed()),
@@ -568,7 +571,8 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "historyMonthly", current.historyMonthly()),
                     flag(body, "historyDaily", current.historyDaily()),
                     flag(body, "historyDailyBy", current.historyDailyBy()),
-                    flag(body, "statusBlink", current.statusBlink()));
+                    flag(body, "statusBlink", current.statusBlink()),
+                    flag(body, "locateWindow", current.locateWindow()));
             // A folder that is changed is used at once: its files are moved there before the settings are saved, and a folder
             // that cannot be written refuses the whole of it, with nothing changed.
             moveFolders(given);
@@ -596,7 +600,7 @@ final class ApiHandler implements HttpHandler {
         }
         String folder = value.text().strip();
         if (!folder.isEmpty() && !java.nio.file.Path.of(folder).isAbsolute()) {
-            throw new InvalidSettingException("The folder cannot be written: it is not a full path.", "dataFolder");
+            throw new InvalidSettingException("The folder cannot be written: it is not a full path.", key);
         }
         return folder;
     }
@@ -613,7 +617,9 @@ final class ApiHandler implements HttpHandler {
             sources.moveFolders(log, history);
         } catch (IOException | RuntimeException e) {
             LOG.warning("Could not change the folders of the log and the history", e);
-            throw new InvalidSettingException("The folder cannot be written: " + Failure.of(e) + ".", "dataFolder");
+            // The log is moved first: when it is the one that changed, it is the one named.
+            throw new InvalidSettingException("The folder cannot be written: " + Failure.of(e) + ".",
+                    log.equals(files.logFolder()) ? "historyFolder" : "logFolder");
         }
     }
 
@@ -1505,7 +1511,8 @@ final class ApiHandler implements HttpHandler {
             boolean restoreWindow,
             boolean showCostIcon,
             boolean severalViews,
-            String dataFolder,
+            String logFolder,
+            String historyFolder,
             boolean showStatus,
             boolean showDayPercentage,
             boolean showDayUsed,
@@ -1516,7 +1523,8 @@ final class ApiHandler implements HttpHandler {
             boolean statusBlink,
             boolean costShowUsed,
             boolean costShowLimit,
-            boolean costShowPercent) {
+            boolean costShowPercent,
+            boolean locateWindow) {
 
         Json toJson() {
             return Json.object()
@@ -1559,8 +1567,9 @@ final class ApiHandler implements HttpHandler {
                     .put("restoreWindow", restoreWindow)
                     .put("showCostIcon", showCostIcon)
                     .put("severalViews", severalViews)
-                    // One folder for the log and the usage history (since 0.87).
-                    .put("dataFolder", dataFolder)
+                    // A folder each again since 0.90.
+                    .put("logFolder", logFolder)
+                    .put("historyFolder", historyFolder)
                     .put("showStatus", showStatus)
                     .put("showDayPercentage", showDayPercentage)
                     .put("showDayUsed", showDayUsed)
@@ -1571,7 +1580,8 @@ final class ApiHandler implements HttpHandler {
                     .put("statusBlink", statusBlink)
                     .put("costShowUsed", costShowUsed)
                     .put("costShowLimit", costShowLimit)
-                    .put("costShowPercent", costShowPercent);
+                    .put("costShowPercent", costShowPercent)
+                    .put("locateWindow", locateWindow);
         }
     }
 

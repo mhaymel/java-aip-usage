@@ -143,6 +143,10 @@ text for none, or an amount, as a number or the text of one, from 0.01 to 1,000,
 monthly limit.`, when the daily limit is typed in and above the monthly one; `The setting costDailyAutomatic must be true
 or false.`
 
+Since version 0.90 `locateWindow` (`false` by default, optional in a `POST`), whether a rectangle zooms onto the window when
+it comes to the front; and `logFolder` and `historyFolder` again, each a full path or the empty text for the program's folder,
+in the place of `dataFolder`, which a `POST` may still send for both. A refused folder names its key in `field`.
+
 Since version 0.89 three more, each optional in a `POST` and `true` by default: `costShowUsed`, `costShowLimit` and
 `costShowPercent`, which columns of figures the cost control panel shows. A `400` that refuses one setting names it in `field`, the key
 of the setting, beside `error`, so that the page can put the focus on its field.

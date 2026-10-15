@@ -188,7 +188,7 @@ public final class ClaudeTokenProvider implements TokenProvider {
                 cause);
     }
 
-    private static boolean isWindows() {
+    static boolean isWindows() {
         return System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("windows");
     }
 

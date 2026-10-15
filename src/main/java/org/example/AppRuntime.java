@@ -230,7 +230,13 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         settings.onChange(changed -> {
             responseLog.set(changed.logResponse());
             if (changed.autoInterval() != service.automatic()) {
-                service.setAutomatic(changed.autoInterval() ? searchOf(settings) : null);
+                // Switched on, the search begins anew at 60 seconds with no refusal known (since 0.89), and that is saved;
+                // only a start goes on from where the search was saved.
+                org.example.usage.IntervalSearch fresh = changed.autoInterval() ? org.example.usage.IntervalSearch.fresh() : null;
+                if (fresh != null) {
+                    settings.storeSearch(fresh.interval(), fresh.refused());
+                }
+                service.setAutomatic(fresh);
             }
         });
 

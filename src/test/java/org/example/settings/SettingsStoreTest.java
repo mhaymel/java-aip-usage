@@ -213,7 +213,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showErrorIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "dataFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "historyHeight", "logHeight"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -701,31 +701,41 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theOneFolderIsATextEmptyForTheProgramsFolder() throws IOException {
+    void theTwoFoldersAreTextsEmptyForTheProgramsFolder() throws IOException {
         assertEquals("", Settings.defaults().logFolder());
         assertEquals("", Settings.defaults().historyFolder());
         SettingsStore store = new SettingsStore(file());
-        store.save(Settings.defaults().withFolders("/home/me/data", "/home/me/data"));
+        store.save(Settings.defaults().withFolders("/home/me/logs", "/home/me/history"));
         Settings read = new SettingsStore(file()).load();
-        assertEquals("/home/me/data", read.logFolder(), "one folder for both since 0.87");
-        assertEquals("/home/me/data", read.historyFolder());
+        assertEquals("/home/me/logs", read.logFolder(), "a folder each again since 0.90");
+        assertEquals("/home/me/history", read.historyFolder());
+        Json written = JsonReader.read(Files.readString(file()));
+        assertFalse(written.has("dataFolder"), "the one folder of 0.87 to 0.89 is no longer written");
 
-        Files.writeString(file(), "{\"dataFolder\": 12}");
-        assertEquals("", new SettingsStore(file()).load().historyFolder(), "not a text: the program's folder");
+        Files.writeString(file(), "{\"logFolder\": 12, \"historyFolder\": null}");
+        assertEquals("", new SettingsStore(file()).load().logFolder(), "not a text: the program's folder");
+        assertEquals("", new SettingsStore(file()).load().historyFolder());
     }
 
     @Test
-    void aFileOfBeforeTakesTheFolderOfTheHistoryForBothAndSaysWhereItsLogWas() throws IOException {
-        Files.writeString(file(), "{\"logFolder\": \"C:\\\\logs\", \"historyFolder\": \"/home/me/history\"}");
-        SettingsStore store = new SettingsStore(file());
-        assertEquals("/home/me/history", store.load().logFolder(), "the history's folder wins");
-        assertEquals("/home/me/history", store.load().historyFolder());
-        assertEquals("C:\\logs", store.oldLogFolder(), "the log is to be moved from there");
+    void aFileOf087To089GivesItsOneFolderToBoth() throws IOException {
+        Files.writeString(file(), "{\"dataFolder\": \"/home/me/data\"}");
+        Settings read = new SettingsStore(file()).load();
+        assertEquals("/home/me/data", read.logFolder());
+        assertEquals("/home/me/data", read.historyFolder());
 
-        Files.writeString(file(), "{\"logFolder\": \"/same\", \"historyFolder\": \"/same\"}");
-        assertNull(store.oldLogFolder(), "the same folder: nothing to move");
-        Files.writeString(file(), "{\"dataFolder\": \"/data\", \"logFolder\": \"/old\"}");
-        assertNull(store.oldLogFolder(), "a file of 0.87 or later");
+        Files.writeString(file(), "{\"dataFolder\": \"/data\", \"logFolder\": \"/logs\"}");
+        assertEquals("/logs", new SettingsStore(file()).load().logFolder(), "the keys of 0.90 win");
+        assertEquals("", new SettingsStore(file()).load().historyFolder());
+    }
+
+    @Test
+    void theRectangleThatShowsWhereTheWindowIsIsOffByDefaultAndComesBackAsSaved() throws IOException {
+        Files.writeString(file(), "{\"usageIntervalSeconds\": 90}");
+        SettingsStore store = new SettingsStore(file());
+        assertFalse(store.load().locateWindow());
+        store.save(Settings.defaults().withLocateWindow(true));
+        assertTrue(store.load().locateWindow());
     }
 
     @Test

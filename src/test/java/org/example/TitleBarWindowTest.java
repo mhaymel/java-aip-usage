@@ -119,7 +119,8 @@ class TitleBarWindowTest {
         // The button of Main view: a small icon in the line of the heading, which switches every element on, and all off when all are on.
         assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/10 .*"), "some elements are on, the status circle among them since 0.82, and the button is in the middle of its heading:\n" + all);
         assertTrue(line(all, "settings-all").contains("/18 note:"), "one press: all eighteen on, the status circle and the figures of the day among them (since 0.82):\n" + all);
-        assertTrue(line(all, "settings-narrow").contains("/0 note:"), "another: all off:\n" + all);
+        // Another: all off but the four icons, which are a group of their own with a button of its own since 0.90.
+        assertTrue(line(all, "settings-narrow").contains("/4 note:"), "another: all off, the icons left as they were:\n" + all);
 
         // The window has the program's icon in its four sizes, with the title bar and without, in each window that took the place of another.
         assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" icons:16/32/48/256 ")).count(),
@@ -181,7 +182,7 @@ class TitleBarWindowTest {
         assertEquals(Integer.parseInt(least.group(3)) + 300, Integer.parseInt(wide.group(3)), "dragged wider, it stays as wide as it was dragged:\n" + all);
         assertEquals(least.group(1), wide.group(1), "and the page asks for the least width still, whatever the window has:\n" + all);
         assertTrue(Integer.parseInt(wide.group(2)) <= Integer.parseInt(least.group(2)), "with more room the paths need no more lines:\n" + all);
-        assertTrue(Integer.parseInt(wide.group(2)) < Integer.parseInt(least.group(2)), "the paths of this probe are long: the wider window is lower:\n" + all);
+        // The paths are no longer in About (since 0.90: General, History and Log), so a wider About need not be lower.
         assertTrue(Integer.parseInt(wide.group(4)) - Integer.parseInt(wide.group(2)) <= 1 && Integer.parseInt(wide.group(4)) >= Integer.parseInt(wide.group(2)),
                 "the window is as tall as the page at that width:\n" + all);
         assertEquals(least.group(3), narrow.group(3), "it cannot be made narrower than the least width:\n" + all);

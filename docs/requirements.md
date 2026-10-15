@@ -70,6 +70,11 @@ The client must obtain an OAuth access token before it can fetch usage data.
 - The token is kept in the memory of the running program and nowhere else. It is never written to the settings file, the usage history, the log or any other file, and no request to the local server returns it; a new run obtains it again.
 - If the usage endpoint responds with HTTP 401, fetch a fresh token and retry the request once. Do not refresh the token for other HTTP or network failures.
 - **The token is obtained at the first refresh, not before it**, so the window is on the screen while `claude` runs.
+- **The version of Claude Code is logged once at the start** (since version 0.90), at the information level: the program runs
+  `claude --version` (the request said `claude -version`, which the CLI does not take) and logs `Claude Code version: <what it
+  printed, the first line>`. It is run in the background, so that the window does not wait for it, and with a time limit of 10
+  seconds. When it cannot be run, or does not answer in time, one line at the information level says so: `Claude Code version
+  could not be read: <reason>`. Not with the fake backend in use, nor with the placeholder token, where Claude Code is not used.
 - **What is kept after each outcome.** A failure that is not a 401, whatever it is (another status, the network, a response that cannot be read), keeps the token for the next refresh and is not tried again within the refresh. On a 401 the rejected token is dropped before a fresh one is asked for, so that it is never sent again: if getting the fresh one fails, the refresh fails with the message of the token flow and the next refresh starts the flow anew. If the retry is rejected with a 401 as well, no token is kept, and every later refresh runs the token flow until one is accepted. If the retry fails in any other way, that failure is reported as it is and the fresh token is kept; a 429 answered to the retry is treated as any 429 (see Refresh behavior).
 - If the user is not logged in or the token is unavailable, the application should show a clear user-facing message instead of failing silently. The same goes when `claude` cannot be found on the `PATH` (the message says what to do, including that a changed `PATH` needs a restart) and when it is found but cannot be run.
 - If `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is set, `claude` would send that credential instead of its OAuth login token, so the application does not capture one: it shows a message naming the variable, never its value, and asks for it to be unset and the application restarted.
@@ -541,8 +546,11 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
 - **The text of the view cannot be selected**, like everything in the window (see Nothing in the window can be selected);
   until version 0.55 it could, and be copied. What is typed in the field of the interval can.
 - **The view is arranged in tabs** (since version 0.64), in this order, each with its title:
-  `General`, `Main view`, `History view`, `Cost control`, `Debug` (only in debug mode, see Debug mode) and `About`
-  (since version 0.79 `General` is the first tab; until then it was the last but one, before `About`). `About` is always the last.
+  `General`, `Main view`, `History view`, `Cost control`, `About` and `Debug` (only in debug mode, see Debug mode); **since
+  version 0.90 `General`, `Main`, `History`, `Log`, `Cost control`, `About` and `Debug`** (see The settings rearranged)
+  (since version 0.79 `General` is the first tab; until then it was the last but one, before `About`). **Since version 0.90
+  `About` comes before `Debug`** (`docs/img_67.png`), so that the tab of debug mode alone is the last; until then `About` was
+  always the last.
   - `Main view` holds the elements of the row and the properties of the amounts and of the time; `History view` the checkboxes of the history (below);
     `Cost control` the limits (see Cost control); `Debug` the debug settings; `General` the groups `Request`, `Window` and `Log`; `About` the About view (see The About view).
   - **The titles are a strip**, all of them in one line over the tab, each clickable. **The tab that is shown is marked in blue, not green** (since version 0.65): its title and its line are in the blue of the notes,
@@ -739,7 +747,8 @@ The history is shown inside the main window, not in a window of its own.
   limit is`, its tooltip `Whether the daily limit in force at the reading was worked out from the monthly limit, or typed`. The
   file keeps `auto` and `set` (`daily_auto`); only the view words them. Its width is 14 characters. **It stands one character
   further from `day`** (`docs/img_58.png`: the right-aligned figures of `day` touched the left-aligned words): its cells and
-  its title have one character of room at the left. `limit` stays the limit the server sent. Each has a checkbox in `History view`, after `limit`, **off by
+  its title have one character of room at the left. **Since version 0.90 its title and its cells are centred** (`docs/img_68.png`;
+  they stood at the right). `limit` stays the limit the server sent. Each has a checkbox in `History view`, after `limit`, **off by
   default**, saved under `historyMonthly`, `historyDaily` and `historyDailyBy`; a row written before 0.82 has empty cells there.
   Widths, in characters: `month` 10, `day` 10, `by` 4. Tooltips of the titles: `The monthly limit counted when the reading was
   made`, `The daily limit in force when the reading was made`, `Whether the daily limit was worked out (auto) or typed (set)`.
@@ -1513,7 +1522,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The search is remembered.** The interval and `R` are saved in `settings.json` whenever they change, under
   the keys `autoIntervalSeconds` and `autoRefusedSeconds` (`R`, a whole number from 10 to 300, or the key left out for none), and the next start goes on from them.
   Values in the file that are not whole seconds from 10 to 300 are as if there were none, so the search begins at 60 with no `R`; an interval that is not a multiple of 5 is rounded up to the next one, and one at or below `R` is raised to `R + 5` (a saved `R` is rounded up as well).
-  The keys `autoLowerSeconds` and `autoUpperSeconds` of earlier versions are read no more and are not written again. Switching `Automatic` off and on again goes on from what was saved.
+  The keys `autoLowerSeconds` and `autoUpperSeconds` of earlier versions are read no more and are not written again. **Switching `Automatic` on begins the search anew** (since version 0.90; until then it went on from what was saved): 60 seconds
+  and no refused interval, which is saved at once. Only the start of the program goes on from what was saved; a search that had
+  sunk to 10 seconds with the fake backend, which never refuses, no longer holds the interval there when it is switched on again.
 - **The log says each step, and how the new interval was calculated** (since version 0.89; until then only `Automatic interval: <N> s
   (refused at <R> s)` or `(no refusal yet)`), at the information level, so that it is clear the interval is the program's and not
   the configured one. Every line begins `Automatic interval: <N> s, calculated: ` and then says the reason, with the figures:
@@ -1601,7 +1612,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 ### The About view
 
 - **The program has an About view** (since version 0.57), which says what the program is and shows its logo larger than an icon can.
-- **It is the last tab of the settings**, titled `About` (since version 0.64; before, a button `About` of the settings view opened it in place of the form). There is no button
+- **It is the last tab of the settings but `Debug` in debug mode** (since version 0.90; the last until then), titled `About` (since version 0.64; before, a button `About` of the settings view opened it in place of the form). There is no button
   for it in the row of the window, and no window of its own.
 - **It is shown in the place of the other tabs**, in the panel area below the row, with the strip of the titles above it and `Save` and `Cancel` below; the window is as tall as the row and the About view need,
   and as wide as the least width of the tabs.
@@ -2246,6 +2257,9 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### The folders of the log and of the usage history
 
+- **Since version 0.90 the log and the usage history have a folder each again** (`docs/img_66.png`), each in its own tab: the
+  log's in `Log`, the history's in `History` (see The settings rearranged). What follows of one folder held in versions 0.87 to
+  0.89; the rest of this section holds for each of the two folders.
 - **The folder of the log and of the usage history can be chosen** (since version 0.81; **one folder for both since version
   0.87**, `docs/img_56.png`, where until then each had its own). By default it is the program's folder, the working directory,
   as before. It holds the log and its old logs, the usage history and, in debug mode, the history of invented readings
@@ -2329,6 +2343,40 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   a height the person gave it.
 - **Dragging the window** taller or shorter still changes the lowest list alone.
 
+### The settings rearranged
+
+- **Since version 0.90 the tabs are** `General`, `Main`, `History`, `Log`, `Cost control`, `About` and `Debug` (the last in debug
+  mode only). `Main view` and `History view` lose the word `view` (`docs/img_65.png`), in their tab titles and in the headings of
+  their groups, which are `Main` and `History`. `Log` is new, after `History`.
+- **`General`** keeps the group `Window`, with `Show where the window is` added (see The window shows where it is when it comes
+  to the front). The group `Request` goes to `Cost control`, the group `Files` and the group `Log` go to the tab `Log` and the
+  tab `History` (`docs/img_66.png`). Below `Window` is the path of the settings file, as the About view had it: a link that
+  opens its folder, with the button that copies it (see The paths of the About view are links, with a button to copy each).
+- **`Main`** has the elements of the row as before but for the four icons of the views, which are a group of their own,
+  **`Icons`**, below the group `Main` (`docs/img_64.png`). Their checkboxes are `Cost`, `History`, `Log` and `Error log`, where
+  they were `Cost icon`, `History icon`, `Log icon` and `Error log icon`; their keys and tooltips stay. **Beside each checkbox is
+  the icon itself**, as the row draws it (the two bars, the table, the sheet with lines, the triangle), in the muted gray; **a click
+  on the icon checks its checkbox**, and a click on it while it is checked leaves it checked; the checkbox alone unchecks it. It is
+  previewed in the row as a click on the checkbox is. **The button that selects every element of the row, or none, is in the
+  heading of `Main` and takes the elements of that group alone**; the heading of `Icons` has the same button for the four icons,
+  with the tooltip `Checks every icon, or none when every one is checked.` **Closing a view by its icon in the row never changes its checkbox**: the checkbox says whether the icon is in
+  the row, not whether its view is open.
+- **`History`** has the checkboxes of the history's columns as before, and below them the group **`Files`** with the history's
+  folder, `History folder`, its `Choose…` and `Default` as before, and its path as a link with its copy button, which the About
+  view had. Its tooltip: `The folder the usage history is kept in. The default is the program's folder.`
+- **`Log`** (new) has `Log the response`, which was in the group `Log` of `General`, and the group **`Files`** with the log's
+  folder, `Log folder`, its `Choose…` and `Default`, and the log's path as a link with its copy button. Its tooltip: `The folder the
+  log and its old logs are kept in. The default is the program's folder.`
+- **`Cost control`** begins with the group **`Request`**, as it was in `General`: `Interval`, its field, `s` and `Automatic`, with
+  their tooltips and their behaviour; then the group `Cost control` as before.
+- **`About`** keeps the name, the version, what the program runs on and the line of debug mode; **the three paths are gone from
+  it**, to `General`, `History` and `Log`.
+- **Two folders again.** The keys `logFolder` and `historyFolder` are written again, and `dataFolder` is no longer written. A file
+  of 0.87 to 0.89, which has `dataFolder`, gives that folder to both, so nothing is moved at the first start. `Save` moves the
+  log and its old logs into the log's folder and the usage history into the history's, each as it did until 0.86, and a folder
+  that cannot be written is said in red under its own group `Files`, with the focus on its `Choose…`.
+- **The window is as wide as the widest tab**, `Log` and its paths included, as before.
+
 ### The window shows where it is when it comes to the front
 
 - **Since version 0.89, whenever the window becomes the active window, a rectangle zooms onto it**, so that it is found at
@@ -2342,7 +2390,14 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **It is drawn by a window of its own**, transparent, above all others, which takes no focus, no click and no place in the
   taskbar; the program's window is not moved or changed by it. Where the system cannot draw a transparent window, nothing is
   drawn.
-- **It is not a setting.**
+- **It is not a setting.** (Until version 0.89; see below.)
+- **Since version 0.90 it is a setting, off by default**: `Show where the window is`, a checkbox in the group `Window` of the
+  tab `General`, after `Several views at once`, saved under `locateWindow`. Its tooltip: `When the window comes to the front, a
+  rectangle zooms onto it so that it is found at once. Not when you click into the window.` It takes effect when the settings
+  are saved.
+- **Not when the window is clicked into** (since version 0.90): an activation that comes with a press of the mouse inside the
+  window, within half a second, shows nothing; the taskbar, the Dock, Alt-Tab or Cmd-Tab, a restore from minimized and the start
+  still do.
 
 ## Debug mode
 
@@ -2967,7 +3022,7 @@ These repos are intended as a source of knowledge and reusable implementation id
   interval outside 5 to 3600, a time format other than `hh:mm` or `hh:mm:ss`, a height outside 0 to 10,000) is logged and has its default, and the other keys are kept. A key the file
   lacks has its default, and a key it has that is not a setting, such as the old `pollIntervalSeconds`,
   is ignored. The keys are `usageIntervalSeconds`, `logResponse`, `showPercentage`, `showCurrency`, `showHistoryIcon`, `showLogIcon`, `showErrorIcon`, `showInterval`, `showDeltaUsed`,
-  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, `logFolder`, `historyFolder`, and since version 0.82 `showStatus`, `showDayPercentage`, `showDayUsed`, `showDayLimit`, `historyMonthly`, `historyDaily`, `historyDailyBy`, `costLimitSource`, `costWorkdayHours`, `costWorkdays`, `costWorkdaysMonth` and `costCurrency`, since version 0.88 `statusBlink`, since version 0.89 `costShowUsed`, `costShowLimit` and `costShowPercent`, the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
+  `showDeltaTime`, `timeFormat` (the text `hh:mm` or `hh:mm:ss`), `historyDeltaUsed`, `historyDeltaTime`, `historyDate`, `historyZeroLines`, `historyFailedLines`, `showTime`, `showUsed`, `showLimit`, `showRefresh`, `showCountdown`, `showDuration`, `stayOnTop`, `showTitleBar`, `restoreWindow`, `severalViews`, `logFolder`, `historyFolder`, and since version 0.82 `showStatus`, `showDayPercentage`, `showDayUsed`, `showDayLimit`, `historyMonthly`, `historyDaily`, `historyDailyBy`, `costLimitSource`, `costWorkdayHours`, `costWorkdays`, `costWorkdaysMonth` and `costCurrency`, since version 0.88 `statusBlink`, since version 0.89 `costShowUsed`, `costShowLimit` and `costShowPercent`, since version 0.90 `locateWindow` (and `logFolder` and `historyFolder` again in the place of `dataFolder`), the three debug settings `fakeBackend`, `fakeScenario` and `fakeToken`, the two choices of the log panel `logLevel` (the text `error`, `warning`, `info` or `debug`) and `logDate`, the size of the lists' text `listFontSize` (a whole number from 10 to 20), `autoInterval`, the three figures of its search `autoIntervalSeconds`, `autoLowerSeconds` and `autoUpperSeconds`, and the two heights
   `historyHeight` and `logHeight`. The three files, the settings, the log and the usage history, are in the working directory the program was
   started from; where that is for a version started in its usual way is said in its section. Since version 0.81 the log and
   the usage history can be in other folders (see The folders of the log and of the usage history); the settings file stays in

@@ -503,7 +503,9 @@ public final class UsageAppProbe {
         String[] before = new String[1];
         onFx(() -> {
             before[0] = javafx.scene.input.Clipboard.getSystemClipboard().getString();
-            page().getEngine().executeScript("document.getElementById('about-copy-settings').click()");
+            // The path of the settings is in the tab General since 0.90, where About had it.
+            page().getEngine().executeScript("document.getElementById('tabbtn-general').click();"
+                    + " document.getElementById('about-copy-settings').click()");
         });
         // The system's clipboard is shared with every other program: it is asked again for a while, as another may hold it a moment.
         String[] seen = new String[1];

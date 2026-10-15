@@ -506,7 +506,8 @@
     // The tabs of the settings, in order: the page of each is `tab-<id>`, its title in the strip `tabbtn-<id>`. The Debug tab is there
     // in debug mode only. The settings open on the tab they were last on in this run, and on the first one, General, the first
     // time after a start: the tab is the page's own to remember, and is kept nowhere else. About is the last tab.
-    var TABS = ['general', 'main', 'history', 'cost', 'debug', 'about'];
+    // About before Debug since 0.90: Debug, there in debug mode alone, is the last.
+    var TABS = ['general', 'main', 'history', 'log', 'cost', 'about', 'debug'];
     var currentTab = TABS[0];
 
     // The setting that switches the icon of each view on and off; the settings have none, as their icon is always there.
@@ -517,10 +518,14 @@
     // The elements of the row that have a checkbox: the flags of Main view but the currency symbol, a property of the amounts, and
     // Blinks, a property of the status circle (since 0.88).
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency' && key !== 'statusBlink'; });
+    // The four icons of the views, a group of their own since 0.90, with a button of its own that selects them all, or none.
+    var ICON_FLAGS = ['showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showErrorIcon'];
+    // The elements of the group Main, which its button selects: every element but the icons.
+    var MAIN_ELEMENT_FLAGS = ELEMENT_FLAGS.filter(function (key) { return ICON_FLAGS.indexOf(key) < 0; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
     var HISTORY_FLAGS = ['historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyMonthly', 'historyDaily', 'historyDailyBy', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent'];
     var SETTING_FLAGS = MAIN_FLAGS.concat(['showTitleBar', 'stayOnTop', 'restoreWindow', 'severalViews', 'costCurrency', 'historyDate', 'historyZeroLines', 'historyFailedLines', 'historyTime', 'historyUsed', 'historyLimit', 'historyDeltaUsed', 'historyDeltaTime', 'historyCurrent', 'historyMonthly', 'historyDaily', 'historyDailyBy', 'logResponse', 'autoInterval', 'costDailyAutomatic',
-        'costShowUsed', 'costShowLimit', 'costShowPercent']);
+        'costShowUsed', 'costShowLimit', 'costShowPercent', 'locateWindow']);
     // The columns of figures of the cost control (since 0.89), previewed in the panel while the settings are open.
     var COST_FIGURES = ['costShowUsed', 'costShowLimit', 'costShowPercent'];
 
@@ -616,7 +621,8 @@
     }
 
     // The tab each field that can be refused is on (since 0.89), and the field that was refused last, framed in red until changed.
-    var FIELD_TABS = { usageIntervalSeconds: 'general', dataFolder: 'general', costMonthlyLimit: 'cost', costDailyLimit: 'cost',
+    // The interval is in Cost control since 0.90, and each folder in the tab of its list.
+    var FIELD_TABS = { usageIntervalSeconds: 'cost', logFolder: 'log', historyFolder: 'history', costMonthlyLimit: 'cost', costDailyLimit: 'cost',
         costWorkdayHours: 'cost', costWorkdays: 'cost' };
     var invalidId = null;
 
@@ -626,7 +632,7 @@
      * button is the one.
      */
     function focusField(key) {
-        var id = key === 'dataFolder' ? 'choose-dataFolder' : 'set-' + key;
+        var id = FOLDERS.indexOf(key) >= 0 ? 'choose-' + key : 'set-' + key;
         var field = $(id);
         if (!field) {
             return;
@@ -773,8 +779,18 @@
 
     // The folder of the group Files as the form holds it: a full path, or the empty text for the program's folder. One folder for
     // the log and the usage history since 0.87, where there were two.
-    var FOLDERS = ['dataFolder'];
-    var folderChoice = { dataFolder: '' };
+    // A folder each for the log and the usage history again since 0.90 (one in 0.87 to 0.89), each in the tab of its list.
+    var FOLDERS = ['logFolder', 'historyFolder'];
+    var folderChoice = { logFolder: '', historyFolder: '' };
+
+    /** The red line under the group Files of a folder. */
+    function folderError(key) {
+        return key === 'logFolder' ? 'folder-error-log' : 'folder-error-history';
+    }
+
+    function clearFolderErrors() {
+        FOLDERS.forEach(function (key) { setNote(folderError(key), ''); });
+    }
     var programFolder = '';
 
     /** Shows a folder of the group Files: its path, or the program's in gray while it is the default. */
@@ -794,7 +810,7 @@
 
     /** Choose…: the system's picker, opened at the folder shown; the folder chosen is put in the form, and saved with it. */
     async function chooseFolder(key) {
-        setNote('folder-error', '');
+        setNote(folderError(key), '');
         try {
             var body = await postJson('/api/folder', { start: folderChoice[key] || programFolder });
             if (body && typeof body.folder === 'string') {
@@ -802,7 +818,7 @@
                 showFolder(key);
             }
         } catch (e) {
-            setNote('folder-error', e.message);
+            setNote(folderError(key), e.message);
         }
     }
 
@@ -844,7 +860,9 @@
             fillInterval(body.settings.usageIntervalSeconds);
             fillForm(body.settings);
             programFolder = typeof body.programFolder === 'string' ? body.programFolder : '';
-            setNote('folder-error', '');
+            clearFolderErrors();
+            // The paths of the files are in the tabs General, History and Log since 0.90, where the About view had them.
+            loadAbout();
             FOLDERS.forEach(function (key) {
                 folderChoice[key] = typeof body.settings[key] === 'string' ? body.settings[key] : '';
                 showFolder(key);
@@ -904,11 +922,13 @@
         try {
             var body = await postJson('/api/settings', readForm());
             takeSettings(body);
-            setNote('folder-error', '');
+            clearFolderErrors();
             return true;
         } catch (e) {
             // A folder that cannot be written is said under the group Files, where it was chosen.
-            setNote(/^The folder cannot be written/.test(e.message) ? 'folder-error' : 'settings-error', e.message);
+            // A folder that cannot be written is said under the group Files of that folder, where it was chosen.
+            var folder = FOLDERS.indexOf(e.field) >= 0 ? e.field : /^The folder cannot be written/.test(e.message) ? 'historyFolder' : null;
+            setNote(folder ? folderError(folder) : 'settings-error', e.message);
             if (e.field) {
                 focusField(e.field);
             }
@@ -2322,10 +2342,12 @@
      * measuring, so that the form is as wide as the widest, and the shown one is given back as it was; nothing is drawn between.
      */
     function settingsWidth() {
-        var pages = TABS.filter(function (tab) { return tab !== 'about'; }).map(function (tab) { return $('tab-' + tab); });
+        // By name, not by place: About is no page of the form, and is not the last tab since 0.90.
+        var names = TABS.filter(function (tab) { return tab !== 'about'; });
+        var pages = names.map(function (tab) { return $('tab-' + tab); });
         var was = pages.map(function (page) { return page.hidden; });
         var visible = visibleTabs();
-        pages.forEach(function (page, i) { page.hidden = visible.indexOf(TABS[i]) < 0; });
+        pages.forEach(function (page, i) { page.hidden = visible.indexOf(names[i]) < 0; });
         var width = formWidth('settings-form', 'settings-buttons');
         pages.forEach(function (page, i) { page.hidden = was[i]; });
         return Math.max(width, stripWidth());
@@ -2441,7 +2463,15 @@
                 render();
             });
         });
-        $('set-all').addEventListener('click', function () { selectAllOrNone(ELEMENT_FLAGS); });
+        $('set-all').addEventListener('click', function () { selectAllOrNone(MAIN_ELEMENT_FLAGS); });
+        $('set-all-icons').addEventListener('click', function () { selectAllOrNone(ICON_FLAGS); });
+        // A click on the icon beside a checkbox of the group Icons checks it, and never unchecks it (since 0.90).
+        ICON_FLAGS.forEach(function (key) {
+            $('glyph-' + key).addEventListener('click', function () {
+                $('set-' + key).checked = true;
+                previewNow();
+            });
+        });
         $('set-all-history').addEventListener('click', function () { selectAllOrNone(HISTORY_FLAGS); });
         ['settings', 'log', 'history'].forEach(function (name) {
             $('about-' + name).addEventListener('click', function (event) {

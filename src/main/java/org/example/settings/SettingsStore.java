@@ -144,6 +144,7 @@ public final class SettingsStore {
 
     static final String HISTORY_DAILY_BY_KEY = "historyDailyBy";
     static final String STATUS_BLINK_KEY = "statusBlink";
+    static final String LOCATE_WINDOW_KEY = "locateWindow";
 
     /** The folder of the usage history until 0.86, which a file of then has its one folder from; never written since 0.87. */
     static final String HISTORY_FOLDER_KEY = "historyFolder";
@@ -223,7 +224,7 @@ public final class SettingsStore {
             LOG.warning("Ignoring settings file " + file + ": not a JSON object");
             return defaults;
         }
-        String data = dataFolder(root);
+        String[] folders = folders(root);
         return new Settings(
                 interval(root, defaults.usageIntervalSeconds()),
                 flag(root, LOG_RESPONSE_KEY, defaults.logResponse()),
@@ -264,8 +265,8 @@ public final class SettingsStore {
                 flag(root, RESTORE_WINDOW_KEY, defaults.restoreWindow()),
                 flag(root, SHOW_COST_ICON_KEY, defaults.showCostIcon()),
                 flag(root, SEVERAL_VIEWS_KEY, defaults.severalViews()),
-                data,
-                data,
+                folders[0],
+                folders[1],
                 flag(root, SHOW_STATUS_KEY, defaults.showStatus()),
                 flag(root, SHOW_DAY_PERCENTAGE_KEY, defaults.showDayPercentage()),
                 flag(root, SHOW_DAY_USED_KEY, defaults.showDayUsed()),
@@ -273,7 +274,8 @@ public final class SettingsStore {
                 flag(root, HISTORY_MONTHLY_KEY, defaults.historyMonthly()),
                 flag(root, HISTORY_DAILY_KEY, defaults.historyDaily()),
                 flag(root, HISTORY_DAILY_BY_KEY, defaults.historyDailyBy()),
-                flag(root, STATUS_BLINK_KEY, defaults.statusBlink()));
+                flag(root, STATUS_BLINK_KEY, defaults.statusBlink()),
+                flag(root, LOCATE_WINDOW_KEY, defaults.locateWindow()));
     }
 
     /**
@@ -664,29 +666,15 @@ public final class SettingsStore {
     }
 
     /**
-     * The one folder of the log and the usage history (since 0.87): {@code dataFolder}, or, in a file of 0.86 or before that has
-     * none, the folder the usage history was kept in, which wins over the log's.
+     * The folders of the log and of the usage history, in that order (a folder each again since 0.90): {@code logFolder} and
+     * {@code historyFolder}; a file of 0.87 to 0.89, which has {@code dataFolder} and neither of the two, gives that one to both.
      */
-    private static String dataFolder(Json root) {
-        return root.get(DATA_FOLDER_KEY) != null ? folder(root, DATA_FOLDER_KEY) : folder(root, HISTORY_FOLDER_KEY);
-    }
-
-    /**
-     * The folder a file of 0.86 or before kept the log in, when it is not the one folder the log is kept in from now on, so that
-     * the log and its old logs can be moved there at the start; null when there is nothing to move: the file is of 0.87 or later,
-     * or names the same folder for both, or cannot be read. The empty text is the program's folder. Never fails.
-     */
-    public String oldLogFolder() {
-        try {
-            Json root = JsonReader.read(Files.readString(file));
-            if (root == null || !root.isObject() || root.get(DATA_FOLDER_KEY) != null || root.get(LOG_FOLDER_KEY) == null) {
-                return null;
-            }
-            String log = folder(root, LOG_FOLDER_KEY);
-            return log.equals(folder(root, HISTORY_FOLDER_KEY)) ? null : log;
-        } catch (IOException | RuntimeException e) {
-            return null;
+    private static String[] folders(Json root) {
+        if (root.get(DATA_FOLDER_KEY) != null && root.get(LOG_FOLDER_KEY) == null && root.get(HISTORY_FOLDER_KEY) == null) {
+            String data = folder(root, DATA_FOLDER_KEY);
+            return new String[] {data, data};
         }
+        return new String[] {folder(root, LOG_FOLDER_KEY), folder(root, HISTORY_FOLDER_KEY)};
     }
 
     private static String name(Json root, String key, java.util.Set<String> known) {
@@ -799,8 +787,9 @@ public final class SettingsStore {
         root.put(SHOW_COST_ICON_KEY, settings.showCostIcon());
         root.put(RESTORE_WINDOW_KEY, settings.restoreWindow());
         root.put(SEVERAL_VIEWS_KEY, settings.severalViews());
-        // One folder for both (since 0.87); the two keys of before are no longer written.
-        root.put(DATA_FOLDER_KEY, settings.historyFolder());
+        // A folder each again since 0.90; the one folder of 0.87 to 0.89 is no longer written.
+        root.put(LOG_FOLDER_KEY, settings.logFolder());
+        root.put(HISTORY_FOLDER_KEY, settings.historyFolder());
         root.put(SHOW_STATUS_KEY, settings.showStatus());
         root.put(SHOW_DAY_PERCENTAGE_KEY, settings.showDayPercentage());
         root.put(SHOW_DAY_USED_KEY, settings.showDayUsed());
@@ -809,6 +798,7 @@ public final class SettingsStore {
         root.put(HISTORY_DAILY_KEY, settings.historyDaily());
         root.put(HISTORY_DAILY_BY_KEY, settings.historyDailyBy());
         root.put(STATUS_BLINK_KEY, settings.statusBlink());
+        root.put(LOCATE_WINDOW_KEY, settings.locateWindow());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
         // What the window showed when the program last stopped; only what was stored is written.

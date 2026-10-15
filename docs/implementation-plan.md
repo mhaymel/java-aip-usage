@@ -2966,6 +2966,87 @@ when it comes to the front. Eleven parts, in the order they are best built:
 focus; the bottom edge's cursor on both; the scrollbar of a list on macOS not moving the window; the day's line on both themes;
 the cost control with columns off; the red frame of a wrong field; the lines of the log after a 429 and after a long quiet.
 
+### 132. Version 0.90: the settings rearranged, two folders again, the zoom a setting, the version of Claude Code
+
+**Status: built (version 0.90).** Decided
+before building: a select-all button for each of `Main` and `Icons`; the whole suite run with the window tests; one commit once
+it passes, with parts 1 and 2 and without the notes and images of `docs/`. The notes of
+`new-requirements.md` (the twelfth round, `img_64` to `img_68`; `img_67` the swap of About and Debug, asked before the round),
+decided in two rounds of questions, and the fault seen with the automatic interval. `AppInfo.VERSION = "0.90"`. Requirements:
+The settings rearranged; The folders of the log and of the usage history; The window shows where it is when it comes to the
+front; Authentication (the version of Claude Code); The automatic interval (switched on, it begins anew); Settings (the tabs);
+Usage history (the column `daily limit is` centred). Ten parts:
+
+1. **About before Debug** (built). `index.html`: `tabbtn-about` before `tabbtn-debug`; `app.js`: `TABS` with `about` before
+   `debug`; `settingsWidth` takes the pages by name, where it took them by their place in `TABS` and so measured the Debug page
+   outside debug mode once About was no longer last. Tests: the strip's order, the Debug tab's titles.
+2. **Switched on, the search begins anew** (built). `AppRuntime`: the listener of the settings gives `setAutomatic` a fresh
+   `IntervalSearch` (60 s, no refusal) and saves it, where it gave the saved search; the start still goes on from the saved one.
+   `ApiTest.switchingTheAutomaticIntervalOnBeginsTheSearchAnew` (written, not run).
+3. **The tabs.** `index.html`: titles `Main` and `History`, and the group headings; a page `tab-log` with `tabbtn-log` after
+   `tabbtn-history`; `TABS = ['general', 'main', 'history', 'log', 'cost', 'about', 'debug']`. The group `Request` moved from
+   `tab-general` to the top of `tab-cost`, unchanged (its ids stay, so `syncIntervalField` and the rest are untouched). The group
+   `Log` (`set-logResponse`) to `tab-log`. `FIELD_TABS`: `usageIntervalSeconds` → `cost`. The settings open on the tab they were
+   left on; a stored `main` or `history` stays valid by its id.
+4. **The group `Icons`.** `index.html`: the four checkboxes out of the group `Main` into a fieldset `Icons` after it, labels
+   `Cost`, `History`, `Log`, `Error log`, each followed by a `button.icon.tiny.glyph` (`glyph-showCostIcon` …) with the row's SVG of
+   that view, `aria-label="Check <name>"`, tooltip of the checkbox. `app.js`: a click on a glyph sets its checkbox to checked and
+   calls `previewNow`. **The select-all button** (decided before building: one for each group): `set-all` in the heading of
+   `Main` takes `ELEMENT_FLAGS` less the four icon keys; a new `set-all-icons` in the heading of `Icons` takes the four, by
+   `selectAllOrNone`. The row's icon handlers do not touch the form (they never did; a test says so). `app.css`: the glyphs muted, no border until hover.
+5. **The paths.** `index.html`: the three lines of the About view (`about-settings`, `about-log`, `about-history` with their copy
+   buttons) moved: the settings' below the group `Window` of `tab-general`, the log's into the group `Files` of `tab-log`, the
+   history's into the group `Files` of `tab-history`; the About table keeps the rest. `app.js`: `loadAbout` still fills them (it
+   reads `/api/about`), and is now also called when the settings are opened, since the paths are in other tabs; the ids stay, so
+   the link and copy handlers are untouched.
+6. **Two folders again.** `SettingsStore`: read `logFolder` and `historyFolder` (a file with `dataFolder` gives it to both),
+   write the two and not `dataFolder`; `oldLogFolder` and `Main.moveOldLog` stay for a file of 0.86 (a file of 0.87–0.89 needs
+   no move: both get the same folder). `ApiHandler.updateSettings`: `folderText(body, "logFolder", …)` and `"historyFolder"`,
+   `dataFolder` taken for both when sent alone; a refusal names `logFolder` or `historyFolder` in `field` (the move says which
+   folder failed: `moveFolders` tries the log first). `SettingValues`: the two in the place of `dataFolder`. The page: `FOLDERS
+   = ['logFolder', 'historyFolder']`, a line each (`set-`, `choose-`, `default-`), and `folder-error-log` / `folder-error-history`
+   under each group; `focusField('logFolder')` → `choose-logFolder`, tab `log`.
+7. **The zoom a setting.** `Settings`: `locateWindow`, off by default, `withLocateWindow`; `SettingsStore` key `locateWindow`;
+   `ApiHandler` in and out. `UsageApp.followFocus`: nothing unless `runtime.settings().current().locateWindow()`; a mouse press on
+   the scene (an event filter on `MOUSE_PRESSED`, which `letTheWindowBeDragged` already has) records its time, and a rise of the
+   focus within 500 ms of it plays nothing. The page: `set-locateWindow` in the group `Window`, after `Several views at once`, with
+   its tooltip.
+8. **The version of Claude Code.** A small `ClaudeVersion` in `token`: runs `claude --version` with the same command resolution as
+   `ClaudeTokenProvider` (`windowsCommand` on Windows), stdin closed, output read, a limit of 10 s (`ProcessTree` ends it after),
+   and returns the first line or the reason. `AppRuntime.start`, after `logSource`: unless the fake backend or the placeholder
+   token is in use, on a daemon thread, `LOG.info("Claude Code version: " + line)` or `"Claude Code version could not be read: " +
+   reason`. The command is the one the token provider is given, so a test passes a fake.
+9. **The column `daily limit is` centred.** `app.css`: `text-align: center` on `.c-dailyBy` (title and cells), keeping the room
+   at its left.
+10. **The docs and the version.** `api.md` has `locateWindow` and the two folders; the README if it names the tabs.
+
+- **Tests.** `SettingsStoreTest`: the two folder keys again, a file with `dataFolder`, `locateWindow` and its default; the key list.
+  `ApiTest`: the two folders in and out, a move into each, a refused one named in `field`, `dataFolder` sent alone; `locateWindow`;
+  the settings count. `ClaudeVersionTest`: a fake command that prints a version, one that fails, one that hangs past the limit.
+  `app.test.cjs`: the tab titles and order, `Log` with its two controls, `Request` in Cost control (the interval's focus goes to
+  that tab), the group `Icons`, a glyph click checks and previews, a second click leaves it checked, closing a view in the row
+  leaves the form; the paths in their tabs filled on opening the settings; the two folder lines and their errors; `locateWindow`.
+  `layout.test.cjs`: the groups in their tabs, the strip, the centred column. Window tests: the probe's tab names (`tabbtn-main`
+  stays, its title changes), the settings' width with the paths in `General`, and the zoom not playing when off (the default).
+
+**By eye**: the tabs and the widest of them with the paths; the glyphs in the group `Icons`; the zoom when switched on, and not on a
+click into the window; the line of the Claude Code version in the log on Windows and macOS.
+
+**As built, where it differs from the plan above:**
+- **The move of the log of 0.86 at the start is gone** (`Main.moveOldLog`, `SettingsStore.oldLogFolder`): with a folder each again a
+  file of 0.86 means what it says, and a file of 0.87 to 0.89 gives its one folder to both, so there is nothing to move.
+- **The version of Claude Code** is asked for by `UsageApp`'s factory of sources, where a real token provider is made (not with the
+  fake backend nor the placeholder token), once in a run on a daemon thread; not in `AppRuntime`, whose many test starts would
+  each run the real `claude --version`. `ClaudeTokenProvider.isWindows` is package-visible for it.
+- **`Show where the window is`** is the one checkbox that starts with `Show`: the old rule of the texts makes it its exception.
+- **A refused folder** names `logFolder` or `historyFolder` by which of the two changed; `dataFolder` sent alone (a page of 0.89)
+  still sets both, and is named `dataFolder` when it is refused.
+- **Tests added**: `ClaudeVersionTest` (prints, fails, hangs past the limit, the command), `FakeClaude` mode `version`;
+  `SettingsStoreTest` (two folders, a file with `dataFolder`, `locateWindow`); `ApiTest` (`locateWindow`, the two folders,
+  `dataFolder` alone, a refused `historyFolder`); `app.test.cjs` (five: the glyph, a view closed in the row, the log's folder and
+  its red line, `locateWindow`, the paths filled on opening). Rewritten: the layout tests of the tabs, the groups, the About view,
+  the paths, the icons and the folders; the select-all tests for the two buttons; the folder tests for the history's folder.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.77; written at version 0.37, and the part about the backend brought up

@@ -48,6 +48,8 @@ public final class FakeClaude {
                 System.exit(1);
             }
             case "exit-silently" -> System.exit(1);
+            // What `claude --version` prints (since 0.90).
+            case "version" -> System.out.println("2.1.3 (Claude Code)");
             // Prints credential-shaped text, as a careless CLI might.
             case "leak-output" -> {
                 System.out.println("auth failed for sk-ant-oat01-LEAKED-SECRET");

@@ -113,6 +113,12 @@ public class UsageApp extends Application {
     /** Whether the window had the focus at the last tick. */
     private boolean focusedBefore;
 
+    /** When the mouse was last pressed in the window, in milliseconds of {@link System#currentTimeMillis()}; 0 before. */
+    private volatile long pressedAt;
+
+    /** How near to a press of the mouse the window may come to the front and still have been clicked into, in milliseconds. */
+    private static final long CLICK_MILLIS = 500;
+
     /** Where the pointer is on the screen; made on the toolkit's thread the first time it is needed. */
     private Robot robot;
 
@@ -231,6 +237,8 @@ public class UsageApp extends Application {
      */
     private void letTheWindowBeDragged(WebView webView) {
         webView.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            // A window clicked into shows no rectangle of where it is (since 0.90): the time of the press says it was.
+            pressedAt = System.currentTimeMillis();
             drag = null;
             edgeDrag = null;
             if (event.getButton() != MouseButton.PRIMARY || StageSwap.hasTitleBar(stage)) {
@@ -327,10 +335,30 @@ public class UsageApp extends Application {
             }
             URI base = options.baseUrl().orElse(UsageClient.DEFAULT_BASE_URL);
             TokenProvider tokens = fakeToken ? new PlaceholderTokenProvider() : ClaudeTokenProvider.create();
+            if (!fakeToken) {
+                logClaudeVersionOnce();
+            }
             return new UsageSources.Source(
                     new UsageFetcher(tokens, UsageClient.create(UsageClient.usageUri(base), responseLog)), false, Optional.of(base), null);
             }
         };
+    }
+
+    /** Whether the version of Claude Code has been asked for in this run. */
+    private static final java.util.concurrent.atomic.AtomicBoolean claudeVersionAsked = new java.util.concurrent.atomic.AtomicBoolean();
+
+    /**
+     * Logs the version of Claude Code, once in a run, when Claude Code is to be used (since 0.90): not with the fake backend nor
+     * with the placeholder token. In the background, so that the window does not wait for it.
+     */
+    private static void logClaudeVersionOnce() {
+        if (!claudeVersionAsked.compareAndSet(false, true)) {
+            return;
+        }
+        Thread asking = new Thread(() -> LOG.info(org.example.token.ClaudeVersion.line(
+                org.example.token.ClaudeVersion.COMMAND, org.example.token.ClaudeVersion.LIMIT)), "claude-version");
+        asking.setDaemon(true);
+        asking.start();
     }
 
     /** Notices when the person drags the height of an open history or log, so that it can be remembered. */
@@ -423,16 +451,20 @@ public class UsageApp extends Application {
     private static final long FOCUS_QUIET_MILLIS = 400;
 
     /**
-     * Zooms an outline onto the window whenever it becomes the active window (since 0.89): from the taskbar or the Dock, restored
-     * from minimized, by Alt-Tab, by a click while another window was active, and at the start. Not when the focus comes back from
-     * the folder picker of the settings, nor from the outline's own window. Read on the tick, since the stage may be another one
+     * Zooms an outline onto the window whenever it becomes the active window (since 0.89), while the setting says so (since
+     * 0.90, off by default): from the taskbar or the Dock, restored from minimized, by Alt-Tab, and at the start. Not when the
+     * window is clicked into (since 0.90), nor when the focus comes back from the folder picker of the settings, nor from the
+     * outline's own window. Read on the tick, since the stage may be another one
      * from one tick to the next.
      */
     private void followFocus() {
         boolean focused = stage.isFocused();
         boolean rose = focused && !focusedBefore;
         focusedBefore = focused;
-        if (rose && !locator.busy(FOCUS_QUIET_MILLIS) && !Desk.pickerBusy(FOCUS_QUIET_MILLIS)) {
+        // Only when the setting says so, off by default (since 0.90), and not for a window that was clicked into.
+        boolean wanted = runtime != null && runtime.settings().current().locateWindow();
+        boolean clicked = Math.abs(System.currentTimeMillis() - pressedAt) < CLICK_MILLIS;
+        if (rose && wanted && !clicked && !locator.busy(FOCUS_QUIET_MILLIS) && !Desk.pickerBusy(FOCUS_QUIET_MILLIS)) {
             locator.zoomOnto(stage);
         }
     }

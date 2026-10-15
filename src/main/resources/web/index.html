@@ -200,49 +200,45 @@
             <div id="settings-tabs" class="tabs">
                 <div id="tab-strip" class="tab-strip" role="tablist">
                     <button id="tabbtn-general" class="tab" type="button" role="tab" data-tab="general">General</button>
-                    <button id="tabbtn-main" class="tab" type="button" role="tab" data-tab="main">Main view</button>
-                    <button id="tabbtn-history" class="tab" type="button" role="tab" data-tab="history">History view</button>
+                    <button id="tabbtn-main" class="tab" type="button" role="tab" data-tab="main">Main</button>
+                    <button id="tabbtn-history" class="tab" type="button" role="tab" data-tab="history">History</button>
+                    <button id="tabbtn-log" class="tab" type="button" role="tab" data-tab="log">Log</button>
                     <button id="tabbtn-cost" class="tab" type="button" role="tab" data-tab="cost">Cost control</button>
-                    <button id="tabbtn-debug" class="tab" type="button" role="tab" data-tab="debug" hidden>Debug</button>
                     <button id="tabbtn-about" class="tab" type="button" role="tab" data-tab="about">About</button>
+                    <button id="tabbtn-debug" class="tab" type="button" role="tab" data-tab="debug" hidden>Debug</button>
                 </div>
             </div>
             <div id="settings-form">
                 <div id="tab-general" class="tab-page" hidden>
-                <fieldset>
-                    <legend>Request</legend>
-                    <span class="line">
-                    <label title="The time between two usage requests: a whole number of seconds from 5 to 3600. The default is 60.">Interval
-                        <input id="set-usageIntervalSeconds" type="text" inputmode="numeric" autocomplete="off"
-                               aria-label="Interval in seconds, from 5 to 3600"> s</label>
-                    <label title="Lets the program find the shortest time between usage requests that Anthropic accepts, between 10 and 300 seconds."><input id="set-autoInterval" type="checkbox"> Automatic</label>
-                    </span>
-                </fieldset>
                 <fieldset>
                     <legend>Window</legend>
                     <label title="Shows the title bar of the window. Off, no view has one; it comes back for as long as the settings are open, so open them to close the window."><input id="set-showTitleBar" type="checkbox"> Title bar</label>
                     <label title="Keeps the window above every other window for as long as the program runs. Off, it only comes to the front when the program starts."><input id="set-stayOnTop" type="checkbox"> Stay on top</label>
                     <label title="Opens the window at the next start as it was when the program was stopped: the same panel, the same size and the same place."><input id="set-restoreWindow" type="checkbox"> Restore the window at start</label>
                     <label title="Lets more than one view be shown at the same time: an icon opens its view and leaves the others open. Off, opening a view closes the one that is shown."><input id="set-severalViews" type="checkbox"> Several views at once</label>
+                    <label title="When the window comes to the front, a rectangle zooms onto it so that it is found at once. Not when you click into the window."><input id="set-locateWindow" type="checkbox"> Show where the window is</label>
                 </fieldset>
                 <fieldset>
                     <legend>Files</legend>
-                    <div class="folder-line" title="The folder the log, its old logs and the usage history are kept in. The default is the program's folder.">
-                        <span class="folder-label">Log and history folder</span>
-                        <span id="set-dataFolder" class="folder-path"></span>
-                        <button id="choose-dataFolder" type="button" title="Opens a window to choose the folder.">Choose…</button>
-                        <button id="default-dataFolder" type="button" title="Puts back the program's folder.">Default</button>
+                    <div class="path-line">
+                        <span class="folder-label">Settings file</span><span class="about-path"><a id="about-settings" class="about-link" href="#" title="Open the folder of this file"></a>
+                        <button id="about-copy-settings" class="icon tiny copy" type="button" aria-label="Copy the path" title="Copy the path">
+                            <svg class="copy-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="5.5" y="5.5" width="8" height="8.5" rx="1"/>
+                                <path d="M10.5 5.5V3a1 1 0 0 0-1-1H3.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/>
+                            </svg>
+                            <svg class="copied-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 8.5l3.2 3.2L13 4.8"/>
+                            </svg>
+                        </button></span>
                     </div>
-                    <p id="folder-error" class="panel-error" role="alert" hidden></p>
-                </fieldset>
-                <fieldset>
-                    <legend>Log</legend>
-                    <label title="Writes the JSON of every usage response to the log. Anything shaped like a credential is masked."><input id="set-logResponse" type="checkbox"> Log the response</label>
                 </fieldset>
                 </div>
                 <div id="tab-main" class="tab-page" hidden>
                 <fieldset>
-                    <legend>Main view<button id="set-all" class="select-all" type="button" aria-label="Select every element, or none" title="Select every element, or none">
+                    <legend>Main<button id="set-all" class="select-all" type="button" aria-label="Select every element, or none" title="Select every element, or none">
                         <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
                              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <rect x="2" y="2" width="12" height="12" rx="2"/>
@@ -274,15 +270,58 @@
                     <label title="How much the amount used has changed since the reading before this one. 0.00 when it has not changed."><input id="set-showDeltaUsed" type="checkbox"> Change in the amount used</label>
                     <label title="The seconds between this reading and the one before it."><input id="set-showDeltaTime" type="checkbox"> Time since the previous reading</label>
                     <label title="How long the latest usage request to Anthropic took, in milliseconds, and in seconds and milliseconds from one second on."><input id="set-showDuration" type="checkbox"> Request duration</label>
-                    <label title="The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again."><input id="set-showCostIcon" type="checkbox"> Cost icon</label>
-                    <label title="The icon that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History icon</label>
-                    <label title="The icon that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log icon</label>
-                    <label title="The icon that shows the failed refreshes of this run below the row, and hides it again."><input id="set-showErrorIcon" type="checkbox"> Error log icon</label>
+                </fieldset>
+                <fieldset>
+                    <legend>Icons<button id="set-all-icons" class="select-all" type="button" aria-label="Checks every icon, or none when every one is checked" title="Checks every icon, or none when every one is checked.">
+                        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="2" y="2" width="12" height="12" rx="2"/>
+                            <path d="M5 8.2l2.2 2.3L11 5.6"/>
+                        </svg></button></legend>
+                    <span class="line">
+                        <label title="The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again."><input id="set-showCostIcon" type="checkbox"> Cost</label>
+                        <button id="glyph-showCostIcon" class="icon tiny glyph" type="button" aria-label="Check Cost" title="The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again.">
+                            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M2 5h12M2 11h7"/>
+                            </svg>
+                        </button>
+                    </span>
+                    <span class="line">
+                        <label title="The icon that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History</label>
+                        <button id="glyph-showHistoryIcon" class="icon tiny glyph" type="button" aria-label="Check History" title="The icon that shows the usage history, one line for each reading, below the row, and hides it again.">
+                            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="2" y="2.5" width="12" height="11" rx="1"/>
+                                <path d="M2 6.2h12M2 9.8h12M6.4 2.5v11"/>
+                            </svg>
+                        </button>
+                    </span>
+                    <span class="line">
+                        <label title="The icon that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log</label>
+                        <button id="glyph-showLogIcon" class="icon tiny glyph" type="button" aria-label="Check Log" title="The icon that shows the log of the program below the row, and hides it again.">
+                            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3.5 1.8h6l3 3v9.4h-9z"/>
+                                <path d="M9.5 1.8v3h3M5.5 8h5M5.5 10.6h5"/>
+                            </svg>
+                        </button>
+                    </span>
+                    <span class="line">
+                        <label title="The icon that shows the failed refreshes of this run below the row, and hides it again."><input id="set-showErrorIcon" type="checkbox"> Error log</label>
+                        <button id="glyph-showErrorIcon" class="icon tiny glyph" type="button" aria-label="Check Error log" title="The icon that shows the failed refreshes of this run below the row, and hides it again.">
+                            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M8 2L14.5 13.5h-13z"/>
+                                <path d="M8 6.5v3.2M8 11.6v.1"/>
+                            </svg>
+                        </button>
+                    </span>
                 </fieldset>
                 </div>
                 <div id="tab-history" class="tab-page" hidden>
                 <fieldset>
-                    <legend>History view<button id="set-all-history" class="select-all" type="button" aria-label="Select every checkbox, or none" title="Select every checkbox, or none">
+                    <legend>History<button id="set-all-history" class="select-all" type="button" aria-label="Select every checkbox, or none" title="Select every checkbox, or none">
                         <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
                              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <rect x="2" y="2" width="12" height="12" rx="2"/>
@@ -301,8 +340,71 @@
                     <label title="The column with the seconds since the previous line that is shown."><input id="set-historyDeltaTime" type="checkbox"> Δ time</label>
                     <label title="The column with the currency: the dollar sign for US dollars, the code for any other."><input id="set-historyCurrent" type="checkbox"> Cur.</label>
                 </fieldset>
+                <fieldset>
+                    <legend>Files</legend>
+                    <div class="folder-line" title="The folder the usage history is kept in. The default is the program's folder.">
+                        <span class="folder-label">History folder</span>
+                        <span id="set-historyFolder" class="folder-path"></span>
+                        <button id="choose-historyFolder" type="button" title="Opens a window to choose the folder.">Choose…</button>
+                        <button id="default-historyFolder" type="button" title="Puts back the program's folder.">Default</button>
+                    </div>
+                    <p id="folder-error-history" class="panel-error" role="alert" hidden></p>
+                    <div class="path-line">
+                        <span class="folder-label">Usage history</span><span class="about-path"><a id="about-history" class="about-link" href="#" title="Open the folder of this file"></a>
+                        <button id="about-copy-history" class="icon tiny copy" type="button" aria-label="Copy the path" title="Copy the path">
+                            <svg class="copy-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="5.5" y="5.5" width="8" height="8.5" rx="1"/>
+                                <path d="M10.5 5.5V3a1 1 0 0 0-1-1H3.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/>
+                            </svg>
+                            <svg class="copied-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 8.5l3.2 3.2L13 4.8"/>
+                            </svg>
+                        </button></span>
+                    </div>
+                </fieldset>
+                </div>
+                <div id="tab-log" class="tab-page" hidden>
+                <fieldset>
+                    <legend>Log</legend>
+                    <label title="Writes the JSON of every usage response to the log. Anything shaped like a credential is masked."><input id="set-logResponse" type="checkbox"> Log the response</label>
+                </fieldset>
+                <fieldset>
+                    <legend>Files</legend>
+                    <div class="folder-line" title="The folder the log and its old logs are kept in. The default is the program's folder.">
+                        <span class="folder-label">Log folder</span>
+                        <span id="set-logFolder" class="folder-path"></span>
+                        <button id="choose-logFolder" type="button" title="Opens a window to choose the folder.">Choose…</button>
+                        <button id="default-logFolder" type="button" title="Puts back the program's folder.">Default</button>
+                    </div>
+                    <p id="folder-error-log" class="panel-error" role="alert" hidden></p>
+                    <div class="path-line">
+                        <span class="folder-label">Log file</span><span class="about-path"><a id="about-log" class="about-link" href="#" title="Open the folder of this file"></a>
+                        <button id="about-copy-log" class="icon tiny copy" type="button" aria-label="Copy the path" title="Copy the path">
+                            <svg class="copy-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="5.5" y="5.5" width="8" height="8.5" rx="1"/>
+                                <path d="M10.5 5.5V3a1 1 0 0 0-1-1H3.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/>
+                            </svg>
+                            <svg class="copied-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 8.5l3.2 3.2L13 4.8"/>
+                            </svg>
+                        </button></span>
+                    </div>
+                </fieldset>
                 </div>
                 <div id="tab-cost" class="tab-page" hidden>
+                <fieldset>
+                    <legend>Request</legend>
+                    <span class="line">
+                    <label title="The time between two usage requests: a whole number of seconds from 5 to 3600. The default is 60.">Interval
+                        <input id="set-usageIntervalSeconds" type="text" inputmode="numeric" autocomplete="off"
+                               aria-label="Interval in seconds, from 5 to 3600"> s</label>
+                    <label title="Lets the program find the shortest time between usage requests that Anthropic accepts, between 10 and 300 seconds."><input id="set-autoInterval" type="checkbox"> Automatic</label>
+                    </span>
+                </fieldset>
                 <fieldset>
                     <legend>Cost control</legend>
                     <label title="What may be spent in a month, in US dollars: from 0.01 to 1,000,000, with up to two decimals. Empty for no limit.">Monthly limit
@@ -372,42 +474,6 @@
                 <p id="about-version" class="about-version"></p>
                 <p id="about-error" class="panel-error" role="alert" hidden></p>
                 <div id="about-details" class="about-details">
-                    <span class="about-label">Settings</span><span class="about-path"><a id="about-settings" class="about-link" href="#" title="Open the folder of this file"></a>
-                        <button id="about-copy-settings" class="icon tiny copy" type="button" aria-label="Copy the path" title="Copy the path">
-                            <svg class="copy-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <rect x="5.5" y="5.5" width="8" height="8.5" rx="1"/>
-                                <path d="M10.5 5.5V3a1 1 0 0 0-1-1H3.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/>
-                            </svg>
-                            <svg class="copied-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M3 8.5l3.2 3.2L13 4.8"/>
-                            </svg>
-                        </button></span>
-                    <span class="about-label">Log</span><span class="about-path"><a id="about-log" class="about-link" href="#" title="Open the folder of this file"></a>
-                        <button id="about-copy-log" class="icon tiny copy" type="button" aria-label="Copy the path" title="Copy the path">
-                            <svg class="copy-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <rect x="5.5" y="5.5" width="8" height="8.5" rx="1"/>
-                                <path d="M10.5 5.5V3a1 1 0 0 0-1-1H3.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/>
-                            </svg>
-                            <svg class="copied-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M3 8.5l3.2 3.2L13 4.8"/>
-                            </svg>
-                        </button></span>
-                    <span class="about-label">Usage history</span><span class="about-path"><a id="about-history" class="about-link" href="#" title="Open the folder of this file"></a>
-                        <button id="about-copy-history" class="icon tiny copy" type="button" aria-label="Copy the path" title="Copy the path">
-                            <svg class="copy-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <rect x="5.5" y="5.5" width="8" height="8.5" rx="1"/>
-                                <path d="M10.5 5.5V3a1 1 0 0 0-1-1H3.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/>
-                            </svg>
-                            <svg class="copied-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"
-                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M3 8.5l3.2 3.2L13 4.8"/>
-                            </svg>
-                        </button></span>
                     <span id="about-runtime-label" class="about-label"></span><span id="about-runtime"></span>
                     <span id="about-toolkit-label" class="about-label"></span><span id="about-toolkit"></span>
                     <span class="about-label">System</span><span id="about-system"></span>
