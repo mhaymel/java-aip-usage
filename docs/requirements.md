@@ -1044,7 +1044,8 @@ document uses for it. From left to right (in version 0.68, with every element of
 
 - **The four new elements of version 0.82** keep the numbers of the others: `Status` is the first of the row, before the time,
   and the three of the day follow the budget, after a thin gray line, `64% 4.37 of 6.81`. **Since version 0.83 the day comes
-  first** (`docs/img/img_44.png`): after the time the three of the day, then the thin gray line, then the month's percentage,
+  first** (in 0.82 the row read `17:13 14% 273.38 of 2,000.00 | 83% 75.71 of 90.90`, the month before the day; the two
+  groups swapped places): after the time the three of the day, then the thin gray line, then the month's percentage,
   amount used and monthly limit, and their checkboxes in `Main view` in that order; the line stands between the two groups
   only when both have something shown. The rest of this paragraph holds: the word `of` between the two
   amounts as for the month and only when both are shown. They are in the green of the figures, and red as One green says. Their
