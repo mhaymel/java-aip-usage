@@ -2369,7 +2369,7 @@ document uses for it. From left to right (in version 0.68, with every element of
 ### The settings rearranged
 
 - **Since version 0.90 the tabs are** `General`, `Main`, `History`, `Log`, `Cost control`, `About` and `Debug` (the last in debug
-  mode only). `Main view` and `History view` lose the word `view` (`docs/img/img_65.png`), in their tab titles and in the headings of
+  mode only). `Main view` and `History view` lose the word `view`, in their tab titles and in the headings of
   their groups, which are `Main` and `History`. `Log` is new, after `History`.
 - **`General`** keeps the group `Window`, with `Show where the window is` added (see The window shows where it is when it comes
   to the front). The group `Request` goes to `Cost control`, the group `Files` and the group `Log` go to the tab `Log` and the

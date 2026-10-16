@@ -2972,7 +2972,7 @@ the cost control with columns off; the red frame of a wrong field; the lines of 
 **Status: built (version 0.90).** Decided
 before building: a select-all button for each of `Main` and `Icons`; the whole suite run with the window tests; one commit once
 it passes, with parts 1 and 2 and without the notes and images of `docs/`. The notes of
-`new-requirements.md` (the twelfth round, the four icons' checkboxes to be a group of their own, and `img_65` to `img_68`; `img_67` the swap of About and Debug, asked before the round),
+`new-requirements.md` (the twelfth round, the four icons' checkboxes to be a group of their own, the tabs `Main view` and `History view` marked, and `img_66` to `img_68`; `img_67` the swap of About and Debug, asked before the round),
 decided in two rounds of questions, and the fault seen with the automatic interval. `AppInfo.VERSION = "0.90"`. Requirements:
 The settings rearranged; The folders of the log and of the usage history; The window shows where it is when it comes to the
 front; Authentication (the version of Claude Code); The automatic interval (switched on, it begins anew); Settings (the tabs);
