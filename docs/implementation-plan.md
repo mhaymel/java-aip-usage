@@ -1225,7 +1225,7 @@ yet built", a commit. Also decided by the person: the frame that ran down throug
   for the request duration; the figure back when the value returns; `0.00` shown as a figure. `layout.test.cjs`: no
   `.delta.empty`, the widths, the rule that keeps the box from being dimmed, the tooltip.
 
-**Not checked by a test.** The row in a real window in `No usage reported`, the case of `docs/img/img_4.png`: the page test
+**Not checked by a test.** The row in a real window in `No usage reported` with both changes switched on, the case that brought this up: the page test
 gives the row a reading with no change, which is the same path.
 
 ### 52. The log panel: a level and the date
@@ -1613,7 +1613,7 @@ figures of that run, not by running it again.
   time of the row across the list selects 0 characters, selecting everything selects 0, and the style in force is `none`
   for the row and for a line of the list and `text` for the field. It passes.
 
-**Not checked by a test.** A double click with a real mouse, which is how the blue of `docs/img/img_4.png` most likely came
+**Not checked by a test.** A double click with a real mouse, which is how the blue of a selection in the row and the lists most likely came
 about; the style that forbids it is the one the test reads.
 
 ### 68. The no-spend text on hover
