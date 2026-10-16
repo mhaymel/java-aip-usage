@@ -1874,7 +1874,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   twentieth, nineteen gaps, through both parts. **The part used is green, and the rest a light green** (the green of the figures
   at a quarter of its strength), where the rest was gray. The used part ends where the share ends, inside a block if it does.
 - **The colour of the used part says the state** (since version 0.82): **green** while the bar is within its limit and on
-  pace; **amber**, an orange since version 0.85 (`#ff9900` on both themes; the bright yellow `#ffff33` in 0.84, `docs/img/img_51.png`; the golden `#e3b341` in 0.83; `#bf8700` / `#d29922`, which looked light brown, in 0.82), the bars and the status circle in it (the circle with a ring of 1 pixel in the darker `#c26a00` round it, `#b8a000` in 0.84, so that it is seen on
+  pace; **amber**, an orange since version 0.85 (`#ff9900` on both themes; the bright yellow `#ffff33` in 0.84; the golden `#e3b341` in 0.83; `#bf8700` / `#d29922`, which looked light brown, in 0.82), the bars and the status circle in it (the circle with a ring of 1 pixel in the darker `#c26a00` round it, `#b8a000` in 0.84, so that it is seen on
   the background), when the projection says the limit will be passed (see Limits, projections and the
   status of spending); **red** (`#cf222e` / `#f85149`) when the limit is passed, and then the bar is full, every block red. Its
   rest takes the light form of the same colour. A bar with no limit stays gray and empty, as before.
