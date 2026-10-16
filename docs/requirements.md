@@ -2560,8 +2560,8 @@ document uses for it. From left to right (in version 0.68, with every element of
 - **The words in the file**: a Fine line is written `FINE`, a debug line **`DEBUG`** (where every debug line was `FINE` until 0.94);
   the others as before, `SEVERE`, `WARNING`, `INFO`. The column stays 7 characters wide. The log view reads the `FINE` lines of an
   older file as Fine lines, and `DEBUG` as Debug; the console writes the same words.
-- **A change of the settings is a Fine line, and names only what changed** (`docs/img/img_78.png`, where the whole of the settings
-  was written at `Info` at every press of the zoom): `Settings changed: <key> <before> -> <after>`, one for each setting that is
+- **A change of the settings is a Fine line, and names only what changed** (in 0.94 the whole of the settings was written at
+  `Info` at every press of the zoom, `Settings changed: Settings[usageIntervalSeconds=60, …` line after line): `Settings changed: <key> <before> -> <after>`, one for each setting that is
   another, joined by `, `, in the order of the settings file, by the keys of the file and their values as the file writes them:
   `Settings changed: listFontSize 12 -> 13`, `Settings changed: historyGroup none -> 15m, historyZeroLines true -> false`. A text is
   written as it is, an empty one as `""`. A save that changes nothing writes nothing, as before. At `Info` the log view no longer
