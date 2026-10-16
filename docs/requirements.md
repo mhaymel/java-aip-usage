@@ -1836,7 +1836,7 @@ document uses for it. From left to right (in version 0.68, with every element of
     default** (until 0.81 they followed the row's `Currency symbol`). Key `costCurrency`. Its tooltip: `Puts the currency symbol
     before the amounts of the cost control.`
 - **The daily limit worked out** is the monthly limit counted divided by the working days of the month, by the setting above.
-- **Since version 0.89 the tab has a line `Figures`** (`docs/img/img_63.png`), after `Currency symbol`: three checkboxes, `Spent`,
+- **Since version 0.89 the tab has a line `Figures`**, after `Currency symbol`: three checkboxes, `Spent`,
   `Limit` and `Percentage`, **all on by default**, which say which columns of figures the cost control panel shows (see The cost
   control panel). Keys `costShowUsed`, `costShowLimit` and `costShowPercent`. Tooltips: `Shows what is spent, today and this
   month, in the cost control.`, `Shows the daily and the monthly limit in the cost control.` and `Shows the share of each limit
@@ -1885,7 +1885,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   `236.56 of 1,000.00 · 24%`, right-aligned as a whole, so the amounts of the two rows did not line up), shared by the two rows: the amount spent, right-aligned;
   `of`, centred; the limit, right-aligned; and `· <percent>%`, right-aligned; so that the decimal points of each column are under
   one another. A row with no limit has its amount in the first column and `· no limit set` in the rest of the line.
-- **Each column can be switched off** (since version 0.89, `docs/img/img_63.png`) by the checkboxes `Spent`, `Limit` and
+- **Each column can be switched off** (since version 0.89, asked for with the three columns of 0.88 marked one by one:
+  the amounts spent, the limits and the percentages) by the checkboxes `Spent`, `Limit` and
   `Percentage` of the tab `Cost control`; the others close up, and the panel is narrower by what is gone. **`of` is shown only
   when both the amount spent and the limit are**, as in the row; the `·` before the percentage only when something stands before
   it. A row with no limit writes `no limit set` in the place of the limit, or of the percentage when the limit is off, and
