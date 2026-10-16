@@ -2139,8 +2139,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   tall as the row, its message lines and all of them together, and never taller than the program makes a window (1,600 pixels):
   when the views would need more, the lowest list is given what is left, and no less than three times the row's height.
   **Since version 0.82 the window is never taller than the screen it is on**, and the lists share what there is: see Views that
-  do not fit on the screen. (In `docs/img/img_36.png` the four views were taller than the screen, and the error log, the lowest,
-  had no room at all.)
+  do not fit on the screen. (In version 0.81, with the cost control, the history, the log and the error log open, the four views were taller than
+  the screen: the log ran off its bottom edge, and the error log, the lowest, had no room at all.)
 - **The window is as wide as the widest of the open views needs**: three times the row with the log, one and a half times with
   the error log, the table with the usage history, its own rows with the cost control (since 0.84; the history's table or
   its bars until then), and the least width of the settings with the settings.
