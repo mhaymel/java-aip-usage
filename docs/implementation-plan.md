@@ -3052,7 +3052,7 @@ click into the window; the line of the Claude Code version in the log on Windows
 
 ### 133. Version 0.91: the error log into the log, the right edge, the tooltips' duration, and smaller things
 
-**Status: built (version 0.91); the Java and frontend tests pass, the window tests not run, by request.** The notes of `new-requirements.md` (the thirteenth round, `Show where the window is` marked to be on by default, the icons of the group `Icons` showing as empty boxes, and `img_72` and `img_73`), decided in two rounds of
+**Status: built (version 0.91); the Java and frontend tests pass, the window tests not run, by request.** The notes of `new-requirements.md` (the thirteenth round, `Show where the window is` marked to be on by default, the icons of the group `Icons` showing as empty boxes, the folder's and the file's lines of the tab `Log`, and `img_73`), decided in two rounds of
 questions, and a third before building: the page's own tooltips should the toolkit give no handle on its own; the Java and
 frontend tests without the window tests; one commit once they pass, with the Claude version at every start, without the notes and
 images of `docs/`; the gap after the level of a log line stays as it is, by request. Also in it, built already and not committed: the

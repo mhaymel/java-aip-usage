@@ -2447,7 +2447,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   width the person may change is shown, the log alone or among others, the right 6 pixels of the window make it wider and narrower,
   with the cursor of a horizontal resize and a grip on hover (2 by 24 pixels, centred, in the muted gray). The width is kept as one
   dragged by the frame is. The history alone has none: its width is its table's.
-- **The paths in `Log` and `History`** (`docs/img/img_72.png`): the line of the folder shows the folder in full, the program's folder too
+- **The paths in `Log` and `History`** (in 0.90 the folder's line said only `Program folder`, and the file's line gave the
+  whole path, folder and name): the line of the folder shows the folder in full, the program's folder too
   (its path in gray while it is the default, where it said `Program folder`); the line of the file shows the file's name alone,
   still a link that opens its folder, with the button that copies the full path.
 - **Every column of the history is centred** (`docs/img/img_73.png`), its title and its cells, as `daily limit is` is since 0.90.
