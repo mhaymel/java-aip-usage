@@ -1271,7 +1271,7 @@ document uses for it. From left to right (in version 0.68, with every element of
 ### Taller and shorter by the bottom edge
 
 - **Since version 0.89 a list is made taller and shorter by dragging the bottom edge of the window** while the setting `Title
-  bar` is off, as it is saved (`docs/img/img_57.png`): the usage history, the log and the error log, alone or among several views.
+  bar` is off, as it is saved (asked for with the two arrow buttons of 0.88 marked, beside the zoom buttons): the usage history, the log and the error log, alone or among several views.
   **The two buttons `Taller by five lines` and `Shorter by five lines`** that 0.87 and 0.88 had in each list's line of controls
   **are gone**, in every view. With the title bar on the window is dragged larger by its frame, as before.
 - **The edge** is the bottom 6 pixels of the window, the border the page draws included. While the pointer is there it is the
