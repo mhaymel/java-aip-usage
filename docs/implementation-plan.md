@@ -2781,8 +2781,8 @@ list and several views, on Windows and on macOS, and a list dragged taller and t
 ### 128. Version 0.86: the circle keeps the row, one orange, one view without a line, the cost control first
 
 **Status: built (version 0.86); only the tests of what changed were run, not the whole of them.** The notes of `new-requirements.md`
-(the eighth round, `img_55`, and a row of only the status circle, the cost icon and the gear above the cost control
-alone, a line between them), decided in one round of questions. `AppInfo.VERSION = "0.86"`. Requirements: The row goes
+(the eighth round: a row of only the status circle, the cost icon and the gear above the cost control alone, a line
+between them, and the cost control with the row away, its first bar at the window's top edge), decided in one round of questions. `AppInfo.VERSION = "0.86"`. Requirements: The row goes
 while the pointer is outside the window; One green, and the colours of the bars; A line between the row and the views; Several views
 at once (the order).
 
@@ -2798,7 +2798,7 @@ at once (the order).
 - **Tests.** `app.test.cjs`: the circle keeps the row, the refresh does not, the class `single`; `layout.test.cjs`: the rules.
   Run: those and the tests of 0.85's row, eleven in all.
 
-**By eye**: that row and `img_55` again, the cost control above the settings, and one view without its line.
+**By eye**: both again, the cost control above the settings, and one view without its line.
 
 ### 129. Version 0.87: one folder, and no title bar but the settings'
 

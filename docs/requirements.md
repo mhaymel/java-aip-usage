@@ -1309,7 +1309,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   the top of the window stays where it is. A list keeps its height of its own, so that the height the person gave it is remembered
   as it would be with the row there, and the window is as tall again when the row comes back. What is stored for the next start
   is the size with the row.
-- **The cost control has room above it while the row is away** (since version 0.86, `docs/img/img_55.png`): 6 pixels more at its top,
+- **The cost control has room above it while the row is away** (since version 0.86; in 0.85 the bar of `Today` stood right at the window's top edge): 6 pixels more at its top,
   so that its bars do not touch the border of the window; the window is taller by them. With the row there nothing changes, and
   the sides and the bottom are as they were.
 - **The row comes back when the conditions no longer hold**: the last view is closed, or the settings are saved with the title bar
