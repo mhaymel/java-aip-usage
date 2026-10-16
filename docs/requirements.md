@@ -553,7 +553,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   `General`, `Main view`, `History view`, `Cost control`, `About` and `Debug` (only in debug mode, see Debug mode); **since
   version 0.90 `General`, `Main`, `History`, `Log`, `Cost control`, `About` and `Debug`** (see The settings rearranged)
   (since version 0.79 `General` is the first tab; until then it was the last but one, before `About`). **Since version 0.90
-  `About` comes before `Debug`** (`docs/img/img_67.png`), so that the tab of debug mode alone is the last; until then `About` was
+  `About` comes before `Debug`**, so that the tab of debug mode alone is the last; until then `About` was
   always the last.
   - `Main view` holds the elements of the row and the properties of the amounts and of the time; `History view` the checkboxes of the history (below);
     `Cost control` the limits (see Cost control); `Debug` the debug settings; `General` the groups `Request`, `Window` and `Log`; `About` the About view (see The About view).
