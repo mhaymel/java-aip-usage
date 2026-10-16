@@ -2179,7 +2179,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   like the page's other files, and named first. It is still not fetched from anywhere. Whether a version needs this is seen in
   its window, and is said in that version's section once it is known.
 - **Since version 0.81 the program brings Cascadia Mono**, as the rule above has it: the window on macOS did not take the names
-  and showed Courier (`docs/img/img_32.png`, `docs/img/img_34.png`). Cascadia Mono, the typeface Windows showed (`docs/img/img_30.png`), at
+  and showed Courier (`docs/img/img_32.png`, `docs/img/img_34.png`). Cascadia Mono, the typeface Windows showed, at
   its regular weight, is among the program's files with its licence (the SIL Open Font License), served to the page by the
   program and named first, so the lists, the cost control and every other place set in the lists' typeface look the same on
   Windows and on macOS. The names after it stay, for a page that cannot have it.
