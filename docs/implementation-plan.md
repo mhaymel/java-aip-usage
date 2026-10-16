@@ -3540,7 +3540,9 @@ and whether the new least widths still keep the row from moving: for a person to
 **Status: done (version 0.32); how it looks is for a person to judge.** Requirement: The elements of the row (and Compact window,
 Settings, Countdown).
 
-*Decided by the person:* all twelve elements marked in `docs/img/img_2.png` can be hidden, the gear alone staying; a click on a
+*Decided by the person:* all twelve elements of the row (the time, the percentage, the amount used, the budget, the refresh
+button, the countdown, the interval, the change in the amount used, the time since the previous reading, and the log, history
+and error log buttons) can be hidden, the gear alone staying; a click on a
 checkbox is a preview in the row, kept by Apply and taken back by Cancel; the gray box is for the start only; the amount used and
 the budget have a checkbox each.
 

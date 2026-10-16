@@ -1018,7 +1018,7 @@ the first reading.
 The row has fourteen elements that can be shown or hidden (the fourteenth, the cost button, since version 0.69; wherever this document says thirteen it counts those of before), and the settings button, the gear, which is
 always there. (The four that show a view are called icons since version 0.80, `Log icon`, `History icon`, `Error log icon` and `Cost icon`, where their checkboxes read `Log button` and so on before: they are small icons, and the word says which thing of the
 row is meant. Where an older passage of this document says the log button, the history button, the error log button or the cost button, it is the same four. `Refresh button` keeps its name: it does something, and shows no view.) Each has a name, which is the text of its checkbox in the settings and the word this
-document uses for it. From left to right (see `docs/img/img_2.png`, where each but the request duration, which came later, is marked; the four icons are in the order below since version 0.81, and were the log, the history, the error log and the cost until then):
+document uses for it. From left to right (in version 0.68, with every element of the time shown, the row read `16:43:44 34% 341.99 of 1,000.00`, the refresh arrow, `44s 175s +0.09 129s 102ms`, and the icons of the log, the history and the error log before the gear; the four icons are in the order below since version 0.81, and were the log, the history, the error log and the cost until then):
 
 | # | Name | What it is | Example | Shown by default | Key in `settings.json` |
 | --- | --- | --- | --- | --- | --- |
