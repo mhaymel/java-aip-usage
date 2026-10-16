@@ -2569,8 +2569,8 @@ document uses for it. From left to right (in version 0.68, with every element of
 
 ### Version 0.96: the figures of the history line up, and no empty room in a narrow row
 
-- **The figures of the history line up at the decimal point** (`new-requirements.md`, `docs/img/img_79.png`, where `-1.22` stood
-  centred under `+247.16`): the columns stay centred under their titles, as since 0.91, but **within a column every cell is as
+- **The figures of the history line up at the decimal point** (`new-requirements.md`; in 0.95, in the history grouped by the hour,
+  `-1.22` stood centred under `+247.16`): the columns stay centred under their titles, as since 0.91, but **within a column every cell is as
   wide as its widest**, padded at the left, so that the figures stand as one right-aligned block in the middle of the column and,
   the text being of fixed width and every amount having two decimals, line up by their decimal points.
   - **Which columns**: `used`, `limit`, `month`, `day`, `Δ used` and `Δ time` (`  610 s` under `35061 s`, lined up by the
@@ -2578,7 +2578,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   - **The widest is of the lines that are shown**, grouped or not, so it follows the filter and the grouping. An empty cell stays
     empty and counts for nothing; `failed`, in the place of a failed line's amount, is a cell like the others.
   - **The width of the column is unchanged**: it was already as wide as its widest cell, or as its title.
-- **A narrow row has no empty room** (`docs/img/img_80.png`, the status circle and the gear with some 100 pixels between them): the
+- **A narrow row has no empty room** (in 0.95 the status circle and the gear with some 100 pixels between them): the
   program made the window at least 160 pixels wide, which the row with nothing but the circle and the gear does not fill, and the
   gear stood at the right edge. **The least width the program gives the window is now 40 pixels** of its content, so the window is
   as wide as the row: the circle and the gear side by side, with the gap of the row between them. The least height, 32 pixels, is
