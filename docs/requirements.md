@@ -478,7 +478,8 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   is changed; it asks nothing and takes back the preview. **There is no `Restore defaults`** (since version 0.64). If the backend refuses a
   value, or the settings cannot be saved, the view stays open and shows a brief message in red; nothing
   is changed.
-- **A field that is wrong or empty when the settings are saved gets the focus** (since version 0.89, `docs/img/img_61.png`): the
+- **A field that is wrong or empty when the settings are saved gets the focus** (since version 0.89; in 0.88 an empty `Working days` brought the red
+  message `The working days must be a whole number from 1 to 31.` and nothing showed the field): the
   view switches to the tab the field is on, puts the cursor in it and selects its text, so that it can be typed over at once,
   and gives it a **red frame** (`#cf222e` / `#f85149`, 1 pixel, where its border is) until it is changed. The red message stays
   as it is. With more than one wrong field the first in the order of the tabs and, within a tab, from the top, is the one; the
