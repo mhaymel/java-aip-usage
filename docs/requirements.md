@@ -2279,7 +2279,8 @@ document uses for it. From left to right (in version 0.68, with every element of
 
 ### The folders of the log and of the usage history
 
-- **Since version 0.90 the log and the usage history have a folder each again** (`docs/img/img_66.png`), each in its own tab: the
+- **Since version 0.90 the log and the usage history have a folder each again** (in 0.88 one line, `Log and history folder`, in the tab
+  `General`), each in its own tab: the
   log's in `Log`, the history's in `History` (see The settings rearranged). What follows of one folder held in versions 0.87 to
   0.89; the rest of this section holds for each of the two folders.
 - **The folder of the log and of the usage history can be chosen** (since version 0.81; **one folder for both since version
@@ -2373,7 +2374,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   their groups, which are `Main` and `History`. `Log` is new, after `History`.
 - **`General`** keeps the group `Window`, with `Show where the window is` added (see The window shows where it is when it comes
   to the front). The group `Request` goes to `Cost control`, the group `Files` and the group `Log` go to the tab `Log` and the
-  tab `History` (`docs/img/img_66.png`). Below `Window` is the path of the settings file, as the About view had it: a link that
+  tab `History`. Below `Window` is the path of the settings file, as the About view had it: a link that
   opens its folder, with the button that copies it (see The paths of the About view are links, with a button to copy each).
 - **`Main`** has the elements of the row as before but for the four icons of the views, which are a group of their own,
   **`Icons`**, below the group `Main` (in 0.88 they were the last four checkboxes of `Main view`). Their checkboxes are `Cost`, `History`, `Log` and `Error log`, where
