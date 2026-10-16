@@ -2282,7 +2282,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   (`java-aip-usage.fake.csv`).
 - **Where.** A group `Files` in the tab `General`, after `Window`, with one line, `Log and history folder` (until version 0.86 two,
   `Log folder` and `History folder`): the full path of the folder as text (since version 0.84 only once another folder is chosen: while the folder is the
-  default its line says `Program folder` in gray, with no path, `docs/img/img_48.png`), a button `Choose…` that opens the system's folder picker at that folder, and a
+  default its line says `Program folder` in gray, with no path; before, the default showed the program's full path in gray,
+  with `Default` grayed out), a button `Choose…` that opens the system's folder picker at that folder, and a
   button `Default`, which puts back the program's folder. Nothing is typed. Saved under the key `dataFolder`, as a full path; a
   key that is not there, or empty, is the program's folder.
 - **A settings file of version 0.86 or before**, which has the two keys `logFolder` and `historyFolder` and no `dataFolder`: the
