@@ -1855,7 +1855,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   was wider after the history had been opened and closed: the same panel, a minute apart, first narrow and then with longer
   bars and the figures further right). Its width is the label, the bar
   at its least width (120 pixels), the four columns of the figures with the room between them, and 8 pixels of room at the
-  right; **no figure is ever cut at the window's edge** (`docs/img/img_53.png`). The window is as wide as that or as the row,
+  right; **no figure is ever cut at the window's edge** (it was, with a row of only the cost icon and the gear: the percentages
+  ran out past the window's right edge). The window is as wide as that or as the row,
   whichever is wider.
 - **The panel is as tall as its two bars need and as wide as the history's table** (until version 0.83; see above), and it cannot be dragged to another size. It has the title bar only when the setting `Title bar` is on (since version 0.79; before, like every panel, always: see Settings, The title bar). The settings give it back as they give back the others
   (see Settings). It is one of the panels the window restores at the start (`cost`, see The window is restored at start).
