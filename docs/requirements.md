@@ -2441,7 +2441,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   time and level included. The gap between the level and the text stays as the file has it (`INFO    [`).
 - **The log opens larger**: 30 of its lines tall where it was 10, and half again as wide, within the screen; a height dragged to is
   still remembered and wins, as before.
-- **The icons in the group `Icons` are gone** (`docs/img/img_71.png`): the checkboxes `Cost`, `History` and `Log` stand alone, and a click
+- **The icons in the group `Icons` are gone** (in 0.90 they showed as small empty boxes beside the checkboxes): the checkboxes `Cost`, `History` and `Log` stand alone, and a click
   on an icon checks nothing, there being none.
 - **A right edge, like the bottom one** (see Taller and shorter by the bottom edge): while the title bar is off and a view whose
   width the person may change is shown, the log alone or among others, the right 6 pixels of the window make it wider and narrower,
