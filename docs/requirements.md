@@ -1692,8 +1692,7 @@ document uses for it. From left to right (in version 0.68, with every element of
 ### The usage history spreads its spare width over all columns
 
 - **The fault that was** (before version 0.60). When the history is wider than its columns need, which it is whenever the row is wide, all the spare
-  width was given to the first column: the time stood at the left edge and the other columns far away at the right
-  (see `docs/img/img_7.png`).
+  width was given to the first column: the time stood at the left edge and the other columns far away at the right.
 - **The spare width is shared out equally as room between the columns.** Each column has its fixed width, in
   characters, as before; the first is at the left edge of the list and the last at the right edge, and the gaps between
   neighbouring columns are all the same.
