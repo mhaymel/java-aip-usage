@@ -2462,7 +2462,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   request that fails keeps its `GET` line at `INFO`, before its `ERROR` line, so that a failure has its context at the usual level.
   Everything else stays as it was; the log viewer at `Info` shows the starts, the changes of the interval, of the settings and of
   the source, and the failures.
-- **The checkboxes of the group `Icons` are in one line** (`docs/img/img_75.png`): `Cost`, `History` and `Log` side by side, after the
+- **The checkboxes of the group `Icons` are in one line** (in 0.91 they stood one below the other): `Cost`, `History` and `Log` side by side, after the
   heading's button, as the properties beside a checkbox are.
 - **The largest size is the screen's**, the visible area of the screen the window is on (its work area, without the taskbar or the
   Dock), in width and in height: for what the program sets (where `WindowFit.MAX` was 2,400 by 1,600), for the height a list opens
