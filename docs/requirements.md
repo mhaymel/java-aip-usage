@@ -2199,7 +2199,8 @@ document uses for it. From left to right (in version 0.68, with every element of
 
 - **Since version 0.91 the line is 3 pixels and blue**, in the blue of the notes, `#0969da` on the light theme and `#58a6ff` on
   the dark one, where it was 1 pixel of light gray; the rest of this section holds.
-- **Since version 0.89 the first reading of each day has a light gray line under it** (`docs/img/img_62.png`): a line of 1 pixel
+- **Since version 0.89 the first reading of each day has a light gray line under it** (in 0.88 nothing showed where one day ended and the next began, only the times,
+  as `08:01:17` above `12:09:28` of the day before): a line of 1 pixel
   across the whole row of the table, in the gray of the grid, `#d0d7de` on the light theme and `#3d444d` on the dark one. As the
   history is newest first, the first reading of a day is the lowest line of that day, and the line stands between two days.
 - **With lines hidden** (zero usage, failed) **the line goes under the earliest line of the day that is shown**, so that the
