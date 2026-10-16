@@ -1573,7 +1573,7 @@ document uses for it. From left to right (in version 0.68, with every element of
 
 - **No text of the window can be selected** (since version 0.55), by dragging, by a double or triple click, or by a key for selecting
   everything. Before, a drag or a double click selected text as in a web page, and the row, a message line or a whole
-  list stood in the blue of a selection (see `docs/img/img_5.png` and `docs/img/img_6.png`).
+  list stood in the blue of a selection (see `docs/img/img_6.png`).
 - **That holds for everything**: the row and its message lines, the lines of the log, the usage history and the error
   log and their headers, the settings and the debug settings, and the About view.
 - **So nothing can be copied out of the window.** The text of the settings could be selected and copied until now, and
