@@ -2864,8 +2864,8 @@ window is minimized and blinks again when it is brought back; how much of the pr
 ### 131. Version 0.89: the bottom edge, the figures of the cost control, the day's line, the zoom, the reasons in the log
 
 **Status: built (version 0.89); `./gradlew build frontendTest -Daipusage.windows=true` passes, the window tests
-included.** The notes of `new-requirements.md` (the eleventh round, the two buttons of five lines to go, and `img_58` to `img_63`; `img_59` is the same picture
-as `img_58`, read as the column `by`), decided in two rounds of questions, and a third before building: the grip of the bottom
+included.** The notes of `new-requirements.md` (the eleventh round, the two buttons of five lines to go, the column `by`, its `auto` touching the
+figures of `day`, and `img_60` to `img_63`), decided in two rounds of questions, and a third before building: the grip of the bottom
 edge on hover, the zoom at the start too, the whole suite run with the window tests (`-Daipusage.windows=true`), and one commit
 once it passes.
 
