@@ -1850,8 +1850,9 @@ document uses for it. From left to right (in version 0.68, with every element of
   the history, log and error log: below the row, in the one panel area, replacing the one that is shown, with a button of its own in the row, the cost icon (its checkbox `Cost icon` in `Main view`; `Cost button` until version 0.79, on by default, saved under
   `showCostIcon`; its icon is two short horizontal bars, one longer than the other; its tooltips are `Show the cost control` and `Hide the cost control`). The limits stay settings, in the tab `Cost control` of the settings (see Cost control).
 - **The panel is as wide as its own rows and the row need, and never as wide as the history's table** (since version 0.84;
-  `docs/img/img_45.png` to `docs/img/img_47.png`: until then it took the width of the table, which the page knows only once the history
-  has been shown, so that the window was wider after the history had been opened and closed). Its width is the label, the bar
+  until then it took the width of the table, which the page knows only once the history has been shown, so that the window
+  was wider after the history had been opened and closed: the same panel, a minute apart, first narrow and then with longer
+  bars and the figures further right). Its width is the label, the bar
   at its least width (120 pixels), the four columns of the figures with the room between them, and 8 pixels of room at the
   right; **no figure is ever cut at the window's edge** (`docs/img/img_53.png`). The window is as wide as that or as the row,
   whichever is wider.
