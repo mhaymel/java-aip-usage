@@ -2456,7 +2456,8 @@ document uses for it. From left to right (in version 0.68, with every element of
 
 ### Version 0.92: quieter log, the icons in one line, the screen as the largest size
 
-- **A request that succeeds is logged at `DEBUG`** (`docs/img/img_74.png`): its line `GET <host><path> -> HTTP 200 in <n> ms (…)` and the
+- **A request that succeeds is logged at `DEBUG`** (in 0.91 the log at `Info` was those two lines again and again,
+  with a request every 10 seconds): its line `GET <host><path> -> HTTP 200 in <n> ms (…)` and the
   line `Usage refresh succeeded`, where both were `INFO`, so that the log at its usual level is not a line every few seconds. A
   request that fails keeps its `GET` line at `INFO`, before its `ERROR` line, so that a failure has its context at the usual level.
   Everything else stays as it was; the log viewer at `Info` shows the starts, the changes of the interval, of the settings and of

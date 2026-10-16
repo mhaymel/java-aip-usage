@@ -3129,7 +3129,7 @@ honours it); the log's red and orange on both themes; the right edge's cursor on
 
 ### 134. Version 0.92: a quieter log, the icons in one line, the screen as the largest size
 
-**Status: built (version 0.92).** The notes of `new-requirements.md` (the fourteenth round, `img_74`, `img_75`), decided in one round of
+**Status: built (version 0.92).** The notes of `new-requirements.md` (the fourteenth round, the log at `Info` full of the two lines of each request, and `img_75`), decided in one round of
 questions: only a request that succeeds goes to `DEBUG`; the screen is the largest size everywhere. Before building: the whole suite run, the
 window tests included (`-Daipusage.windows=true`), and one commit once it passes, without the notes and images of `docs/`. `AppInfo.VERSION = "0.92"`.
 Requirements: Version 0.92: quieter log, the icons in one line, the screen as the largest size; Details of the behaviour (the
