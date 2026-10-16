@@ -2540,7 +2540,8 @@ document uses for it. From left to right (in version 0.68, with every element of
 
 ### Version 0.95: a level Fine, and a shorter line for a change of the settings
 
-- **Five levels** (`new-requirements.md`, `docs/img/img_77.png`): `Error`, `Warning`, `Info`, **`Fine`** and `Debug`, in that order, in the
+- **Five levels** (`new-requirements.md`; in 0.94 the dropdown offered four, `Error`, `Warning`, `Info` and `Debug`,
+  while the log already had lines at `FINE`): `Error`, `Warning`, `Info`, **`Fine`** and `Debug`, in that order, in the
   log view's `Level` dropdown (values `error`, `warning`, `info`, `fine`, `debug`). Each shows its own lines and those of the levels
   above it: `Fine` shows Error to Fine, `Debug` shows everything. The choice is saved under `logLevel` as before, `fine` being new;
   a saved `debug` stays `Debug`. Its tooltip is unchanged.

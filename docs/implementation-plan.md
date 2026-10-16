@@ -3340,7 +3340,7 @@ the row back where it was.
 
 ### 137. Version 0.95: a level Fine, and a shorter line for a change of the settings
 
-**Status: built (version 0.95).** The notes of `new-requirements.md` (the sixteenth round, `img_77`, `img_78`), decided in two rounds
+**Status: built (version 0.95).** The notes of `new-requirements.md` (the sixteenth round, the dropdown `Level` with no `Fine` beside lines at `FINE`, and `img_78`), decided in two rounds
 of questions: five levels, in the order Error, Warning, Info, Fine, Debug; what happened is Fine, how it was done Debug; the file
 writes `FINE` and `DEBUG`; the settings line is Fine and names only what changed. Requirements: Version 0.95.
 
