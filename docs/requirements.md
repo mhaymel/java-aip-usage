@@ -281,7 +281,7 @@ button that is switched off is therefore never taken away from a panel that is o
 The four icon buttons sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
 
-**The icons and the gear stand at the right edge of the window** (since version 0.83; `docs/img_38.png`, `docs/img_43.png`):
+**The icons and the gear stand at the right edge of the window** (since version 0.83; `docs/img/img_38.png`, `docs/img/img_43.png`):
 whenever the window is wider than the row needs, with a list open, a long message line, or a row of few elements in a
 window of its least width, the four icons and the gear move together to the right edge, and the room left over is between
 the last figure and the first icon. The figures stay at the left. A row as wide as the window is as before.
@@ -304,7 +304,7 @@ fixed: it does not follow the severity, so nothing in the row turns amber or red
 same whether a severity was sent or not, whether a change is up or down, and whatever the settings are. A missing
 amount, the dash, is green like one that is there. The time of the reading, the countdown and the time between usage
 requests are in the colour of the text, and the countdown is red after an HTTP 429, until a request is answered without one (see Countdown).
-**The severity is named nowhere** (since version 0.83; `docs/img_39.png`; until then in the tooltip of the percentage, as
+**The severity is named nowhere** (since version 0.83; `docs/img/img_39.png`; until then in the tooltip of the percentage, as
 `Severity: normal`): the tooltip of the percentage says `<percent>% of the monthly limit spent`, and the tooltips of the amounts
 say what the number is and its unit, and nothing about the severity.
 
@@ -347,7 +347,7 @@ names, shown as its code, here `USD`.
 - The time: `Last update: ` followed by the full local date and time of the last
   refresh, for example `Last update: 8 Oct 2026, 14:24:53`. This is the one place a
   date appears.
-- The used amount (the first number): `Credits used, in USD`; since version 0.84 `Monthly credit used, in USD` (`docs/img_52.png`), and with no
+- The used amount (the first number): `Credits used, in USD`; since version 0.84 `Monthly credit used, in USD` (`docs/img/img_52.png`), and with no
   currency `Monthly credit used`.
 - The budget (the second number): `Credit budget, in USD`; since version 0.83 `Monthly limit, in USD` or `Monthly limit sent by the server, in USD` (see Limits, projections and the status of spending).
 - The percentage: how much of the budget is spent, and the severity, for example
@@ -415,7 +415,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   both out from the history file and sends them with the status. The row shows the values of the
   newest reading, and the history panel those of each row (see Settings for the switches).
 - **The time since the previous reading** (since version 0.67) is counted to the row directly before it in the file, **whatever run it belongs to**: a failed row included, so a failed row has a time and the row after it counts from the failed row. The first row of a run
-  has one too: the time since the last row of the run before, which is how long the program was not running (it can be hours or days, `90000 s`). Only the first row of the file has none. (Before, a run was a border and the first row of a run showed an empty cell: see `docs/img_9.png`.)
+  has one too: the time since the last row of the run before, which is how long the program was not running (it can be hours or days, `90000 s`). Only the first row of the file has none. (Before, a run was a border and the first row of a run showed an empty cell: see `docs/img/img_9.png`.)
 - A value that cannot be worked out is left empty, not shown as zero.
 - **In the history the time since the previous reading is worked out on the lines that are shown.** When the history leaves lines out (see Hiding lines),
   the time of a line is that against the previous line that is shown, not against the row directly before it in the file: with the unchanged readings hidden, the time is the
@@ -476,7 +476,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   is changed; it asks nothing and takes back the preview. **There is no `Restore defaults`** (since version 0.64). If the backend refuses a
   value, or the settings cannot be saved, the view stays open and shows a brief message in red; nothing
   is changed.
-- **A field that is wrong or empty when the settings are saved gets the focus** (since version 0.89, `docs/img_61.png`): the
+- **A field that is wrong or empty when the settings are saved gets the focus** (since version 0.89, `docs/img/img_61.png`): the
   view switches to the tab the field is on, puts the cursor in it and selects its text, so that it can be typed over at once,
   and gives it a **red frame** (`#cf222e` / `#f85149`, 1 pixel, where its border is) until it is changed. The red message stays
   as it is. With more than one wrong field the first in the order of the tabs and, within a tab, from the top, is the one; the
@@ -550,7 +550,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   `General`, `Main view`, `History view`, `Cost control`, `About` and `Debug` (only in debug mode, see Debug mode); **since
   version 0.90 `General`, `Main`, `History`, `Log`, `Cost control`, `About` and `Debug`** (see The settings rearranged)
   (since version 0.79 `General` is the first tab; until then it was the last but one, before `About`). **Since version 0.90
-  `About` comes before `Debug`** (`docs/img_67.png`), so that the tab of debug mode alone is the last; until then `About` was
+  `About` comes before `Debug`** (`docs/img/img_67.png`), so that the tab of debug mode alone is the last; until then `About` was
   always the last.
   - `Main view` holds the elements of the row and the properties of the amounts and of the time; `History view` the checkboxes of the history (below);
     `Cost control` the limits (see Cost control); `Debug` the debug settings; `General` the groups `Request`, `Window` and `Log`; `About` the About view (see The About view).
@@ -743,12 +743,12 @@ The history is shown inside the main window, not in a window of its own.
   or as the person dragged it, and the panel takes up the difference.
 - **Since version 0.82 the history has three more columns, after `limit`**: `month`, the configured monthly limit counted
   when the reading was made; `day`, the daily limit in force then; and `by`, `auto` when that daily limit was worked out and
-  `set` when it was typed. **Since version 0.89 that column says it in words** (`docs/img_59.png`): its title is `daily limit
+  `set` when it was typed. **Since version 0.89 that column says it in words** (`docs/img/img_59.png`): its title is `daily limit
   is` and its cells `worked out` and `typed`, so that a line reads `45.45 worked out`; its checkbox in `History view` is `daily
   limit is`, its tooltip `Whether the daily limit in force at the reading was worked out from the monthly limit, or typed`. The
   file keeps `auto` and `set` (`daily_auto`); only the view words them. Its width is 14 characters. **It stands one character
-  further from `day`** (`docs/img_58.png`: the right-aligned figures of `day` touched the left-aligned words): its cells and
-  its title have one character of room at the left. **Since version 0.90 its title and its cells are centred** (`docs/img_68.png`;
+  further from `day`** (`docs/img/img_58.png`: the right-aligned figures of `day` touched the left-aligned words): its cells and
+  its title have one character of room at the left. **Since version 0.90 its title and its cells are centred** (`docs/img/img_68.png`;
   they stood at the right). `limit` stays the limit the server sent. Each has a checkbox in `History view`, after `limit`, **off by
   default**, saved under `historyMonthly`, `historyDaily` and `historyDailyBy`; a row written before 0.82 has empty cells there.
   Widths, in characters: `month` 10, `day` 10, `by` 4. Tooltips of the titles: `The monthly limit counted when the reading was
@@ -798,7 +798,7 @@ The history is shown inside the main window, not in a window of its own.
 - **When not all the data is shown, the panel says so.** One line above the table, written by the backend, says how many lines there are,
   how many are shown, and why the others are not: hidden zero usage lines, hidden failed lines, and older lines beyond the newest 1,000. For example
   `Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.` **It has a tooltip** (since version 0.89,
-  `docs/img_60.png`), written by the backend with the parts that apply: `The history shows at most the newest 1,000 lines of
+  `docs/img/img_60.png`), written by the backend with the parts that apply: `The history shows at most the newest 1,000 lines of
   the file.` then, with lines hidden, ` Lines with no change in the amount used and failed requests are hidden by the filter
   button at the right of this line; press it to show them.` and, with older lines left out, ` Older lines are not shown here,
   but stay in the file.` It is there whenever anything is left out, and not
@@ -1018,7 +1018,7 @@ the first reading.
 The row has fourteen elements that can be shown or hidden (the fourteenth, the cost button, since version 0.69; wherever this document says thirteen it counts those of before), and the settings button, the gear, which is
 always there. (The four that show a view are called icons since version 0.80, `Log icon`, `History icon`, `Error log icon` and `Cost icon`, where their checkboxes read `Log button` and so on before: they are small icons, and the word says which thing of the
 row is meant. Where an older passage of this document says the log button, the history button, the error log button or the cost button, it is the same four. `Refresh button` keeps its name: it does something, and shows no view.) Each has a name, which is the text of its checkbox in the settings and the word this
-document uses for it. From left to right (see `docs/img_2.png`, where each but the request duration, which came later, is marked; the four icons are in the order below since version 0.81, and were the log, the history, the error log and the cost until then):
+document uses for it. From left to right (see `docs/img/img_2.png`, where each but the request duration, which came later, is marked; the four icons are in the order below since version 0.81, and were the log, the history, the error log and the cost until then):
 
 | # | Name | What it is | Example | Shown by default | Key in `settings.json` |
 | --- | --- | --- | --- | --- | --- |
@@ -1043,7 +1043,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **The four new elements of version 0.82** keep the numbers of the others: `Status` is the first of the row, before the time,
   and the three of the day follow the budget, after a thin gray line, `64% 4.37 of 6.81`. **Since version 0.83 the day comes
-  first** (`docs/img_44.png`): after the time the three of the day, then the thin gray line, then the month's percentage,
+  first** (`docs/img/img_44.png`): after the time the three of the day, then the thin gray line, then the month's percentage,
   amount used and monthly limit, and their checkboxes in `Main view` in that order; the line stands between the two groups
   only when both have something shown. The rest of this paragraph holds: the word `of` between the two
   amounts as for the month and only when both are shown. They are in the green of the figures, and red as One green says. Their
@@ -1181,7 +1181,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   | `Time since the previous reading` | there is no reading before this one, or the application has no time for either of the two |
   | `Request duration` | no usage request of this run has ended yet, as when the reading shown was taken from the history at startup |
 
-  `docs/img_4.png` is the case that brought this up: `No usage reported`, both changes switched on, and, before, an empty gap
+  `docs/img/img_4.png` is the case that brought this up: `No usage reported`, both changes switched on, and, before, an empty gap
   where the two are; there are two gray boxes there now.
 - **The other elements.** The countdown is a gray box at the start only. The time, the percentage, the amount used and
   the budget have their figures after it, or are gray boxes with no usage and with no data (see the next passage); with
@@ -1268,7 +1268,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 ### Taller and shorter by the bottom edge
 
 - **Since version 0.89 a list is made taller and shorter by dragging the bottom edge of the window** while the setting `Title
-  bar` is off, as it is saved (`docs/img_57.png`): the usage history, the log and the error log, alone or among several views.
+  bar` is off, as it is saved (`docs/img/img_57.png`): the usage history, the log and the error log, alone or among several views.
   **The two buttons `Taller by five lines` and `Shorter by five lines`** that 0.87 and 0.88 had in each list's line of controls
   **are gone**, in every view. With the title bar on the window is dragged larger by its frame, as before.
 - **The edge** is the bottom 6 pixels of the window, the border the page draws included. While the pointer is there it is the
@@ -1296,7 +1296,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   - a view is shown: the cost control, a list, several views, or the settings;
   - of the row only icons are switched on: the refresh button and the icons of the views may be on, and every figure is off, the
     time, the percentage, the amount used, the limit, the countdown, the interval, the two changes, the request duration and the
-    three figures of the day; **and the status circle is off** (since version 0.86, `docs/img_54.png`: in 0.85 the circle counted
+    three figures of the day; **and the status circle is off** (since version 0.86, `docs/img/img_54.png`: in 0.85 the circle counted
     as an icon, and the row went with the circle shown). As the settings are saved: what the open settings preview does not count.
 - **Outside is outside the whole window**, its title bar and its frame included: the pointer on them is still in the program, so
   that the row stays while the window is moved by its title bar or dragged larger by its frame.
@@ -1306,7 +1306,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   the top of the window stays where it is. A list keeps its height of its own, so that the height the person gave it is remembered
   as it would be with the row there, and the window is as tall again when the row comes back. What is stored for the next start
   is the size with the row.
-- **The cost control has room above it while the row is away** (since version 0.86, `docs/img_55.png`): 6 pixels more at its top,
+- **The cost control has room above it while the row is away** (since version 0.86, `docs/img/img_55.png`): 6 pixels more at its top,
   so that its bars do not touch the border of the window; the window is taller by them. With the row there nothing changes, and
   the sides and the bottom are as they were.
 - **The row comes back when the conditions no longer hold**: the last view is closed, or the settings are saved with the title bar
@@ -1393,8 +1393,8 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **The fault that was** (before version 0.48). A message line is as wide as the row, and a row can be as narrow as the
   gear. With the settings shown, which are far wider, a message then stood in a column of the gear's width at the left of the window, a syllable to a
-  line, and pushed the settings out of sight below it (see `docs/img.png`: every element of the row switched off, and
-  the message of an answer with no spend).
+  line, and pushed the settings out of sight below it (the case that brought it up: every element of the row switched off,
+  and the message of an answer with no spend).
 - **While a panel is shown the row is as wide as the window.** That holds for every panel: the settings, the debug
   settings, the log, the usage history and the error log. The message lines below the row are as wide with it, so a
   message breaks at the edge of the window and nowhere before.
@@ -1573,7 +1573,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **No text of the window can be selected** (since version 0.55), by dragging, by a double or triple click, or by a key for selecting
   everything. Before, a drag or a double click selected text as in a web page, and the row, a message line or a whole
-  list stood in the blue of a selection (see `docs/img_4.png`, `docs/img_5.png` and `docs/img_6.png`).
+  list stood in the blue of a selection (see `docs/img/img_4.png`, `docs/img/img_5.png` and `docs/img/img_6.png`).
 - **That holds for everything**: the row and its message lines, the lines of the log, the usage history and the error
   log and their headers, the settings and the debug settings, and the About view.
 - **So nothing can be copied out of the window.** The text of the settings could be selected and copied until now, and
@@ -1693,7 +1693,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **The fault that was** (before version 0.60). When the history is wider than its columns need, which it is whenever the row is wide, all the spare
   width was given to the first column: the time stood at the left edge and the other columns far away at the right
-  (see `docs/img_7.png`).
+  (see `docs/img/img_7.png`).
 - **The spare width is shared out equally as room between the columns.** Each column has its fixed width, in
   characters, as before; the first is at the left edge of the list and the last at the right edge, and the gaps between
   neighbouring columns are all the same.
@@ -1833,7 +1833,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
     default** (until 0.81 they followed the row's `Currency symbol`). Key `costCurrency`. Its tooltip: `Puts the currency symbol
     before the amounts of the cost control.`
 - **The daily limit worked out** is the monthly limit counted divided by the working days of the month, by the setting above.
-- **Since version 0.89 the tab has a line `Figures`** (`docs/img_63.png`), after `Currency symbol`: three checkboxes, `Spent`,
+- **Since version 0.89 the tab has a line `Figures`** (`docs/img/img_63.png`), after `Currency symbol`: three checkboxes, `Spent`,
   `Limit` and `Percentage`, **all on by default**, which say which columns of figures the cost control panel shows (see The cost
   control panel). Keys `costShowUsed`, `costShowLimit` and `costShowPercent`. Tooltips: `Shows what is spent, today and this
   month, in the cost control.`, `Shows the daily and the monthly limit in the cost control.` and `Shows the share of each limit
@@ -1842,14 +1842,17 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### The cost control panel: two bars
 
-- **A panel, `Cost control`, shows how much of the limits is spent** (since version 0.69): two bar charts, one for the day and one for the month, as in `docs/img.png` (a bar, the amount at its right). It is a panel like
+- **A panel, `Cost control`, shows how much of the limits is spent** (since version 0.69): two bar charts, one for the day and one for the month, after the sketch the panel was drawn from: a monospaced
+  list with one row per period, its name at the left, a horizontal bar of solid dark blocks for what is spent standing on
+  a light dotted track for the rest, and the amount at the bar's right (a warning sign after it where the budget is
+  passed). It is a panel like
   the history, log and error log: below the row, in the one panel area, replacing the one that is shown, with a button of its own in the row, the cost icon (its checkbox `Cost icon` in `Main view`; `Cost button` until version 0.79, on by default, saved under
   `showCostIcon`; its icon is two short horizontal bars, one longer than the other; its tooltips are `Show the cost control` and `Hide the cost control`). The limits stay settings, in the tab `Cost control` of the settings (see Cost control).
 - **The panel is as wide as its own rows and the row need, and never as wide as the history's table** (since version 0.84;
-  `docs/img_45.png` to `docs/img_47.png`: until then it took the width of the table, which the page knows only once the history
+  `docs/img/img_45.png` to `docs/img/img_47.png`: until then it took the width of the table, which the page knows only once the history
   has been shown, so that the window was wider after the history had been opened and closed). Its width is the label, the bar
   at its least width (120 pixels), the four columns of the figures with the room between them, and 8 pixels of room at the
-  right; **no figure is ever cut at the window's edge** (`docs/img_53.png`). The window is as wide as that or as the row,
+  right; **no figure is ever cut at the window's edge** (`docs/img/img_53.png`). The window is as wide as that or as the row,
   whichever is wider.
 - **The panel is as tall as its two bars need and as wide as the history's table** (until version 0.83; see above), and it cannot be dragged to another size. It has the title bar only when the setting `Title bar` is on (since version 0.79; before, like every panel, always: see Settings, The title bar). The settings give it back as they give back the others
   (see Settings). It is one of the panels the window restores at the start (`cost`, see The window is restored at start).
@@ -1862,21 +1865,21 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **A bar is drawn in blocks of 10 %** (since version 0.81): a gap of 1 pixel, in the background of the window, stands after
   every tenth of the bar, nine gaps in all, through the green part and the gray part alike, so that the share can be read off
   in tenths. The green part ends where the share ends, inside a block if it does: 11 % is one block and a sliver of the next.
-- **Since version 0.84 a block is 14 pixels**, 13 of colour and the gap of 1 (`docs/img_49.png`), **whatever the width of the bar**: a
+- **Since version 0.84 a block is 14 pixels**, 13 of colour and the gap of 1 (`docs/img/img_49.png`), **whatever the width of the bar**: a
   wider bar has more blocks, and a block is then less than 5 %. The used part still ends exactly where the share ends, inside a
   block if it does. (The rest of this rule, of twenty blocks, held in versions 0.82 and 0.83.)
-- **Since version 0.82 a bar is twenty blocks of 5 %**, as in `docs/img_35.png`: the gap of 1 pixel stands after every
+- **Since version 0.82 a bar is twenty blocks of 5 %**, as in `docs/img/img_35.png`: the gap of 1 pixel stands after every
   twentieth, nineteen gaps, through both parts. **The part used is green, and the rest a light green** (the green of the figures
   at a quarter of its strength), where the rest was gray. The used part ends where the share ends, inside a block if it does.
 - **The colour of the used part says the state** (since version 0.82): **green** while the bar is within its limit and on
-  pace; **amber**, an orange since version 0.85 (`#ff9900` on both themes; the bright yellow `#ffff33` in 0.84, `docs/img_51.png`; the golden `#e3b341` in 0.83; `#bf8700` / `#d29922`, which looked light brown, in 0.82; `docs/img_42.png`), the bars and the status circle in it (the circle with a ring of 1 pixel in the darker `#c26a00` round it, `#b8a000` in 0.84, so that it is seen on
+  pace; **amber**, an orange since version 0.85 (`#ff9900` on both themes; the bright yellow `#ffff33` in 0.84, `docs/img/img_51.png`; the golden `#e3b341` in 0.83; `#bf8700` / `#d29922`, which looked light brown, in 0.82; `docs/img/img_42.png`), the bars and the status circle in it (the circle with a ring of 1 pixel in the darker `#c26a00` round it, `#b8a000` in 0.84, so that it is seen on
   the background), when the projection says the limit will be passed (see Limits, projections and the
   status of spending); **red** (`#cf222e` / `#f85149`) when the limit is passed, and then the bar is full, every block red. Its
   rest takes the light form of the same colour. A bar with no limit stays gray and empty, as before.
-- **The figures are four columns** (since version 0.83; `docs/img_41.png`), shared by the two rows: the amount spent, right-aligned;
+- **The figures are four columns** (since version 0.83; `docs/img/img_41.png`), shared by the two rows: the amount spent, right-aligned;
   `of`, centred; the limit, right-aligned; and `· <percent>%`, right-aligned; so that the decimal points of each column are under
   one another. A row with no limit has its amount in the first column and `· no limit set` in the rest of the line.
-- **Each column can be switched off** (since version 0.89, `docs/img_63.png`) by the checkboxes `Spent`, `Limit` and
+- **Each column can be switched off** (since version 0.89, `docs/img/img_63.png`) by the checkboxes `Spent`, `Limit` and
   `Percentage` of the tab `Cost control`; the others close up, and the panel is narrower by what is gone. **`of` is shown only
   when both the amount spent and the limit are**, as in the row; the `·` before the percentage only when something stands before
   it. A row with no limit writes `no limit set` in the place of the limit, or of the percentage when the limit is off, and
@@ -2137,12 +2140,12 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   tall as the row, its message lines and all of them together, and never taller than the program makes a window (1,600 pixels):
   when the views would need more, the lowest list is given what is left, and no less than three times the row's height.
   **Since version 0.82 the window is never taller than the screen it is on**, and the lists share what there is: see Views that
-  do not fit on the screen. (In `docs/img_36.png` the four views were taller than the screen, and the error log, the lowest,
+  do not fit on the screen. (In `docs/img/img_36.png` the four views were taller than the screen, and the error log, the lowest,
   had no room at all.)
 - **The window is as wide as the widest of the open views needs**: three times the row with the log, one and a half times with
   the error log, the table with the usage history, its own rows with the cost control (since 0.84; the history's table or
   its bars until then), and the least width of the settings with the settings.
-- **Leaving the settings closes the settings alone** (a fault of 0.83, `docs/img_50.png`, put right in 0.84): a view beside them
+- **Leaving the settings closes the settings alone** (a fault of 0.83, `docs/img/img_50.png`, put right in 0.84): a view beside them
   whose icon is checked stays open, the cost control as much as any other. Every view is as
   wide as the window; a list that is wider than it has to be shows its lines as it does in a window dragged wider.
 - **What may be dragged.** The height, when any of the three lists is open: dragging it changes the height of **the lowest
@@ -2177,7 +2180,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   like the page's other files, and named first. It is still not fetched from anywhere. Whether a version needs this is seen in
   its window, and is said in that version's section once it is known.
 - **Since version 0.81 the program brings Cascadia Mono**, as the rule above has it: the window on macOS did not take the names
-  and showed Courier (`docs/img_32.png`, `docs/img_34.png`). Cascadia Mono, the typeface Windows showed (`docs/img_30.png`), at
+  and showed Courier (`docs/img/img_32.png`, `docs/img/img_34.png`). Cascadia Mono, the typeface Windows showed (`docs/img/img_30.png`), at
   its regular weight, is among the program's files with its licence (the SIL Open Font License), served to the page by the
   program and named first, so the lists, the cost control and every other place set in the lists' typeface look the same on
   Windows and on macOS. The names after it stay, for a page that cannot have it.
@@ -2189,7 +2192,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 - **Since version 0.91 the line is 3 pixels and blue**, in the blue of the notes, `#0969da` on the light theme and `#58a6ff` on
   the dark one, where it was 1 pixel of light gray; the rest of this section holds.
-- **Since version 0.89 the first reading of each day has a light gray line under it** (`docs/img_62.png`): a line of 1 pixel
+- **Since version 0.89 the first reading of each day has a light gray line under it** (`docs/img/img_62.png`): a line of 1 pixel
   across the whole row of the table, in the gray of the grid, `#d0d7de` on the light theme and `#3d444d` on the dark one. As the
   history is newest first, the first reading of a day is the lowest line of that day, and the line stands between two days.
 - **With lines hidden** (zero usage, failed) **the line goes under the earliest line of the day that is shown**, so that the
@@ -2256,10 +2259,10 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### A line between the row and the views
 
-- **A line separates the row from the view below it, and each view from the next** (since version 0.81; `docs/img_28.png`):
+- **A line separates the row from the view below it, and each view from the next** (since version 0.81; `docs/img/img_28.png`):
   1 pixel, solid, in a middle gray on the light theme and a dark gray on the dark one, as wide as the window. It is there with
   several views, the settings counted among them; there is none below the lowest view, and none with no view shown.
-- **With one view there is no line** (since version 0.86; `docs/img_54.png`): one view alone, or the settings alone, stands right
+- **With one view there is no line** (since version 0.86; `docs/img/img_54.png`): one view alone, or the settings alone, stands right
   below the row with nothing between. Until version 0.85 the line was there with one view as with several. With two views or more
   every line is as before, the one below the row included.
 - **It is the top edge of the view below it**, which is a pixel lower for it: the sizes the page asks for, the heights the views
@@ -2267,16 +2270,16 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### The folders of the log and of the usage history
 
-- **Since version 0.90 the log and the usage history have a folder each again** (`docs/img_66.png`), each in its own tab: the
+- **Since version 0.90 the log and the usage history have a folder each again** (`docs/img/img_66.png`), each in its own tab: the
   log's in `Log`, the history's in `History` (see The settings rearranged). What follows of one folder held in versions 0.87 to
   0.89; the rest of this section holds for each of the two folders.
 - **The folder of the log and of the usage history can be chosen** (since version 0.81; **one folder for both since version
-  0.87**, `docs/img_56.png`, where until then each had its own). By default it is the program's folder, the working directory,
+  0.87**, `docs/img/img_56.png`, where until then each had its own). By default it is the program's folder, the working directory,
   as before. It holds the log and its old logs, the usage history and, in debug mode, the history of invented readings
   (`java-aip-usage.fake.csv`).
 - **Where.** A group `Files` in the tab `General`, after `Window`, with one line, `Log and history folder` (until version 0.86 two,
   `Log folder` and `History folder`): the full path of the folder as text (since version 0.84 only once another folder is chosen: while the folder is the
-  default its line says `Program folder` in gray, with no path, `docs/img_48.png`), a button `Choose…` that opens the system's folder picker at that folder, and a
+  default its line says `Program folder` in gray, with no path, `docs/img/img_48.png`), a button `Choose…` that opens the system's folder picker at that folder, and a
   button `Default`, which puts back the program's folder. Nothing is typed. Saved under the key `dataFolder`, as a full path; a
   key that is not there, or empty, is the program's folder.
 - **A settings file of version 0.86 or before**, which has the two keys `logFolder` and `historyFolder` and no `dataFolder`: the
@@ -2356,14 +2359,14 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 ### The settings rearranged
 
 - **Since version 0.90 the tabs are** `General`, `Main`, `History`, `Log`, `Cost control`, `About` and `Debug` (the last in debug
-  mode only). `Main view` and `History view` lose the word `view` (`docs/img_65.png`), in their tab titles and in the headings of
+  mode only). `Main view` and `History view` lose the word `view` (`docs/img/img_65.png`), in their tab titles and in the headings of
   their groups, which are `Main` and `History`. `Log` is new, after `History`.
 - **`General`** keeps the group `Window`, with `Show where the window is` added (see The window shows where it is when it comes
   to the front). The group `Request` goes to `Cost control`, the group `Files` and the group `Log` go to the tab `Log` and the
-  tab `History` (`docs/img_66.png`). Below `Window` is the path of the settings file, as the About view had it: a link that
+  tab `History` (`docs/img/img_66.png`). Below `Window` is the path of the settings file, as the About view had it: a link that
   opens its folder, with the button that copies it (see The paths of the About view are links, with a button to copy each).
 - **`Main`** has the elements of the row as before but for the four icons of the views, which are a group of their own,
-  **`Icons`**, below the group `Main` (`docs/img_64.png`). Their checkboxes are `Cost`, `History`, `Log` and `Error log`, where
+  **`Icons`**, below the group `Main` (`docs/img/img_64.png`). Their checkboxes are `Cost`, `History`, `Log` and `Error log`, where
   they were `Cost icon`, `History icon`, `Log icon` and `Error log icon`; their keys and tooltips stay. **Beside each checkbox is
   the icon itself**, as the row draws it (the two bars, the table, the sheet with lines, the triangle), in the muted gray; **a click
   on the icon checks its checkbox**, and a click on it while it is checked leaves it checked; the checkbox alone unchecks it. It is
@@ -2401,7 +2404,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   taskbar; the program's window is not moved or changed by it. Where the system cannot draw a transparent window, nothing is
   drawn.
 - **It is not a setting.** (Until version 0.89; see below.)
-- **Since version 0.90 it is a setting, off by default** (**on by default since version 0.91**, `docs/img_69.png`): `Show where the window is`, a checkbox in the group `Window` of the
+- **Since version 0.90 it is a setting, off by default** (**on by default since version 0.91**, `docs/img/img_69.png`): `Show where the window is`, a checkbox in the group `Window` of the
   tab `General`, after `Several views at once`, saved under `locateWindow`. Its tooltip: `When the window comes to the front, a
   rectangle zooms onto it so that it is found at once. Not when you click into the window.` It takes effect when the settings
   are saved.
@@ -2427,25 +2430,25 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   time and level included. The gap between the level and the text stays as the file has it (`INFO    [`).
 - **The log opens larger**: 30 of its lines tall where it was 10, and half again as wide, within the screen; a height dragged to is
   still remembered and wins, as before.
-- **The icons in the group `Icons` are gone** (`docs/img_71.png`): the checkboxes `Cost`, `History` and `Log` stand alone, and a click
+- **The icons in the group `Icons` are gone** (`docs/img/img_71.png`): the checkboxes `Cost`, `History` and `Log` stand alone, and a click
   on an icon checks nothing, there being none.
 - **A right edge, like the bottom one** (see Taller and shorter by the bottom edge): while the title bar is off and a view whose
   width the person may change is shown, the log alone or among others, the right 6 pixels of the window make it wider and narrower,
   with the cursor of a horizontal resize and a grip on hover (2 by 24 pixels, centred, in the muted gray). The width is kept as one
   dragged by the frame is. The history alone has none: its width is its table's.
-- **The paths in `Log` and `History`** (`docs/img_72.png`): the line of the folder shows the folder in full, the program's folder too
+- **The paths in `Log` and `History`** (`docs/img/img_72.png`): the line of the folder shows the folder in full, the program's folder too
   (its path in gray while it is the default, where it said `Program folder`); the line of the file shows the file's name alone,
   still a link that opens its folder, with the button that copies the full path.
-- **Every column of the history is centred** (`docs/img_73.png`), its title and its cells, as `daily limit is` is since 0.90.
+- **Every column of the history is centred** (`docs/img/img_73.png`), its title and its cells, as `daily limit is` is since 0.90.
 
 ### Version 0.92: quieter log, the icons in one line, the screen as the largest size
 
-- **A request that succeeds is logged at `DEBUG`** (`docs/img_74.png`): its line `GET <host><path> -> HTTP 200 in <n> ms (…)` and the
+- **A request that succeeds is logged at `DEBUG`** (`docs/img/img_74.png`): its line `GET <host><path> -> HTTP 200 in <n> ms (…)` and the
   line `Usage refresh succeeded`, where both were `INFO`, so that the log at its usual level is not a line every few seconds. A
   request that fails keeps its `GET` line at `INFO`, before its `ERROR` line, so that a failure has its context at the usual level.
   Everything else stays as it was; the log viewer at `Info` shows the starts, the changes of the interval, of the settings and of
   the source, and the failures.
-- **The checkboxes of the group `Icons` are in one line** (`docs/img_75.png`): `Cost`, `History` and `Log` side by side, after the
+- **The checkboxes of the group `Icons` are in one line** (`docs/img/img_75.png`): `Cost`, `History` and `Log` side by side, after the
   heading's button, as the properties beside a checkbox are.
 - **The largest size is the screen's**, the visible area of the screen the window is on (its work area, without the taskbar or the
   Dock), in width and in height: for what the program sets (where `WindowFit.MAX` was 2,400 by 1,600), for the height a list opens
@@ -2523,7 +2526,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### Version 0.95: a level Fine, and a shorter line for a change of the settings
 
-- **Five levels** (`new-requirements.md`, `docs/img_77.png`): `Error`, `Warning`, `Info`, **`Fine`** and `Debug`, in that order, in the
+- **Five levels** (`new-requirements.md`, `docs/img/img_77.png`): `Error`, `Warning`, `Info`, **`Fine`** and `Debug`, in that order, in the
   log view's `Level` dropdown (values `error`, `warning`, `info`, `fine`, `debug`). Each shows its own lines and those of the levels
   above it: `Fine` shows Error to Fine, `Debug` shows everything. The choice is saved under `logLevel` as before, `fine` being new;
   a saved `debug` stays `Debug`. Its tooltip is unchanged.
@@ -2542,7 +2545,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **The words in the file**: a Fine line is written `FINE`, a debug line **`DEBUG`** (where every debug line was `FINE` until 0.94);
   the others as before, `SEVERE`, `WARNING`, `INFO`. The column stays 7 characters wide. The log view reads the `FINE` lines of an
   older file as Fine lines, and `DEBUG` as Debug; the console writes the same words.
-- **A change of the settings is a Fine line, and names only what changed** (`docs/img_78.png`, where the whole of the settings
+- **A change of the settings is a Fine line, and names only what changed** (`docs/img/img_78.png`, where the whole of the settings
   was written at `Info` at every press of the zoom): `Settings changed: <key> <before> -> <after>`, one for each setting that is
   another, joined by `, `, in the order of the settings file, by the keys of the file and their values as the file writes them:
   `Settings changed: listFontSize 12 -> 13`, `Settings changed: historyGroup none -> 15m, historyZeroLines true -> false`. A text is
@@ -2551,7 +2554,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### Version 0.96: the figures of the history line up, and no empty room in a narrow row
 
-- **The figures of the history line up at the decimal point** (`new-requirements.md`, `docs/img_79.png`, where `-1.22` stood
+- **The figures of the history line up at the decimal point** (`new-requirements.md`, `docs/img/img_79.png`, where `-1.22` stood
   centred under `+247.16`): the columns stay centred under their titles, as since 0.91, but **within a column every cell is as
   wide as its widest**, padded at the left, so that the figures stand as one right-aligned block in the middle of the column and,
   the text being of fixed width and every amount having two decimals, line up by their decimal points.
@@ -2560,7 +2563,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   - **The widest is of the lines that are shown**, grouped or not, so it follows the filter and the grouping. An empty cell stays
     empty and counts for nothing; `failed`, in the place of a failed line's amount, is a cell like the others.
   - **The width of the column is unchanged**: it was already as wide as its widest cell, or as its title.
-- **A narrow row has no empty room** (`docs/img_80.png`, the status circle and the gear with some 100 pixels between them): the
+- **A narrow row has no empty room** (`docs/img/img_80.png`, the status circle and the gear with some 100 pixels between them): the
   program made the window at least 160 pixels wide, which the row with nothing but the circle and the gear does not fill, and the
   gear stood at the right edge. **The least width the program gives the window is now 40 pixels** of its content, so the window is
   as wide as the row: the circle and the gear side by side, with the gap of the row between them. The least height, 32 pixels, is
@@ -2645,7 +2648,7 @@ backend switched while the program runs, and the mark that says its figures are 
 - **It is never round the row alone while a view is shown below it.** Before version 0.38, with the settings view or the
   debug settings view wider than the row, the border was drawn as wide as the row and as tall as the window, so that it ran
   down through the view, across its checkboxes and its `Save` button, and the right part of the view was outside it
-  (see `docs/img_3.png`, taken with every element of the row hidden).
+  (see `docs/img/img_3.png`, taken with every element of the row hidden).
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 
@@ -2951,7 +2954,7 @@ These are things the program does that the sections above do not say, written do
 - **The panels, exactly.** The text is 12 pixels on a line of 15, in a fixed-width font (`ui-monospace, "Cascadia Mono", "SF Mono", SFMono-Regular, Menlo, Consolas, monospace` since version 0.80; until then `ui-monospace, SFMono-Regular, Menlo, monospace`), regular weight, the letters drawn very slightly closer. From the top: the note, the red line of a read that failed, the lines. Opening a panel, or changing to another,
   clears the lines, the note and the red line of the one before at once, so nothing of another panel is ever under the new button, and an answer that comes for a panel that is no longer the one shown is dropped. A panel with no lines shows no box of lines, only its note. The red line goes with the next read that
   succeeds, even one that brings nothing new. The log and the error log are read again at every poll, and the history when its stamp is not the one it was last read and shown at; a read that failed is tried again at the next poll, for the history as for the others, whether or not a row was added meanwhile. Only one panel is read at a time: a panel opened while another is still being read is read as soon as that read has ended, without waiting for a poll or a new row. The header of a table stays at the
-  top with the page's background behind it; the log has none. The 16 pixels kept clear at the right are kept in the log and the error log as in the history. **6 pixels stand between the end of the last column and the scrollbar** (since version 0.81), in the three lists and whatever room the system's scrollbar takes, so that the `s` of `Δ time` does not touch it (`docs/img_34.png`); the window is as much wider. How far the lines are moved to keep a person's place is worked out from the average height of a line.
+  top with the page's background behind it; the log has none. The 16 pixels kept clear at the right are kept in the log and the error log as in the history. **6 pixels stand between the end of the last column and the scrollbar** (since version 0.81), in the three lists and whatever room the system's scrollbar takes, so that the `s` of `Δ time` does not touch it (`docs/img/img_34.png`); the window is as much wider. How far the lines are moved to keep a person's place is worked out from the average height of a line.
 - **The history, exactly.** The columns are, in characters: the time at least 8, or 19 with the date, and taking the room that is left; `used` 10; `limit` 10; `Δ used` 9; `Δ time` 8; `Cur.` 5; with 8 pixels between them. (Until version 0.78 the widths went by the place and the number of the columns: one change column was 9 wide whichever it was, and the last column 5 whatever it was; see The usage history has no horizontal scrollbar.) The room between
   `used` and `limit` is what an amount shorter than its column leaves, not a gap of its own. The width of the first column follows what the backend says of the date, and the red of `failed` is put on the amount used of a line the backend marks as failed (the second cell, until version 0.78): the page looks for no word, and knows a column by the kind the backend names. The header is shown only when
   there is a line. The table is measured on a copy that is not seen, holding the header and the three lines with the most characters, each time the program asks for the size; the width last measured is kept while the panel is closed. The width asked for is the larger of the row's and the table's with 16 pixels

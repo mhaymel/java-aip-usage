@@ -1180,7 +1180,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 Requirement: Debug mode (the border), and A gray box for a figure that is not known, and the level and date of the log.
 Three pieces that do not depend on one another. *Decided by the person:* they are built as phases 45 to 49 were, **one at a
 time, each a phase and a version of its own**, both suites green, its passage of the requirements moved out of "specified, not
-yet built", a commit. Also decided by the person: the frame in `docs/img_3.png` is the program's own border, misplaced;
+yet built", a commit. Also decided by the person: the frame in `docs/img/img_3.png` is the program's own border, misplaced;
 `Debug` is a level to choose and the program gets no debug lines with it; the history's `Δ used` stays as it is.
 
 | Phase | Version | Piece |
@@ -1202,7 +1202,7 @@ yet built", a commit. Also decided by the person: the frame in `docs/img_3.png` 
 - **Nothing to change in `contentSize`.** `formWidth` measures from the left edge of `#app`, outside its border, and
   doubles the room at the left of the form, so the width it gives has the border of both sides in it already.
 - **Tests.** `layout.test.cjs` for the rule. The on-request window test of debug mode now opens the settings with every
-  element of the row hidden, the case of `docs/img_3.png`, and reports how far the app's right edge is from the window's
+  element of the row hidden, the case of `docs/img/img_3.png`, and reports how far the app's right edge is from the window's
   (`gap`) and how far the view sticks out of the border (`outside`): both 0 for the settings, the settings with the row
   emptied (a window of 271 pixels) and the debug settings. Run in a real window; it passes.
 - **Also:** `java-aip-usage.fake.csv` is in `.gitignore`, as the real history file is; it was left out in phase 49.
@@ -1225,7 +1225,7 @@ yet built", a commit. Also decided by the person: the frame in `docs/img_3.png` 
   for the request duration; the figure back when the value returns; `0.00` shown as a figure. `layout.test.cjs`: no
   `.delta.empty`, the widths, the rule that keeps the box from being dimmed, the tooltip.
 
-**Not checked by a test.** The row in a real window in `No usage reported`, the case of `docs/img_4.png`: the page test
+**Not checked by a test.** The row in a real window in `No usage reported`, the case of `docs/img/img_4.png`: the page test
 gives the row a reading with no change, which is the same path.
 
 ### 52. The log panel: a level and the date
@@ -1435,7 +1435,7 @@ every panel; with no panel a least width while a message is shown; the elements 
 - **Tests.** `layout.test.cjs` for the rules. `app.test.cjs`: the class for each of the three lines and without them;
   the measuring with the stretch let go of, for each panel, and the stretch given back.
 - **In a real window** (the on-request test), with the message of a failed refresh and every element of the row hidden,
-  the case of `docs/img.png`: with the settings shown the row is 42 pixels of buttons, its box is as wide as the window
+  the case that brought the fault up: with the settings shown the row is 42 pixels of buttons, its box is as wide as the window
   (265), and the message is 249 pixels wide and two lines tall; with no panel the window is 302 pixels wide, 300 and the
   border, and the message two lines; with every element on the window is as wide as the row, 636. It passes.
 
@@ -1613,7 +1613,7 @@ figures of that run, not by running it again.
   time of the row across the list selects 0 characters, selecting everything selects 0, and the style in force is `none`
   for the row and for a line of the list and `text` for the field. It passes.
 
-**Not checked by a test.** A double click with a real mouse, which is how the blue of `docs/img_4.png` most likely came
+**Not checked by a test.** A double click with a real mouse, which is how the blue of `docs/img/img_4.png` most likely came
 about; the style that forbids it is the one the test reads.
 
 ### 68. The no-spend text on hover
@@ -3540,7 +3540,7 @@ and whether the new least widths still keep the row from moving: for a person to
 **Status: done (version 0.32); how it looks is for a person to judge.** Requirement: The elements of the row (and Compact window,
 Settings, Countdown).
 
-*Decided by the person:* all twelve elements marked in `docs/img_2.png` can be hidden, the gear alone staying; a click on a
+*Decided by the person:* all twelve elements marked in `docs/img/img_2.png` can be hidden, the gear alone staying; a click on a
 checkbox is a preview in the row, kept by Apply and taken back by Cancel; the gray box is for the start only; the amount used and
 the budget have a checkbox each.
 
