@@ -281,7 +281,8 @@ button that is switched off is therefore never taken away from a panel that is o
 The four icon buttons sit close together: the space between them is small, no
 more than about 2 pixels, not the strip's usual gap.
 
-**The icons and the gear stand at the right edge of the window** (since version 0.83; `docs/img/img_38.png`, `docs/img/img_43.png`):
+**The icons and the gear stand at the right edge of the window** (since version 0.83; in 0.82 they stood right after the last figure, with the log open the rest of the row empty to
+their right, and with only the status circle shown the gear stood beside it):
 whenever the window is wider than the row needs, with a list open, a long message line, or a row of few elements in a
 window of its least width, the four icons and the gear move together to the right edge, and the room left over is between
 the last figure and the first icon. The figures stay at the left. A row as wide as the window is as before.
