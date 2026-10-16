@@ -751,8 +751,8 @@ The history is shown inside the main window, not in a window of its own.
   limit is`, its tooltip `Whether the daily limit in force at the reading was worked out from the monthly limit, or typed`. The
   file keeps `auto` and `set` (`daily_auto`); only the view words them. Its width is 14 characters. **It stands one character
   further from `day`** (the right-aligned figures of `day` touched the left-aligned words, as `45.45auto`): its cells and
-  its title have one character of room at the left. **Since version 0.90 its title and its cells are centred** (`docs/img/img_68.png`;
-  they stood at the right). `limit` stays the limit the server sent. Each has a checkbox in `History view`, after `limit`, **off by
+  its title have one character of room at the left. **Since version 0.90 its title and its cells are centred** (they
+  stood at the right). `limit` stays the limit the server sent. Each has a checkbox in `History view`, after `limit`, **off by
   default**, saved under `historyMonthly`, `historyDaily` and `historyDailyBy`; a row written before 0.82 has empty cells there.
   Widths, in characters: `month` 10, `day` 10, `by` 4. Tooltips of the titles: `The monthly limit counted when the reading was
   made`, `The daily limit in force when the reading was made`, `Whether the daily limit was worked out (auto) or typed (set)`.

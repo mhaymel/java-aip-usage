@@ -993,7 +993,7 @@ body {
     box-sizing: border-box;
     width: 15ch;
     padding-left: 1ch;
-    /* Centred since 0.90 (img_68): it stood at the right. */
+    /* Centred since 0.90: it stood at the right. */
     text-align: center;
 }
 

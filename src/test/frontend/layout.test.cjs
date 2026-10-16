@@ -1310,7 +1310,7 @@ test('History view has the three columns of the limits after limit, and the tabl
     assert.match(css, /\.panel-lines \.columns > \.c-monthly,\s*\.panel-lines \.columns > \.c-daily\s*{\s*width:\s*10ch/);
     assert.match(ruleOf('.panel-lines .columns > .c-dailyBy'), /width:\s*15ch/, 'daily limit is, and a character of room (since 0.89)');
     assert.match(ruleOf('.panel-lines .columns > .c-dailyBy'), /padding-left:\s*1ch/, 'one character from the figures of day');
-    assert.match(ruleOf('.panel-lines .columns > .c-dailyBy'), /text-align:\s*center/, 'its title and its cells centred since 0.90 (img_68)');
+    assert.match(ruleOf('.panel-lines .columns > .c-dailyBy'), /text-align:\s*center/, 'its title and its cells centred since 0.90');
 });
 
 // ---- version 0.83: the row
