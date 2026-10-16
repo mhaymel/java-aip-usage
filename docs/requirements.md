@@ -2648,7 +2648,7 @@ backend switched while the program runs, and the mark that says its figures are 
 - **It is never round the row alone while a view is shown below it.** Before version 0.38, with the settings view or the
   debug settings view wider than the row, the border was drawn as wide as the row and as tall as the window, so that it ran
   down through the view, across its checkboxes and its `Save` button, and the right part of the view was outside it
-  (see `docs/img/img_3.png`, taken with every element of the row hidden).
+  (the case that brought it up had every element of the row hidden).
 - **The view is inside the border, and nothing of it is covered or cut off.** The window is as wide as the wider of the
   row and the view, and the border, and as tall as the row and the view, and the border. Nothing is scrolled.
 

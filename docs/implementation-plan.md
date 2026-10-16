@@ -1180,7 +1180,7 @@ needs no work (the item is empty exactly when the change is zero or cannot be wo
 Requirement: Debug mode (the border), and A gray box for a figure that is not known, and the level and date of the log.
 Three pieces that do not depend on one another. *Decided by the person:* they are built as phases 45 to 49 were, **one at a
 time, each a phase and a version of its own**, both suites green, its passage of the requirements moved out of "specified, not
-yet built", a commit. Also decided by the person: the frame in `docs/img/img_3.png` is the program's own border, misplaced;
+yet built", a commit. Also decided by the person: the frame that ran down through the settings, as tall as the window but only as wide as the row, is the program's own border, misplaced;
 `Debug` is a level to choose and the program gets no debug lines with it; the history's `Δ used` stays as it is.
 
 | Phase | Version | Piece |
@@ -1202,7 +1202,7 @@ yet built", a commit. Also decided by the person: the frame in `docs/img/img_3.p
 - **Nothing to change in `contentSize`.** `formWidth` measures from the left edge of `#app`, outside its border, and
   doubles the room at the left of the form, so the width it gives has the border of both sides in it already.
 - **Tests.** `layout.test.cjs` for the rule. The on-request window test of debug mode now opens the settings with every
-  element of the row hidden, the case of `docs/img/img_3.png`, and reports how far the app's right edge is from the window's
+  element of the row hidden, the case of the misplaced border, and reports how far the app's right edge is from the window's
   (`gap`) and how far the view sticks out of the border (`outside`): both 0 for the settings, the settings with the row
   emptied (a window of 271 pixels) and the debug settings. Run in a real window; it passes.
 - **Also:** `java-aip-usage.fake.csv` is in `.gitignore`, as the real history file is; it was left out in phase 49.
