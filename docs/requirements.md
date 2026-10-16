@@ -2148,7 +2148,8 @@ document uses for it. From left to right (in version 0.68, with every element of
 - **The window is as wide as the widest of the open views needs**: three times the row with the log, one and a half times with
   the error log, the table with the usage history, its own rows with the cost control (since 0.84; the history's table or
   its bars until then), and the least width of the settings with the settings.
-- **Leaving the settings closes the settings alone** (a fault of 0.83, `docs/img/img_50.png`, put right in 0.84): a view beside them
+- **Leaving the settings closes the settings alone** (a fault of 0.83, put right in 0.84: with the settings open above the cost control, leaving the settings closed the cost
+  control as well): a view beside them
   whose icon is checked stays open, the cost control as much as any other. Every view is as
   wide as the window; a list that is wider than it has to be shows its lines as it does in a window dragged wider.
 - **What may be dragged.** The height, when any of the three lists is open: dragging it changes the height of **the lowest
