@@ -2415,7 +2415,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   taskbar; the program's window is not moved or changed by it. Where the system cannot draw a transparent window, nothing is
   drawn.
 - **It is not a setting.** (Until version 0.89; see below.)
-- **Since version 0.90 it is a setting, off by default** (**on by default since version 0.91**, `docs/img/img_69.png`): `Show where the window is`, a checkbox in the group `Window` of the
+- **Since version 0.90 it is a setting, off by default** (**on by default since version 0.91**): `Show where the window is`, a checkbox in the group `Window` of the
   tab `General`, after `Several views at once`, saved under `locateWindow`. Its tooltip: `When the window comes to the front, a
   rectangle zooms onto it so that it is found at once. Not when you click into the window.` It takes effect when the settings
   are saved.
