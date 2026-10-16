@@ -5833,3 +5833,53 @@ test('a grouping that cannot be saved holds for the run, and the history is aske
     assert.equal(historyGets(page).pop(), '/api/history?group=1w');
     assert.equal(page.el('log-error-history').hidden, false, 'and it says so');
 });
+
+// ---- version 0.96
+
+test('the figures of the history are padded to the widest of their column, so that they line up at the decimal point', async () => {
+    const history = { ...HISTORY, total: 3,
+        columns: ['time', 'used', 'limit', 'Δ used', 'Δ time', 'Cur.'],
+        kinds: ['time', 'used', 'limit', 'deltaUsed', 'deltaTime', 'currency'],
+        lines: [
+            line(['12:00', '206.30', '1000.00', '-1.22', '610 s', '$']),
+            line(['11:00', '1459.04', '1000.00', '+247.16', '35061 s', 'USD']),
+            line(['10:00', 'failed', '', '', '90 s', ''], { failed: true }),
+        ] };
+    const state = { config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: history }) };
+    const page = await load(backendOf(state));
+
+    await page.click('history-button');
+
+    const rows = page.el('panel-lines').children.filter(c => !/\bhead\b/.test(c.className));
+    const column = i => rows.map(r => r.children[i].textContent);
+    assert.deepEqual(column(1), [' 206.30', '1459.04', ' failed'], 'used: padded at the left, failed a cell like the others');
+    assert.deepEqual(column(2), ['1000.00', '1000.00', ''], 'an empty cell stays empty');
+    assert.deepEqual(column(3), ['  -1.22', '+247.16', ''], 'the change, lined up by the decimal point');
+    assert.deepEqual(column(4), ['  610 s', '35061 s', '   90 s'], 'the seconds, lined up by the number');
+    assert.deepEqual(column(0), ['12:00', '11:00', '10:00'], 'the time is not padded');
+    assert.deepEqual(column(5), ['$', 'USD', ''], 'nor the currency');
+    const head = page.el('panel-lines').children.find(c => /\bhead\b/.test(c.className));
+    assert.equal(head.children[3].textContent, 'Δ used', 'nor the titles');
+});
+
+test('a wider figure that comes in pads the others anew, and the place the person was reading is kept', async () => {
+    const lines = [line(['12:00', '206.30', '1000.00', '-1.22', '', '$']), line(['11:00', '205.08', '1000.00', '+0.45', '', '$'])];
+    const body = () => ({ ...HISTORY, total: lines.length, columns: ['time', 'used', 'limit', 'Δ used', 'Δ time', 'Cur.'],
+        kinds: ['time', 'used', 'limit', 'deltaUsed', 'deltaTime', 'currency'], lines: lines.slice() });
+    const state = { config: CONFIG, status: { ...SPEND_STATUS, historyStamp: 'one' }, history: () => ({ status: 200, body: body() }) };
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+    const box = page.el('panel-lines');
+    assert.equal(box.children[1].children[3].textContent, '-1.22', 'as wide as the widest already');
+    box.scrollHeight = 45; // the header and two lines of 15 px
+    box.scrollTop = 15;
+
+    // A reading comes in above, with a change wider than the others: every other is padded anew.
+    lines.unshift(line(['13:00', '453.46', '1000.00', '+247.16', '', '$']));
+    state.status = { ...SPEND_STATUS, historyStamp: 'two' };
+    await page.firePoll();
+
+    const rows = box.children.filter(c => !/\bhead\b/.test(c.className));
+    assert.deepEqual(rows.map(r => r.children[3].textContent), ['+247.16', '  -1.22', '  +0.45']);
+    assert.equal(box.scrollTop, 15 + 15, 'one line came in above what was being read: the rows are known by what the backend sent, not by their padding');
+});

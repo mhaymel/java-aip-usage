@@ -1582,7 +1582,7 @@
      * the style sheet gives it its width by that: by its place a column would have the width of another when one before it is
      * switched off. The red of a failed line is on its amount used, wherever that is.
      */
-    function cells(className, values, marked, failed, title, wide, markClass, kinds, cellTitles) {
+    function cells(className, values, marked, failed, title, wide, markClass, kinds, cellTitles, widths) {
         var row = document.createElement('div');
         row.className = className + ' cols-' + values.length + (kinds ? ' columns' : '') + (marked ? ' ' + (markClass || 'mark') : '') + (wide ? ' date' : '');
         if (title) {
@@ -1590,7 +1590,9 @@
         }
         values.forEach(function (value, i) {
             var cell = document.createElement('span');
-            cell.textContent = value;
+            // A cell of a column of figures is as wide as the column's widest, padded at the left (since 0.96): the cells, centred
+            // in their column, stand as one block and line up by their decimal points. An empty cell stays empty.
+            cell.textContent = widths && widths[i] && value ? String(value).padStart(widths[i]) : value;
             var kind = kinds ? kinds[i] : null;
             var red = failed && (kinds ? kind === 'used' : i === 1);
             cell.className = (kind ? 'c-' + kind : '') + (red ? (kind ? ' ' : '') + 'failed' : '');
@@ -1601,6 +1603,26 @@
             row.append(cell);
         });
         return row;
+    }
+
+    // The columns of the history whose figures line up at the decimal point (since 0.96); the time, `daily limit is` and the
+    // currency stay centred cell by cell.
+    var ALIGNED_KINDS = ['used', 'limit', 'monthly', 'daily', 'deltaUsed', 'deltaTime'];
+
+    /**
+     * The width in characters each column of figures is padded to, the widest of its cells among the rows shown; 0 for a column
+     * that is not padded, and nothing for a table with no kinds, which is no history. The rows themselves are left as they came.
+     */
+    function alignedWidths(shown) {
+        if (!shown.kinds) {
+            return null;
+        }
+        return shown.kinds.map(function (kind, i) {
+            if (ALIGNED_KINDS.indexOf(kind) < 0) {
+                return 0;
+            }
+            return shown.rows.reduce(function (most, row) { return Math.max(most, row[i] ? String(row[i]).length : 0); }, 0);
+        });
     }
 
     /**
@@ -1666,8 +1688,9 @@
             // The first child of the box, kept at its top as the rows scroll under it.
             box.append(cells('row head', shown.header, false, false, '', shown.wide, null, shown.kinds, shown.columnTitles));
         }
+        var widths = alignedWidths(shown);
         shown.rows.forEach(function (row, i) {
-            var line = cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide, shown.markClass, shown.kinds);
+            var line = cells('row', row, shown.marks && shown.marks[i], shown.failed && shown.failed[i], shown.titles && shown.titles[i], shown.wide, shown.markClass, shown.kinds, null, widths);
             if (shown.dayFirst && shown.dayFirst[i]) {
                 line.className += ' day-first';
             }
@@ -1856,7 +1879,7 @@
             .map(function (row) { return { row: row, size: row.join('').length }; })
             .sort(function (a, b) { return b.size - a.size; })
             .slice(0, 3)
-            .forEach(function (entry) { probe.append(cells('row', entry.row, false, false, '', shown.wide, null, shown.kinds)); });
+            .forEach(function (entry) { probe.append(cells('row', entry.row, false, false, '', shown.wide, null, shown.kinds, null, alignedWidths(shown))); });
         tableWidth = Math.ceil(probe.getBoundingClientRect().width);
     }
 

@@ -107,7 +107,9 @@ final class WindowFit {
         NONE, HEIGHT, BOTH, FIXED, WIDTH
     }
 
-    static final Size MIN = new Size(160, 32);
+    // 40 pixels wide at least since 0.96, where it was 160: a row of the status circle and the gear alone is narrower than that, and
+    // the window is as wide as the row, with no empty room in it.
+    static final Size MIN = new Size(40, 32);
 
     // No size of a window, only a bound on what the page may report (2,400 by 1,600 until 0.91): since 0.92 the screen the window is
     // on is the largest it is made, which the host applies.

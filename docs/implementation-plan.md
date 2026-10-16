@@ -3362,6 +3362,49 @@ writes `FINE` and `DEBUG`; the settings line is Fine and names only what changed
 **By eye**: the log at `Info` without `Settings changed` while the zoom is pressed; at `Fine` the requests and `Settings changed:
 listFontSize 12 -> 13`; at `Debug` the window's lines as well, written `DEBUG`.
 
+### 138. Version 0.96: the figures of the history line up, and no empty room in a narrow row
+
+**Status: built (version 0.96).** The notes of `new-requirements.md` (the seventeenth round: the history's changes centred and not lined up, and a row of the circle and the gear with
+empty room between them), decided in two rounds of
+questions: the columns stay centred and their figures are one block padded at the left to the widest; every column of figures;
+the window as narrow as the row; the padding done by the page. Phases 136 and 137 are committed (`127f549`). `AppInfo.VERSION =
+"0.96"`. Requirements: Version 0.96. Two parts:
+
+1. **The figures line up, in the page.** `app.js`, `showPanel`: for a table with `kinds` (the history), before the rows are drawn,
+   the widest cell of each column whose kind is one of `used`, `limit`, `monthly`, `daily`, `deltaUsed` and `deltaTime` is found
+   among the rows shown, by its length in characters (an empty cell counts for nothing), and every non-empty cell of that column is
+   padded at the left with spaces to it (`padStart`) **as it is drawn**, in `cells`, by a width per column passed to it: `shown.rows`
+   is not changed. The keys `showPanel` keeps of the rows (`rowKeys`, by which a list that grew above what the person was reading
+   follows it, and `view.key`) are of the cells as the backend sent them, so that a new, wider cell, which pads every other one
+   anew, does not make every row look new and lose the place. The header is not padded; nor are `time`, `dailyBy` and `currency`. The panel's
+   lines keep spaces already (`white-space: pre`, `.panel-lines`) and have a fixed-width font with tabular figures, so the padded
+   cells, still centred by `.columns > *`, stand as one right-aligned block. The columns keep their fixed widths in `ch`, which
+   hold the widest cell, so nothing moves. The probe that measures the table (`app.js` near `probe.append(cells(`) draws the same
+   padded rows, so the width it measures is the one shown. The backend and `/api/history` are unchanged.
+   Tests: `app.test.cjs` (the history with `-1.22` and `+247.16` in `Δ used`: the cells are `  -1.22` and `+247.16`; `Δ time`
+   `  610 s` under `35061 s`; an empty cell stays empty; `failed` padded like an amount; the time and `Cur.` unpadded; grouped the
+   same).
+2. **The least width 40 pixels.** `WindowFit.MIN = new Size(40, 32)`, where it was 160 by 32: the page's own width of the row is
+   then what the window gets, the circle and the gear side by side. `UsageApp` uses `MIN.height()` alone, which is unchanged; the
+   frame of a window with a title bar may be held wider by the system, which is the system's. Tests: `WindowFitTest` (`40,32` is
+   the least; `30,20` is raised to it; `160,32` is a size like any other now).
+
+- **Tests.** As above; the whole suite, the page tests, and the window tests (`-Daipusage.windows=true`), which measure the row:
+  no window test names 160 (checked); `TitleBarWindowTest`'s `settings-narrow` and `message-narrow-row` steps, whose row is narrow,
+  may now report a window below 160 pixels, which is the point, and their expectations are of the page's own width.
+
+**By eye**: the history with `Δ used` and `Δ time` on, grouped by an hour: the figures in one block per column, by
+their decimal points; every element of the row switched off but the status circle: the circle and the gear side by side, no room
+between them.
+
+**As built**: as planned. `app.js`: `ALIGNED_KINDS` and `alignedWidths(shown)`, the widest of each column of figures among the rows
+shown; `cells` takes the widths as a tenth argument and pads a non-empty cell with `padStart` as it draws it; `showPanel` and
+`measureTable` pass them, and `rowKeys` and `view.key` stay of the unpadded rows. `WindowFit.MIN` is 40 by 32. Tests:
+`app.test.cjs` (the columns of the history grouped by the hour, `failed` and an empty cell, the time, the currency and the titles unpadded; a wider change
+coming in above pads the others anew and the scroll keeps the place, one line further down), `WindowFitTest` (40 by 32 the least,
+160 a size like any other, less raised). The whole suite, the page tests and the window tests pass. No step of the window probe
+shows the row of the circle and the gear alone (its narrow rows have a message line, which keeps 300 pixels): that is by eye.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.77; written at version 0.37, and the part about the backend brought up

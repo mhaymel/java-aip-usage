@@ -69,8 +69,16 @@ class WindowFitTest {
 
     @Test
     void theBoundsAreAcceptedAsTheyAre() {
-        assertEquals(Optional.of(WindowFit.MIN), WindowFit.parse("160,32"));
+        assertEquals(Optional.of(WindowFit.MIN), WindowFit.parse("40,32"));
         assertEquals(Optional.of(WindowFit.MAX), WindowFit.parse("10000,10000"));
+    }
+
+    @Test
+    void aRowOfTheCircleAndTheGearAloneIsAsNarrowAsItIs() {
+        // Since 0.96 the least width is 40 pixels, where it was 160, which left room between the circle and the gear.
+        assertEquals(Optional.of(new Size(58, 32)), WindowFit.parse("58,32"));
+        assertEquals(Optional.of(new Size(160, 32)), WindowFit.parse("160,32"), "a size like any other");
+        assertEquals(Optional.of(new Size(40, 32)), WindowFit.parse("30,20"), "less is raised to the least");
     }
 
     @ParameterizedTest
