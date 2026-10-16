@@ -2376,7 +2376,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   tab `History` (`docs/img/img_66.png`). Below `Window` is the path of the settings file, as the About view had it: a link that
   opens its folder, with the button that copies it (see The paths of the About view are links, with a button to copy each).
 - **`Main`** has the elements of the row as before but for the four icons of the views, which are a group of their own,
-  **`Icons`**, below the group `Main` (`docs/img/img_64.png`). Their checkboxes are `Cost`, `History`, `Log` and `Error log`, where
+  **`Icons`**, below the group `Main` (in 0.88 they were the last four checkboxes of `Main view`). Their checkboxes are `Cost`, `History`, `Log` and `Error log`, where
   they were `Cost icon`, `History icon`, `Log icon` and `Error log icon`; their keys and tooltips stay. **Beside each checkbox is
   the icon itself**, as the row draws it (the two bars, the table, the sheet with lines, the triangle), in the muted gray; **a click
   on the icon checks its checkbox**, and a click on it while it is checked leaves it checked; the checkbox alone unchecks it. It is
