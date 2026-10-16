@@ -415,7 +415,7 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
   both out from the history file and sends them with the status. The row shows the values of the
   newest reading, and the history panel those of each row (see Settings for the switches).
 - **The time since the previous reading** (since version 0.67) is counted to the row directly before it in the file, **whatever run it belongs to**: a failed row included, so a failed row has a time and the row after it counts from the failed row. The first row of a run
-  has one too: the time since the last row of the run before, which is how long the program was not running (it can be hours or days, `90000 s`). Only the first row of the file has none. (Before, a run was a border and the first row of a run showed an empty cell: see `docs/img/img_9.png`.)
+  has one too: the time since the last row of the run before, which is how long the program was not running (it can be hours or days, `90000 s`). Only the first row of the file has none. (Before, a run was a border and the first row of a run showed an empty cell.)
 - A value that cannot be worked out is left empty, not shown as zero.
 - **In the history the time since the previous reading is worked out on the lines that are shown.** When the history leaves lines out (see Hiding lines),
   the time of a line is that against the previous line that is shown, not against the row directly before it in the file: with the unchanged readings hidden, the time is the
