@@ -2258,7 +2258,7 @@ document uses for it. From left to right (in version 0.68, with every element of
 
 ### A line between the row and the views
 
-- **A line separates the row from the view below it, and each view from the next** (since version 0.81; `docs/img/img_28.png`):
+- **A line separates the row from the view below it, and each view from the next** (since version 0.81; in 0.80 the zoom buttons and the header of the view stood right under the row, with nothing between them):
   1 pixel, solid, in a middle gray on the light theme and a dark gray on the dark one, as wide as the window. It is there with
   several views, the settings counted among them; there is none below the lowest view, and none with no view shown.
 - **With one view there is no line** (since version 0.86; `docs/img/img_54.png`): one view alone, or the settings alone, stands right
