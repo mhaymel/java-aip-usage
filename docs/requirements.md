@@ -1867,7 +1867,7 @@ document uses for it. From left to right (in version 0.68, with every element of
 - **A bar is drawn in blocks of 10 %** (since version 0.81): a gap of 1 pixel, in the background of the window, stands after
   every tenth of the bar, nine gaps in all, through the green part and the gray part alike, so that the share can be read off
   in tenths. The green part ends where the share ends, inside a block if it does: 11 % is one block and a sliver of the next.
-- **Since version 0.84 a block is 14 pixels**, 13 of colour and the gap of 1 (`docs/img/img_49.png`), **whatever the width of the bar**: a
+- **Since version 0.84 a block is 14 pixels**, 13 of colour and the gap of 1, **whatever the width of the bar**: a
   wider bar has more blocks, and a block is then less than 5 %. The used part still ends exactly where the share ends, inside a
   block if it does. (The rest of this rule, of twenty blocks, held in versions 0.82 and 0.83.)
 - **Since version 0.82 a bar is twenty blocks of 5 %**, as in the sketch the panel was drawn from: the gap of 1 pixel stands after every
