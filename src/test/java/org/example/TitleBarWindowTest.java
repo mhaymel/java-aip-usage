@@ -34,7 +34,7 @@ class TitleBarWindowTest {
     Path dir;
 
     @Test
-    @Timeout(240)
+    @Timeout(300)
     void theTitleBarGoesAndComesBackAndThePageDoesNotNotice() throws Exception {
         List<String> output = new ArrayList<>();
         int exit = runProbe(TitleBarProbe.class, output);
@@ -71,7 +71,7 @@ class TitleBarWindowTest {
      * any panel is open, and loses it again when the panel is closed.
      */
     @Test
-    @Timeout(240)
+    @Timeout(300)
     void withTheTitleBarOffTheWindowHasItOnlyWhileTheSettingsAreOpen() throws Exception {
         List<String> output = new ArrayList<>();
         int exit = runProbe(UsageAppProbe.class, output);
@@ -116,6 +116,8 @@ class TitleBarWindowTest {
         assertTrue(open[0] >= open[4] && open[1] >= open[5] && open[2] <= open[6] && open[3] <= open[7], "and lies on the screen:\n" + all);
         assertTrue(low[3] - open[3] < 60, "its bottom edge where the row's was, but for the row:\n" + all);
         assertEquals(low[0] + "," + low[1], closed[0] + "," + closed[1], "closed, the row is back:\n" + all);
+        int[] movedClosed = place(all, "log-low-moved-closed-place");
+        assertEquals(low[0] + "," + low[1], movedClosed[0] + "," + movedClosed[1], "and also when it was moved while the log was open (since 0.94):\n" + all);
         // With no title bar the window is moved by dragging it, from a figure and from its edge, and not from a button; with
         // the title bar a drag inside it moves nothing.
         assertEquals("moved:40,25 hasTitleBar:false panel:false", line(all, "drag-figure").substring("PROBE drag-figure=".length()), all);
@@ -127,11 +129,11 @@ class TitleBarWindowTest {
         assertEquals("moved:0,0 grew:60 hasTitleBar:false", line(all, "drag-edge").substring("PROBE drag-edge=".length()), "the bottom edge makes the list taller:\n" + all);
 
         // The button of Main view: a small icon in the line of the heading, which switches every element on, and all off when all are on.
-        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/9 .*"), "some elements are on, the status circle among them since 0.82, and the button is in the middle of its heading:\n" + all);
-        // The error log's icon is gone since 0.91: one checkbox fewer in each count.
-        assertTrue(line(all, "settings-all").contains("/17 note:"), "one press: all seventeen on, the status circle and the figures of the day among them (since 0.82):\n" + all);
-        // Another: all off but the three icons, which are a group of their own with a button of its own since 0.90.
-        assertTrue(line(all, "settings-narrow").contains("/3 note:"), "another: all off, the icons left as they were:\n" + all);
+        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/10 .*"), "some elements are on, the status circle among them since 0.82, and the button is in the middle of its heading:\n" + all);
+        // The error log's icon is gone since 0.91, and the cross that ends the program came in 0.94, on by default.
+        assertTrue(line(all, "settings-all").contains("/18 note:"), "one press: all eighteen on, the status circle and the figures of the day among them (since 0.82):\n" + all);
+        // Another: all off but the four icons, which are a group of their own with a button of its own since 0.90.
+        assertTrue(line(all, "settings-narrow").contains("/4 note:"), "another: all off, the icons left as they were:\n" + all);
 
         // The window has the program's icon in its four sizes, with the title bar and without, in each window that took the place of another.
         assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" icons:16/32/48/256 ")).count(),
@@ -261,7 +263,7 @@ class TitleBarWindowTest {
      * settings as a panel, and the fake backend switched off and on again while the program runs.
      */
     @Test
-    @Timeout(240)
+    @Timeout(300)
     void inDebugModeTheFakeBackendIsSwitchedWhileTheProgramRunsAndTheBorderFollowsIt() throws Exception {
         List<String> output = new ArrayList<>();
         int exit = runProbe(UsageAppProbe.class, output);
@@ -409,8 +411,8 @@ class TitleBarWindowTest {
                 .redirectOutput(dir.resolve("probe-output.txt").toFile())
                 .start();
         process.getOutputStream().close();
-        // The probe of the application takes about a minute, with its steps and their waits.
-        boolean ended = process.waitFor(180, TimeUnit.SECONDS);
+        // The probe of the application takes about three minutes, with its steps and their waits (the places of 0.93 and 0.94 among them).
+        boolean ended = process.waitFor(260, TimeUnit.SECONDS);
         if (!ended) {
             process.destroyForcibly();
             process.waitFor(5, TimeUnit.SECONDS);

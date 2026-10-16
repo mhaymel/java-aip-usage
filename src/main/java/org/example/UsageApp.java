@@ -147,9 +147,6 @@ public class UsageApp extends Application {
      */
     private double[] rowPlace;
 
-    /** Whether the person has moved the window since a view was opened, so that closing it leaves the row where they put it. */
-    private boolean movedByPerson;
-
     /** How much bigger the stage is than its scene: the title bar and borders. NaN until measured. */
     private double decorationWidth = Double.NaN;
 
@@ -234,7 +231,6 @@ public class UsageApp extends Application {
         heightSettled.setOnFinished(event -> rememberDraggedHeight(this.stage));
         widthSettled.setOnFinished(event -> rememberDraggedWidth(this.stage));
         watchHeight(stage);
-        watchPlace(stage);
         stage.show();
         bringToFront();
         // On macOS the Dock would show the icon of a program that has none.
@@ -438,17 +434,6 @@ public class UsageApp extends Application {
         });
     }
 
-    /** Notices when the person moves the window, by the row, by the title bar or otherwise, which the program's own moves are not. */
-    private void watchPlace(Stage window) {
-        javafx.beans.value.ChangeListener<Number> moved = (observable, before, after) -> {
-            if (!applying && window == stage) {
-                movedByPerson = true;
-            }
-        };
-        window.xProperty().addListener(moved);
-        window.yProperty().addListener(moved);
-    }
-
     private static boolean logAlone(Optional<WindowFit.Size> size) {
         return size.isPresent() && "log".equals(size.get().panel());
     }
@@ -476,7 +461,6 @@ public class UsageApp extends Application {
             applying = false;
         }
         watchHeight(stage);
-        watchPlace(stage);
         // The frame is another, so what the window is bigger by than its content is measured again: not here, where the
         // new window has not been laid out yet, but by resize on a later tick, as for the first window. The size the page
         // asked for is then applied again to the new window, with its limits.
@@ -521,6 +505,9 @@ public class UsageApp extends Application {
         // The same tick follows the setting that keeps the window on top: it is read, not listened for, since it changes rarely.
         // The title bar and the stage are looked at on the same tick: the window may be another one from one tick to the next.
         fitTimer = new Timeline(new KeyFrame(FIT_INTERVAL, event -> {
+            if (exitAsked(webView)) {
+                return;
+            }
             followPointer(webView);
             followMinimized(webView);
             followFocus();
@@ -530,6 +517,28 @@ public class UsageApp extends Application {
         }));
         fitTimer.setCycleCount(Animation.INDEFINITE);
         fitTimer.play();
+    }
+
+    /**
+     * Ends the program when the cross of the row was pressed (since 0.94): the window is closed, as by its own cross, so that
+     * the last window closing ends the toolkit and {@link #stop()} stores the window and releases the rest, the same way.
+     *
+     * @return whether the window was closed
+     */
+    private boolean exitAsked(WebView webView) {
+        try {
+            if (!Boolean.TRUE.equals(webView.getEngine().executeScript("typeof window.exitAsked === 'function' && window.exitAsked()"))) {
+                return false;
+            }
+        } catch (RuntimeException e) {
+            return false;
+        }
+        LOG.info("The program is ended by its cross");
+        fitTimer.stop();
+        stage.close();
+        // Should another window of the program still be there, the outline of where the window is among them, the toolkit is ended too.
+        Platform.exit();
+        return true;
     }
 
     /** How long after the outline or the folder picker is gone the focus it gives back is no activation, in milliseconds. */
@@ -742,7 +751,7 @@ public class UsageApp extends Application {
     /**
      * Puts the window where the room is after the program has changed its size (since 0.93): opening a view keeps the corner of
      * the window nearest the screen's corner where it was, and remembers where the row was; closing the views puts the row back
-     * there, unless the person has moved the window meanwhile; a change while a view stays shown keeps the corner as opening
+     * there, also when the person has moved the window meanwhile (since 0.94); a change while a view stays shown keeps the corner as opening
      * does. What would still lie off the screen is moved onto it. The row alone, the row away and back, and the place the start
      * restores are left where they are.
      */
@@ -762,9 +771,8 @@ public class UsageApp extends Application {
         WindowPlace.Rect to;
         if (!viewBefore) {
             rowPlace = new double[] {was.x() + sceneX, was.y() + sceneY};
-            movedByPerson = false;
             to = WindowPlace.anchored(was, stage.getWidth(), stage.getHeight(), screen);
-        } else if (!viewNow && rowPlace != null && !movedByPerson) {
+        } else if (!viewNow && rowPlace != null) {
             to = WindowPlace.onScreen(
                     new WindowPlace.Rect(rowPlace[0] - sceneX, rowPlace[1] - sceneY, stage.getWidth(), stage.getHeight()), screen);
         } else {
@@ -922,7 +930,7 @@ public class UsageApp extends Application {
         if (size.isPresent() && SettingsStore.LastWindow.shows(restoring.panel(), size.get().panels()) && appliedSize.isPresent()
                 && !Double.isNaN(decorationWidth)) {
             applyRestoredSize(size.get());
-            LOG.debug("The window is restored: " + restoring.panel() + ", " + restoring.width() + " x " + restoring.height()
+            LOG.fine("The window is restored: " + restoring.panel() + ", " + restoring.width() + " x " + restoring.height()
                     + " at " + restoring.x() + ", " + restoring.y());
             restoring = null;
         }

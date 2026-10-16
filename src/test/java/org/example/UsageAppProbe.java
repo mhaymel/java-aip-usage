@@ -133,6 +133,15 @@ public final class UsageAppProbe {
             place("log-low");
             step("log-low-closed", "log-button");
             place("log-low-closed");
+            // Moved while the log is open: closing it still puts the row back where it was (since 0.94).
+            step("log-low-moved", "log-button");
+            onFx(() -> {
+                window().setX(window().getX() - 100);
+                window().setY(window().getY() + 50);
+            });
+            Thread.sleep(500);
+            step("log-low-moved-closed", "log-button");
+            place("log-low-moved-closed");
             // The cost control cannot be resized, so it has no title bar: the window has its border, and is moved by dragging it.
             step("cost-panel", "cost-button");
             drag("drag-cost", "time");
@@ -192,7 +201,8 @@ public final class UsageAppProbe {
             step("fake-on", "settings-save");
             Thread.sleep(2500);
             step("fake-on-settled", null);
-            onFx(() -> window().close());
+            // The cross of the row ends the program, as closing the window does (since 0.94).
+            onFx(() -> page().getEngine().executeScript("document.getElementById('exit-button').click()"));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

@@ -112,6 +112,6 @@ class MacNameTest {
             Log.removeSink(capture);
         }
         assertEquals(1, lines.size(), lines.toString());
-        assertTrue(lines.get(0).startsWith("FINE The application could not be named for the system: "), lines.get(0));
+        assertTrue(lines.get(0).startsWith("DEBUG The application could not be named for the system: "), lines.get(0));
     }
 }

@@ -206,7 +206,15 @@ public final class UsageClient implements UsageSource {
             text = "(not JSON, " + body.getBytes(StandardCharsets.UTF_8).length + " bytes, not logged)";
         }
         LOG.info(
-                "Response of GET " + uri.getHost() + uri.getPath() + " (HTTP " + status + "):" + System.lineSeparator() + text);
+                "Response of GET " + shown(uri) + " (HTTP " + status + "):" + System.lineSeparator() + text);
+    }
+
+    /**
+     * The address as the log writes it (since 0.94): the scheme, the host and the port when there is one, and the path, where it
+     * was the host and the path alone. The query, of which there is none, is left out.
+     */
+    static String shown(URI uri) {
+        return uri.getScheme() + "://" + uri.getRawAuthority() + uri.getRawPath();
     }
 
     private void logOutcome(String outcome, long startedNanos) {
@@ -215,10 +223,11 @@ public final class UsageClient implements UsageSource {
 
     private void logOutcome(String outcome, long startedNanos, String details) {
         long millis = Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
-        String line = "GET " + uri.getHost() + uri.getPath() + " -> " + outcome + " in " + millis + " ms" + details;
-        // A request that succeeds is a line every few seconds: at DEBUG since 0.92. One that fails stays at INFO, before its ERROR.
+        String line = "GET " + shown(uri) + " -> " + outcome + " in " + millis + " ms" + details;
+        // A request that succeeds is a line every few seconds: at DEBUG since 0.92, a Fine line since 0.95. One that fails stays at
+        // INFO, before its ERROR.
         if ("HTTP 200".equals(outcome)) {
-            LOG.debug(line);
+            LOG.fine(line);
         } else {
             LOG.info(line);
         }

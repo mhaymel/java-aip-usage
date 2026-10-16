@@ -50,6 +50,7 @@ class LoggingTest {
             LOG.error("an error");
             LOG.warning("a warning");
             LOG.info("information");
+            LOG.fine("a fine line");
             LOG.debug("a debug line");
         }
         List<String> lines = Files.readAllLines(file);
@@ -58,9 +59,11 @@ class LoggingTest {
         assertTrue(lines.get(1).matches(time + "SEVERE  \\[LoggingTest] an error"), lines.get(1));
         assertTrue(lines.get(2).matches(time + "WARNING \\[LoggingTest] a warning"), lines.get(2));
         assertTrue(lines.get(3).matches(time + "INFO    \\[LoggingTest] information"), lines.get(3));
-        assertTrue(lines.get(4).matches(time + "FINE    \\[LoggingTest] a debug line"), lines.get(4));
-        assertEquals(5, lines.size());
-        assertEquals(org.example.settings.LogLevel.DEBUG, org.example.settings.LogLevel.ofLogWord("FINE"), "which the log panel shows with Debug only");
+        assertTrue(lines.get(4).matches(time + "FINE    \\[LoggingTest] a fine line"), lines.get(4));
+        assertTrue(lines.get(5).matches(time + "DEBUG   \\[LoggingTest] a debug line"), "DEBUG since 0.95, where it was FINE: " + lines.get(5));
+        assertEquals(6, lines.size());
+        assertEquals(org.example.settings.LogLevel.FINE, org.example.settings.LogLevel.ofLogWord("FINE"), "which the log panel shows with Fine and Debug");
+        assertEquals(org.example.settings.LogLevel.DEBUG, org.example.settings.LogLevel.ofLogWord("DEBUG"), "and this with Debug only");
         assertTrue(Files.readString(file).endsWith("a debug line" + System.lineSeparator()), "each line ends as lines end on this system");
     }
 

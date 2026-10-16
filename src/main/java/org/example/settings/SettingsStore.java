@@ -120,6 +120,12 @@ public final class SettingsStore {
 
     static final String SHOW_COST_ICON_KEY = "showCostIcon";
 
+    /** The cross that ends the program (since 0.94). */
+    static final String SHOW_EXIT_ICON_KEY = "showExitIcon";
+
+    /** What the history is grouped by (since 0.94), a choice of the history itself. */
+    static final String HISTORY_GROUP_KEY = "historyGroup";
+
     static final String RESTORE_WINDOW_KEY = "restoreWindow";
 
     static final String SEVERAL_VIEWS_KEY = "severalViews";
@@ -280,7 +286,22 @@ public final class SettingsStore {
                 flag(root, HISTORY_DAILY_BY_KEY, defaults.historyDailyBy()),
                 flag(root, STATUS_BLINK_KEY, defaults.statusBlink()),
                 flag(root, LOCATE_WINDOW_KEY, defaults.locateWindow()),
-                tooltipMillis(root, defaults.tooltipMillis()));
+                tooltipMillis(root, defaults.tooltipMillis()),
+                flag(root, SHOW_EXIT_ICON_KEY, defaults.showExitIcon()),
+                historyGroup(root, defaults.historyGroup()));
+    }
+
+    /** The interval the history is grouped by, by its key; a key that is none of them is logged and passed over. */
+    private String historyGroup(Json root, String fallback) {
+        Json node = root.get(HISTORY_GROUP_KEY);
+        if (node == null || node.isNull()) {
+            return fallback;
+        }
+        if (node.isText() && HistoryGroup.isKey(node.text())) {
+            return node.text();
+        }
+        LOG.warning("Ignoring " + HISTORY_GROUP_KEY + " in " + file + ": it must be one of none, 5m, 15m, 30m, 1h, 1d, 1w and month");
+        return fallback;
     }
 
     /**
@@ -754,6 +775,50 @@ public final class SettingsStore {
     }
 
     private void write(Settings settings, Heights heights, Search search, org.example.fake.FakeOptions fake, LastWindow last) throws IOException {
+        Json root = root(settings, heights, search, fake, last);
+
+        Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
+        try {
+            Files.writeString(temporary, JsonWriter.pretty(root, System.lineSeparator()) + System.lineSeparator());
+            try {
+                Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+    }
+
+    /**
+     * What changed from one set of settings to another, as the line of the log names it (since 0.95): {@code <key> <before> ->
+     * <after>} for each setting that is another, joined by {@code , }, in the order of the file and by its keys and values; a text
+     * as it is, an empty one as {@code ""}. The empty text when nothing changed.
+     */
+    public static String changes(Settings before, Settings after) {
+        Json was = root(before, Heights.NONE, Search.BEGINNING, org.example.fake.FakeOptions.DEFAULTS, LastWindow.NONE);
+        Json now = root(after, Heights.NONE, Search.BEGINNING, org.example.fake.FakeOptions.DEFAULTS, LastWindow.NONE);
+        java.util.List<String> changed = new java.util.ArrayList<>();
+        for (String key : now.keys()) {
+            if (!java.util.Objects.equals(was.get(key), now.get(key))) {
+                changed.add(key + " " + shown(was.get(key)) + " -> " + shown(now.get(key)));
+            }
+        }
+        return String.join(", ", changed);
+    }
+
+    private static String shown(Json value) {
+        if (value == null) {
+            return "null";
+        }
+        if (value.isText()) {
+            return value.text().isEmpty() ? "\"\"" : value.text();
+        }
+        return value.toString();
+    }
+
+    /** The settings file as it is written: every setting, the remembered sizes, the search of the interval, the fake backend and the window. */
+    private static Json root(Settings settings, Heights heights, Search search, org.example.fake.FakeOptions fake, LastWindow last) {
         Json root = Json.object();
         root.put(USAGE_KEY, settings.usageIntervalSeconds());
         root.put(LOG_RESPONSE_KEY, settings.logResponse());
@@ -829,6 +894,8 @@ public final class SettingsStore {
         root.put(STATUS_BLINK_KEY, settings.statusBlink());
         root.put(LOCATE_WINDOW_KEY, settings.locateWindow());
         root.put(TOOLTIP_MILLIS_KEY, settings.tooltipMillis());
+        root.put(SHOW_EXIT_ICON_KEY, settings.showExitIcon());
+        root.put(HISTORY_GROUP_KEY, settings.historyGroup());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
         root.put(LOG_WIDTH_KEY, heights.logWidth());
@@ -851,17 +918,6 @@ public final class SettingsStore {
         if (last.y() != null) {
             root.put(WINDOW_Y_KEY, last.y().intValue());
         }
-
-        Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
-        try {
-            Files.writeString(temporary, JsonWriter.pretty(root, System.lineSeparator()) + System.lineSeparator());
-            try {
-                Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException e) {
-                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
-            }
-        } finally {
-            Files.deleteIfExists(temporary);
-        }
+        return root;
     }
 }

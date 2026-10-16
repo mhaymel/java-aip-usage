@@ -73,7 +73,7 @@ class LoggingEndToEndTest {
                     "Logging to",
                     "Usage interval 60 s, poll interval 1 s",
                     "Frontend served at",
-                    "GET 127.0.0.1/usage -> HTTP 200 in",
+                    "GET http://127.0.0.1:" + endpoint.getPort() + "/usage -> HTTP 200 in",
                     "Usage refresh succeeded",
                     "Usage refresh stopped",
                     "Frontend server stopped");
@@ -88,7 +88,7 @@ class LoggingEndToEndTest {
         Output output = run(endpoint, tokens(FIRST_TOKEN), app -> app.service().state().snapshot() != null, true);
 
         for (String text : List.of(output.file(), output.console())) {
-            assertContainsInOrder(text, "Response of GET 127.0.0.1/usage (HTTP 200):", "amount_minor", "Usage refresh succeeded");
+            assertContainsInOrder(text, "Response of GET http://127.0.0.1:" + endpoint.getPort() + "/usage (HTTP 200):", "amount_minor", "Usage refresh succeeded");
             assertTrue(text.contains(System.lineSeparator() + "  \""), "pretty printed: " + text);
             assertFalse(text.contains(FIRST_TOKEN), text);
             assertFalse(text.contains("Authorization"), text);

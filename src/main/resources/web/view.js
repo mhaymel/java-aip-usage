@@ -24,7 +24,7 @@
      *   deltaUsed    {text, tooltip} for the change in the amount used, or null
      *   deltaTime    {text, tooltip} for the time since the previous reading, or null
      *   duration     {text, tooltip} for how long the latest usage request took, or null
-     *   show         {percentage, currency, interval, deltaUsed, deltaTime, historyIcon, logIcon, errorIcon, costIcon, time, used, limit,
+     *   show         {percentage, currency, interval, deltaUsed, deltaTime, historyIcon, logIcon, errorIcon, costIcon, exitIcon, time, used, limit,
      *                 refresh, countdown, duration}: which elements of the row there are; one the backend does not name is shown
      *   message      {kind: 'error'|'stale', text} for the line under the row, or null
      *   stale        the figures predate a failed refresh
@@ -46,7 +46,7 @@
             deltaUsed: d.deltaUsed || null,
             deltaTime: d.deltaTime || null,
             duration: d.duration || null,
-            show: d.show || { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true, costIcon: true,
+            show: d.show || { percentage: false, currency: false, interval: false, deltaUsed: false, deltaTime: false, historyIcon: true, logIcon: true, errorIcon: true, costIcon: true, exitIcon: true,
                 status: true, dayPercentage: false, dayUsed: false, dayLimit: false },
             message: d.message || null,
             // What is said of a reading with no spend, while the mouse is on one of its gray boxes; null for any other reading.

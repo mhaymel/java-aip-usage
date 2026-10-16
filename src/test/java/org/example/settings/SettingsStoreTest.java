@@ -213,7 +213,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "tooltipMillis", "historyHeight", "logHeight", "logWidth"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "tooltipMillis", "showExitIcon", "historyGroup", "historyHeight", "logHeight", "logWidth"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -367,6 +367,32 @@ class SettingsStoreTest {
         assertTrue(Files.readString(file()).contains("\"logWidth\""), "under its own key (since 0.93)");
         assertEquals(new SettingsStore.Heights(640, 520, 1300), new SettingsStore(file()).loadHeights().withHeight("log", 520),
                 "a height stored keeps the width");
+    }
+
+    @Test
+    void aChangeOfTheSettingsNamesWhatChangedAndNoMore() {
+        Settings before = Settings.defaults();
+
+        assertEquals("listFontSize 12 -> 13, historyGroup none -> 15m",
+                SettingsStore.changes(before, before.withListFontSize(13).withHistoryGroup("15m")), "in the order of the file, by its keys (since 0.95)");
+        assertEquals("logFolder \"\" -> C:\\logs", SettingsStore.changes(before, before.withFolders("C:\\logs", "")), "an empty text as two quotes");
+        assertEquals("logLevel info -> fine", SettingsStore.changes(before, before.withLog(LogLevel.FINE, false)));
+        assertEquals("", SettingsStore.changes(before, before), "nothing when nothing changed");
+    }
+
+    @Test
+    void theCrossAndTheGroupingOfTheHistoryAreReadAndWritten() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        store.save(Settings.defaults().withShowExitIcon(false).withHistoryGroup("1w"));
+
+        assertFalse(store.load().showExitIcon());
+        assertEquals("1w", store.load().historyGroup());
+        assertTrue(Settings.defaults().showExitIcon(), "the cross is shown by default (since 0.94)");
+
+        Files.writeString(file(), "{\"historyGroup\": \"2h\"}");
+        assertEquals("none", new SettingsStore(file()).load().historyGroup(), "a grouping that is none of them is none");
+        Files.writeString(file(), "{}");
+        assertTrue(new SettingsStore(file()).load().showExitIcon(), "a file of 0.93 shows it");
     }
 
     @Test

@@ -143,6 +143,10 @@ text for none, or an amount, as a number or the text of one, from 0.01 to 1,000,
 monthly limit.`, when the daily limit is typed in and above the monthly one; `The setting costDailyAutomatic must be true
 or false.`
 
+Since version 0.94 `showExitIcon` (`true` by default, optional in a `POST`), whether the row has the cross that ends the
+program, after the gear; the status has it as `show.exitIcon`. The grouping of the history, `historyGroup` in `settings.json`,
+is no setting of this endpoint: `POST /api/history` changes it, and a `POST` here leaves it as it is.
+
 Since version 0.91 `tooltipMillis`, a whole number, 0 (the default: as long as the pointer is on it) or from 500 to 3,600,000,
 optional in a `POST`; `locateWindow` is `true` by default; `showErrorIcon` is no longer sent, and is ignored in a `POST`.
 
@@ -392,7 +396,7 @@ do (for example log in with Claude Code).
 
 ## `GET /api/log` and `POST /api/log`
 
-`GET` gives the end of the log file, for the panel the log button shows in the main window, at the level saved for the panel, or at the one a query names: `GET /api/log?level=warning`, with `error`, `warning`, `info` or `debug`; any other name is `400`. The lines are oldest first; the panel shows them newest first. It names the file, never its path.
+`GET` gives the end of the log file, for the panel the log button shows in the main window, at the level saved for the panel, or at the one a query names: `GET /api/log?level=warning`, with `error`, `warning`, `info`, `fine` (since version 0.95) or `debug`; any other name is `400`. The lines are oldest first; the panel shows them newest first. It names the file, never its path.
 
 ```json
 {
@@ -415,8 +419,8 @@ and time, and a run with the line that has `] Starting java-aip-usage`.
 - `lines`: the last 1,000 lines at most of the level, oldest first, so the newest is last. Only the last 512
   kilobytes of the file are read, since the log is never rotated. A level gives its own lines and those of the more
   severe ones; the lines of an entry, a stack trace or a response's JSON, come or stay away with the line that begins
-  it; the level is the word after the date and time (`SEVERE` is an error, `FINE` a debug line, a word that is not
-  known counts as debug); lines before the first entry of what was read come with `info` and `debug`. The lines are
+  it; the level is the word after the date and time (`SEVERE` is an error, `FINE` a Fine line and `DEBUG` a debug line since version 0.95, where `FINE` was the debug line; a word
+  that is not known counts as debug); lines before the first entry of what was read come with `info`, `fine` and `debug`. The lines are
   as the file has them, the date included.
 - `hidden`: `true` when the file has lines and none of the level, so that `lines` is empty.
 - `level` and `date`: the two choices saved for the panel, `info` and `false` by default; `level` is the saved
@@ -557,7 +561,9 @@ for, as `programFolder`.
 ## `GET /api/history` and `POST /api/history`
 
 `GET` gives the usage history, for the panel the history button opens in the main window, with its zero usage lines shown or left out as the setting says, or as a query names it:
-`GET /api/history?zeroLines=false`, with `true` or `false`; anything else is `400`. The query saves nothing. The backend sends the lines **finished**: the
+`GET /api/history?zeroLines=false`, with `true` or `false`; anything else is `400`. Since version 0.94 the query may name a grouping too,
+`group=15m`, one of `none`, `5m`, `15m`, `30m`, `1h`, `1d`, `1w` and `month`; anything else is `400` (`group must be one of none, 5m,
+15m, 30m, 1h, 1d, 1w and month.`). The query saves nothing. The backend sends the lines **finished**: the
 page only draws them, and works out, sorts and decides nothing. The status, the interval and the duration of a row never reach it.
 
 ```json
@@ -572,6 +578,7 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
   "noteHighlight": true,
   "total": 1500,
   "zeroLines": false,
+  "group": "none",
   "lines": [
     { "cells": ["16:46:11", "260.66", "1000.00", "+0.05", "63 s", "$"], "start": false, "failed": false, "title": "" },
     { "cells": ["16:44:08", "failed", "", "", "121 s", ""], "start": false, "failed": true, "title": "" },
@@ -601,10 +608,18 @@ page only draws them, and works out, sorts and decides nothing. The status, the 
 - `total`: how many rows the file has; `exists`: `false`, with no lines, when there is no history yet.
 - `zeroLines`: whether the zero usage lines are shown as the setting `historyZeroLines` has it, which is what is saved; it is the saved one also when the query asked for the other. The button of the
   history panel takes its state from it.
+- `group` (since version 0.94): what the history is grouped by as saved, `historyGroup`, the saved one also when the query asked for
+  another; the dropdown of the history takes its value from it. **Grouped**, every reading of the file is read and each interval with
+  a successful reading is one line (see the requirements, Version 0.94): its time cell is the beginning of the interval (`14:15`,
+  `2026-10-08 14:15` with the date, `2026-10-08` for a day and for a week's Monday, `2026-10` for a month), its other cells those of
+  its last reading, `Δ used` the sum of its changes, `Δ time` the seconds from the reading before its first to its last; `start` and
+  `failed` are `false`, `firstOfDay` is `false` for a day or longer. `total` counts the intervals, and the note counts lines that are
+  intervals; `Failed lines` hides nothing.
 - `500` with `{"error": "The usage history could not be read."}` if the file cannot be read.
 
 `POST` saves the one choice of the panel, as the setting `historyZeroLines` of `settings.json`, which is the one the settings view has as `Zero usage lines`, and answers with it:
-`{"zeroLines": false}`. A `zeroLines` that is not `true` or `false`, or is missing, is `400` (`The setting zeroLines must be true or false.`, `The setting zeroLines is missing.`), and nothing is saved;
+`{"zeroLines": false}`. Since version 0.94 it may name `group` instead, or as well, which is saved as `historyGroup`; a `group` that is
+none of the keys is `400` and nothing is saved. The answer has both: `{"zeroLines": false, "group": "15m"}`. A `zeroLines` that is not `true` or `false`, or is missing, is `400` (`The setting zeroLines must be true or false.`, `The setting zeroLines is missing.`), and nothing is saved;
 a file that cannot be written is `500` with `The history settings could not be saved: <reason>`. The other settings are left as they are.
 
 Any other method on `/api/history` is `405` with `Allow: GET, POST`; `/api/errors` is `GET` only.

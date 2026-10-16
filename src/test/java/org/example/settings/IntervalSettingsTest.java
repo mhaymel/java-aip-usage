@@ -272,6 +272,26 @@ class IntervalSettingsTest {
     }
 
     @Test
+    void aChangeOfTheSettingsIsAFineLineThatNamesWhatChanged() {
+        IntervalSettings settings = load();
+        java.util.List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+        org.example.log.Log.Sink capture = entry -> {
+            if (entry.message().startsWith("Settings changed")) {
+                lines.add(entry.level().word() + " " + entry.message());
+            }
+        };
+        org.example.log.Log.addSink(capture);
+        try {
+            settings.apply(settings.current().withListFontSize(14));
+            settings.apply(settings.current().withListFontSize(14));
+        } finally {
+            org.example.log.Log.removeSink(capture);
+        }
+
+        assertEquals(java.util.List.of("FINE Settings changed: listFontSize 12 -> 14"), lines, "once, at Fine, with what changed (since 0.95)");
+    }
+
+    @Test
     void theWidthOfTheLogIsRememberedAcrossARestartWithItsHeight() {
         IntervalSettings first = load();
         assertEquals(0, first.storedLogWidth());

@@ -214,7 +214,7 @@ final class ApiHandler implements HttpHandler {
             }
             case "/api/history" -> {
                 if (method.equals("GET")) {
-                    send(exchange, 200, history(zeroLinesAsked(exchange.getRequestURI().getQuery())).toJson());
+                    send(exchange, 200, history(zeroLinesAsked(exchange.getRequestURI().getQuery()), groupAsked(exchange.getRequestURI().getQuery())).toJson());
                 } else if (method.equals("POST")) {
                     updateHistory(exchange);
                 } else {
@@ -503,7 +503,7 @@ final class ApiHandler implements HttpHandler {
                 s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder(),
                 s.showStatus(), s.showDayPercentage(), s.showDayUsed(), s.showDayLimit(),
                 s.historyMonthly(), s.historyDaily(), s.historyDailyBy(), s.statusBlink(),
-                s.cost().showUsed(), s.cost().showLimit(), s.cost().showPercent(), s.locateWindow(), s.tooltipMillis());
+                s.cost().showUsed(), s.cost().showLimit(), s.cost().showPercent(), s.locateWindow(), s.tooltipMillis(), s.showExitIcon());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -568,7 +568,10 @@ final class ApiHandler implements HttpHandler {
                     flag(body, "historyDailyBy", current.historyDailyBy()),
                     flag(body, "statusBlink", current.statusBlink()),
                     flag(body, "locateWindow", current.locateWindow()),
-                    tooltipMillis(body, current.tooltipMillis()));
+                    tooltipMillis(body, current.tooltipMillis()),
+                    flag(body, "showExitIcon", current.showExitIcon()),
+                    // The grouping of the history is its own choice, which POST /api/history changes: kept as it is.
+                    current.historyGroup());
             // A folder that is changed is used at once: its files are moved there before the settings are saved, and a folder
             // that cannot be written refuses the whole of it, with nothing changed.
             moveFolders(given);
@@ -980,6 +983,23 @@ final class ApiHandler implements HttpHandler {
         return null;
     }
 
+    /** The interval the request asks the history to be grouped by (since 0.94): {@code null} when it names none, and the setting decides. */
+    private static org.example.settings.HistoryGroup groupAsked(String query) {
+        if (query == null) {
+            return null;
+        }
+        for (String part : query.split("&")) {
+            if (part.startsWith("group=")) {
+                return org.example.settings.HistoryGroup.of(part.substring("group=".length()))
+                        .orElseThrow(() -> new ApiException(400, GROUP_KEYS, null));
+            }
+        }
+        return null;
+    }
+
+    /** What is said of a grouping that is none of them. */
+    private static final String GROUP_KEYS = "group must be one of none, 5m, 15m, 30m, 1h, 1d, 1w and month.";
+
     /**
      * The one choice of the history panel, whether its zero usage lines are shown: the setting of that name, which the button
      * of the panel switches. It is saved at once, and the other settings are left as they are.
@@ -988,13 +1008,24 @@ final class ApiHandler implements HttpHandler {
         requireJson(exchange);
         Json body = readJson(exchange);
         try {
-            settings.apply(settings.current().withHistoryZeroLines(flag(body, "zeroLines")));
+            Settings now = settings.current();
+            // Either of the two choices of the history, or both (the grouping since 0.94); one at least.
+            Json group = body.get("group");
+            if (group == null || group.isNull()) {
+                now = now.withHistoryZeroLines(flag(body, "zeroLines"));
+            } else {
+                if (!group.isText() || !org.example.settings.HistoryGroup.isKey(group.text())) {
+                    throw new InvalidSettingException(GROUP_KEYS, "group");
+                }
+                now = now.withHistoryZeroLines(flag(body, "zeroLines", now.historyZeroLines())).withHistoryGroup(group.text());
+            }
+            settings.apply(now);
         } catch (InvalidSettingException e) {
             throw new ApiException(400, Failure.of(e), null);
         } catch (SettingsException e) {
             throw new ApiException(500, "The history settings could not be saved: " + Failure.of(e.getCause()), null);
         }
-        send(exchange, 200, new HistorySettingsBody(settings.current().historyZeroLines()).toJson());
+        send(exchange, 200, new HistorySettingsBody(settings.current().historyZeroLines(), settings.current().historyGroup()).toJson());
     }
 
     /**
@@ -1004,13 +1035,17 @@ final class ApiHandler implements HttpHandler {
      *
      * @param zeroLines whether the zero usage lines are shown, when the request says so; {@code null} for what the setting says
      */
-    private HistoryBody history(Boolean zeroLines) {
+    private HistoryBody history(Boolean zeroLines, org.example.settings.HistoryGroup groupAsked) {
         try {
             Settings now = settings.current();
             boolean zero = zeroLines != null ? zeroLines : now.historyZeroLines();
-            // The failed lines go with the zero usage lines (since 0.81): one is hidden when either switch hides it.
-            HistoryReader.Table table = HistoryReader.read(
-                    sources.history(), HISTORY_ROWS, new HistoryReader.Filter(zero, zero && now.historyFailedLines()));
+            org.example.settings.HistoryGroup group = groupAsked != null ? groupAsked
+                    : org.example.settings.HistoryGroup.of(now.historyGroup()).orElse(org.example.settings.HistoryGroup.NONE);
+            boolean grouped = group != org.example.settings.HistoryGroup.NONE;
+            // The failed lines go with the zero usage lines (since 0.81): one is hidden when either switch hides it. Grouped (since
+            // 0.94), every reading of the file is read, and the intervals take the place of the readings.
+            HistoryReader.Table table = grouped ? HistoryReader.readGrouped(sources.history(), HISTORY_ROWS, zero, group)
+                    : HistoryReader.read(sources.history(), HISTORY_ROWS, new HistoryReader.Filter(zero, zero && now.historyFailedLines()));
             // Each column is there when its setting is on, in the order of the view: the time, the amounts, the changes and the currency.
             // With each title goes what the column is, by a fixed name: the page gives a column its width by that, not by its place.
             // And the tooltip of each title, which says what the column is.
@@ -1069,7 +1104,7 @@ final class ApiHandler implements HttpHandler {
                 // is nothing a line could show. That is said, and not how many lines are shown, under which there would be none.
                 return new HistoryBody(
                         sources.history().getFileName().toString(), true, columns, kinds, tips, now.historyDate(),
-                        NO_HISTORY_COLUMN, null, true, table.total(), now.historyZeroLines(), List.of());
+                        NO_HISTORY_COLUMN, null, true, table.total(), now.historyZeroLines(), now.historyGroup(), List.of());
             }
             List<HistoryLine> lines = new java.util.ArrayList<>();
             for (int i = 0; i < table.rows().size(); i++) {
@@ -1079,7 +1114,7 @@ final class ApiHandler implements HttpHandler {
                 DeltaBody delta = deltaBody(table.deltas().get(i));
                 List<String> cells = new java.util.ArrayList<>();
                 if (now.historyTime()) {
-                    cells.add(historyTime(row.get(0), now.historyDate()));
+                    cells.add(grouped ? groupTime(row.get(0), group, now.historyDate()) : historyTime(row.get(0), now.historyDate()));
                 }
                 if (now.historyUsed()) {
                     cells.add(failed ? "failed" : row.get(1));
@@ -1109,12 +1144,14 @@ final class ApiHandler implements HttpHandler {
                 }
                 // The earliest line of its local date among those shown, newest first: the next one shown is of another day, or
                 // there is none (since 0.89). The page underlines it, so that the days are told apart.
-                boolean firstOfDay = i + 1 == table.rows().size() || !day(row.get(0)).equals(day(table.rows().get(i + 1).get(0)));
+                // Grouped by a day or longer, every line is a day of its own, and none is underlined (since 0.94).
+                boolean firstOfDay = (!grouped || group.withinADay())
+                        && (i + 1 == table.rows().size() || !day(row.get(0)).equals(day(table.rows().get(i + 1).get(0))));
                 lines.add(new HistoryLine(cells, start, failed, start ? START_TOOLTIP : "", firstOfDay));
             }
             return new HistoryBody(
                     sources.history().getFileName().toString(), table.exists(), columns, kinds, tips, now.historyDate(),
-                    historyNote(table), historyNoteTooltip(table), historyNoteHighlighted(table), table.total(), now.historyZeroLines(), lines);
+                    historyNote(table), historyNoteTooltip(table), historyNoteHighlighted(table), table.total(), now.historyZeroLines(), now.historyGroup(), lines);
         } catch (IOException e) {
             LOG.warning("Could not read the usage history", e);
             throw new ApiException(500, "The usage history could not be read.", null);
@@ -1193,6 +1230,21 @@ final class ApiHandler implements HttpHandler {
     // ---- /api/status
 
     /** {@code 2026-10-08 21:01:22} as {@code 21:01:22}, or whole when the date is wanted; anything else as it is. */
+    /**
+     * The beginning of an interval of the grouped history (since 0.94): {@code 14:15}, with the date before it when the date is on,
+     * for 5 minutes to an hour; the date for a day, and for a week its Monday; {@code 2026-10} for a month.
+     */
+    private static String groupTime(String raw, org.example.settings.HistoryGroup group, boolean withDate) {
+        if (raw.length() < 16) {
+            return raw;
+        }
+        return switch (group) {
+            case DAY, WEEK -> raw.substring(0, 10);
+            case MONTH -> raw.substring(0, 7);
+            default -> withDate ? raw.substring(0, 16) : raw.substring(11, 16);
+        };
+    }
+
     private static String historyTime(String raw, boolean withDate) {
         boolean shaped = raw.length() >= 19 && raw.charAt(10) == ' ';
         return withDate || !shaped ? raw : raw.substring(11);
@@ -1526,7 +1578,8 @@ final class ApiHandler implements HttpHandler {
             boolean costShowLimit,
             boolean costShowPercent,
             boolean locateWindow,
-            int tooltipMillis) {
+            int tooltipMillis,
+            boolean showExitIcon) {
 
         Json toJson() {
             return Json.object()
@@ -1583,7 +1636,8 @@ final class ApiHandler implements HttpHandler {
                     .put("costShowLimit", costShowLimit)
                     .put("costShowPercent", costShowPercent)
                     .put("locateWindow", locateWindow)
-                    .put("tooltipMillis", tooltipMillis);
+                    .put("tooltipMillis", tooltipMillis)
+                    .put("showExitIcon", showExitIcon);
         }
     }
 
@@ -1683,10 +1737,10 @@ final class ApiHandler implements HttpHandler {
     }
 
     /** The one choice of the history panel as it is saved now. */
-    record HistorySettingsBody(boolean zeroLines) {
+    record HistorySettingsBody(boolean zeroLines, String group) {
 
         Json toJson() {
-            return Json.object().put("zeroLines", zeroLines);
+            return Json.object().put("zeroLines", zeroLines).put("group", group);
         }
     }
 
@@ -1737,7 +1791,7 @@ final class ApiHandler implements HttpHandler {
     record HistoryBody(
             String file, boolean exists, List<String> columns, List<String> kinds, List<String> columnTitles, boolean wide, String note, String noteTooltip,
             boolean noteHighlight, int total,
-            boolean zeroLines, List<HistoryLine> lines) {
+            boolean zeroLines, String group, List<HistoryLine> lines) {
 
         Json toJson() {
             Json all = Json.array();
@@ -1756,6 +1810,8 @@ final class ApiHandler implements HttpHandler {
                     .put("noteHighlight", noteHighlight)
                     .put("total", total)
                     .put("zeroLines", zeroLines)
+                    // What the history is grouped by (since 0.94), the key of the interval.
+                    .put("group", group)
                     .put("lines", all);
         }
     }

@@ -157,6 +157,20 @@ class LogTailTest {
     }
 
     @Test
+    void fineShowsTheFineLinesAndNotTheDebugOnes() throws IOException {
+        // Since 0.95: FINE is a level of its own, between Info and Debug, which an older file's debug lines are read as.
+        Path file = write(String.join("\n",
+                "2026-10-16 12:00:01 INFO    [A] one",
+                "2026-10-16 12:00:02 FINE    [A] two",
+                "2026-10-16 12:00:03 DEBUG   [A] three") + "\n");
+
+        assertEquals(List.of("2026-10-16 12:00:01 INFO    [A] one"), LogTail.read(file, 100, 10_000, LogLevel.INFO).lines());
+        assertEquals(List.of("2026-10-16 12:00:01 INFO    [A] one", "2026-10-16 12:00:02 FINE    [A] two"),
+                LogTail.read(file, 100, 10_000, LogLevel.FINE).lines());
+        assertEquals(3, LogTail.read(file, 100, 10_000, LogLevel.DEBUG).lines().size(), "Debug shows everything");
+    }
+
+    @Test
     void theLimitIsOfTheLinesOfTheLevelAndNotOfAllOfThem() throws IOException {
         StringBuilder content = new StringBuilder();
         for (int i = 1; i <= 50; i++) {

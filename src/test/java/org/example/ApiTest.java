@@ -295,7 +295,8 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(53, body.get("settings").size(), "the debug settings are not among them; since 0.91 tooltipMillis in, showErrorIcon out");
+        assertEquals(54, body.get("settings").size(), "the debug settings are not among them; since 0.91 tooltipMillis in, showErrorIcon out; since 0.94 showExitIcon in");
+        assertTrue(body.at("/settings/showExitIcon").asBoolean(), "the cross is shown by default (since 0.94)");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
         assertEquals(5, body.at("/limits/usageIntervalSeconds/min").asInt());
@@ -2115,6 +2116,56 @@ class ApiTest {
         assertTrue(json(response).get("error").asText().startsWith("The history settings could not be saved: "), response.body());
         assertFalse(response.body().contains(dir.toString()), "no path in the answer");
         assertTrue(json(get(app, "/api/history")).get("zeroLines").asBoolean());
+    }
+
+    // ---- the history grouped (since 0.94)
+
+    @Test
+    void theGroupingOfTheHistoryIsSavedAtOnceAndTheHistoryComesGrouped() throws Exception {
+        writeHistory(CSV_HEADER,
+                "2026-10-08 14:01:00,10.00,1000.00,USD,start,60,400",
+                "2026-10-08 14:07:00,10.50,1000.00,USD,,60,400",
+                "2026-10-08 14:16:00,11.00,1000.00,USD,,60,400",
+                "2026-10-08 14:17:00,,,,failed,60,400");
+        AppRuntime app = startWithNoUsage();
+        assertEquals("none", json(get(app, "/api/history")).get("group").asText(), "not grouped by default");
+
+        HttpResponse<String> saved = post(app, "/api/history", "{\"group\": \"15m\"}");
+
+        assertEquals(200, saved.statusCode(), saved.body());
+        assertEquals("15m", json(saved).get("group").asText());
+        assertEquals("15m", JsonReader.read(Files.readString(dir.resolve("settings.json"))).get("historyGroup").asText());
+        Json history = json(get(app, "/api/history"));
+        assertEquals("15m", history.get("group").asText());
+        assertEquals(java.util.List.of("14:15", "14:00"), times(history), "the beginning of each interval, without the seconds");
+        assertEquals("11.00", history.at("/lines/0/cells/1").asText(), "the last reading's amount");
+        assertFalse(history.at("/lines/1/start").asBoolean(), "an interval begins no run");
+        assertTrue(history.at("/lines/1/firstOfDay").asBoolean(), "the earliest interval of the day is underlined");
+        assertTrue(json(get(app, "/api/history")).get("zeroLines").asBoolean(), "the zero usage lines are left as they were");
+
+        post(app, "/api/history", "{\"group\": \"1d\"}");
+        Json days = json(get(app, "/api/history"));
+        assertEquals(java.util.List.of("2026-10-08"), times(days), "a day by its date");
+        assertFalse(days.at("/lines/0/firstOfDay").asBoolean(), "and no line under it");
+        post(app, "/api/history", "{\"group\": \"month\"}");
+        assertEquals(java.util.List.of("2026-10"), times(json(get(app, "/api/history"))));
+    }
+
+    @Test
+    void aGroupingNamedInTheRequestIsWhatIsGivenAndAnUnknownOneIsRefused() throws Exception {
+        writeThreeReadingsOneOfThemChanged();
+        AppRuntime app = startWithNoUsage();
+
+        Json grouped = json(get(app, "/api/history?group=1w"));
+
+        assertEquals(1, grouped.get("lines").size(), "as asked");
+        assertEquals("none", grouped.get("group").asText(), "what is saved, not what was asked for");
+        assertEquals(400, get(app, "/api/history?group=2h").statusCode());
+        for (String body : new String[] {"{\"group\": \"2h\"}", "{\"group\": 5}"}) {
+            HttpResponse<String> response = post(app, "/api/history", body);
+            assertEquals(400, response.statusCode(), body);
+        }
+        assertEquals("none", json(get(app, "/api/history")).get("group").asText(), "nothing was saved");
     }
 
     // ---- the paths in the log are links

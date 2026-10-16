@@ -675,7 +675,7 @@ The log is shown the way the usage history is: inside the main window, not in a 
 - **`Debug` shows the debug lines of the program as well** (see Debug lines in the log), which `Info`, the default,
   leaves out. Before version 0.44 the program wrote none, and `Debug` showed what `Info` shows.
 - **The level of a line is the word after its date and time.** The words are fixed, whatever the program is written in:
-  an error is `SEVERE` and a debug line `FINE`. (They are the words of the logging the first version wrote the file with,
+  an error is `SEVERE` and a debug line `FINE` (since version 0.95 a Fine line `FINE` and a debug line `DEBUG`, with a fifth choice `Fine`; see Version 0.95). (They are the words of the logging the first version wrote the file with,
   and are kept so that every version writes and reads the same file.) `SEVERE` and `ERROR` are errors, `WARNING` and `WARN` warnings,
   `INFO` and `CONFIG` information, and every other word, should the file ever hold one, is shown with `Debug` only.
 - **The dropdown chooses what is shown, not what is written.** It does not make the program log more or less.
@@ -1316,7 +1316,7 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 
 ### Debug lines in the log
 
-- **The program writes debug lines** (since version 0.44). They are written to the log file and to the console in every run, with
+- **The program writes debug lines** (since version 0.44; since version 0.95 some of them are Fine lines, see Version 0.95). They are written to the log file and to the console in every run, with
   `--debug` and without it, whatever level the log panel shows.
 - **The log panel shows them with `Debug` only**, so with the default, `Info`, they are not seen. `Debug` now shows
   more than `Info` does.
@@ -2469,11 +2469,103 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
 - **Closing the view puts the window back where it was**: the place the window had before the view was opened is kept, and when
   the window goes back to the row alone it goes back to that place, so that the row is where the person left it. Not when the
   person has moved the window while the view was open: then the row keeps the place it has, its corner nearest the corner of the
-  screen staying where it is, as it does when the window grows. Replacing one view with another keeps the place of the row
-  alone, so that closing the second goes back to it too.
+  screen staying where it is, as it does when the window grows. (**Since version 0.94 always**, moved or not; see Version 0.94.)
+  Replacing one view with another keeps the place of the row alone, so that closing the second goes back to it too.
 - **The width of the log is remembered**, as its height is (see Remembered heights): `logWidth` in the settings file, in pixels
   of the window's content, stored once a change by the person has settled, as the height is. The log opens at the stored width,
   never less than the width the page asks for, within the screen. The history keeps no width, its width being its table's.
+
+### Version 0.94: the whole address in the log, a button that ends the program, the history grouped
+
+- **The request line has the whole address** (`new-requirements.md`): the scheme, the host, the port when there is one, and the
+  path, `GET http://127.0.0.1:52011/api/oauth/usage -> HTTP 200 in 2 ms (…)` and `GET https://api.anthropic.com/api/oauth/usage
+  -> …`, where it had the host and the path alone. The same in the line `Response of GET <address> (HTTP <status>):` of `Log
+  the response`. The levels stay those of 0.92: a request that succeeds at `DEBUG`, one that fails at `INFO`.
+- **Every line is written to the file, at every level, whatever the log view's `Level` shows** — as it is since version 0.44
+  (see Debug lines in the log and The level and the date of the log panel): the dropdown chooses what is shown, and nothing of
+  what is written. The file keeps its words for the levels, `FINE` for a debug line and `SEVERE` for an error.
+- **A button that ends the program** (`new-requirements.md`): an icon, a cross (×) in the muted gray like the other icons, the
+  last in the row, right after the gear. A click ends the program at once, without asking, exactly as closing the window does:
+  the place, the size and the views of the window are stored as then, and the lines of the stopping are in the log. Its tooltip
+  and its label: `Close aip usage`. It is there with the title bar too, beside the system's own cross.
+  - **It can be switched off**: a checkbox `Exit` in the group `Icons` of the tab `Main`, after `Log`, **on by default**, saved
+    under `showExitIcon`, with the tooltip `The icon that ends the program, after the gear.` It is previewed in the row: unchecked
+    while the settings are open, the cross is gone at once (where the icons of the views stay, dimmed, so that their views can still
+    be reached), and back with Cancel. The heading's button of `Icons` takes it with the others. Without it the program is ended by closing the
+    window, as before; with the title bar off that is the cross switched on, or the system's own way (Alt-F4, the taskbar).
+- **The history can be grouped** (`new-requirements.md`): a dropdown in the line of the history's zoom buttons, before them,
+  with the label `Group` and the choices `none`, `5 min`, `15 min`, `30 min`, `1 h`, `1 day`, `1 week` and `month`; `none` by
+  default, which shows every reading as before. Its tooltip: `Combines the readings of each interval into one line.` A choice
+  takes effect at once, with no button, and is saved under `historyGroup` in the settings file (`none`, `5m`, `15m`, `30m`,
+  `1h`, `1d`, `1w`, `month`), so that the history opens grouped as it was left, after a restart too. A value that is none of
+  them is `none`. It is no setting of the settings view, as the log's `Level` is none.
+  - **An interval** begins on the clock in the machine's zone: 5, 15 and 30 minutes at `:00`, `:05`, …, `:15`, …, `:30`; an hour
+    at the full hour; a day at midnight; a week on Monday at midnight (ISO); a month on its first day.
+  - **One line for each interval that has a successful reading**, newest first; an interval with none has no line. Failed readings
+    are not combined, and the blue lines that begin a run are not shown while grouped; `Failed lines` has nothing to hide then.
+    `Zero usage lines` off hides the intervals whose `Δ used` is 0.
+  - **Its cells**: the time is the beginning of the interval; `used`, `limit`, `month`, `day`, `daily limit is` and `Cur.` are
+    those of the interval's last successful reading; `Δ used` is the sum of the changes of its readings, the first's from the reading
+    before it, so that a new month within the interval is counted right; `Δ time` is the time from the reading before the interval's
+    first to its last, as the readings' own `Δ time` add up.
+  - **The time is written** `14:15` for 5 minutes to an hour, with the date before it when `Date` is on, as now; `2026-10-16` for a
+    day; the Monday, `2026-10-12`, for a week; `2026-10` for a month. The table is as wide as that needs, as it is for the date.
+  - **The first line of a day is underlined** as before (see The first reading of a day is underlined in the history),
+    with the lines that are shown: the first interval of each day, for 5 minutes to an hour (`firstOfDay`, as now); with a day or
+    longer every line begins a day, and none is underlined.
+  - **Every reading of the file is grouped**, not only the newest 1,000 the history shows without grouping, so that a week or a
+    month holds all of its readings. **The note above the table counts lines**, which are intervals then: `Showing 96 of 96
+    lines.`, and the newest 1,000 of them at most, as for readings.
+  - With `Several views at once` the history keeps its dropdown in its own line.
+- **Closing the views puts the row back where it was, always**: where version 0.93 left the row where the person had moved it
+  while a view was open, it now goes back to the place it had before the first view was opened, moved or not, onto the screen if
+  that place is no longer on one. Every view keeps that place, the cost control and the settings too.
+
+### Version 0.95: a level Fine, and a shorter line for a change of the settings
+
+- **Five levels** (`new-requirements.md`, `docs/img_77.png`): `Error`, `Warning`, `Info`, **`Fine`** and `Debug`, in that order, in the
+  log view's `Level` dropdown (values `error`, `warning`, `info`, `fine`, `debug`). Each shows its own lines and those of the levels
+  above it: `Fine` shows Error to Fine, `Debug` shows everything. The choice is saved under `logLevel` as before, `fine` being new;
+  a saved `debug` stays `Debug`. Its tooltip is unchanged.
+- **What happened is Fine, how it was done is Debug.** These lines, which were debug lines, are Fine lines now:
+
+  | Line | Written when |
+  | --- | --- |
+  | `GET <address> -> HTTP 200 in <n> ms (…)` and `Usage refresh succeeded` | a request succeeds (see Version 0.92) |
+  | `Settings changed: …` (see below) | a setting is saved, by the settings view or by a choice of a list |
+  | `The <panel> window height is now <N> px`, `The log window width is now <N> px` | a size of a list is remembered |
+  | `The window is restored: …` | the start has put the window as it was |
+
+  The others stay debug lines: `Window fitted to …`, `The window has its title bar` and `… has no title bar`, the naming of the
+  program and its icon for macOS and the Dock, the outline that shows where the window is, the listing of the processes `claude`
+  started, `Could not work out the spending`, and `The stored place of the window is on no screen`.
+- **The words in the file**: a Fine line is written `FINE`, a debug line **`DEBUG`** (where every debug line was `FINE` until 0.94);
+  the others as before, `SEVERE`, `WARNING`, `INFO`. The column stays 7 characters wide. The log view reads the `FINE` lines of an
+  older file as Fine lines, and `DEBUG` as Debug; the console writes the same words.
+- **A change of the settings is a Fine line, and names only what changed** (`docs/img_78.png`, where the whole of the settings
+  was written at `Info` at every press of the zoom): `Settings changed: <key> <before> -> <after>`, one for each setting that is
+  another, joined by `, `, in the order of the settings file, by the keys of the file and their values as the file writes them:
+  `Settings changed: listFontSize 12 -> 13`, `Settings changed: historyGroup none -> 15m, historyZeroLines true -> false`. A text is
+  written as it is, an empty one as `""`. A save that changes nothing writes nothing, as before. At `Info` the log view no longer
+  shows it.
+
+### Version 0.96: the figures of the history line up, and no empty room in a narrow row
+
+- **The figures of the history line up at the decimal point** (`new-requirements.md`, `docs/img_79.png`, where `-1.22` stood
+  centred under `+247.16`): the columns stay centred under their titles, as since 0.91, but **within a column every cell is as
+  wide as its widest**, padded at the left, so that the figures stand as one right-aligned block in the middle of the column and,
+  the text being of fixed width and every amount having two decimals, line up by their decimal points.
+  - **Which columns**: `used`, `limit`, `month`, `day`, `Δ used` and `Δ time` (`  610 s` under `35061 s`, lined up by the
+    number). The time, `daily limit is` and `Cur.` stay centred, each cell by itself.
+  - **The widest is of the lines that are shown**, grouped or not, so it follows the filter and the grouping. An empty cell stays
+    empty and counts for nothing; `failed`, in the place of a failed line's amount, is a cell like the others.
+  - **The width of the column is unchanged**: it was already as wide as its widest cell, or as its title.
+- **A narrow row has no empty room** (`docs/img_80.png`, the status circle and the gear with some 100 pixels between them): the
+  program made the window at least 160 pixels wide, which the row with nothing but the circle and the gear does not fill, and the
+  gear stood at the right edge. **The least width the program gives the window is now 40 pixels** of its content, so the window is
+  as wide as the row: the circle and the gear side by side, with the gap of the row between them. The least height, 32 pixels, is
+  unchanged. Where the system keeps a window with a title bar wider than that, the room is between the last figure and the
+  gear, as before (see The icons and the gear stand at the right edge of the window).
 
 ## Debug mode
 
@@ -2707,7 +2799,7 @@ These are things the program does that the sections above do not say, written do
 - The line for each request to Anthropic is `GET api.anthropic.com/api/oauth/usage -> HTTP 200 in 412 ms (1234 bytes, request-id <id>)`, with `retry-after <n>` when the server sent one; the request id is written only if it is made of letters, digits,
   `_` and `-`. A timeout or a failure is `timed out` or `failed` with the time and no size. The host and path are those of the URL actually fetched, so a run against another base URL names that one; the line is the place
   the log shows where a reading came from.
-- With the setting to log the response on, the line is `Response of GET <host><path> (HTTP <status>):` and the pretty printed JSON on the lines after it, for every status; a body that is not JSON is `(not JSON, N bytes, not logged)`, N being its size in bytes as UTF-8, and an empty one is written as `null`, which is how the JSON reader takes a body with nothing in it. A body that has text after its first JSON value is logged as that value alone, although the refresh then fails for the text. The entry is at the information level, comes
+- With the setting to log the response on, the line is `Response of GET <host><path> (HTTP <status>):` (since version 0.94 `<scheme>://<host>[:<port>]<path>`) and the pretty printed JSON on the lines after it, for every status; a body that is not JSON is `(not JSON, N bytes, not logged)`, N being its size in bytes as UTF-8, and an empty one is written as `null`, which is how the JSON reader takes a body with nothing in it. A body that has text after its first JSON value is logged as that value alone, although the refresh then fails for the text. The entry is at the information level, comes
   after the request's own line and before the status is judged, so it is written for a failed status as for a good one; when there was no answer at all there is nothing to write. The setting is asked for each response, so switching it takes effect with the next one, without a restart.
 - **The window's status polls are not logged.** They arrive every second, so a line for each would bury everything the log is kept for. The same holds for the window's reads of the log, the history and the error log panels, and for the page and its files: nothing the window asks for is logged, unless it goes wrong. What is logged is what the application does of its own accord, and what a person asked for: a manual refresh is logged, since there is one of those and not sixty a minute, as `Manual refresh requested`, and only when it started a request; a press that starts nothing writes nothing.
 - **What a request of the window writes when it goes wrong**, each at the warning level: `Could not read the log: <reason>` and `Could not read the usage history: <reason>` when a panel's file cannot be read, once for each request that failed, the reason going to the log only and never into the answer; `Could not read the usage history for the change: <reason>` when the file cannot be read for the status, at every poll for as long as it lasts, since a read that failed is tried again; `No such frontend resource: /web/<path>` for a file of the page that does not exist; and `API request failed: <path>` with the stack trace for a fault of the program inside a request.
@@ -2729,7 +2821,7 @@ These are things the program does that the sections above do not say, written do
   when one was made, and the warning `Could not create the settings file <path>: <reason>` when it could not be, which stops nothing: the defaults are used and the run goes on. The warnings for a file or a value that is
   not right: `Ignoring unreadable settings file <path>: <reason>`; `Ignoring settings file <path>: not a JSON object`, which is also what an empty file and a list draw; `Ignoring usageIntervalSeconds in <path>: The usage
   interval must be a whole number of seconds from 5 to 3600.`; `Ignoring <key> in <path>: it must be true or false`; `Ignoring timeFormat in <path>: it must be "hh:mm" or "hh:mm:ss"`; and `Ignoring <key> in <path>: it must be
-  a whole number of pixels from 0 to 10000`. A change of the settings is one line, `Settings changed: ` and every setting with its value, by its key; in that line the time format is written `HOURS_MINUTES` or
+  a whole number of pixels from 0 to 10000`. A change of the settings is one line, `Settings changed: ` and every setting with its value, by its key (since version 0.95 a Fine line with only what changed, see Version 0.95); in that line the time format is written `HOURS_MINUTES` or
   `HOURS_MINUTES_SECONDS`. Settings that cannot be saved write the warning `Could not save settings to <path>: <reason>`. The height of the log has its own line, `The log window height is now N px`, and a height
   that cannot be stored the warning `Could not save the height of the <history or log> to <path>: <reason>`.
 - **The lines of the files and the window.** `Showing the newest reading in the usage history until the first refresh is done`, when a reading was taken from the history at startup. `Could not add the reading to <file>:
@@ -2802,7 +2894,7 @@ These are things the program does that the sections above do not say, written do
   1,600 pixels that follow here: what the program sets, the height a list opens at, a remembered height when it is used, and a
   drag by the frame or by an edge of a window with no title bar (see Version 0.92). The rest of this point holds with the screen's
   size for those figures.
-- The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
+- The program never gives the window a size smaller than 160 by 32 (40 by 32 since version 0.96, see Version 0.96) or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.
 - The window title is `aip usage v0.37`; the program is called `java-aip-usage v0.37` in the log.

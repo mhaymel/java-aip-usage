@@ -272,7 +272,7 @@ test('the log panel has a line at its top with the level and the date, at the le
     assert.ok(html.indexOf('id="log-controls-log"') < html.indexOf('id="panel-lines-log"'), 'above the lines');
     assert.match(line, /<label[^>]*>Level\s*<select id="log-level"/, 'the label, then the dropdown');
     assert.deepEqual([...line.matchAll(/<option value="([a-z]+)">([A-Za-z]+)<\/option>/g)].map(m => m[1] + ':' + m[2]),
-        ['error:Error', 'warning:Warning', 'info:Info', 'debug:Debug'], 'four levels, the most severe first');
+        ['error:Error', 'warning:Warning', 'info:Info', 'fine:Fine', 'debug:Debug'], 'five levels since 0.95, the most severe first');
     assert.match(line, /<input id="log-date" type="checkbox"> Date<\/label>/);
     assert.ok(line.indexOf('log-level') < line.indexOf('log-date'), 'the level first');
     assert.match(line, /<p id="log-error-log" class="panel-error" role="alert" hidden><\/p>/, 'and a red line for a save that failed');
@@ -333,7 +333,7 @@ test('the line at the top of a list has two buttons that make its text larger an
     // The history has the two buttons too, in its own line, drawn the same (the error log, which had them too, is gone since 0.91).
     for (const name of ['history']) {
         const own = html.slice(html.indexOf('<div id="log-controls-' + name + '"'), html.indexOf('<p id="log-error-' + name + '"'));
-        assert.equal(own.slice(own.indexOf('<span class="zoom">'), own.indexOf('</span>')).split('-' + name).join('-log'),
+        assert.equal(own.slice(own.indexOf('<span class="zoom">'), own.indexOf('</span>', own.indexOf('<span class="zoom">'))).split('-' + name).join('-log'),
             line.slice(line.indexOf('<span class="zoom">'), line.indexOf('</span>', line.indexOf('<span class="zoom">'))), 'the zoom of ' + name);
     }
     const icons = [...line.matchAll(/<button id="zoom-(in|out)-log"[\s\S]*?<\/button>/g)].map(m => m[0]);
@@ -1074,7 +1074,7 @@ test('the three checkboxes of the icons are the group Icons, without the word ic
     assert.deepEqual(texts.filter(text => /icon$/i.test(text)), [], 'the word icon is gone since 0.90');
     const icons = html.slice(html.indexOf('<legend>Icons'), html.indexOf('</fieldset>', html.indexOf('<legend>Icons')));
     assert.deepEqual([...icons.matchAll(/<input id="set-(show[A-Za-z]+)" type="checkbox"> ([^<]+)<\/label>/g)].map(m => m[2]),
-        ['Cost', 'History', 'Log'], 'three since 0.91: the error log is gone');
+        ['Cost', 'History', 'Log', 'Exit'], 'three since 0.91: the error log is gone; and the cross that ends the program since 0.94');
     assert.ok(!html.includes('id="glyph-'), 'and the icons that stood beside them are gone (since 0.91)');
     assert.match(icons, /<button id="set-all-icons" class="select-all"[^>]*title="Checks every icon, or none when every one is checked\."/);
     assert.deepEqual(texts.filter(text => /button/i.test(text)), ['Refresh button'], 'which does something, and shows no view');
@@ -1429,4 +1429,32 @@ test('the three checkboxes of the group Icons are in one line', () => {
     const order = ['set-showCostIcon', 'set-showHistoryIcon', 'set-showLogIcon'].map(id => lines[0].indexOf('id="' + id + '"'));
     assert.ok(order.every(p => p >= 0));
     assert.deepEqual([...order].sort((a, b) => a - b), order);
+});
+
+// ---- version 0.94
+
+test('the cross that ends the program is the last icon of the row, after the gear, drawn as the others', () => {
+    const tools = html.slice(html.indexOf('<span class="tools">'), html.indexOf('</span>', html.indexOf('<span class="tools">')));
+    const buttons = [...tools.matchAll(/<button id="([a-z-]+)"/g)].map(m => m[1]);
+    assert.deepEqual(buttons.slice(-2), ['settings-button', 'exit-button'], 'right after the gear, the last');
+    const cross = tools.slice(tools.indexOf('<button id="exit-button"'), tools.indexOf('</button>', tools.indexOf('<button id="exit-button"')));
+    assert.match(cross, /class="icon tiny"/);
+    assert.match(cross, /aria-label="Close aip usage" title="Close aip usage"/);
+    assert.match(cross, /stroke="currentColor" stroke-width="1\.6"/, 'in the muted gray of the icons, as they are drawn');
+    assert.match(cross, /<path d="M4 4l8 8M12 4l-8 8"\/>/, 'a cross');
+});
+
+test('the checkbox of the cross is the last of the group Icons, with its tooltip', () => {
+    const icons = html.slice(html.indexOf('<legend>Icons'), html.indexOf('</fieldset>', html.indexOf('<legend>Icons')));
+    assert.match(icons, /<label title="The icon that ends the program, after the gear\."><input id="set-showExitIcon" type="checkbox"> Exit<\/label>/);
+    assert.ok(icons.indexOf('set-showLogIcon') < icons.indexOf('set-showExitIcon'), 'after Log');
+});
+
+test('the history groups its readings by a dropdown in the line of its zoom, before the buttons', () => {
+    const line = html.slice(html.indexOf('<div id="log-controls-history"'), html.indexOf('<p id="log-error-history"'));
+    assert.ok(line.indexOf('id="history-group"') >= 0 && line.indexOf('id="history-group"') < line.indexOf('id="zoom-in-history"'));
+    assert.match(line, /<label title="Combines the readings of each interval into one line\.">Group/);
+    const values = [...line.matchAll(/<option value="([^"]+)">([^<]+)<\/option>/g)].map(m => m[1] + '=' + m[2]);
+    assert.deepEqual(values, ['none=none', '5m=5 min', '15m=15 min', '30m=30 min', '1h=1 h', '1d=1 day', '1w=1 week', 'month=month']);
+    assert.match(line, /<span id="history-group-choice" class="log-choices" hidden>/, 'shown once the history has said what is saved, as the choices of the log are');
 });

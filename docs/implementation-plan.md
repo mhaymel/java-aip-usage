@@ -3237,6 +3237,129 @@ the log at 46,0 to 1707,1019, and closed it went back to 1338,979.
 as the history and four and a half times as wide as the row, with its scrollbar. `TitleBarWindowTest`: nine elements checked by
 default, seventeen with all on, three with all off but the icons, the error log's icon being gone. Both pass.
 
+### 136. Version 0.94: the whole address in the log, a button that ends the program, the history grouped
+
+**Status: built (version 0.94).** The notes of `new-requirements.md` (the fifteenth round), decided in two rounds of questions: the whole
+address at the levels of 0.92; every level written whatever the dropdown shows (already so, nothing to build); the cross closes at
+once, its checkbox in `Icons`, on by default; the history grouped by the last reading with the changes summed, a dropdown in the
+zoom line, good readings only, ISO weeks; closing the views goes back to the row's place always. `AppInfo.VERSION = "0.94"`.
+Requirements: Version 0.94: the whole address in the log, a button that ends the program, the history grouped. Five parts, each
+testable by itself, in this order:
+
+1. **The whole address.** `UsageClient` (lines 209 and 218): a `shown(URI)` that gives `scheme://authority/path`
+   (`uri.getScheme() + "://" + uri.getRawAuthority() + uri.getRawPath()`), used by both lines in place of `getHost() +
+   getPath()`. No query, there being none; nothing in it is a credential, so `Redaction` is not concerned, which a test says.
+   Tests: `UsageClientTest` where it reads those lines (`GET http://127.0.0.1:<port>/api/oauth/usage -> HTTP 200`, the response
+   line with `Log the response`), and one with `https://api.anthropic.com` as the base, by a fake `HttpClient` if the test has one,
+   else by the formatting alone.
+2. **Back to the row's place, always.** `UsageApp.place`: closing goes to `rowPlace` whenever there is one, `onScreen` as now;
+   `movedByPerson`, `watchPlace` and their calls go, being needed for nothing else. The `anchored` branch of closing stays for a
+   window that has no `rowPlace` (the start restored it with a view open). Tests: `TitleBarWindowTest`'s `log-low` steps still hold;
+   a step `log-low-moved`, the window moved by 100 pixels while the log is open, and `log-low-moved-closed` back at `log-low-before`.
+3. **The cross.** `index.html`: `<button id="exit-button" class="icon tiny">` after `settings-button` in `.tools`, an SVG cross
+   drawn as the others (16 viewBox, stroke `currentColor`, 1.6), `aria-label` and `title` `Close aip usage`; a checkbox
+   `set-showExitIcon` labelled `Exit`, after `Log`, in the line of `Icons`. `Settings`: `showExitIcon`, default true, with
+   `withShowExitIcon`; `SettingsStore`: `SHOW_EXIT_ICON_KEY = "showExitIcon"`, read and written beside `showCostIcon`;
+   `ApiHandler`'s `SettingValues` and the flags of `POST /api/settings`; `StatusDisplay` passes it with the other icons. `app.js`:
+   `ICON_SETTINGS` and `ICON_FLAGS` take `showExitIcon` (`exit: 'showExitIcon'`), so the preview and the heading's button include
+   it; a click sets `exitAsked = true` and `window.exitAsked = function () { return exitAsked; }`. `UsageApp`: the tick (in
+   `keepFitting`, before `fit`) asks `typeof window.exitAsked === 'function' && window.exitAsked()` and, when true, `stage.close()`:
+   the last window closing ends the toolkit, and `stop()` runs `cleanup`, which stores the window as closing it by hand does. The
+   page does not ask the backend: the window is the host's, and the host ends the program the one way it always has.
+   Tests: `app.test.cjs` (the button is last, after the gear; hidden with `showExitIcon` off; a click makes `exitAsked()` true);
+   `layout.test.cjs` (the icon's size and colour as the gear's; the checkbox in `Icons` after `Log`); `SettingsStoreTest` (the key,
+   on by default, the file's list of keys); `ApiTest` (the flag in and out); the window probe: a last step that presses
+   `exit-button` instead of closing the window, and `PROBE the program ended after the window was closed` still comes.
+4. **The history grouped, in the backend.** A new `usage/HistoryGroups`, pure, beside `HistoryDeltas`:
+   - `enum Group { NONE, MIN5, MIN15, MIN30, HOUR, DAY, WEEK, MONTH }` with `key()` (`none`, `5m`, …, `month`) and `of(String)`
+     (anything else `NONE`); `LocalDateTime start(LocalDateTime reading)`: truncated to the interval, a week to its Monday
+     (`with(TemporalAdjusters.previousOrSame(MONDAY))`), a month to its first day.
+   - `List<Row> group(List<List<String>> rows, Group group)`: the rows oldest first, good readings only (no `failed`, not a start
+     line without an amount); for each interval the last reading's cells, `Δ used` the sum of the amount changes of its readings
+     (`HistoryDeltas.amountChanges`, the first one's from the reading before), `Δ time` the seconds from the reading before the
+     first to the last; the time cell the interval's start written as Version 0.94 says (`HH:mm`, with the date when `Date` is on;
+     `yyyy-MM-dd`; `yyyy-MM`).
+   - `HistoryReader.read`: grouped, the whole file is read (`limit` = `Integer.MAX_VALUE`), the rows grouped, and the newest 1,000
+     groups kept; ungrouped as now. The filter of zero usage applies to the groups (a `Δ used` of 0), that of failed lines to none.
+   - `ApiHandler.history`: the group from `Settings.historyGroup()`, `firstOfDay` worked out on the groups for 5 minutes to an hour
+     and false for a day or longer, `start` false for every group; the note counts groups. `GET /api/history?group=15m` shows that
+     group, as `zeroLines` may be asked; `POST /api/history` takes `group` beside `zeroLines` and saves it (`withHistoryGroup`).
+   - `Settings.historyGroup`, a text, default `none`; `SettingsStore`: `HISTORY_GROUP_KEY = "historyGroup"`, a value that is none
+     of the keys read as `none` with a warning, as an unknown scenario is.
+   - **The cost of reading the whole file**: at a reading a minute a year is about 525,000 lines and some 40 MB; read at each
+     opening and each refresh of the grouped history. Measured once while building (`HistoryGroupsTest` with a generated year);
+     should it be more than about 300 ms, the groups of the closed intervals are kept between requests, keyed by the file's size
+     and time of change, and only the newest interval worked out again.
+   Tests: `HistoryGroupsTest` (each group's start, a week across a month and a year, a month's reset within a day and a week
+   summed right, failed and start rows left out, an interval with one reading, the order newest first, the 1,000 cap), `ApiTest`
+   (`group` asked and saved, an unknown value refused with 400 as other bad fields are, the note), `SettingsStoreTest` (the key).
+5. **The dropdown, in the page.** `index.html`: in `#log-controls-history`, before `.zoom`, a `<label>` `Group` with
+   `<select id="history-group">` and the eight options, values the keys; the tooltip of Version 0.94. `app.js`: set from the
+   history's answer (`group`, a new field of `HistoryBody`), and on `change` `POST /api/history {group}` then the history read again;
+   the zoom line keeps its height. `view.js`: nothing; the backend's lines are drawn as they are. `docs/api.md`: `group` in GET and
+   POST of `/api/history`, and in its body.
+   Tests: `app.test.cjs` (the dropdown follows the answer; a change posts the key and reads the history again); `layout.test.cjs`
+   (in the zoom line, before the buttons, the line no taller than before).
+
+- **Tests.** As above; the whole suite, and the window tests (`-Daipusage.windows=true`).
+
+**By eye**: the log at `Debug` with whole addresses, the fake backend's and Anthropic's; the cross after the gear, closing at once,
+the window where it was at the next start; `Exit` off and the cross gone; the history grouped by 15 minutes, a day, a week and a
+month, with the date on and off, the underline between days, the choice kept after a restart; the log moved while open, closed:
+the row back where it was.
+
+**As built**: as planned, with these differences.
+- **The grouping lives in two places**: `settings/HistoryGroup` (the enum, its keys and where an interval begins, used by
+  `Settings` to keep an unknown key out) and `HistoryReader.readGrouped` (the rows grouped, in the same `Table` shape as the readings,
+  so `ApiHandler.history` draws them with the same code: the time cell by `groupTime`, `firstOfDay` off for a day or longer). No
+  `usage/HistoryGroups`.
+- **The cost of the whole file, measured**: a year at a reading a minute (525,600 rows, 34 MB) took 773 to 1,231 ms, over the
+  300 ms of the plan, so the cache was built: `HistoryReader.Grouping`, one per file and interval, holds the intervals, how far the
+  file was read and its last 256 bytes; a request reads only what was added since (16 ms after a reading), and groups anew when the
+  file is shorter, its bytes before that point differ, or an added line is earlier than one before. The first opening of a grouped
+  history of a year still takes about a second.
+- **`Settings` has two more fields**, `showExitIcon` and `historyGroup`, at the end; a constructor with the 51 of 0.93 is kept for
+  the callers that have no use for them. `POST /api/settings` keeps `historyGroup` as it is.
+- **The response of the history** says the saved grouping, as `zeroLines` says the saved switch, also when the query asked for another.
+- **The cross while the settings are open** is shown or hidden as its checkbox stands, not dimmed as the icons of the views are:
+  it opens no view that would have to be reached. The requirement says so now.
+- **Ending by the cross**: `UsageApp.exitAsked` on the tick, before anything else, `fitTimer.stop()`, `stage.close()` and
+  `Platform.exit()`, so that the outline's window, if it is showing, does not keep the toolkit running. Logged as `The program is
+  ended by its cross`.
+- **Back to the row's place always**: `movedByPerson` and `watchPlace` are gone. The probe's `log-low-moved` steps move the window
+  by 100 and 50 pixels while the log is open; closed, the row is at `log-low-before`.
+- Tests: `HistoryGroupTest` (new), `HistoryGroupedTest` (new: the cells, the sums across a month, failed rows, the zero filter, the
+  limit, lines added, a file replaced, and a year's timing), `UsageClientTest` (the whole address, Redaction leaving it), `ApiTest`
+  (the grouping saved and asked for, refused keys, `showExitIcon` among the settings), `SettingsStoreTest` (the two keys),
+  `LoggingEndToEndTest` (the addresses), `StatusDisplayTest` (`exitIcon`); `app.test.cjs` (the cross asks the host, hidden with its
+  switch off; the dropdown as saved, a choice posted and the history read again, one that cannot be saved asked for by name),
+  `layout.test.cjs` (the cross after the gear, its checkbox after `Log`, the dropdown before the zoom); the window probe ends the
+  program by the cross. `TitleBarWindowTest`'s probe takes longer with the steps of 0.93 and 0.94: it is given 260 seconds, the test 300.
+
+### 137. Version 0.95: a level Fine, and a shorter line for a change of the settings
+
+**Status: built (version 0.95).** The notes of `new-requirements.md` (the sixteenth round, `img_77`, `img_78`), decided in two rounds
+of questions: five levels, in the order Error, Warning, Info, Fine, Debug; what happened is Fine, how it was done Debug; the file
+writes `FINE` and `DEBUG`; the settings line is Fine and names only what changed. Requirements: Version 0.95.
+
+- **The levels.** `Log.Level` gets `FINE("FINE")` and `DEBUG` writes `DEBUG`; `Log.fine(String)`. `LogLevel` (the view's choice) gets
+  `FINE("fine")` between `INFO` and `DEBUG`, and `ofLogWord` reads `FINE` as Fine (an older file's debug lines among them) and any
+  other unknown word, `DEBUG` too, as Debug. `index.html`: the option `Fine` between `Info` and `Debug`; the page needs nothing else.
+- **The lines that are Fine**: `UsageClient` (a request that succeeds), `UsageService` (`Usage refresh succeeded`),
+  `IntervalSettings` (a height and the width remembered, `Settings changed`), `UsageApp` (`The window is restored`). The other
+  `LOG.debug` calls stay.
+- **The settings line.** `SettingsStore.root(...)`, split out of `write`, builds the file's object; `SettingsStore.changes(before,
+  after)` builds it for both with the rest at its defaults and names each key whose value differs, `<key> <before> -> <after>`, a text
+  as it is and an empty one as `""`. `IntervalSettings.apply` logs `Settings changed: <changes>` with `LOG.fine`, and nothing when the
+  text is empty.
+- **Tests**: `LoggingTest` (a Fine line `FINE`, a debug line `DEBUG`, the words read back), `MacNameTest` (`DEBUG`), `LogTailTest`
+  (Fine shows Fine and not Debug), `SettingsStoreTest` (`changes`: the order, the empty text, a level, nothing), `IntervalSettingsTest`
+  (one Fine line naming the change, none for a save that changes nothing), `layout.test.cjs` (five options). `docs/api.md`: `fine`
+  among the levels of `/api/log`, and the words.
+
+**By eye**: the log at `Info` without `Settings changed` while the zoom is pressed; at `Fine` the requests and `Settings changed:
+listFontSize 12 -> 13`; at `Debug` the window's lines as well, written `DEBUG`.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.77; written at version 0.37, and the part about the backend brought up

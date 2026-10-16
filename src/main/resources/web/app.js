@@ -88,6 +88,10 @@
     var historyUnsaved = false;
     var historyPresses = 0;
     var historyToTop = false;
+    // What the history is grouped by (since 0.94), its key, as saved or as last chosen; null until the first answer has said. A
+    // choice that could not be saved holds for the run, as the zero usage lines do, and is then asked for by its key.
+    var historyGroup = null;
+    var groupUnsaved = false;
     var logKnown = false;
     // A choice the backend could not save still holds for the panel: the level is then asked for by name.
     var logUnsaved = false;
@@ -419,6 +423,10 @@
         return form === null || form === undefined ? text : form;
     }
 
+    // Whether the cross that ends the program was pressed (since 0.94), which the host asks for on each tick.
+    var exitAsked = false;
+    window.exitAsked = function () { return exitAsked; };
+
     // The panel buttons that are shown although they are switched off, which they are while the settings are open: dimmed, by name.
     var offButtons = {};
 
@@ -436,6 +444,8 @@
             $(PANELS[name].button).hidden = !(on || isOpen(name) || settingsOpen);
             offButtons[name] = settingsOpen && !on;
         });
+        // The cross that ends the program (since 0.94) follows its switch, and the preview of it while the settings are open.
+        $('exit-button').hidden = show.exitIcon === false;
         labelButtons();
     }
 
@@ -520,12 +530,13 @@
     var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', cost: 'showCostIcon' };
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
-    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showStatus', 'statusBlink', 'showDayPercentage', 'showDayUsed', 'showDayLimit'];
+    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showExitIcon', 'showStatus', 'statusBlink', 'showDayPercentage', 'showDayUsed', 'showDayLimit'];
     // The elements of the row that have a checkbox: the flags of Main view but the currency symbol, a property of the amounts, and
     // Blinks, a property of the status circle (since 0.88).
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency' && key !== 'statusBlink'; });
     // The four icons of the views, a group of their own since 0.90, with a button of its own that selects them all, or none.
-    var ICON_FLAGS = ['showCostIcon', 'showHistoryIcon', 'showLogIcon'];
+    // The cross that ends the program is among them since 0.94.
+    var ICON_FLAGS = ['showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showExitIcon'];
     // The elements of the group Main, which its button selects: every element but the icons.
     var MAIN_ELEMENT_FLAGS = ELEMENT_FLAGS.filter(function (key) { return ICON_FLAGS.indexOf(key) < 0; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
@@ -552,7 +563,7 @@
                 interval: checked('showInterval'), deltaUsed: checked('showDeltaUsed'), deltaTime: checked('showDeltaTime'),
                 duration: checked('showDuration'),
                 logIcon: checked('showLogIcon'), historyIcon: checked('showHistoryIcon'),
-                costIcon: checked('showCostIcon'),
+                costIcon: checked('showCostIcon'), exitIcon: checked('showExitIcon'),
                 status: checked('showStatus'), statusBlink: checked('statusBlink'), dayPercentage: checked('showDayPercentage'), dayUsed: checked('showDayUsed'), dayLimit: checked('showDayLimit')
             }
         };
@@ -1302,7 +1313,7 @@
         view.loading = true;
         try {
             var body = await request(spec.path + (name === 'log' && logUnsaved ? '?level=' + level : '')
-                + (name === 'history' && historyUnsaved ? '?zeroLines=' + historyZero : ''));
+                + (name === 'history' ? historyQuery() : ''));
             // The button of the history was pressed while this read was under way: its answer is of the lines as they were, so it
             // is not shown, and the read that follows is.
             var overtaken = name === 'history' && presses !== historyPresses;
@@ -1367,8 +1378,51 @@
         if (!historyUnsaved) {
             historyZero = body.zeroLines !== false;
         }
+        if (!groupUnsaved) {
+            historyGroup = typeof body.group === 'string' ? body.group : 'none';
+        }
+        $('history-group').value = historyGroup;
         labelZeroLines();
         show('history-choices', true);
+        show('history-group-choice', true);
+    }
+
+    /** What the history is asked for by, when a choice of it could not be saved and holds for the run all the same. */
+    function historyQuery() {
+        var parts = [];
+        if (historyUnsaved) {
+            parts.push('zeroLines=' + historyZero);
+        }
+        if (groupUnsaved && historyGroup !== null) {
+            parts.push('group=' + encodeURIComponent(historyGroup));
+        }
+        return parts.length ? '?' + parts.join('&') : '';
+    }
+
+    /**
+     * Another grouping of the history was chosen (since 0.94): it is shown at once, at the newest line, and saved. If it cannot
+     * be saved it holds all the same, for the run.
+     */
+    async function changeHistoryGroup() {
+        if (!isOpen('history') || historyGroup === null) {
+            return;
+        }
+        historyGroup = $('history-group').value;
+        historyPresses += 1;
+        historyToTop = true;
+        try {
+            await postJson('/api/history', { group: historyGroup });
+            groupUnsaved = false;
+            setNote('log-error-history', '');
+        } catch (e) {
+            groupUnsaved = true;
+            setNote('log-error-history', /^The history settings could not be saved: /.test(e.message) ? e.message : 'The history settings could not be saved: ' + e.message);
+        }
+        if (isOpen('history')) {
+            views.history.key = null;
+            views.history.mark = null;
+            await loadPanel('history');
+        }
     }
 
     /** The button says which state it is in: blue while the zero usage lines are hidden, and what a press would do. */
@@ -1925,8 +1979,12 @@
             if (!historyUnsaved) {
                 historyZero = null;
             }
+            if (!groupUnsaved) {
+                historyGroup = null;
+            }
             historyToTop = false;
             show('history-choices', false);
+            show('history-group-choice', false);
         }
     }
 
@@ -2449,6 +2507,7 @@
             $('zoom-out-' + name).addEventListener('click', function () { zoomLists(-1, name); });
         });
         $('zero-lines').addEventListener('click', toggleZeroLines);
+        $('history-group').addEventListener('change', changeHistoryGroup);
         document.addEventListener('mousemove', followGrip);
         document.addEventListener('input', fieldEdited, true);
         document.addEventListener('change', fieldEdited, true);
@@ -2472,6 +2531,8 @@
         $('settings-button').addEventListener('click', function () { togglePanel('settings'); });
         $('settings-save').addEventListener('click', applySettings);
         $('cost-button').addEventListener('click', function () { togglePanel('cost'); });
+        // The cross ends the program (since 0.94): the window is the host's, which reads this on its next tick and closes it.
+        $('exit-button').addEventListener('click', function () { exitAsked = true; });
         $('countdown').addEventListener('mouseenter', function () { hoveringCountdown = true; render(); });
         $('countdown').addEventListener('mouseleave', function () { hoveringCountdown = false; render(); });
         // Every element of the row that can be a gray box: the amounts, the two changes and the request duration.

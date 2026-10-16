@@ -17,14 +17,15 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * which in a run are the console and the log file. It depends on no logging library, so nothing closes it or sets it
  * up behind the program's back.
  *
- * <p>A line has four levels to be at. In the file they have the words they have had since the first version, which
- * the log panel reads: {@code SEVERE}, {@code WARNING}, {@code INFO} and {@code FINE}.
+ * <p>A line has five levels to be at (four until 0.95). In the file they have the words the log panel reads: {@code SEVERE},
+ * {@code WARNING}, {@code INFO}, {@code FINE} for what happened and {@code DEBUG} for how it was done (every debug line was
+ * {@code FINE} until 0.95).
  */
 public final class Log {
 
     /** How much a line matters, with the word it has in a written line. */
     public enum Level {
-        ERROR("SEVERE"), WARNING("WARNING"), INFO("INFO"), DEBUG("FINE");
+        ERROR("SEVERE"), WARNING("WARNING"), INFO("INFO"), FINE("FINE"), DEBUG("DEBUG");
 
         private final String word;
 
@@ -143,6 +144,11 @@ public final class Log {
 
     public void info(String message) {
         log(Level.INFO, message, null);
+    }
+
+    /** What happened, which is too much for the usual level: a request that succeeded, a setting changed (since 0.95). */
+    public void fine(String message) {
+        log(Level.FINE, message, null);
     }
 
     public void debug(String message) {

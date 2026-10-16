@@ -210,7 +210,7 @@ const COST = {
 };
 
 const DEFAULT_SETTINGS = {
-    usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true,
+    usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showExitIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
     showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, costShowUsed: true, costShowLimit: true, costShowPercent: true, showStatus: true, statusBlink: true, locateWindow: true, tooltipMillis: 0, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
@@ -985,7 +985,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
 
     assert.equal(settingsPosts(page).length, 1);
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
-        usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showCostIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
+        usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showCostIcon: true, showExitIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
         showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, costShowUsed: true, costShowLimit: true, costShowPercent: true, showStatus: true, statusBlink: true, locateWindow: true, tooltipMillis: 0, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
@@ -5778,4 +5778,58 @@ test('the log alone opens three times as tall as the history, within the screen,
     kept.el('top').rect = { width: 400, height: 34 };
     await kept.click('log-button');
     assert.equal(kept.window.contentSize(), '1800,500,2,log', 'the height it was last given');
+});
+
+// ---- version 0.94
+
+test('the cross after the gear asks the host to end the program, and is gone with its switch off', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    assert.equal(page.el('exit-button').hidden, false, 'shown by default');
+    assert.equal(page.window.exitAsked(), false, 'nothing is asked before it is pressed');
+
+    await page.click('exit-button');
+
+    assert.equal(page.window.exitAsked(), true, 'the host reads this on its next tick and closes the window');
+    const off = await load(backendOf({ config: CONFIG, status: withShow(SPEND_STATUS, { exitIcon: false }) }));
+    assert.equal(off.el('exit-button').hidden, true);
+});
+
+test('the dropdown of the history comes up as saved, and a choice is saved at once and the history read again at its top', async () => {
+    const state = historyBackend();
+    state.group = '1d';
+    const history = state.history;
+    state.history = call => {
+        const answer = history(call);
+        return { ...answer, body: { ...answer.body, group: state.group } };
+    };
+    state.postHistory = body => { state.group = body.group; return { status: 200, body: { zeroLines: true, group: body.group } }; };
+    const page = await load(backendOf(state));
+    assert.equal(page.el('history-group-choice').hidden, true, 'nothing before the history is shown');
+
+    await page.click('history-button');
+    assert.equal(page.el('history-group-choice').hidden, false);
+    assert.equal(page.el('history-group').value, '1d', 'as saved');
+    page.el('panel-lines').scrollTop = 40;
+    const reads = historyGets(page).length;
+
+    await change(page, 'history-group', '15m');
+
+    assert.deepEqual(historyPosts(page), [{ group: '15m' }], 'saved with no Save to press, and nothing else with it');
+    assert.equal(state.group, '15m');
+    assert.equal(historyGets(page).length, reads + 1, 'the history is read again');
+    assert.equal(historyGets(page).pop(), '/api/history', 'as the setting now says');
+    assert.equal(page.el('panel-lines').scrollTop, 0, 'at its newest line');
+    assert.equal(page.el('history-group').value, '15m');
+});
+
+test('a grouping that cannot be saved holds for the run, and the history is asked for by it', async () => {
+    const state = historyBackend();
+    state.postHistory = () => ({ status: 500, body: { error: 'The history settings could not be saved: disk full' } });
+    const page = await load(backendOf(state));
+    await page.click('history-button');
+
+    await change(page, 'history-group', '1w');
+
+    assert.equal(historyGets(page).pop(), '/api/history?group=1w');
+    assert.equal(page.el('log-error-history').hidden, false, 'and it says so');
 });

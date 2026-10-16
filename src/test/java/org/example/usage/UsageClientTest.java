@@ -313,11 +313,20 @@ class UsageClientTest {
         client(uri).fetch(TOKEN);
 
         String logged = String.join("\n", logLines);
-        assertTrue(logged.matches("(?s).*GET 127\\.0\\.0\\.1/usage -> HTTP 200 in \\d+ ms \\(\\d+ bytes, request-id req_011CTestRequest\\).*"), logged);
+        assertTrue(logged.matches("(?s).*GET http://127\\.0\\.0\\.1:\\d+/usage -> HTTP 200 in \\d+ ms \\(\\d+ bytes, request-id req_011CTestRequest\\).*"), logged);
         assertFalse(logged.contains(TOKEN), logged);
         assertFalse(logged.contains("amount_minor"), "no part of the body is logged: " + logged);
-        assertTrue(logLines.stream().anyMatch(line -> line.startsWith("FINE GET 127.0.0.1/usage -> HTTP 200 ")),
+        assertTrue(logLines.stream().anyMatch(line -> line.startsWith("FINE GET http://127.0.0.1:" + uri.getPort() + "/usage -> HTTP 200 ")),
                 "a request that succeeds is logged at DEBUG since 0.92: " + logged);
+    }
+
+    @Test
+    void theAddressIsLoggedWholeWithItsSchemeAndPort() {
+        // Since 0.94: the scheme, the host, the port when there is one, and the path, and nothing a credential could be in.
+        assertEquals("https://api.anthropic.com/api/oauth/usage", UsageClient.shown(URI.create("https://api.anthropic.com/api/oauth/usage")));
+        assertEquals("http://127.0.0.1:52011/api/oauth/usage", UsageClient.shown(URI.create("http://127.0.0.1:52011/api/oauth/usage")));
+        assertEquals("GET http://127.0.0.1:52011/api/oauth/usage -> HTTP 200",
+                org.example.Redaction.redact("GET http://127.0.0.1:52011/api/oauth/usage -> HTTP 200"), "the log masks nothing of it");
     }
 
     @Test
@@ -326,7 +335,7 @@ class UsageClientTest {
 
         assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN));
 
-        assertTrue(logLines.stream().anyMatch(line -> line.startsWith("INFO GET 127.0.0.1/usage -> HTTP 503 ")),
+        assertTrue(logLines.stream().anyMatch(line -> line.startsWith("INFO GET http://127.0.0.1:" + uri.getPort() + "/usage -> HTTP 503 ")),
                 "the context of a failure at the usual level: " + logLines);
     }
 
@@ -339,7 +348,7 @@ class UsageClientTest {
         new UsageClient(plainHttpClient(), uri, Duration.ofSeconds(5), Clock.fixed(NOW, ZoneOffset.UTC), on).fetch(TOKEN);
 
         String logged = String.join("\n", logLines);
-        assertTrue(logged.contains("Response of GET 127.0.0.1/usage (HTTP 200):" + System.lineSeparator() + "{"), logged);
+        assertTrue(logged.contains("Response of GET http://127.0.0.1:" + uri.getPort() + "/usage (HTTP 200):" + System.lineSeparator() + "{"), logged);
         assertTrue(logged.contains(System.lineSeparator() + "  \""), "indented, one member to a line: " + logged);
         assertTrue(logged.contains("amount_minor"), logged);
         assertFalse(logged.contains(TOKEN), logged);

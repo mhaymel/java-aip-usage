@@ -83,7 +83,7 @@ public final class IntervalSettings {
             return;
         }
         heights = updated;
-        LOG.debug("The " + panel + " window height is now " + pixels + " px");
+        LOG.fine("The " + panel + " window height is now " + pixels + " px");
     }
 
     /** The width the window had the last time the log was shown alone (since 0.93), or 0. */
@@ -104,7 +104,7 @@ public final class IntervalSettings {
             return;
         }
         heights = updated;
-        LOG.debug("The log window width is now " + pixels + " px");
+        LOG.fine("The log window width is now " + pixels + " px");
     }
 
     /** How the fake backend's ordinary answer is shaped, as saved; the defaults if it never was. */
@@ -222,7 +222,11 @@ public final class IntervalSettings {
                 LOG.warning("Could not save settings to " + store.file(), e);
                 throw new SettingsException("The settings could not be saved: " + Failure.of(e), e);
             }
-            LOG.info("Settings changed: " + settings);
+            // What changed and no more, and a Fine line (since 0.95): the lists' own choices save the settings at every press.
+            String changes = SettingsStore.changes(saved, settings);
+            if (!changes.isEmpty()) {
+                LOG.fine("Settings changed: " + changes);
+            }
             saved = settings;
             settingsListener.accept(current());
         }
