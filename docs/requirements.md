@@ -305,8 +305,8 @@ fixed: it does not follow the severity, so nothing in the row turns amber or red
 same whether a severity was sent or not, whether a change is up or down, and whatever the settings are. A missing
 amount, the dash, is green like one that is there. The time of the reading, the countdown and the time between usage
 requests are in the colour of the text, and the countdown is red after an HTTP 429, until a request is answered without one (see Countdown).
-**The severity is named nowhere** (since version 0.83; `docs/img/img_39.png`; until then in the tooltip of the percentage, as
-`Severity: normal`): the tooltip of the percentage says `<percent>% of the monthly limit spent`, and the tooltips of the amounts
+**The severity is named nowhere** (since version 0.83; until then in the tooltip of the percentage, as
+`132% of the budget spent. Severity: normal`, even with the percentage in red): the tooltip of the percentage says `<percent>% of the monthly limit spent`, and the tooltips of the amounts
 say what the number is and its unit, and nothing about the severity.
 
 **Countdown**
