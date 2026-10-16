@@ -108,7 +108,7 @@ class SeveralViewsWindowTest {
         Matcher again = step(all, "history-again");
         assertEquals(Integer.parseInt(dragged.group(10)), Integer.parseInt(again.group(10)), "the history comes back at the height it was dragged to:\n" + all);
 
-        // All the views, three since 0.91: the window within the screen, and the log, the lowest, seen (since 0.82; img_36).
+        // All the views, three since 0.91: the window within the screen, and the log, the lowest, seen (since 0.82; in 0.81 it had no room at all).
         Matcher four = step(all, "four");
         assertEquals("cost+history+log,", four.group(1), all);
         assertTrue(Integer.parseInt(four.group(10)) <= Integer.parseInt(four.group(13)), "no taller than the screen:\n" + all);
@@ -132,7 +132,7 @@ class SeveralViewsWindowTest {
         String[] withSettings = beside.group(11).split("/");
         assertTrue(withSettings[0].startsWith("cost-view:37:") && withSettings[1].startsWith("settings-view:") && withSettings[2].startsWith("view-history:"), all);
         near(Integer.parseInt(draggedViews[1].split(":")[2]), Integer.parseInt(withSettings[2].split(":")[2]), "the history as tall as it was:\n" + all);
-        // img_50: the elements of the row unchecked but the icons, and saved: the settings close alone.
+        // The fault seen in 0.83: the elements of the row unchecked but the icons, and saved: the settings close alone.
         assertEquals("cost+history,", step(all, "beside-saved").group(1), "the views beside the settings stay:\n" + all);
         assertEquals("settings+cost+history,general", step(all, "settings-beside-final").group(1), all);
         assertTrue(all.contains("PROBE stored=settings,cost,history|"), "all three are stored, the settings first, with commas:\n" + all);
@@ -147,11 +147,11 @@ class SeveralViewsWindowTest {
         near(Integer.parseInt(beside.group(10)), Integer.parseInt(restored.group(10)), "at the height it had:\n" + next);
         assertEquals("cost,", step(next, "off").group(1), "switched off: the first of them stays:\n" + next);
         assertEquals("history,", step(next, "off-history").group(1), "and an icon now takes the place of what is shown:\n" + next);
-        // img_53: with the row the cost icon and the gear alone, the cost control's figures have their room, 8 pixels at the right.
+        // Seen in 0.83, the figures cut: with the row the cost icon and the gear alone, the cost control's figures have their room, 8 pixels at the right.
         assertEquals("cost,", step(next, "narrow-cost").group(1), next);
         int room = Integer.parseInt(next.lines().filter(l -> l.startsWith("PROBE narrow-room=")).findFirst().orElseThrow().substring("PROBE narrow-room=".length()));
         assertTrue(room >= 8, "nothing cut at the right edge: " + room + " pixels of room\n" + next);
-        // img_45 to img_47: the cost control as wide after the history was shown as before.
+        // The cost control as wide after the history was shown as before (until 0.84 it was wider after).
         assertEquals(step(all, "cost").group(2), step(all, "cost-alone").group(2), "the same width before and after the history:\n" + all);
         assertTrue(!all.contains("PROBE failed") && !next.contains("PROBE failed"), all + "\n" + next);
     }

@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.87 is built: 129 phases are built, the last six (124 to 129) not pushed yet and not looked at by a person; phase 128 was run against a few tests only, and phase 129 against none; the fault of `img_50` was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.87 is built: 129 phases are built, the last six (124 to 129) not pushed yet and not looked at by a person; phase 128 was run against a few tests only, and phase 129 against none; the fault of the cost control closed with the settings was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -2326,7 +2326,7 @@ for the history, chosen in `General` with the system's picker, moved on `Save` a
 refused, the history of invented readings with the history. The note "when deselecting" is not built: its author found it works.
 
 **Decided about the building itself**: one version, 0.81, a commit for each phase, no push until it is asked for; the notes and the
-pictures `img_28` to `img_34` are committed already, by their author, and the first commit has the requirements and this plan.
+pictures of this round are committed already, by their author, and the first commit has the requirements and this plan.
 Confirmed in a last round: the font from the official release, not copied from Windows; the checkbox `Zero usage lines` keeps its
 text, its tooltip saying that the failed lines go with them; the line `#8c959f` / `#484f58`; the folders as two commits, 112 and 113.
 
@@ -2336,7 +2336,7 @@ text, its tooltip saying that the failed lines go with them; the line `#8c959f` 
 built, two things otherwise than below: **the line is the top border of each view** (`.view`, `.panel > .cost`, `.panel > .settings`),
 inside its box, so that no size the page reports and no remembered height changes, and the requirements say so; and **the 6 pixels
 are a margin of the last cell** of a row of the history and of the error log, not more padding of the list, since the padding of a
-box that scrolls is not kept at the end of its lines in every WebKit, which is what `img_34` shows; the copy the table is measured
+box that scrolls is not kept at the end of its lines in every WebKit, which is why the `s` of `Δ time` stood half under the scrollbar on macOS; the copy the table is measured
 on has the margin too, so the window is wider by it without the page adding anything. The probe of `TitleBarWindowTest` now asks for
 the logo in the middle of the text and the last column 6 pixels from the edge. Requirements: A line between the row and the views; A button in the history that hides and shows the zero
 usage lines (the icon); The cost control panel: two bars; The About view; Details of the behaviour (The panels, exactly).
@@ -2383,7 +2383,7 @@ needed: the page measures the table again when it is seen to lack room, as for a
 - **Tests.** `layout.test.cjs`: the `@font-face` and the first name. A Java test: `/fonts/CascadiaMono-Regular.woff2` is served
   with its type, and the licence is among the resources. `PanelWindowTest`: the list is drawn in the bundled face
   (`used:Cascadia Mono Bundled`).
-- **By eye.** On macOS above all: the lists, the cost control and the history, against `img_30`.
+- **By eye.** On macOS above all: the lists, the cost control and the history, against the same views on Windows, in Cascadia Mono.
 
 ### 109. The funnel hides the failed lines too
 
@@ -2479,7 +2479,7 @@ restored at start.
 - **By eye.** The picker on Windows; on macOS not checked here, as the requirements say.
 
 **By eye, when 107 to 113 are built**, on Windows and on macOS, on both themes: what each phase lists, and the pictures of the
-notes once more, `img_28` to `img_34`, each against the window.
+notes once more (the line under the row, the typeface, the scrollbar), each against the window.
 
 ### 114 to 120. Version 0.82: the fourth round of notes
 
@@ -2510,7 +2510,7 @@ no limit; twenty blocks; the icons of a list's line at the right; the currency s
 default; every block red over the limit. **Confirmed in a last round**: the default `Monthly limit`, with the
 server's counted while none is typed; the amber, the titles `month`, `day`, `by`, the texts of the tooltips and the keys as the
 requirements have them; the header of a history file of seven columns rewritten once; one version, a commit per phase, no push,
-and the notes and pictures (`new-requirements.md`, `tmp.md`, `img_35` to `img_37`) in the first commit.
+and the notes and pictures (`new-requirements.md`, `tmp.md` and the pictures) in the first commit.
 
 ### 114. The small changes
 
@@ -2621,14 +2621,14 @@ status of spending (the circle).
   columns on and off. `app.test.cjs`/`layout.test.cjs`: the checkboxes and the widths. The window tests, whose history table is
   measured.
 
-**By eye, when 114 to 120 are built**, on Windows and on macOS, on both themes: the bars against `img_35` and `img_37`, the row with
+**By eye, when 114 to 120 are built**, on Windows and on macOS, on both themes: the bars against the sketch of twenty blocks, the row with
 everything on, the dot in each colour with its tooltip, the icons of the lists at the right, and four views on a small screen.
 
 ### 121 to 123. Version 0.83: the fifth round of notes
 
 **Status: built, all three, as planned (the pulse of the circle left out, as decided); what each lists "by eye" is still to be looked at.** The requirements are written (every rule marked "since version 0.83"); these three phases build
 them, in this order, and `AppInfo.VERSION` becomes `0.83` with the first. Each is committed by itself with its tests green, as
-`Phase 12x built: <what> (0.83)`; the first commit has the notes and the pictures `img_38` to `img_44`, the requirements and this
+`Phase 12x built: <what> (0.83)`; the first commit has the notes and the pictures, the requirements and this
 plan. No push until it is asked for.
 
 | Phase | What | Where most of it is |
@@ -2685,18 +2685,18 @@ right edge, the severity); Limits, projections and the status of spending (the t
   tests: `TitleBarWindowTest`'s cost control, the decimal points of the two rows at one place (a probe step).
 
 **By eye, when 121 to 123 are built**: the row with a list open and with the row alone (the icons at the right), the dot in
-each colour, the yellow against `img_42`, the figures of the cost control against `img_41`.
+each colour, the yellow against the light brown of 0.82, the figures of the cost control lined up in their four columns.
 
 ### 124 to 126. Version 0.84: the sixth round of notes
 
-**Status: built, all three; the fault of `img_50` could not be made to happen, and its steps are to be asked.** The requirements are written (every rule marked as of 0.84); these three phases build them, in
+**Status: built, all three; the fault of the cost control closed with the settings could not be made to happen, and its steps are to be asked.** The requirements are written (every rule marked as of 0.84); these three phases build them, in
 this order, and `AppInfo.VERSION` becomes `0.84` with the first. A commit for each, with its tests green, as `Phase 12x built:
-<what> (0.84)`; the first has the notes and the pictures `img_45` to `img_53`, the requirements and this plan. No push until it is
+<what> (0.84)`; the first has the notes and the pictures, the requirements and this plan. No push until it is
 asked for.
 
 | Phase | What | Where most of it is |
 | --- | --- | --- |
-| 124 | The fault of `img_50`: leaving the settings closed the cost control beside them | `app.js`, found by a failing test first |
+| 124 | The fault seen in 0.83: leaving the settings closed the cost control beside them | `app.js`, found by a failing test first |
 | 125 | The cost control: its own width, never cut; blocks of 14 pixels; the bright yellow | `app.js`, `app.css` |
 | 126 | The row: the colours of the bars on its figures, `Monthly credit used`; the folders say `Program folder` | `app.js`, `app.css`, `StatusDisplay`, `index.html` |
 
@@ -2708,9 +2708,9 @@ window always wide enough for the figures of the cost control.
 
 ### 124. The fault: leaving the settings closed the cost control beside them
 
-**Status: built (version 0.84), as far as it could be: the fault was not found.** Tried, each as a test: the cost control open and the settings beside it, every element of Main view unchecked but the cost icon, the settings left by `Save`, `Cancel` and the gear (three tests); the settings opened first and the cost control beside them, left the same three ways (three tests); and in the real window, with the real backend, the settings beside the cost control and the history, every element unchecked but the icons, and `Save` (`SeveralViewsWindowTest`, step `beside-saved`). In every one the cost control stayed open. Nothing was changed on a guess; the tests stay, and the steps that led to `img_50` are to be asked of its author. The version is 0.84 with this phase. Requirements: Several views at once (leaving the settings).
+**Status: built (version 0.84), as far as it could be: the fault was not found.** Tried, each as a test: the cost control open and the settings beside it, every element of Main view unchecked but the cost icon, the settings left by `Save`, `Cancel` and the gear (three tests); the settings opened first and the cost control beside them, left the same three ways (three tests); and in the real window, with the real backend, the settings beside the cost control and the history, every element unchecked but the icons, and `Save` (`SeveralViewsWindowTest`, step `beside-saved`). In every one the cost control stayed open. Nothing was changed on a guess; the tests stay, and the steps that led to the fault are to be asked of the person who saw it. The version is 0.84 with this phase. Requirements: Several views at once (leaving the settings).
 
-- **First a test that fails**, in `app.test.cjs`, doing what `img_50` shows: several views at once on, the cost control open, the
+- **First a test that fails**, in `app.test.cjs`, doing what the person saw: several views at once on, the cost control open, the
   gear, every element of `Main view` unchecked but the cost icon, and the settings left by each way (`Save`, `Cancel`, the gear).
   The cost control must stay. If the test does not fail, the other ways are tried (the settings opened first and the cost control
   beside them, the switch off when they were opened, the poll that comes between), each in a test, and nothing is changed on a
@@ -2720,11 +2720,11 @@ window always wide enough for the figures of the cost control.
 
 ### 125. The cost control: its own width, blocks of 14 pixels, the yellow
 
-**Status: built (version 0.84); seen in the real window on Windows by the three window tests.** As built: the cost control asks for `Math.max(row, costWidth() + edge)`, alone and among views, the history's table no longer in it. **The cut of `img_53` was found in `costWidth()`**: it counted the panel's padding and not the cost control's own (8 pixels each side, `COST_PADDING`), nor the border of a window with no title bar; in the real window the row of the cost icon alone and the cost control now leave 19 pixels at the right of the figures (`SeveralViewsWindowTest`, `narrow-room`), and the cost control is 391 wide before and after the history. Blocks of 14 pixels by the gradient's size; `--warn: #ffff33`, `--warn-text: #b8a000`, the amber dot ringed by a `box-shadow`. Requirements: The cost control panel (the width, the blocks, the yellow); Several views at once (the width).
+**Status: built (version 0.84); seen in the real window on Windows by the three window tests.** As built: the cost control asks for `Math.max(row, costWidth() + edge)`, alone and among views, the history's table no longer in it. **The cut of the figures at the window's edge was found in `costWidth()`**: it counted the panel's padding and not the cost control's own (8 pixels each side, `COST_PADDING`), nor the border of a window with no title bar; in the real window the row of the cost icon alone and the cost control now leave 19 pixels at the right of the figures (`SeveralViewsWindowTest`, `narrow-room`), and the cost control is 391 wide before and after the history. Blocks of 14 pixels by the gradient's size; `--warn: #ffff33`, `--warn-text: #b8a000`, the amber dot ringed by a `box-shadow`. Requirements: The cost control panel (the width, the blocks, the yellow); Several views at once (the width).
 
 - **The width.** `app.js`: the cost control's width, alone and among several views, is `Math.max(rowWidth, costWidth())`, no longer
   `currentTableWidth() + 16`. `costWidth()` is checked against the real window: the label, `COST_BAR_MIN`, the four columns and
-  their gaps, the panel's padding, and 8 pixels of room at the right; what `img_53` shows missing is found by a probe step that
+  their gaps, the panel's padding, and 8 pixels of room at the right; the room missing at the right of the figures is found by a probe step that
   says how far the figures stick out, and the formula is put right by what it says.
 - **The blocks.** `app.css`: the gradient of `.cost-bar::after` sized `14px 100%` in the place of `5% 100%`, the layer as wide as the
   bar and a pixel; the fill is unchanged, so it still ends at the share.
@@ -2732,7 +2732,7 @@ window always wide enough for the figures of the cost control.
   (`box-shadow: 0 0 0 1px`, which takes no room), decided in a last question: the plain yellow dot was hardly seen.
 - **Tests.** `app.test.cjs`: the cost control's size the same before and after the history has been shown; `layout.test.cjs`: the
   gradient of 14 pixels, the yellow. The window tests: a probe step with the row of few elements and the cost control, that
-  nothing sticks out at the right (`img_53`), and that the window is as wide after the history as before (`img_45` to `img_47`).
+  nothing sticks out at the right, and that the window is as wide after the history as before.
 
 ### 126. The row: the colours of the bars, `Monthly credit used`, the folders
 

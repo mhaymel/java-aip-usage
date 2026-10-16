@@ -1836,7 +1836,7 @@
             figures = Math.max(figures, cells.reduce(function (sum, part) { return sum + cellWidth(part); }, 0) + (cells.length - 1) * COST_GAP);
         });
         // 16 px is the panel's own padding, as for the history, and 16 more the cost control's own, which until 0.83 was not counted
-        // and left the figures cut at the window's edge (img_53). No gap after the bar when there are no figures.
+        // and left the figures cut at the window's edge. No gap after the bar when there are no figures.
         return widest(0) + COST_BAR_MIN + figures + (costColumns > 0 ? 2 : 1) * COST_GAP + 16 + COST_PADDING;
     }
 

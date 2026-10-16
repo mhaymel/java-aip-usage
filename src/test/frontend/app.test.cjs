@@ -4021,7 +4021,7 @@ test('the width of the cost control follows its widest row, its own padding coun
     const wide = Number(page.window.contentSize().split(',')[0]);
 
     // The rows share their columns: the wider label, the bar's least width, the wider figures, two gaps of 6, the panel's padding
-    // and the cost control's own (since 0.84: until then not counted, and the figures were cut, img_53).
+    // and the cost control's own (since 0.84: until then not counted, and the figures were cut at the window's edge).
     assert.equal(wide, 60 + 120 + 320 + 2 * 6 + 16 + 16);
 });
 
@@ -5339,10 +5339,10 @@ test('the figures of the cost control are four columns: the amount, of, the limi
     assert.deepEqual(month.figures.map(cell => cell.textContent), ['236.56', '\u00b7 no limit set']);
 });
 
-// ---- version 0.84: the fault of img_50
+// ---- version 0.84: the fault of the cost control closed with the settings (seen in 0.83)
 
 for (const leave of ['settings-save', 'settings-cancel', 'settings-button']) {
-    test('leaving the settings by ' + leave + ' with every element unchecked but the cost icon keeps the cost control beside them open (img_50)', async () => {
+    test('leaving the settings by ' + leave + ' with every element unchecked but the cost icon keeps the cost control beside them open', async () => {
         const saved = { ...SETTINGS.settings, severalViews: true };
         const state = { config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: saved } }) };
         const page = await load(backendOf(state));
@@ -5366,7 +5366,7 @@ for (const leave of ['settings-save', 'settings-cancel', 'settings-button']) {
 }
 
 for (const leave of ['settings-save', 'settings-cancel', 'settings-button']) {
-    test('the settings opened first and the cost control beside them: leaving by ' + leave + ' keeps it open (img_50)', async () => {
+    test('the settings opened first and the cost control beside them: leaving by ' + leave + ' keeps it open', async () => {
         const saved = { ...SETTINGS.settings, severalViews: true };
         const state = { config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: saved } }) };
         const page = await load(backendOf(state));
@@ -5391,7 +5391,7 @@ for (const leave of ['settings-save', 'settings-cancel', 'settings-button']) {
 
 // ---- version 0.84: the cost control's own width
 
-test('the cost control asks for the same width before and after the history has been shown (img_45 to img_47)', async () => {
+test('the cost control asks for the same width before and after the history has been shown', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, history: () => ({ status: 200, body: HISTORY }) }));
     await page.click('cost-button');
     const before = page.window.contentSize();

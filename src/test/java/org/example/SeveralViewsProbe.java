@@ -75,7 +75,7 @@ public final class SeveralViewsProbe {
             step("four-closed", "log-button");
             // The settings beside the two, above them; the program stops with all three shown.
             step("settings-beside", "settings-button");
-            // img_50: every element of Main view unchecked but the icons, and Save: the settings close, the views beside them stay.
+            // The fault seen in 0.83: every element of Main view unchecked but the icons, and Save: the settings close, the views beside them stay.
             onFx(() -> page().getEngine().executeScript(
                     "window.probeUnchecked = Array.from(document.querySelectorAll('#tab-main input[id^=set-show]')).filter(function (b) {"
                             + " return b.checked && !/Icon$/.test(b.id); });"
@@ -102,7 +102,7 @@ public final class SeveralViewsProbe {
             onFx(() -> page().getEngine().executeScript("document.getElementById('set-severalViews').checked = false;"));
             step("off", "settings-save");
             step("off-history", "history-button");
-            // img_53: the row with no element but the cost icon, and the cost control: no figure is cut at the window's edge.
+            // Seen in 0.83, the figures cut: the row with no element but the cost icon, and the cost control: no figure is cut at the window's edge.
             step("narrow-settings", "settings-button");
             onFx(() -> page().getEngine().executeScript(
                     "Array.from(document.querySelectorAll('#tab-main input[id^=set-show]')).forEach(function (b) {"
