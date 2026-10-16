@@ -348,7 +348,8 @@ names, shown as its code, here `USD`.
 - The time: `Last update: ` followed by the full local date and time of the last
   refresh, for example `Last update: 8 Oct 2026, 14:24:53`. This is the one place a
   date appears.
-- The used amount (the first number): `Credits used, in USD`; since version 0.84 `Monthly credit used, in USD` (`docs/img/img_52.png`), and with no
+- The used amount (the first number): `Credits used, in USD`; since version 0.84 `Monthly credit used, in USD` (the old text did not say the amount is the month's, beside the day's
+  figures in the row), and with no
   currency `Monthly credit used`.
 - The budget (the second number): `Credit budget, in USD`; since version 0.83 `Monthly limit, in USD` or `Monthly limit sent by the server, in USD` (see Limits, projections and the status of spending).
 - The percentage: how much of the budget is spent, and the severity, for example
