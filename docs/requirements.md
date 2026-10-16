@@ -2235,6 +2235,9 @@ document uses for it. From left to right (in version 0.68, with every element of
 - **A path in a line of the log panel is a link when it is the path of a file of the program's own**: the settings file, the log
   file, an old log, and the two usage history files, the real one and the one of the fake backend. The link is the whole path,
   in the blue of the notes and underlined, like the paths of the About view; the rest of the line is as it was.
+  A path is a link only as the whole path of such a file, as the program logs it and as an absolute path, and not where it
+  is the beginning of a longer name: in `…java-aip-usage.log.tmp` there is no link to the log. An old log is known by the
+  form of its name beside the log, also when the file is gone since.
 - **A click opens the folder the file is in, with the file marked**, in the Explorer on Windows and the Finder on macOS, and the
   folder alone when the file is no longer there, as for an old log that was merged since: the same as a click on a path of the
   About view (see The paths of the About view are links). The file itself is not opened.
@@ -2434,11 +2437,13 @@ document uses for it. From left to right (in version 0.68, with every element of
   width, its height and its notes holds no more. A file of 0.90 that stored the error log among the views shown at the start opens
   without it.
 - **Every failed refresh is written to the log at the level `ERROR`**, with the message the row showed for it (where some were
-  `WARNING` until 0.90), so that the log holds what the error log held; an HTTP 429 with the automatic interval, which is part of
-  how the search works, stays at `INFO`.
+  `WARNING` until 0.90), so that the log holds what the error log held: `Usage refresh failed: <the message>`, `SEVERE` in the
+  file. An HTTP 429 with the automatic interval, which is part of how the search works, stays at `INFO`, as
+  `Usage refresh refused: <the message>`.
 - **The log viewer shows the lines of `ERROR` in red** (`#cf222e` on the light theme, `#f85149` on the dark one) **and those of
   `WARNING` in orange** (`#c26a00`, the darker orange of the status circle, readable as text on both themes), the whole line, its
-  time and level included. The gap between the level and the text stays as the file has it (`INFO    [`).
+  time and level included. The lines that follow the first line of an entry, such as those of a logged response, take
+  the colour of its level. The gap between the level and the text stays as the file has it (`INFO    [`).
 - **The log opens larger**: 30 of its lines tall where it was 10, and half again as wide, within the screen; a height dragged to is
   still remembered and wins, as before.
 - **The icons in the group `Icons` are gone** (in 0.90 they showed as small empty boxes beside the checkboxes): the checkboxes `Cost`, `History` and `Log` stand alone, and a click
@@ -2490,7 +2495,9 @@ document uses for it. From left to right (in version 0.68, with every element of
   Replacing one view with another keeps the place of the row alone, so that closing the second goes back to it too.
 - **The width of the log is remembered**, as its height is (see Remembered heights): `logWidth` in the settings file, in pixels
   of the window's content, stored once a change by the person has settled, as the height is. The log opens at the stored width,
-  never less than the width the page asks for, within the screen. The history keeps no width, its width being its table's.
+  never less than the width the page asks for, within the screen. The width is remembered only while the log is shown alone:
+  with several views the window's width is that of all of them, as the height of a list among them is not its height alone.
+  The history keeps no width, its width being its table's.
 
 ### Version 0.94: the whole address in the log, a button that ends the program, the history grouped
 
@@ -2503,7 +2510,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   what is written. The file keeps its words for the levels, `FINE` for a debug line and `SEVERE` for an error.
 - **A button that ends the program** (`new-requirements.md`): an icon, a cross (×) in the muted gray like the other icons, the
   last in the row, right after the gear. A click ends the program at once, without asking, exactly as closing the window does:
-  the place, the size and the views of the window are stored as then, and the lines of the stopping are in the log. Its tooltip
+  the place, the size and the views of the window are stored as then, and the lines of the stopping are in the log, after the
+  line `The program is ended by its cross`. Its tooltip
   and its label: `Close aip usage`. It is there with the title bar too, beside the system's own cross.
   - **It can be switched off**: a checkbox `Exit` in the group `Icons` of the tab `Main`, after `Log`, **on by default**, saved
     under `showExitIcon`, with the tooltip `The icon that ends the program, after the gear.` It is previewed in the row: unchecked
@@ -3227,7 +3235,7 @@ These repos are intended as a source of knowledge and reusable implementation id
 - **Applying settings that are the file's own** writes and logs nothing.
 - Each line of the log begins with its time in the same form as the usage history file: the local date and time to the second, `yyyy-MM-dd HH:mm:ss`, for example `2026-10-08 16:24:53`, so the log, the history and the window agree on the clock.
 - The log records startup and shutdown, each refresh and how it ended, token acquisition and rejection, settings changes, and for each request to Anthropic its status, duration, size and `request-id`. It never records a token or a header. It records no part of a response body, except that, while the setting to log the response is on, it writes the JSON of each response, pretty printed over several lines, after one entry line that says whose it is. That text is masked like everything else, so anything shaped like a credential in it is hidden before it is written, as a last line of defence. The setting is off by default.
-- Every failed refresh is also written to the log, once when it happens, at the warning level, as `Usage refresh failed: <the message>` (the message without its `Refresh failed at HH:mm` wrapper), an HTTP 429 included although it has no message line. The window's own `Lost contact with the application` message is the window's only and is not logged.
+- Every failed refresh is also written to the log, once when it happens, at the level `ERROR` (since version 0.91; at the warning level until 0.90), as `Usage refresh failed: <the message>` (the message without its `Refresh failed at HH:mm` wrapper), an HTTP 429 included although it has no message line. An HTTP 429 with the automatic interval is the exception: it is `Usage refresh refused: <the message>` at `INFO` (see Version 0.91). The window's own `Lost contact with the application` message is the window's only and is not logged.
 - The local web server listens on the loopback interface only, on a port chosen by the operating system. It refuses a request whose `Host` header is not its own address, which stops another web page from reaching it by DNS rebinding, and it accepts a `POST` only as `application/json`, which another origin cannot send without a preflight the server never grants. No endpoint accepts, returns or logs a credential.
 
 ## The Java implementation

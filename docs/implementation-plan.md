@@ -3119,8 +3119,8 @@ honours it); the log's red and orange on both themes; the right edge's cursor on
   stay; only `/api/errors`, its bodies, the page's view and the icon go. `Settings.showErrorIcon` stays in the record, is read and
   no longer written or sent; a `POST` that sends it keeps it. `StatusDisplay.Show.errorIcon` and `WindowFit`'s name `errors` stay,
   unused.
-- **The 429 of the automatic search** is logged `Usage refresh refused: …` at `INFO`; any other failure `Usage refresh failed: …` at
-  `ERROR` (`SEVERE` in the file, which is what the viewer colours red).
+- **The 429 of the automatic search** has a line of its own at `INFO`, apart from the `ERROR` line of any other failure; the
+  wording of both is in the requirements (Version 0.91).
 - **The right edge** shares `edgeDrag` with the bottom one (a third field says which); `edgeAt` says `'e'` for it.
 - **The log's levels** are read from the line in `view.js` (`SEVERE` or `WARNING` after the date and time), and an entry's following
   lines take its level.
