@@ -1299,7 +1299,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   - a view is shown: the cost control, a list, several views, or the settings;
   - of the row only icons are switched on: the refresh button and the icons of the views may be on, and every figure is off, the
     time, the percentage, the amount used, the limit, the countdown, the interval, the two changes, the request duration and the
-    three figures of the day; **and the status circle is off** (since version 0.86, `docs/img/img_54.png`: in 0.85 the circle counted
+    three figures of the day; **and the status circle is off** (since version 0.86: in 0.85 the circle counted
     as an icon, and the row went with the circle shown). As the settings are saved: what the open settings preview does not count.
 - **Outside is outside the whole window**, its title bar and its frame included: the pointer on them is still in the program, so
   that the row stays while the window is moved by its title bar or dragged larger by its frame.
@@ -2268,7 +2268,7 @@ document uses for it. From left to right (in version 0.68, with every element of
 - **A line separates the row from the view below it, and each view from the next** (since version 0.81; in 0.80 the zoom buttons and the header of the view stood right under the row, with nothing between them):
   1 pixel, solid, in a middle gray on the light theme and a dark gray on the dark one, as wide as the window. It is there with
   several views, the settings counted among them; there is none below the lowest view, and none with no view shown.
-- **With one view there is no line** (since version 0.86; `docs/img/img_54.png`): one view alone, or the settings alone, stands right
+- **With one view there is no line** (since version 0.86): one view alone, or the settings alone, stands right
   below the row with nothing between. Until version 0.85 the line was there with one view as with several. With two views or more
   every line is as before, the one below the row included.
 - **It is the top edge of the view below it**, which is a pixel lower for it: the sizes the page asks for, the heights the views

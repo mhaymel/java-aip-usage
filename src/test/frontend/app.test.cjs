@@ -5489,7 +5489,7 @@ test('the row stays with nothing open, with the title bar on, and with any figur
     const circle = await load(backendOf({ config: CONFIG, status: awayStatus({ status: true }) }));
     await circle.click('cost-button');
     circle.window.pointerAway(true);
-    assert.ok(!isAway(circle), 'the status circle keeps the row, since 0.86 (img_54)');
+    assert.ok(!isAway(circle), 'the status circle keeps the row, since 0.86');
 });
 
 // ---- version 0.86
