@@ -959,7 +959,7 @@ body {
     min-width: max-content;
 }
 
-/* Every column is centred since 0.91 (img_73), its title and its cells; until then the figures were at the right of their
+/* Every column is centred since 0.91, its title and its cells; until then the figures were at the right of their
    columns, so that they lined up by their last digit. */
 .panel-lines .columns > * {
     display: block;

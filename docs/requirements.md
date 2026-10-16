@@ -2451,7 +2451,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   whole path, folder and name): the line of the folder shows the folder in full, the program's folder too
   (its path in gray while it is the default, where it said `Program folder`); the line of the file shows the file's name alone,
   still a link that opens its folder, with the button that copies the full path.
-- **Every column of the history is centred** (`docs/img/img_73.png`), its title and its cells, as `daily limit is` is since 0.90.
+- **Every column of the history is centred**, its title and its cells, as `daily limit is` is since 0.90 (in 0.90 the time
+  stood at the left and the figures, `used` and `day` among them, at the right, beside the centred `daily limit is`).
 
 ### Version 0.92: quieter log, the icons in one line, the screen as the largest size
 
