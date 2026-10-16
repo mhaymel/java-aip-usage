@@ -800,7 +800,7 @@ The history is shown inside the main window, not in a window of its own.
 - **When not all the data is shown, the panel says so.** One line above the table, written by the backend, says how many lines there are,
   how many are shown, and why the others are not: hidden zero usage lines, hidden failed lines, and older lines beyond the newest 1,000. For example
   `Showing 640 of 1,500 lines: 700 zero usage and 60 failed hidden, 100 older not shown.` **It has a tooltip** (since version 0.89,
-  `docs/img/img_60.png`), written by the backend with the parts that apply: `The history shows at most the newest 1,000 lines of
+  asked for with the line `Showing 1,000 of 1,073 lines: 73 older not shown.` marked), written by the backend with the parts that apply: `The history shows at most the newest 1,000 lines of
   the file.` then, with lines hidden, ` Lines with no change in the amount used and failed requests are hidden by the filter
   button at the right of this line; press it to show them.` and, with older lines left out, ` Older lines are not shown here,
   but stay in the file.` It is there whenever anything is left out, and not
