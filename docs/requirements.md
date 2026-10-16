@@ -2280,7 +2280,7 @@ document uses for it. From left to right (in version 0.68, with every element of
   log's in `Log`, the history's in `History` (see The settings rearranged). What follows of one folder held in versions 0.87 to
   0.89; the rest of this section holds for each of the two folders.
 - **The folder of the log and of the usage history can be chosen** (since version 0.81; **one folder for both since version
-  0.87**, `docs/img/img_56.png`, where until then each had its own). By default it is the program's folder, the working directory,
+  0.87**, where until then each had its own, two lines `Log folder` and `History folder` in the group `Files`). By default it is the program's folder, the working directory,
   as before. It holds the log and its old logs, the usage history and, in debug mode, the history of invented readings
   (`java-aip-usage.fake.csv`).
 - **Where.** A group `Files` in the tab `General`, after `Window`, with one line, `Log and history folder` (until version 0.86 two,

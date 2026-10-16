@@ -2808,7 +2808,7 @@ with no title bar: `SettingsStoreTest` (the key `dataFolder`, a file of 0.86 and
 the folders), `WindowFitTest` (`keepsTitleBar` for the settings and the debug settings alone), `app.test.cjs` (the fixture,
 the group `Files`, the border with a list open, the height a list alone asks for) and `layout.test.cjs` (the tooltip of
 `Title bar`, the one line of `Files`). No test was added for the buttons `Taller` and `Shorter`, `POST /api/height`, the
-scrollbars that do not move the window, or the move of the old log at the start. The notes of `new-requirements.md` (the ninth round, `img_56`), decided in three rounds of
+scrollbars that do not move the window, or the move of the old log at the start. The notes of `new-requirements.md` (the ninth round, with the two folder lines of the group `Files` to be made one), decided in three rounds of
 questions. `AppInfo.VERSION = "0.87"`. Requirements: The folders of the log and of the usage history; Settings, The title bar;
 A border round the window that has no title bar; Dragging the window that has no title bar; Taller and shorter by buttons.
 
