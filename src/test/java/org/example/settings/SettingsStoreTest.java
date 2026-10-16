@@ -204,7 +204,7 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theFileHoldsTheThirtyOneSettingsAndTheTwoHeightsAndNothingElse() throws IOException {
+    void theFileHoldsTheSettingsTheTwoHeightsAndTheWidthOfTheLogAndNothingElse() throws IOException {
         new SettingsStore(file()).save(interval(45));
 
         Json content = JsonReader.read(Files.readString(file()));
@@ -213,7 +213,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "tooltipMillis", "historyHeight", "logHeight"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "tooltipMillis", "historyHeight", "logHeight", "logWidth"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -352,6 +352,31 @@ class SettingsStoreTest {
             Files.writeString(file(), "{\"historyHeight\": " + bad + ", \"logHeight\": 400}");
             assertEquals(new SettingsStore.Heights(0, 400), new SettingsStore(file()).loadHeights(), bad);
         }
+    }
+
+    @Test
+    void theWidthOfTheLogIsStoredBesideTheHeightsAndKeptBySavingSettings() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        store.save(Settings.defaults());
+        store.saveHeights(new SettingsStore.Heights(640, 500));
+
+        store.saveHeights(store.loadHeights().withLogWidth(1300));
+        store.save(interval(90));
+
+        assertEquals(new SettingsStore.Heights(640, 500, 1300), store.loadHeights());
+        assertTrue(Files.readString(file()).contains("\"logWidth\""), "under its own key (since 0.93)");
+        assertEquals(new SettingsStore.Heights(640, 520, 1300), new SettingsStore(file()).loadHeights().withHeight("log", 520),
+                "a height stored keeps the width");
+    }
+
+    @Test
+    void aMissingOrUnusableWidthOfTheLogIsNone() throws IOException {
+        for (String bad : List.of("-5", "10001", "\"wide\"", "null")) {
+            Files.writeString(file(), "{\"logHeight\": 400, \"logWidth\": " + bad + "}");
+            assertEquals(new SettingsStore.Heights(0, 400, 0), new SettingsStore(file()).loadHeights(), bad);
+        }
+        Files.writeString(file(), "{\"logHeight\": 400}");
+        assertEquals(new SettingsStore.Heights(0, 400, 0), new SettingsStore(file()).loadHeights(), "a file of 0.92 has none");
     }
 
     @Test

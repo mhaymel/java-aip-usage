@@ -184,6 +184,9 @@ public final class SettingsStore {
 
     static final String LOG_HEIGHT_KEY = "logHeight";
 
+    /** The width of the log shown alone, remembered as its height is (since 0.93). */
+    static final String LOG_WIDTH_KEY = "logWidth";
+
     /** The tallest height that is believed, in pixels: more than any screen. */
     static final int MAX_HEIGHT = 10_000;
 
@@ -283,17 +286,28 @@ public final class SettingsStore {
     /**
      * The heights the window had the last time the history and the log were open, in pixels of its content; {@code 0} for
      * none. They are in the settings file but are not settings of the settings view.
+     *
+     * @param logWidth the width the window had the last time the log was shown alone, in pixels of its content (since 0.93);
+     *     {@code 0} for none
      */
-    public record Heights(int history, int log) {
+    public record Heights(int history, int log, int logWidth) {
 
-        public static final Heights NONE = new Heights(0, 0);
+        public static final Heights NONE = new Heights(0, 0, 0);
+
+        public Heights(int history, int log) {
+            this(history, log, 0);
+        }
 
         public Heights withHeight(String panel, int pixels) {
             return switch (panel) {
-                case "history" -> new Heights(pixels, log);
-                case "log" -> new Heights(history, pixels);
+                case "history" -> new Heights(pixels, log, logWidth);
+                case "log" -> new Heights(history, pixels, logWidth);
                 default -> throw new IllegalArgumentException("No remembered height for " + panel);
             };
+        }
+
+        public Heights withLogWidth(int pixels) {
+            return new Heights(history, log, pixels);
         }
 
         public int of(String panel) {
@@ -312,7 +326,7 @@ public final class SettingsStore {
             if (root == null || !root.isObject()) {
                 return Heights.NONE;
             }
-            return new Heights(height(root, HISTORY_HEIGHT_KEY), height(root, LOG_HEIGHT_KEY));
+            return new Heights(height(root, HISTORY_HEIGHT_KEY), height(root, LOG_HEIGHT_KEY), height(root, LOG_WIDTH_KEY));
         } catch (IOException e) {
             return Heights.NONE;
         }
@@ -817,6 +831,7 @@ public final class SettingsStore {
         root.put(TOOLTIP_MILLIS_KEY, settings.tooltipMillis());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
+        root.put(LOG_WIDTH_KEY, heights.logWidth());
         // What the window showed when the program last stopped; only what was stored is written.
         if (last.panel() != null) {
             root.put(LAST_PANEL_KEY, last.panel());

@@ -61,14 +61,16 @@ class WindowFitTest {
         assertEquals(Optional.of(WindowFit.MIN), WindowFit.parse("1,1"));
         assertEquals(Optional.of(new Size(WindowFit.MIN.width(), 50)), WindowFit.parse("20,50"));
         assertEquals(Optional.of(WindowFit.MAX), WindowFit.parse("99999,99999"));
-        assertEquals(Optional.of(new Size(2400, 42)), WindowFit.parse("5000,42"));
-        assertEquals(Optional.of(new Size(400, 1600)), WindowFit.parse("400,2000"));
+        // Since 0.92 the screen is the largest the window is made, which the host applies; the bound here is a sanity one only.
+        assertEquals(Optional.of(new Size(5000, 42)), WindowFit.parse("5000,42"), "wider than 2,400: a screen may be");
+        assertEquals(Optional.of(new Size(400, 2000)), WindowFit.parse("400,2000"));
+        assertEquals(Optional.of(new Size(10000, 42)), WindowFit.parse("12000,42"));
     }
 
     @Test
     void theBoundsAreAcceptedAsTheyAre() {
         assertEquals(Optional.of(WindowFit.MIN), WindowFit.parse("160,32"));
-        assertEquals(Optional.of(WindowFit.MAX), WindowFit.parse("2400,1600"));
+        assertEquals(Optional.of(WindowFit.MAX), WindowFit.parse("10000,10000"));
     }
 
     @ParameterizedTest
@@ -143,7 +145,7 @@ class WindowFitTest {
     void aSizeThatClampsToTheOneAlreadyAppliedChangesNothing() {
         Optional<Size> applied = Optional.of(WindowFit.MAX);
 
-        assertEquals(Optional.empty(), WindowFit.next("5000,9000", applied));
+        assertEquals(Optional.empty(), WindowFit.next("50000,90000", applied));
     }
 
     @Test

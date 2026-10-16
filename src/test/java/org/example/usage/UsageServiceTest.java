@@ -877,7 +877,7 @@ class UsageServiceTest {
             assertEquals(List.of(
                             "WARNING " + UsageSnapshot.NO_SPEND_SEAT_BASED,
                             "INFO " + UsageSnapshot.NO_SPEND_SEAT_BASED,
-                            "INFO Usage refresh succeeded",
+                            "FINE Usage refresh succeeded",
                             "WARNING " + UsageSnapshot.NO_SPEND_SEAT_BASED),
                     lines.stream().filter(line -> line.contains("Received, but") || line.contains("Usage refresh succeeded")).toList(),
                     "a warning when it begins, information while it lasts, and a warning again when it comes back");

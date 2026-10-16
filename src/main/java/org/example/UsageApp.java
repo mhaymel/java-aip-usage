@@ -131,6 +131,25 @@ public class UsageApp extends Application {
     /** Fires when the person has stopped changing the window's height for a moment. */
     private final PauseTransition heightSettled = new PauseTransition(Duration.millis(500));
 
+    /** Fires when the person has stopped changing the width of the log shown alone for a moment (since 0.93). */
+    private final PauseTransition widthSettled = new PauseTransition(Duration.millis(500));
+
+    /**
+     * The size last applied, for where the window goes (since 0.93). Unlike {@link #appliedSize} it is kept when the title bar
+     * comes or goes, so that the views opened before the window was exchanged are still known after it.
+     */
+    private Optional<WindowFit.Size> placedSize = Optional.empty();
+
+    /**
+     * Where the content of the row alone was on the screen when a view was opened, its left and its top, so that closing the
+     * views puts it back there (since 0.93); null with no view open. The content's and not the stage's place, which the title
+     * bar coming or going changes while the content stays.
+     */
+    private double[] rowPlace;
+
+    /** Whether the person has moved the window since a view was opened, so that closing it leaves the row where they put it. */
+    private boolean movedByPerson;
+
     /** How much bigger the stage is than its scene: the title bar and borders. NaN until measured. */
     private double decorationWidth = Double.NaN;
 
@@ -213,7 +232,9 @@ public class UsageApp extends Application {
         stage.setResizable(true);
         restorePlace(stage);
         heightSettled.setOnFinished(event -> rememberDraggedHeight(this.stage));
+        widthSettled.setOnFinished(event -> rememberDraggedWidth(this.stage));
         watchHeight(stage);
+        watchPlace(stage);
         stage.show();
         bringToFront();
         // On macOS the Dock would show the icon of a program that has none.
@@ -299,8 +320,8 @@ public class UsageApp extends Application {
     private double edgeHeight(double wanted) {
         Rectangle2D screen = Screen.getScreensForRectangle(stage.getX(), stage.getY(), 1, 1).stream().findFirst()
                 .orElse(Screen.getPrimary()).getVisualBounds();
-        double most = Math.min(stage.getMaxHeight(), Math.min(WindowFit.MAX.height() + (Double.isNaN(decorationHeight) ? 0 : decorationHeight),
-                screen.getMaxY() - stage.getY()));
+        // No more than the screen has room for below the window's top (since 0.92 no fixed most of its own).
+        double most = Math.min(stage.getMaxHeight(), screen.getMaxY() - stage.getY());
         return Math.max(stage.getMinHeight(), Math.min(most, wanted));
     }
 
@@ -400,13 +421,36 @@ public class UsageApp extends Application {
         asking.start();
     }
 
-    /** Notices when the person drags the height of an open history or log, so that it can be remembered. */
+    /**
+     * Notices when the person drags the height of an open history or log, so that it can be remembered, and the width of the
+     * log shown alone (since 0.93).
+     */
     private void watchHeight(Stage window) {
         window.heightProperty().addListener((observable, before, after) -> {
             if (!applying && rememberedPanel != null && window == stage) {
                 heightSettled.playFromStart();
             }
         });
+        window.widthProperty().addListener((observable, before, after) -> {
+            if (!applying && window == stage && logAlone(appliedSize)) {
+                widthSettled.playFromStart();
+            }
+        });
+    }
+
+    /** Notices when the person moves the window, by the row, by the title bar or otherwise, which the program's own moves are not. */
+    private void watchPlace(Stage window) {
+        javafx.beans.value.ChangeListener<Number> moved = (observable, before, after) -> {
+            if (!applying && window == stage) {
+                movedByPerson = true;
+            }
+        };
+        window.xProperty().addListener(moved);
+        window.yProperty().addListener(moved);
+    }
+
+    private static boolean logAlone(Optional<WindowFit.Size> size) {
+        return size.isPresent() && "log".equals(size.get().panel());
     }
 
     /**
@@ -424,6 +468,7 @@ public class UsageApp extends Application {
             return;
         }
         heightSettled.stop();
+        widthSettled.stop();
         applying = true;
         try {
             stage = StageSwap.replace(stage, wanted);
@@ -431,6 +476,7 @@ public class UsageApp extends Application {
             applying = false;
         }
         watchHeight(stage);
+        watchPlace(stage);
         // The frame is another, so what the window is bigger by than its content is measured again: not here, where the
         // new window has not been laid out yet, but by resize on a later tick, as for the first window. The size the page
         // asked for is then applied again to the new window, with its limits.
@@ -599,6 +645,14 @@ public class UsageApp extends Application {
             decorationHeight = height;
         }
         Optional<WindowFit.Size> before = appliedSize;
+        // A width the person had just dragged the log to, and that was not remembered yet, is remembered first.
+        if (widthSettled.getStatus() == Animation.Status.RUNNING) {
+            widthSettled.stop();
+            rememberDraggedWidth(stage);
+        }
+        // Where the window was, and on which screen, before it changes: what it grows from (since 0.93).
+        WindowPlace.Rect was = new WindowPlace.Rect(stage.getX(), stage.getY(), stage.getWidth(), stage.getHeight());
+        Rectangle2D area = screenArea();
         appliedSize = Optional.of(size);
         // A panel that stays open keeps the width the person gave the window: a new line, or any other change of what the page
         // asks for, applies the page's own width only when the panel was opened or replaced.
@@ -616,7 +670,7 @@ public class UsageApp extends Application {
             // The history and the log open at the height they were last left at, never less than the page's own.
             RememberedHeights.Opening opening =
                     RememberedHeights.open(size.height() - above, runtime.settings().storedHeight(list));
-            contentHeight = Math.min(above + opening.height(), WindowFit.MAX.height());
+            contentHeight = above + opening.height();
             if (opening.store()) {
                 runtime.settings().storeHeight(list, size.height() - above);
             }
@@ -638,6 +692,13 @@ public class UsageApp extends Application {
         // Rounded up: a frame is not always a whole number of pixels wide, and a window a fraction too narrow shows a pixel
         // less of the page than it asked for, which is a pixel of the red border when there is one.
         double width = keepWidth ? stage.getWidth() : Math.ceil(size.width() + decorationWidth);
+        // The log alone opens at the width it was last left at, never narrower than the page asks for (since 0.93).
+        int storedWidth = runtime.settings().storedLogWidth();
+        if (!keepWidth && "log".equals(size.panel()) && storedWidth > 0) {
+            width = Math.max(width, Math.ceil(storedWidth + decorationWidth));
+        }
+        // Never wider than the screen the window is on either (since 0.92; the program held it to 2,400 pixels until then).
+        width = Math.min(width, area.getWidth());
         double height = Math.ceil(contentHeight + decorationHeight);
         if (size.resize() == WindowFit.Resize.NONE) {
             // The content as it is with nothing open: what the person may shrink an open one back to.
@@ -647,6 +708,7 @@ public class UsageApp extends Application {
         applying = true;
         try {
             applySize(stage, size, width, height);
+            place(stage, size, was, new WindowPlace.Rect(area.getMinX(), area.getMinY(), area.getWidth(), area.getHeight()));
         } finally {
             applying = false;
         }
@@ -666,6 +728,64 @@ public class UsageApp extends Application {
         }
     }
 
+    /** The person has settled on a width for the log shown alone: remember it (since 0.93). */
+    private void rememberDraggedWidth(Stage stage) {
+        if (!logAlone(appliedSize) || Double.isNaN(decorationWidth)) {
+            return;
+        }
+        int pixels = (int) Math.round(stage.getWidth() - decorationWidth);
+        if (pixels > 0) {
+            runtime.settings().storeLogWidth(pixels);
+        }
+    }
+
+    /**
+     * Puts the window where the room is after the program has changed its size (since 0.93): opening a view keeps the corner of
+     * the window nearest the screen's corner where it was, and remembers where the row was; closing the views puts the row back
+     * there, unless the person has moved the window meanwhile; a change while a view stays shown keeps the corner as opening
+     * does. What would still lie off the screen is moved onto it. The row alone, the row away and back, and the place the start
+     * restores are left where they are.
+     */
+    private void place(Stage stage, WindowFit.Size size, WindowPlace.Rect was, WindowPlace.Rect screen) {
+        Optional<WindowFit.Size> previous = placedSize;
+        placedSize = Optional.of(size);
+        if (previous.isEmpty() || restoring != null || sameButAway(previous.get(), size)) {
+            return;
+        }
+        boolean viewBefore = previous.get().resize() != WindowFit.Resize.NONE;
+        boolean viewNow = size.resize() != WindowFit.Resize.NONE;
+        if (!viewBefore && !viewNow) {
+            return;
+        }
+        double sceneX = stage.getScene().getX();
+        double sceneY = stage.getScene().getY();
+        WindowPlace.Rect to;
+        if (!viewBefore) {
+            rowPlace = new double[] {was.x() + sceneX, was.y() + sceneY};
+            movedByPerson = false;
+            to = WindowPlace.anchored(was, stage.getWidth(), stage.getHeight(), screen);
+        } else if (!viewNow && rowPlace != null && !movedByPerson) {
+            to = WindowPlace.onScreen(
+                    new WindowPlace.Rect(rowPlace[0] - sceneX, rowPlace[1] - sceneY, stage.getWidth(), stage.getHeight()), screen);
+        } else {
+            to = WindowPlace.anchored(was, stage.getWidth(), stage.getHeight(), screen);
+        }
+        if (!viewNow) {
+            rowPlace = null;
+        }
+        if (to.x() != stage.getX()) {
+            stage.setX(to.x());
+        }
+        if (to.y() != stage.getY()) {
+            stage.setY(to.y());
+        }
+    }
+
+    /** Whether two sizes differ in how far the row is away at most, which moves the window nowhere. */
+    private static boolean sameButAway(WindowFit.Size a, WindowFit.Size b) {
+        return new WindowFit.Size(a.width(), a.height(), a.resize(), a.panel(), a.alone(), b.away()).equals(b);
+    }
+
     private void applySize(Stage stage, WindowFit.Size size, double width, double height) {
         // The limits are opened wide first, so that they never forbid the size set next.
         stage.setMinWidth(0);
@@ -674,6 +794,10 @@ public class UsageApp extends Application {
         stage.setMaxHeight(Double.MAX_VALUE);
         stage.setWidth(width);
         stage.setHeight(height);
+        // The largest the person may drag it to by its frame is the screen (since 0.92); the fixed sizes below are within that.
+        Rectangle2D area = screenArea();
+        stage.setMaxWidth(Math.max(width, area.getWidth()));
+        stage.setMaxHeight(Math.max(height, area.getHeight()));
         // The window stays resizable and the limits say what of it the person may change; toggling
         // the window's resizable flag instead is not something every desktop follows.
         switch (size.resize()) {
@@ -700,6 +824,12 @@ public class UsageApp extends Application {
                 stage.setMaxHeight(height);
             }
         }
+    }
+
+    /** The visual bounds of the screen the window is on (without the taskbar or the Dock): the largest the window is ever made. */
+    private Rectangle2D screenArea() {
+        return Screen.getScreensForRectangle(stage.getX(), stage.getY(), Math.max(1, stage.getWidth()), 1).stream().findFirst()
+                .orElse(Screen.getPrimary()).getVisualBounds();
     }
 
     /** How tall the content of the window may be on the screen it is on: the screen's visual height less the frame. */

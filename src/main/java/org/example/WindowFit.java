@@ -109,7 +109,9 @@ final class WindowFit {
 
     static final Size MIN = new Size(160, 32);
 
-    static final Size MAX = new Size(2400, 1600);
+    // No size of a window, only a bound on what the page may report (2,400 by 1,600 until 0.91): since 0.92 the screen the window is
+    // on is the largest it is made, which the host applies.
+    static final Size MAX = new Size(10000, 10000);
 
     private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(debug|(?:settings\\+)?(?:log|history|errors|cost)(?:\\+(?:log|history|errors|cost)){0,3}|settings)(?:,(\\d{1,5}))?(?:,-(\\d{1,4}))?)?)?");
 

@@ -86,6 +86,27 @@ public final class IntervalSettings {
         LOG.debug("The " + panel + " window height is now " + pixels + " px");
     }
 
+    /** The width the window had the last time the log was shown alone (since 0.93), or 0. */
+    public synchronized int storedLogWidth() {
+        return heights.logWidth();
+    }
+
+    /** Remembers the width of the window with the log shown alone, as {@link #storeHeight} remembers a height. */
+    public synchronized void storeLogWidth(int pixels) {
+        SettingsStore.Heights updated = heights.withLogWidth(pixels);
+        if (updated.equals(heights)) {
+            return;
+        }
+        try {
+            store.saveHeights(updated);
+        } catch (IOException e) {
+            LOG.warning("Could not save the width of the log to " + store.file(), e);
+            return;
+        }
+        heights = updated;
+        LOG.debug("The log window width is now " + pixels + " px");
+    }
+
     /** How the fake backend's ordinary answer is shaped, as saved; the defaults if it never was. */
     public synchronized org.example.fake.FakeOptions fakeOptions() {
         return store.loadFake();

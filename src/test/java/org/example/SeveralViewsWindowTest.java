@@ -108,12 +108,12 @@ class SeveralViewsWindowTest {
         Matcher again = step(all, "history-again");
         assertEquals(Integer.parseInt(dragged.group(10)), Integer.parseInt(again.group(10)), "the history comes back at the height it was dragged to:\n" + all);
 
-        // All four views: the window within the screen, and the error log, the lowest, seen (since 0.82; img_36).
+        // All the views, three since 0.91: the window within the screen, and the log, the lowest, seen (since 0.82; img_36).
         Matcher four = step(all, "four");
-        assertEquals("cost+history+log+errors,", four.group(1), all);
+        assertEquals("cost+history+log,", four.group(1), all);
         assertTrue(Integer.parseInt(four.group(10)) <= Integer.parseInt(four.group(13)), "no taller than the screen:\n" + all);
         String[] fourViews = four.group(11).split("/");
-        assertTrue(fourViews[3].startsWith("view-errors:") && Integer.parseInt(fourViews[3].split(":")[2]) >= 100, "the error log has room:\n" + all);
+        assertTrue(fourViews[2].startsWith("view-log:") && Integer.parseInt(fourViews[2].split(":")[2]) >= 100, "the log has room:\n" + all);
         // A screen of 600: the lists share it, and the window is 600 tall.
         Matcher small = step(all, "four-small");
         near(600, Integer.parseInt(small.group(10)), "the window as tall as the room:\n" + all);
@@ -121,9 +121,7 @@ class SeveralViewsWindowTest {
         String[] smallViews = small.group(11).split("/");
         int sharedHistory = Integer.parseInt(smallViews[1].split(":")[2]);
         int sharedLog = Integer.parseInt(smallViews[2].split(":")[2]);
-        int sharedErrors = Integer.parseInt(smallViews[3].split(":")[2]);
-        assertTrue(Math.abs(sharedHistory - sharedLog) <= 1 && sharedErrors >= 100,
-                "equal parts, the lowest the rest: " + sharedHistory + ", " + sharedLog + ", " + sharedErrors + "\n" + all);
+        assertTrue(sharedHistory >= 100 && sharedLog >= 100, "the history its part, the log, the lowest, the rest: " + sharedHistory + ", " + sharedLog + "\n" + all);
         assertEquals("cost+history,", step(all, "four-closed").group(1), all);
 
         // The settings beside the two: above them, the history the lowest list at the height it has.

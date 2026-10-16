@@ -119,8 +119,20 @@ public final class UsageAppProbe {
                     "var l = document.getElementById('log-level'); l.value = 'info'; l.dispatchEvent(new Event('change'));"
                             + " var d = document.getElementById('log-date'); d.checked = false; d.dispatchEvent(new Event('change'));"));
             step("log-back", null);
-            step("errors", "errors-button");
-            step("errors-closed", "errors-button");
+            // The error log is gone since 0.91: the log is closed, and the row is alone again.
+            step("log-closed", "log-button");
+            // The row at the bottom right of its screen: the log grows upwards and to the left, and closing it puts the row back (since 0.93).
+            onFx(() -> {
+                javafx.geometry.Rectangle2D area = screen();
+                window().setX(area.getMaxX() - window().getWidth());
+                window().setY(area.getMaxY() - window().getHeight());
+            });
+            Thread.sleep(500);
+            place("log-low-before");
+            step("log-low", "log-button");
+            place("log-low");
+            step("log-low-closed", "log-button");
+            place("log-low-closed");
             // The cost control cannot be resized, so it has no title bar: the window has its border, and is moved by dragging it.
             step("cost-panel", "cost-button");
             drag("drag-cost", "time");
@@ -184,6 +196,24 @@ public final class UsageAppProbe {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /** The visible area of the screen the window is on. */
+    private static javafx.geometry.Rectangle2D screen() {
+        return javafx.stage.Screen.getScreensForRectangle(window().getX(), window().getY(), 1, 1).stream().findFirst()
+                .orElse(javafx.stage.Screen.getPrimary()).getVisualBounds();
+    }
+
+    /** Says where the window is, its left, top, right and bottom, and the same of the visible area of its screen. */
+    private static void place(String name) throws InterruptedException {
+        onFx(() -> {
+            javafx.geometry.Rectangle2D area = screen();
+            System.out.println("PROBE " + name + "-place=" + Math.round(window().getX()) + "," + Math.round(window().getY()) + ","
+                    + Math.round(window().getX() + window().getWidth()) + "," + Math.round(window().getY() + window().getHeight())
+                    + " screen:" + Math.round(area.getMinX()) + "," + Math.round(area.getMinY()) + "," + Math.round(area.getMaxX())
+                    + "," + Math.round(area.getMaxY()));
+            System.out.flush();
+        });
     }
 
     /** Opens the settings, shows their Debug tab, and says what there is. */

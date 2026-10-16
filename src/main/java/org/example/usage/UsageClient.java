@@ -215,8 +215,13 @@ public final class UsageClient implements UsageSource {
 
     private void logOutcome(String outcome, long startedNanos, String details) {
         long millis = Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
-        LOG.info(
-                "GET " + uri.getHost() + uri.getPath() + " -> " + outcome + " in " + millis + " ms" + details);
+        String line = "GET " + uri.getHost() + uri.getPath() + " -> " + outcome + " in " + millis + " ms" + details;
+        // A request that succeeds is a line every few seconds: at DEBUG since 0.92. One that fails stays at INFO, before its ERROR.
+        if ("HTTP 200".equals(outcome)) {
+            LOG.debug(line);
+        } else {
+            LOG.info(line);
+        }
     }
 
     /**

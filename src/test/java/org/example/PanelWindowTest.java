@@ -36,9 +36,12 @@ class PanelWindowTest {
         String all = String.join("\n", output);
         int closed = height(all, "closed");
         assertEquals(10 * closed, height(all, "history"), "ten times as tall with the history shown:\n" + all);
-        assertEquals(10 * closed, height(all, "log"), "and the same with the log shown instead");
+        // Since 0.91 the log opens larger: three times as tall as the history, and half again as wide as it was, plus its scrollbar.
+        assertEquals(3 * height(all, "history"), height(all, "log"), "three times as tall with the log shown instead:\n" + all);
         assertEquals(width(all, "closed"), width(all, "history"), "as wide as the row for the history");
-        assertEquals(3 * width(all, "closed"), width(all, "log"), "and three times as wide for the log");
+        int logWidth = width(all, "log");
+        int wide = (int) Math.ceil(4.5 * width(all, "closed"));
+        assertTrue(logWidth >= wide && logWidth <= wide + 30, "and four and a half times as wide for the log, with its scrollbar:\n" + all);
         assertEquals(closed, height(all, "closed-again"), "and back to its size when the panel is hidden");
         assertTrue(all.contains("PROBE history-lines=14:26:53 3.00 4.00 |14:25:53 2.00 2.00 |14:24:53 1.00 2.00 "),
                 "the history panel shows the rows, newest first:\n" + all);

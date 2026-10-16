@@ -426,7 +426,8 @@ public final class UsageService implements AutoCloseable {
             UsageSnapshot snapshot = fetcher.fetch(cancel);
             String noSpend = snapshot.noSpendMessage();
             if (noSpend == null) {
-                LOG.info("Usage refresh succeeded");
+                // At DEBUG since 0.92, as the line of the request that succeeded: the log at INFO is not a line every few seconds.
+                LOG.debug("Usage refresh succeeded");
             } else {
                 // The response came and holds nothing to show: said in place of the success, as a warning when it begins
                 // and as information at the refreshes that follow, so that the log is not filled with warnings.

@@ -316,6 +316,18 @@ class UsageClientTest {
         assertTrue(logged.matches("(?s).*GET 127\\.0\\.0\\.1/usage -> HTTP 200 in \\d+ ms \\(\\d+ bytes, request-id req_011CTestRequest\\).*"), logged);
         assertFalse(logged.contains(TOKEN), logged);
         assertFalse(logged.contains("amount_minor"), "no part of the body is logged: " + logged);
+        assertTrue(logLines.stream().anyMatch(line -> line.startsWith("FINE GET 127.0.0.1/usage -> HTTP 200 ")),
+                "a request that succeeds is logged at DEBUG since 0.92: " + logged);
+    }
+
+    @Test
+    void aRequestThatFailsIsLoggedAtInfoStill() throws Exception {
+        URI uri = serve("/usage", exchange -> reply(exchange, 503, "{}"));
+
+        assertThrows(UsageFetchException.class, () -> client(uri).fetch(TOKEN));
+
+        assertTrue(logLines.stream().anyMatch(line -> line.startsWith("INFO GET 127.0.0.1/usage -> HTTP 503 ")),
+                "the context of a failure at the usual level: " + logLines);
     }
 
     @Test

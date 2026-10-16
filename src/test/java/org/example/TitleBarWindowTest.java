@@ -82,14 +82,14 @@ class TitleBarWindowTest {
         // the name of the window class, which the toolkit gives it by itself. And the system's own Java, loaded for the icon
         // of the Dock, did no harm: every step that follows was taken.
         assertEquals("PROBE application-name=aip usage", line(all, "application-name"), all);
-        for (String bare : List.of("start", "settings-left", "history-closed", "errors-closed", "cost-panel-closed")) {
+        for (String bare : List.of("start", "settings-left", "history-closed", "log-closed", "cost-panel-closed")) {
             assertTrue(line(all, bare).contains("titleBar:false"), bare + ": no panel, no title bar:\n" + all);
             assertTrue(line(all, bare).matches(".* size:\\d+,\\d+,0 .*"), bare + ": the row alone:\n" + all);
         }
         assertTrue(line(all, "settings").contains("titleBar:true"), "the settings are open, so the title bar is there:\n" + all);
         assertTrue(line(all, "settings").contains(",settings "), "and the page names them:\n" + all);
         // Since 0.87 a list has no title bar either: it has buttons to make it taller and shorter, and is moved by dragging it.
-        for (String open : List.of("history", "log", "errors")) {
+        for (String open : List.of("history", "log")) {
             assertTrue(line(all, open).contains("titleBar:false"), open + ": a list has no title bar:\n" + all);
             assertTrue(line(all, open).contains("," + open + " "), open + ": and the page names it:\n" + all);
         }
@@ -106,6 +106,16 @@ class TitleBarWindowTest {
         }
         assertEquals("moved:40,25 hasTitleBar:false panel:true", line(all, "drag-cost").substring("PROBE drag-cost=".length()), all);
         assertTrue(line(all, "cost-to-log").contains("titleBar:false"), "nor has the log, opened from the cost control:\n" + all);
+        // The log opened at the bottom right of the screen grows upwards and to the left, and lies on the screen; closed, the row
+        // is back where it was (since 0.93). Its bottom edge may stand higher by the row, which goes while the pointer is away.
+        int[] low = place(all, "log-low-before-place");
+        int[] open = place(all, "log-low-place");
+        int[] closed = place(all, "log-low-closed-place");
+        assertEquals(low[2], open[2], "the right edge stays:\n" + all);
+        assertTrue(open[1] < low[1] && open[0] < low[0], "the log grew upwards and to the left:\n" + all);
+        assertTrue(open[0] >= open[4] && open[1] >= open[5] && open[2] <= open[6] && open[3] <= open[7], "and lies on the screen:\n" + all);
+        assertTrue(low[3] - open[3] < 60, "its bottom edge where the row's was, but for the row:\n" + all);
+        assertEquals(low[0] + "," + low[1], closed[0] + "," + closed[1], "closed, the row is back:\n" + all);
         // With no title bar the window is moved by dragging it, from a figure and from its edge, and not from a button; with
         // the title bar a drag inside it moves nothing.
         assertEquals("moved:40,25 hasTitleBar:false panel:false", line(all, "drag-figure").substring("PROBE drag-figure=".length()), all);
@@ -117,10 +127,11 @@ class TitleBarWindowTest {
         assertEquals("moved:0,0 grew:60 hasTitleBar:false", line(all, "drag-edge").substring("PROBE drag-edge=".length()), "the bottom edge makes the list taller:\n" + all);
 
         // The button of Main view: a small icon in the line of the heading, which switches every element on, and all off when all are on.
-        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/10 .*"), "some elements are on, the status circle among them since 0.82, and the button is in the middle of its heading:\n" + all);
-        assertTrue(line(all, "settings-all").contains("/18 note:"), "one press: all eighteen on, the status circle and the figures of the day among them (since 0.82):\n" + all);
-        // Another: all off but the four icons, which are a group of their own with a button of its own since 0.90.
-        assertTrue(line(all, "settings-narrow").contains("/4 note:"), "another: all off, the icons left as they were:\n" + all);
+        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/9 .*"), "some elements are on, the status circle among them since 0.82, and the button is in the middle of its heading:\n" + all);
+        // The error log's icon is gone since 0.91: one checkbox fewer in each count.
+        assertTrue(line(all, "settings-all").contains("/17 note:"), "one press: all seventeen on, the status circle and the figures of the day among them (since 0.82):\n" + all);
+        // Another: all off but the three icons, which are a group of their own with a button of its own since 0.90.
+        assertTrue(line(all, "settings-narrow").contains("/3 note:"), "another: all off, the icons left as they were:\n" + all);
 
         // The window has the program's icon in its four sizes, with the title bar and without, in each window that took the place of another.
         assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" icons:16/32/48/256 ")).count(),
@@ -143,7 +154,6 @@ class TitleBarWindowTest {
         assertTrue(Integer.parseInt(larger.group(1)) > Integer.parseInt(usual.group(1)), "the window is wider for the larger text:\n" + all);
         assertEquals(usual.group(1), back.group(1), "and as wide as it was again:\n" + all);
         assertTrue(line(all, "start").contains("|false|"), "with no list there is no line of the zoom:\n" + all);
-        assertTrue(line(all, "errors").contains(" list:[12px|") && line(all, "errors").contains("|true|22]"), "the error log has the line too:\n" + all);
 
         // The settings: Automatic is off and the field of the interval can be typed in; checked, the field is disabled and
         // shows the interval in force; unchecked again, it has the configured interval and can be typed in.
@@ -231,7 +241,7 @@ class TitleBarWindowTest {
         assertTrue(line(all, "log-date").matches(".* logLines:\\d+/\\d+/\\d{4}-\\d\\d-\\d\\d .*"), "with the date switched on they begin with it:\n" + all);
         assertTrue(line(all, "log-warning").matches(".* logLines:\\d+/0/.*"), "warnings and worse: no line of information:\n" + all);
         assertTrue(line(all, "log-back").matches(".* logLines:\\d+/[1-9]\\d*/\\d\\d:\\d\\d:\\d\\d .*"), all);
-        for (String without : List.of("start", "history", "errors", "settings")) {
+        for (String without : List.of("start", "history", "settings")) {
             assertTrue(line(all, without).contains(" logControls:false "), without + " has no such line:\n" + all);
         }
         assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" windows:1 ")).count(),
@@ -239,7 +249,7 @@ class TitleBarWindowTest {
         assertTrue(!all.contains("PROBE failed"), all);
         // The row has its size again after each panel, in the window that has no frame.
         String row = line(all, "start").replaceAll(".* content:(\\S+) .*", "$1");
-        for (String bare : List.of("settings-left", "history-closed", "errors-closed")) {
+        for (String bare : List.of("settings-left", "history-closed", "log-closed")) {
             assertEquals(row, line(all, bare).replaceAll(".* content:(\\S+) .*", "$1"), bare + ":\n" + all);
         }
         assertTrue(all.contains("PROBE the program ended after the window was closed"), all);
@@ -358,6 +368,12 @@ class TitleBarWindowTest {
     private static String line(String all, String name) {
         String prefix = "PROBE " + name + "=";
         return all.lines().filter(l -> l.startsWith(prefix)).findFirst().orElseThrow(() -> new AssertionError("no " + name + " in:\n" + all));
+    }
+
+    /** The window's left, top, right and bottom, and those of its screen's visible area, as the probe says them. */
+    private static int[] place(String all, String name) {
+        String[] parts = line(all, name).substring(("PROBE " + name + "=").length()).replace(" screen:", ",").split(",");
+        return java.util.Arrays.stream(parts).mapToInt(Integer::parseInt).toArray();
     }
 
     private static Matcher report(String all, String name) {

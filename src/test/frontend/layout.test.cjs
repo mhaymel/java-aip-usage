@@ -1419,3 +1419,14 @@ test('the tab Cost control has the line Figures after Currency symbol, with Spen
     assert.match(tab, /<label title="Shows the daily and the monthly limit in the cost control\."><input id="set-costShowLimit" type="checkbox"> Limit<\/label>/);
     assert.match(tab, /<label title="Shows the share of each limit that is spent, in the cost control\."><input id="set-costShowPercent" type="checkbox"> Percentage<\/label>/);
 });
+
+// ---- version 0.92
+
+test('the three checkboxes of the group Icons are in one line', () => {
+    const icons = html.slice(html.indexOf('<legend>Icons'), html.indexOf('</fieldset>', html.indexOf('<legend>Icons')));
+    const lines = [...icons.matchAll(/<span class="line">([\s\S]*?)<\/span>/g)].map(m => m[1]);
+    assert.equal(lines.length, 1, 'one line (since 0.92)');
+    const order = ['set-showCostIcon', 'set-showHistoryIcon', 'set-showLogIcon'].map(id => lines[0].indexOf('id="' + id + '"'));
+    assert.ok(order.every(p => p >= 0));
+    assert.deepEqual([...order].sort((a, b) => a - b), order);
+});

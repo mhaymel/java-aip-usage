@@ -847,7 +847,7 @@ The history is shown inside the main window, not in a window of its own.
 
 - The height of the window while the history is shown, and while the log is shown, is remembered for each
   of the two, as `historyHeight` and `logHeight` in the settings file, in pixels of the window's content. The
-  width is not. They are not settings of the settings view: they are neither shown nor applied there, and
+  width is not (but for the log's since version 0.93, see Version 0.93). They are not settings of the settings view: they are neither shown nor applied there, and
   nothing there changes them.
 - When the person changes the window's height while the history or the log is shown, the new height is stored,
   once the change has settled, not at every pixel of a drag. The program, not the page, notices: the page never
@@ -2438,6 +2438,43 @@ document uses for it. From left to right (see `docs/img_2.png`, where each but t
   still a link that opens its folder, with the button that copies the full path.
 - **Every column of the history is centred** (`docs/img_73.png`), its title and its cells, as `daily limit is` is since 0.90.
 
+### Version 0.92: quieter log, the icons in one line, the screen as the largest size
+
+- **A request that succeeds is logged at `DEBUG`** (`docs/img_74.png`): its line `GET <host><path> -> HTTP 200 in <n> ms (…)` and the
+  line `Usage refresh succeeded`, where both were `INFO`, so that the log at its usual level is not a line every few seconds. A
+  request that fails keeps its `GET` line at `INFO`, before its `ERROR` line, so that a failure has its context at the usual level.
+  Everything else stays as it was; the log viewer at `Info` shows the starts, the changes of the interval, of the settings and of
+  the source, and the failures.
+- **The checkboxes of the group `Icons` are in one line** (`docs/img_75.png`): `Cost`, `History` and `Log` side by side, after the
+  heading's button, as the properties beside a checkbox are.
+- **The largest size is the screen's**, the visible area of the screen the window is on (its work area, without the taskbar or the
+  Dock), in width and in height: for what the program sets (where `WindowFit.MAX` was 2,400 by 1,600), for the height a list opens
+  at and a remembered one, and for a drag by the frame or by an edge. A window on a smaller screen than before is never larger than
+  it; one moved to another screen takes that screen's size as its largest at the next change of its size.
+
+### Version 0.93: a view grows towards the room there is
+
+- **A view grows towards the room there is** (`tmp.md`): the window grew from its top left corner, so that a window low or on the
+  right of the screen ran over its bottom and right edges when the log opened, and had to be moved. When a view is opened, or
+  replaces another, and the window gets larger, **the corner of the window nearest the corner of the screen stays where it is**:
+  a window in the lower half of the screen keeps its bottom edge and grows upwards, one in the right half keeps its right edge
+  and grows to the left; one in the upper left keeps its top left corner, as before. Which half the window is in is decided by
+  the middle of the window as it is before it grows, on the screen it is on. **The same corner stays where it is whenever the
+  program changes the size while a view stays shown**: one of several views closed, another added, a list made taller or
+  shorter by its own buttons, so that a window at the bottom of the screen keeps its bottom edge there. A new line in a view that stays open, a drag by
+  the frame or by an edge, and a row going away while the pointer is outside the window move nothing.
+- **What does not fit is moved onto the screen**: when the window, grown so, would still lie partly off the visible area of the
+  screen, it is moved the least that puts it wholly on it, in width and in height. It is never larger than that area (see
+  Version 0.92), so it always fits.
+- **Closing the view puts the window back where it was**: the place the window had before the view was opened is kept, and when
+  the window goes back to the row alone it goes back to that place, so that the row is where the person left it. Not when the
+  person has moved the window while the view was open: then the row keeps the place it has, its corner nearest the corner of the
+  screen staying where it is, as it does when the window grows. Replacing one view with another keeps the place of the row
+  alone, so that closing the second goes back to it too.
+- **The width of the log is remembered**, as its height is (see Remembered heights): `logWidth` in the settings file, in pixels
+  of the window's content, stored once a change by the person has settled, as the height is. The log opens at the stored width,
+  never less than the width the page asks for, within the screen. The history keeps no width, its width being its table's.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: the tab `Debug` of the settings, the debug settings, the fake
@@ -2761,6 +2798,10 @@ These are things the program does that the sections above do not say, written do
 
 **The window**
 
+- **Since version 0.92 the largest the window is ever made is the visible area of the screen it is on**, in place of the 2,400 by
+  1,600 pixels that follow here: what the program sets, the height a list opens at, a remembered height when it is used, and a
+  drag by the frame or by an edge of a window with no title bar (see Version 0.92). The rest of this point holds with the screen's
+  size for those figures.
 - The program never gives the window a size smaller than 160 by 32 or larger than 2,400 by 1,600 pixels of content, and until the page has told its size it is 420 by 50. Those limits are on what the program sets, not on what a person drags: while a panel that can be
   resized is open, the window may be dragged larger than that, as far as the desktop lets it. A remembered height is stored once the person has not changed it for half a second, as it is, with no upper limit of its own, and is
   kept only if it is more than 0; when a panel is opened at a remembered height, 1,600 is the most that is used for that opening, and the stored value stays what it was.

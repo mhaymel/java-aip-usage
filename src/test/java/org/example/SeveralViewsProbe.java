@@ -66,14 +66,13 @@ public final class SeveralViewsProbe {
             step("history-cost", "log-button");
             step("cost-alone", "history-button");
             step("history-again", "history-button");
-            // All four, and then a screen of 600 pixels, as the host would say for a small one: the lists share it.
-            onFx(() -> page().getEngine().executeScript("document.getElementById('log-button').click()"));
-            step("four", "errors-button");
+            // All three (four until 0.90, with the error log), and then a screen of 600 pixels, as the host would say for a small
+            // one: the lists share it.
+            step("four", "log-button");
             onFx(() -> page().getEngine().executeScript("window.screenRoom(600)"));
             step("four-small", null);
             onFx(() -> page().getEngine().executeScript("window.screenRoom(100000)"));
-            onFx(() -> page().getEngine().executeScript("document.getElementById('log-button').click()"));
-            step("four-closed", "errors-button");
+            step("four-closed", "log-button");
             // The settings beside the two, above them; the program stops with all three shown.
             step("settings-beside", "settings-button");
             // img_50: every element of Main view unchecked but the icons, and Save: the settings close, the views beside them stay.

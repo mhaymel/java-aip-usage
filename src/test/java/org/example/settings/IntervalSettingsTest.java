@@ -270,4 +270,27 @@ class IntervalSettingsTest {
 
         assertEquals(0, settings.storedHeight("log"));
     }
+
+    @Test
+    void theWidthOfTheLogIsRememberedAcrossARestartWithItsHeight() {
+        IntervalSettings first = load();
+        assertEquals(0, first.storedLogWidth());
+
+        first.storeHeight("log", 500);
+        first.storeLogWidth(1300);
+
+        IntervalSettings second = load();
+        assertEquals(1300, second.storedLogWidth());
+        assertEquals(500, second.storedHeight("log"), "the height is kept beside it");
+    }
+
+    @Test
+    void aWidthThatCannotBeSavedIsLoggedNotThrownAndNotRemembered() {
+        SettingsStore unwritable = new SettingsStore(dir.resolve("no-such-dir").resolve("settings.json"));
+        IntervalSettings settings = IntervalSettings.load(unwritable, OptionalInt.empty(), OptionalInt.empty());
+
+        settings.storeLogWidth(1300);
+
+        assertEquals(0, settings.storedLogWidth());
+    }
 }

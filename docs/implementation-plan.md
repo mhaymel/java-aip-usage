@@ -3125,6 +3125,118 @@ honours it); the log's red and orange on both themes; the right edge's cursor on
 - **Tests**: `UsageServiceTest` (a failed refresh at `SEVERE`), `ApiTest` (the error log's endpoint gone, a token problem and a 429 kept
   as failures, `locateWindow` on by default, `tooltipMillis` and its refusals), `SettingsStoreTest` (both, and the file's keys).
 
+### 134. Version 0.92: a quieter log, the icons in one line, the screen as the largest size
+
+**Status: built (version 0.92).** The notes of `new-requirements.md` (the fourteenth round, `img_74`, `img_75`), decided in one round of
+questions: only a request that succeeds goes to `DEBUG`; the screen is the largest size everywhere. Before building: the whole suite run, the
+window tests included (`-Daipusage.windows=true`), and one commit once it passes, without the notes and images of `docs/`. `AppInfo.VERSION = "0.92"`.
+Requirements: Version 0.92: quieter log, the icons in one line, the screen as the largest size; Details of the behaviour (the
+largest size). Three parts:
+
+1. **A quieter log.** `UsageClient.logOutcome`: `LOG.debug` when the outcome is `HTTP 200` (the request succeeded), `LOG.info`
+   otherwise, as now; `UsageService` (line 429): `LOG.debug("Usage refresh succeeded")`. Nothing else changes level. Tests:
+   `UsageClientTest` and `UsageServiceTest` where they read those lines (by level: `FINE`), and the seat test of
+   `UsageServiceTest`, which lists `INFO Usage refresh succeeded` among its lines, now `FINE`.
+2. **The icons in one line.** `index.html`: the three labels of the fieldset `Icons` in one `span.line`, as `Status` and `Blinks` are.
+   Tests: `layout.test.cjs` (the group `Icons`: one line, three checkboxes in it, in that order).
+3. **The screen as the largest size.** `UsageApp`: a `screenArea()` beside `screenRoom()`, the visual bounds of the screen the window
+   is on, less the frame (`decorationWidth`/`Height` once measured). Where `WindowFit.MAX` limits what is applied (in `resize`: the
+   opening height, `contentHeight`; `edgeHeight`) the screen's figures take its place: `contentHeight` is already capped by
+   `screenRoom()`, and the width is capped now as well (`Math.min(width, screenArea().width)`). `applySize`: the max width and height of
+   the stage are the screen's, where they were `Double.MAX_VALUE` (and the fixed figures where the size is not the person's), so that a
+   drag by the frame stops at the screen too; `edgeWidth` and `edgeHeight` keep their screen limits. `WindowFit.MAX` stays as a sanity
+   limit of what the page may report (a figure that large is no size at all), but is no longer what the window is held to: raised to
+   10,000 by 10,000 so that a screen larger than 2,400 by 1,600 is not cut. The page: `screenRoom` stays the height; nothing else.
+   Tests: `WindowFitTest` where it names 2,400 or 1,600; a window test is not run (by eye: a list dragged larger than the screen stops at
+   its edge; a log opened on a small screen is no larger than it).
+
+- **Tests.** As above, and the whole suite with the window tests, which have not run since 0.90: the error log's removal of 0.91
+  touches their probes (`UsageAppProbe`'s steps `errors`, `errors-closed`; `TitleBarWindowTest`'s expectations of them;
+  `SeveralViewsWindowTest`'s `four`), which are to be brought up to date as part of this phase.
+
+**By eye**: the log at `Info` with only the lines that matter; the three icons in one line; dragging the window larger than the
+screen, by the frame and by the edges, stops at the screen's edge; on a screen wider than 2,400 pixels the log may be as wide as it.
+
+**As built**: as planned. `UsageApp.screenArea()` is the screen's visual bounds; `resize` caps the width by it and no longer the
+opening height by `WindowFit.MAX`; `applySize` sets the stage's max to the screen (or the size, where that is larger) after opening
+the limits; `edgeHeight` has no fixed most. `WindowFit.MAX` is 10,000 by 10,000. Tests: `UsageClientTest` (a request that succeeds
+at `FINE`, one that fails at `INFO`), `UsageServiceTest` (the seat test's `FINE Usage refresh succeeded`), `WindowFitTest` (the
+bounds), `layout.test.cjs` (the icons in one line). The window probes without the error log: `UsageAppProbe`'s `errors` and
+`errors-closed` give way to `log-closed`; `SeveralViewsProbe`'s `four` is the cost control, the history and the log.
+
+### 135. Version 0.93: a view grows towards the room there is
+
+**Status: built (version 0.93).** The note of `tmp.md` (the log opened low on the screen ran over its bottom edge and had to be moved), decided
+in one round of suggestions: the corner nearest the screen's stays, what still does not fit is moved onto the screen, closing goes
+back to the place of the row, and the log's width is remembered. Before building: phase 134 committed. `AppInfo.VERSION = "0.93"`.
+Requirements: Version 0.93: a view grows towards the room there is; Remembered heights (the log's width). Four parts:
+
+1. **Where the window goes, worked out apart from JavaFX.** A new `WindowPlace`, final, package private, beside `WindowDrag`, with
+   records `Rect(x, y, width, height)` and one rule each, so that `WindowPlaceTest` covers them without a window:
+   - `anchored(Rect before, double width, double height, Rect screen)`: the place of a window of the new size whose corner nearest
+     the screen's corner is where it was. The halves are decided by the middle of `before` against the middle of `screen` (the
+     visual bounds): lower half → `y = before.maxY - height`, else `y = before.y`; right half → `x = before.maxX - width`, else
+     `x = before.x`. Then `onScreen`.
+   - `onScreen(Rect window, Rect screen)`: moved the least that puts it wholly on the screen, in each direction on its own; a
+     window as large as the screen lies at its edge (the window is never larger, phase 134).
+2. **Applied where the program sets a size.** `UsageApp`:
+   - `applySize` takes the place too: the size and the place are set together, inside `applying`, so that the frame and the
+     listeners take neither for the person's. `resize` decides which: `before` absent, or `restoring` not null (the start puts the
+     window where it was, `restorePlace` and `applyRestoredSize`, and that place is not moved) → the size alone, as now. Otherwise:
+     - **from the row alone to a view** (`before.resize() == NONE`, `size.resize() != NONE`): `rowPlace = (x, y)` of the stage, then
+       `anchored`;
+     - **from a view to the row alone**: back to `rowPlace` when the person has not moved the window since (`movedByPerson` false),
+       else `anchored` from the window as it is; then `onScreen`, and `rowPlace` cleared;
+     - **a view to a view** (another panel, another set of several, a list's own buttons: anything `WindowFit.next` gives while a
+       view stays shown) → `anchored`; `rowPlace` stays, so that replacing a view keeps the place of the row;
+     - **not for** `size.away()` changing alone (the row away and back, phase 129), nor `keepWidth` with the same height (a new line):
+       those keep the place as now. The comparison is of the size with `before` but `away`.
+   - `movedByPerson`: listeners on `stage.xProperty()` and `yProperty()` set it when the change is not `applying`, and not
+     `StageSwap`'s own (the title bar coming or going moves the window by its height, keeping the row in place, phase 48: that swap
+     runs inside `applying` as well, or passes the place it sets on, whichever its code allows). A drag by the row (`WindowDrag`) or
+     by the frame sets it the same way, there being one listener. Cleared when `rowPlace` is set. The listeners go with the stage to
+     the swapped one, as `watchHeight` does.
+   - `edgeHeight`'s room below the top (`UsageApp.java:303`) stays: a window anchored at the bottom has none, and its bottom edge drags
+     no lower, as the frame drags no lower than the screen.
+3. **The log's width remembered.** `SettingsStore.Heights` gets a third field, `logWidth` (key `logWidth`, `LOG_WIDTH_KEY`, read as
+   the heights are, `0` for none), and `withWidth`; `IntervalSettings.storedWidth()` / `storeWidth(int)` as `storedHeight` /
+   `storeHeight`, logging a file that cannot be written and nothing more. `UsageApp`: `watchHeight` watches the width too, with a
+   `widthSettled` `PauseTransition` of 500 ms like `heightSettled`, while the log is shown **alone** (with several views the width is
+   that of all of them, as the height of a list among them is not its alone); `rememberDraggedWidth` stores `stage.getWidth() -
+   decorationWidth` when it differs. `resize`, for the log alone and not `keepWidth`: `width = max(page's, stored + decorationWidth)`,
+   then capped by `screenArea()` as now. The page knows nothing of it; `/api/heights` (`ApiHandler.java:834`) stays the heights'.
+4. **Version and texts.** `AppInfo.VERSION = "0.93"`; no text of the page changes.
+
+- **Tests.** `WindowPlaceTest` (new): each quarter of the screen, the middle exactly on a half (upper left wins), a window that
+  grows past the screen's edge after anchoring and is moved on, one as wide as the screen, a screen not at `0,0` (a second screen
+  left of the first, negative `x`). `SettingsStoreTest`: `logWidth` read, written, kept by `save` and by the other writes, `0` and a
+  missing key as none, a file not an object left alone. `IntervalSettingsTest`: a width
+  equal to the stored one writes nothing. `UsageAppProbe`: a step `log-low`, the window put at the bottom right of its screen, the log
+  opened: the window lies within the screen's visual bounds and its bottom right corner is where it was; `log-low-closed`: back at the
+  place it had; asked for with `-Daipusage.windows=true`, as the window tests are.
+
+**By eye**: the row at the bottom left by the taskbar, the log opened: it grows upwards and to the right, closing puts the row back;
+at the bottom right, upwards and to the left; in the middle, it opens downwards and is moved up as far as needed; moved while the
+log was open, closing leaves the row where it was moved to, its corner kept; the log dragged wider, closed and opened again: the
+width it was left at; with `Several views at once`, the history added to the log at the bottom of the screen: the bottom edge stays.
+
+**As built**: as planned, built on the uncommitted 0.92. `WindowPlace` with `Rect`, `anchored` and `onScreen`. `UsageApp.place`,
+called by `resize` inside `applying` right after `applySize`, with the window and the screen as they were before the size changed.
+The program's own sizes are told apart by `placedSize`, which the title bar's exchange does not reset (`appliedSize` it does), so
+the views are still known after a swap; `rowPlace` is the place of the content, not of the stage, which the swap keeps. `StageSwap`
+needed no change: it runs inside `applying`, and `watchPlace` is put on the new stage after it, as `watchHeight` is. `movedByPerson`
+is set by any move outside `applying`, a resize by the top or left frame included. The log's width: `Heights.logWidth` (a
+two-argument constructor kept for the callers that have no width), `IntervalSettings.storedLogWidth` / `storeLogWidth`,
+`widthSettled`, and a width dragged to that has not settled yet is remembered before the next size is applied.
+Tests: `WindowPlaceTest` (new, ten cases), `SettingsStoreTest` (the key `logWidth`, kept by `save`, unusable values, a file of
+0.92), `IntervalSettingsTest` (across a restart, a file that cannot be written). `UsageAppProbe`: `log-low-before`, `log-low`,
+`log-low-closed` with a `-place` line each, checked by `TitleBarWindowTest`: on a 1707 x 1019 screen, the row at 1338,979 opened
+the log at 46,0 to 1707,1019, and closed it went back to 1338,979.
+
+**Brought up to date with it**: two window tests the 0.91 changes had left behind. `PanelWindowTest`: the log three times as tall
+as the history and four and a half times as wide as the row, with its scrollbar. `TitleBarWindowTest`: nine elements checked by
+default, seventeen with all on, three with all off but the icons, the error log's icon being gone. Both pass.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.77; written at version 0.37, and the part about the backend brought up
