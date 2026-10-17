@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.87 is built: 129 phases are built, the last six (124 to 129) not pushed yet and not looked at by a person; phase 128 was run against a few tests only, and phase 129 against none; the fault of the cost control closed with the settings was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.98 is built (140 phases); phase 140, the window that keeps its top-left corner when the title bar comes and goes, is not looked at by a person yet; the fault of the cost control closed with the settings was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -3522,6 +3522,41 @@ counted` = `Monthly limit` and no server limit) and the note shown; the About ta
   - The whole suite, the page tests (535) and the window tests (`PanelWindowTest`, `SeveralViewsWindowTest`,
     `TitleBarWindowTest`) pass.
 - **Not done by eye.** The checks above were not done by eye in the running program.
+
+### 140. Version 0.98: the window keeps its top-left corner when the title bar comes and goes
+
+**Status: built (version 0.98); `./gradlew test frontendTest` and the three window tests (`TitleBarWindowTest`,
+`-Daipusage.windows=true`) pass.** As built: the window test, run first against 0.97, showed the window with the row in the upper
+left at `100,100` go to `93,70` with the settings, the content staying: the corner moved up by the title bar (30) and the
+stage left by the invisible border (7); the far jump of `img.png` did not come. `StageSwap.corner(stage)` is the seen corner, the
+content's left and the stage's top, and `placeCorner` puts it; `replace` keeps it. `UsageApp.place` remembers the row's place as
+that corner (`rowPlace`) and puts it back so, where it kept the content's. The probe says `corner-before`, then
+`corner-settings-<n>` and `corner-closed-<n>` three times, all `100,100`; `theTitleBarGoesAndComesBackAndThePageDoesNotNotice`
+now holds the content moved by the title bar's height alone. Whether the far jump is gone on the person's machine is to be seen.
+The note of `new-requirements.md` (the nineteenth round, `docs/img.png`: opening the settings with
+the title bar off, the window landed far below the row), decided in one round of questions: the window's outer top-left corner
+stays, both when the title bar comes and when it goes, and the row moves by the title bar's height; the jump today is much more
+than a title bar, so it is a fault to be found as well. `AppInfo.VERSION = "0.98"`. Requirements: Settings, The title bar (The
+window keeps its top-left corner).
+
+- **First the fault, with a test that fails.** `StageSwap.replace` puts the new stage at the content's place less
+  `scene.getX()`/`getY()` of the new stage, read right after `show()`. On Windows that is where it goes wrong: a decorated stage's
+  `getX()`/`getY()` include the invisible resize borders, and `scene.getY()` may not be laid out yet right after `show()` (0, or the
+  frame of the old style), and the size the host asks for next (`UsageApp.resize`, `decorationHeight` measured again on a later
+  tick) can move it again. A window test in `TitleBarWindowTest` (`-Daipusage.windows=true`): the title bar off, the row alone at
+  a known place; open the settings; the stage's `getX()`/`getY()` before and after, and the content's screen place
+  (`scene.getWindow().getX() + scene.getX()`), logged and held. What it shows says where the move comes from; nothing is changed
+  on a guess.
+- **The rule.** `StageSwap.replace(old, titleBar)` keeps the stage's corner, not the content's: `fresh.setX(old.getX())`,
+  `fresh.setY(old.getY())` before and after `show()`, the content height as it was (the window taller or shorter by the
+  frame, which `resize` then fits to what the page asks). `UsageApp.followTitleBar` and `resize` must not move the stage: only
+  its size changes, from its top-left corner. The place stored for the next start (`lastX`, `lastY`) is the stage's, as before.
+- **Both ways.** The same for the title bar going, so that settings opened and closed leave `getX()`/`getY()` as they were; the
+  window test does it three times and holds the corner within a pixel each time.
+- **Tests.** `TitleBarWindowTest`: the corner kept when the title bar comes and when it goes, and the row moved by no more than the
+  frame's height; nothing in the page changes, so no frontend test.
+
+**By eye**: on Windows and on macOS, the settings opened and closed with the title bar off, several times, the window not moving.
 
 ## Implementation notes, as built
 

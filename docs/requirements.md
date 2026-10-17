@@ -594,8 +594,16 @@ decimals, a comma for the thousands, English for the month, and the 24-hour cloc
     not loaded again and loses nothing: what it shows, an open panel and where it was scrolled to stay. The program itself goes
     on running through this: nothing is fetched again because of it, and nothing is logged as a start or a stop. That the window
     flickers for a moment as it changes is accepted. There is never more than one window, and never none.
-  - **The window keeps its place**: the row stays where it is on the screen, and the title bar appears above it or goes from
-    there. A window that stays on top still does afterwards.
+  - **The window keeps its top-left corner** (since version 0.98, `docs/img.png`): when the title bar comes, as the settings are
+    opened with the setting off, the outer top-left corner of the new window, its title bar's, is exactly where the corner of the
+    window without one was, and the row moves down by the title bar's height; when it goes again, as the settings are left, the
+    corner stays as well and the row moves up into the title bar's place. So opening and closing the settings leaves the window
+    where it began. The corner seen is meant: on Windows a window with a title bar has borders at its sides that cannot be
+    seen, and its left edge is that of its content. Where a view grows is still as A view grows towards the room there is
+    says: low on the screen the settings grow upwards, and the corner is that of the window they grow from. (Until version 0.97
+    the row stayed where it was and the title bar appeared above it or went from there, so the window's corner moved up by
+    the title bar; the window landing far below the row, as it was seen, could not be made to happen in the window tests.) A
+    window that stays on top still does afterwards.
   - Its tooltip is `Shows the title bar of the window. Off, no view has one; it comes back for as long as the settings are open,
     so open them to close the window.` (since version 0.87; until then `Shows the title bar of the window. Off, the window is the
     row alone; the title bar comes back for as long as a panel that can be resized is open, so open one to close the window.`,

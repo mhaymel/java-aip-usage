@@ -149,6 +149,21 @@ public final class UsageAppProbe {
             step("cost-to-log", "log-button");
             step("cost-panel-again", "cost-button");
             step("cost-panel-closed", "cost-button");
+            // The settings opened and closed three times with the row in the upper left of its screen: the title bar comes and
+            // goes, and the window's top-left corner stays where it was each time (since 0.98, docs/img.png).
+            onFx(() -> {
+                javafx.geometry.Rectangle2D area = screen();
+                window().setX(area.getMinX() + 100);
+                window().setY(area.getMinY() + 100);
+            });
+            Thread.sleep(500);
+            corner("corner-before");
+            for (int round = 1; round <= 3; round++) {
+                step("corner-settings-" + round, "settings-button");
+                corner("corner-settings-" + round);
+                step("corner-closed-" + round, "settings-cancel");
+                corner("corner-closed-" + round);
+            }
             // The settings with every element of the row hidden: the view is far wider than the row then.
             // The settings open on General, the first tab: the button of Main view is measured with its own tab shown.
             step("settings-open", "settings-button");
@@ -222,6 +237,15 @@ public final class UsageAppProbe {
                     + Math.round(window().getX() + window().getWidth()) + "," + Math.round(window().getY() + window().getHeight())
                     + " screen:" + Math.round(area.getMinX()) + "," + Math.round(area.getMinY()) + "," + Math.round(area.getMaxX())
                     + "," + Math.round(area.getMaxY()));
+            System.out.flush();
+        });
+    }
+
+    /** Says where the window's seen top-left corner is, as the program keeps it when the title bar comes and goes (since 0.98). */
+    private static void corner(String name) throws InterruptedException {
+        onFx(() -> {
+            double[] at = StageSwap.corner(window());
+            System.out.println("PROBE " + name + "-corner=" + Math.round(at[0]) + "," + Math.round(at[1]));
             System.out.flush();
         });
     }

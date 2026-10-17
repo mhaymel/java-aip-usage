@@ -23,3 +23,14 @@ x - axis in 5 days step. add an icon for the main row to oprn burndown view.
 
 
 ![img_81.png](img_81.png) on an own row, version v0.96
+
+
+![img_1.png](img_1.png) burndown chart should also be horizontal resizeable
+
+
+![img_2.png](img_2.png) When the usage in the burndown chart is over the
+credit, the line should use red color, otherwise green.
+
+![img_4.png](img_4.png) the dollar values take too much space. perhaps writing it
+as $1k, and or make the dollar symbol configurable, default turned off.
+

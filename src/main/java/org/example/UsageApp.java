@@ -141,9 +141,9 @@ public class UsageApp extends Application {
     private Optional<WindowFit.Size> placedSize = Optional.empty();
 
     /**
-     * Where the content of the row alone was on the screen when a view was opened, its left and its top, so that closing the
-     * views puts it back there (since 0.93); null with no view open. The content's and not the stage's place, which the title
-     * bar coming or going changes while the content stays.
+     * Where the window of the row alone was on the screen when a view was opened, its seen top-left corner (see {@link
+     * StageSwap#corner}), so that closing the views puts it back there (since 0.93); null with no view open. The corner and not
+     * the content's place since 0.98, as the title bar coming or going keeps the corner and moves the content.
      */
     private double[] rowPlace;
 
@@ -766,15 +766,15 @@ public class UsageApp extends Application {
         if (!viewBefore && !viewNow) {
             return;
         }
+        // The seen corner's left is the content's: on Windows a stage with a title bar is wider by borders that cannot be seen.
         double sceneX = stage.getScene().getX();
-        double sceneY = stage.getScene().getY();
         WindowPlace.Rect to;
         if (!viewBefore) {
-            rowPlace = new double[] {was.x() + sceneX, was.y() + sceneY};
+            rowPlace = new double[] {was.x() + sceneX, was.y()};
             to = WindowPlace.anchored(was, stage.getWidth(), stage.getHeight(), screen);
         } else if (!viewNow && rowPlace != null) {
             to = WindowPlace.onScreen(
-                    new WindowPlace.Rect(rowPlace[0] - sceneX, rowPlace[1] - sceneY, stage.getWidth(), stage.getHeight()), screen);
+                    new WindowPlace.Rect(rowPlace[0] - sceneX, rowPlace[1], stage.getWidth(), stage.getHeight()), screen);
         } else {
             to = WindowPlace.anchored(was, stage.getWidth(), stage.getHeight(), screen);
         }

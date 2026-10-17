@@ -55,7 +55,10 @@ class TitleBarWindowTest {
             assertEquals("1", report.group(3), "it was loaded once:\n" + all);
             assertEquals(with.group(4), report.group(4), "and still answers the size question the same:\n" + all);
             assertEquals(with.group(5), report.group(5), "the content has not moved sideways:\n" + all);
-            assertEquals(with.group(6), report.group(6), "nor up or down:\n" + all);
+            // The window's top-left corner stays (since 0.98): without the title bar the content is up where the title bar was,
+            // and with it again it is where it began.
+            int expectedTop = Integer.parseInt(with.group(6)) - (report == without ? Integer.parseInt(with.group(9)) : 0);
+            assertTrue(Math.abs(expectedTop - Integer.parseInt(report.group(6))) <= 1, "the content moved by the title bar alone:\n" + all);
             assertEquals(with.group(7), report.group(7), "it is as wide as it was:\n" + all);
             assertEquals(with.group(8), report.group(8), "and as tall:\n" + all);
             assertEquals("true", report.group(10), all);
@@ -118,6 +121,17 @@ class TitleBarWindowTest {
         assertEquals(low[0] + "," + low[1], closed[0] + "," + closed[1], "closed, the row is back:\n" + all);
         int[] movedClosed = place(all, "log-low-moved-closed-place");
         assertEquals(low[0] + "," + low[1], movedClosed[0] + "," + movedClosed[1], "and also when it was moved while the log was open (since 0.94):\n" + all);
+        // The settings opened and closed with the window in the upper left: the title bar comes and goes, and the window's top-left
+        // corner stays where it was, each of three times (since 0.98, docs/img.png: it landed far below).
+        int[] corner = place(all, "corner-before-corner");
+        for (int round = 1; round <= 3; round++) {
+            for (String step : List.of("corner-settings-" + round, "corner-closed-" + round)) {
+                int[] at = place(all, step + "-corner");
+                assertTrue(Math.abs(at[0] - corner[0]) <= 1 && Math.abs(at[1] - corner[1]) <= 1,
+                        step + ": the top-left corner stays at " + corner[0] + "," + corner[1] + ", not " + at[0] + "," + at[1] + ":\n" + all);
+            }
+        }
+        assertTrue(line(all, "corner-settings-1").contains("titleBar:true") && line(all, "corner-closed-1").contains("titleBar:false"), all);
         // With no title bar the window is moved by dragging it, from a figure and from its edge, and not from a button; with
         // the title bar a drag inside it moves nothing.
         assertEquals("moved:40,25 hasTitleBar:false panel:false", line(all, "drag-figure").substring("PROBE drag-figure=".length()), all);
