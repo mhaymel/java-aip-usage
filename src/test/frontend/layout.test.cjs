@@ -262,7 +262,7 @@ test('the panels, the line of the log\'s two choices and the settings view are t
     const small = [...css.matchAll(/([^{}]+){([^}]*)}/g)]
         .filter(rule => [...rule[2].matchAll(/font(?:-size)?:\s*(?:[a-z0-9 ]*\s)?([0-9.]+)px/g)].some(m => Number(m[1]) < 14))
         .map(rule => rule[1].trim().split('\n').pop().trim());
-    assert.deepEqual([...small].sort(), ['.cost', '.log-controls', '.panel', '.settings', '.table-probe']); // the probe is the panel's text, never seen
+    assert.deepEqual([...small].sort(), ['.burndown', '.cost', '.log-controls', '.panel', '.settings', '.table-probe']); // the probe is the panel's text, never seen
 });
 
 test('the log panel has a line at its top with the level and the date, at the left, in that order', () => {
@@ -378,9 +378,11 @@ test('the About view has the logo at 96 pixels, the name and the version, a tabl
     assert.match(view, /^<div id="about-view" class="about" hidden>/, 'hidden until it is asked for');
     assert.ok(html.indexOf('id="about-view"') > html.indexOf('id="settings-view"') && html.indexOf('id="about-view"') < html.indexOf('id="settings-buttons"'), 'a part of the settings view, above Save and Cancel');
     assert.match(view, /<img id="about-logo" class="about-logo" src="icon\.png" width="96" height="96" alt="[^"]+">/);
-    assert.match(view, /<p id="about-name" class="about-name">aip usage<\/p>\s*<p id="about-version" class="about-version"><\/p>/);
+    assert.match(view, /<p id="about-name" class="about-name">aip usage<\/p>/);
     assert.deepEqual([...view.matchAll(/<span class="about-label">([^<]+)<\/span><span(?: class="about-path"><a)? id="(about-[a-z]+)"/g)].map(m => m[1] + ':' + m[2]),
-        ['System:about-system', 'Debug mode:about-debug'], 'the three paths are in General, History and Log since 0.90');
+        ['Version:about-version', 'System:about-system', 'Debug mode:about-debug'], 'the three paths are in General, History and Log since 0.90; the version is the first row since 0.97');
+    assert.match(view, /<div id="about-details" class="about-details">\s*<span class="about-label">Version<\/span><span id="about-version"><\/span>/, 'the version first');
+    assert.doesNotMatch(css, /\.about-version\s*{/, 'no longer a line of its own under the name');
     // What the program runs on has no name in the page: the backend says it, so that the page is the same for a backend in any language.
     assert.match(view, /<span id="about-runtime-label" class="about-label"><\/span><span id="about-runtime"><\/span>\s*<span id="about-toolkit-label" class="about-label"><\/span><span id="about-toolkit"><\/span>\s*<span class="about-label">System<\/span>/);
     assert.doesNotMatch(html + read('app.js') + read('view.js'), /JavaFX|>Java<|['"]Java['"]/, 'no name of a language or a toolkit in the page');
@@ -1074,11 +1076,11 @@ test('the three checkboxes of the icons are the group Icons, without the word ic
     assert.deepEqual(texts.filter(text => /icon$/i.test(text)), [], 'the word icon is gone since 0.90');
     const icons = html.slice(html.indexOf('<legend>Icons'), html.indexOf('</fieldset>', html.indexOf('<legend>Icons')));
     assert.deepEqual([...icons.matchAll(/<input id="set-(show[A-Za-z]+)" type="checkbox"> ([^<]+)<\/label>/g)].map(m => m[2]),
-        ['Cost', 'History', 'Log', 'Exit'], 'three since 0.91: the error log is gone; and the cross that ends the program since 0.94');
+        ['Burndown', 'Cost', 'History', 'Log', 'Exit'], 'three since 0.91: the error log is gone; the cross that ends the program since 0.94; the burndown first since 0.97');
     assert.ok(!html.includes('id="glyph-'), 'and the icons that stood beside them are gone (since 0.91)');
     assert.match(icons, /<button id="set-all-icons" class="select-all"[^>]*title="Checks every icon, or none when every one is checked\."/);
     assert.deepEqual(texts.filter(text => /button/i.test(text)), ['Refresh button'], 'which does something, and shows no view');
-    for (const id of ['set-showLogIcon', 'set-showHistoryIcon', 'set-showCostIcon']) {
+    for (const id of ['set-showLogIcon', 'set-showHistoryIcon', 'set-showCostIcon', 'set-showBurndownIcon']) {
         const label = html.lastIndexOf('<label', html.indexOf('id="' + id + '"'));
         assert.match(html.slice(label, html.indexOf('>', label)), /title="The icon that shows /, id);
     }
@@ -1111,9 +1113,9 @@ test('the icons in the line at the top of a list are in the colour of the text a
 
 test('the About view has its logo at the left and the name, the version and the table at the right of it', () => {
     const view = html.slice(html.indexOf('<div id="about-view"'), html.indexOf('<p id="settings-buttons"'));
-    const order = ['id="about-logo"', 'id="about-text"', 'id="about-name"', 'id="about-version"', 'id="about-error"', 'id="about-details"'].map(id => view.indexOf(id));
+    const order = ['id="about-logo"', 'id="about-text"', 'id="about-name"', 'id="about-error"', 'id="about-details"', 'id="about-version"'].map(id => view.indexOf(id));
     assert.ok(order.every(p => p >= 0));
-    assert.deepEqual([...order].sort((a, b) => a - b), order, 'the logo, and then, in one element, the name, the version and the table');
+    assert.deepEqual([...order].sort((a, b) => a - b), order, 'the logo, and then, in one element, the name and the table, whose first row is the version (since 0.97)');
     assert.match(view, /<img id="about-logo"[^>]*>\s*<div id="about-text" class="about-text">/, 'the logo is alone in its column');
     const rule = ruleOf('.about');
     assert.match(rule, /display:\s*grid/);

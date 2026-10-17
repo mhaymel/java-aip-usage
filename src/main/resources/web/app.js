@@ -17,8 +17,12 @@
     // The views there are, in the order of their icons, which is the order they are stacked in; and those of them that are lists.
     // In the order of the icons (since 0.81: before, the log, the history, the error log and the cost control).
     // The error log is gone since 0.91: its errors are in the log, at the level ERROR.
-    var VIEWS = ['cost', 'history', 'log'];
+    // The burndown of the month's credit is first since 0.97.
+    var VIEWS = ['burndown', 'cost', 'history', 'log'];
     var LISTS = ['history', 'log'];
+    // The views whose height is the window's, which the person drags: the lists, and the burndown, which is no list but a chart
+    // that fills what it is given (since 0.97). Each has a height of its own that is remembered.
+    var RESIZABLE = ['burndown', 'history', 'log'];
     // Which of them are shown below the strip, in that order: none, one, or, with several views at once, more. The settings
     // are no view among them: they are shown alone, in the place of whatever was shown, and are a state of their own.
     var openViews = [];
@@ -34,8 +38,9 @@
         views[name] = { loading: false, again: false, mark: null, key: null, rows: [], hasHeader: false };
     });
 
+    /** Whether a view takes the height the window is given, as a list does: the lists and the burndown. */
     function isList(name) {
-        return LISTS.indexOf(name) >= 0;
+        return RESIZABLE.indexOf(name) >= 0;
     }
 
     /** Whether a view is shown; for 'settings', whether the settings are. */
@@ -438,7 +443,7 @@
      * button that is switched off is never taken away from a panel that is open.
      */
     function renderButtons(show) {
-        var flags = { history: show.historyIcon, log: show.logIcon, cost: show.costIcon };
+        var flags = { history: show.historyIcon, log: show.logIcon, cost: show.costIcon, burndown: show.burndownIcon };
         Object.keys(flags).forEach(function (name) {
             var on = flags[name] !== false;
             $(PANELS[name].button).hidden = !(on || isOpen(name) || settingsOpen);
@@ -527,16 +532,16 @@
     var currentTab = TABS[0];
 
     // The setting that switches the icon of each view on and off; the settings have none, as their icon is always there.
-    var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', cost: 'showCostIcon' };
+    var ICON_SETTINGS = { history: 'showHistoryIcon', log: 'showLogIcon', cost: 'showCostIcon', burndown: 'showBurndownIcon' };
 
     // The switches of the main view, in the order of the row; the currency symbol is a property of the amounts, beside the first of them.
-    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showExitIcon', 'showStatus', 'statusBlink', 'showDayPercentage', 'showDayUsed', 'showDayLimit'];
+    var MAIN_FLAGS = ['showTime', 'showPercentage', 'showUsed', 'showCurrency', 'showLimit', 'showRefresh', 'showCountdown', 'showInterval', 'showDeltaUsed', 'showDeltaTime', 'showDuration', 'showBurndownIcon', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showExitIcon', 'showStatus', 'statusBlink', 'showDayPercentage', 'showDayUsed', 'showDayLimit'];
     // The elements of the row that have a checkbox: the flags of Main view but the currency symbol, a property of the amounts, and
     // Blinks, a property of the status circle (since 0.88).
     var ELEMENT_FLAGS = MAIN_FLAGS.filter(function (key) { return key !== 'showCurrency' && key !== 'statusBlink'; });
     // The four icons of the views, a group of their own since 0.90, with a button of its own that selects them all, or none.
     // The cross that ends the program is among them since 0.94.
-    var ICON_FLAGS = ['showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showExitIcon'];
+    var ICON_FLAGS = ['showBurndownIcon', 'showCostIcon', 'showHistoryIcon', 'showLogIcon', 'showExitIcon'];
     // The elements of the group Main, which its button selects: every element but the icons.
     var MAIN_ELEMENT_FLAGS = ELEMENT_FLAGS.filter(function (key) { return ICON_FLAGS.indexOf(key) < 0; });
     // The nine checkboxes of History view: the date, the two kinds of lines, and the six columns.
@@ -563,7 +568,7 @@
                 interval: checked('showInterval'), deltaUsed: checked('showDeltaUsed'), deltaTime: checked('showDeltaTime'),
                 duration: checked('showDuration'),
                 logIcon: checked('showLogIcon'), historyIcon: checked('showHistoryIcon'),
-                costIcon: checked('showCostIcon'), exitIcon: checked('showExitIcon'),
+                costIcon: checked('showCostIcon'), exitIcon: checked('showExitIcon'), burndownIcon: checked('showBurndownIcon'),
                 status: checked('showStatus'), statusBlink: checked('statusBlink'), dayPercentage: checked('showDayPercentage'), dayUsed: checked('showDayUsed'), dayLimit: checked('showDayLimit')
             }
         };
@@ -1257,6 +1262,15 @@
     // ---- the panel below the strip: the usage history or the log, one at a time
 
     var PANELS = {
+        burndown: {
+            button: 'burndown-button',
+            path: '/api/burndown',
+            // The backend sends it finished: the page only draws it.
+            describe: function (body) { return body; },
+            show: 'Show the burndown',
+            hide: 'Hide the burndown',
+            failure: 'The burndown could not be read: '
+        },
         history: {
             button: 'history-button',
             path: '/api/history',
@@ -1329,7 +1343,13 @@
                 body = Object.assign({}, body, { date: logDate });
             }
             var shown = spec.describe(body);
-            if (name === 'cost') {
+            if (name === 'burndown') {
+                if (isOpen(name)) {
+                    setNote('panel-error-burndown', '');
+                    showBurndown(shown);
+                    view.mark = stamp;
+                }
+            } else if (name === 'cost') {
                 // The cost control has its bars and no lines.
                 if (isOpen(name)) {
                     setNote('panel-error-cost', '');
@@ -1717,6 +1737,109 @@
         $('panel-note-' + name).title = shown.noteTooltip || '';
     }
 
+    // ---- the burndown of the month's credit (since 0.97)
+
+    // What the burndown shows now, as JSON, so that it is drawn again only when it changed.
+    var burndownKey = null;
+    // The least width of the window with the burndown, so that its labels have room.
+    var BURNDOWN_MIN_WIDTH = 320;
+    var SVG = 'http://www.w3.org/2000/svg';
+
+    /** An element of the chart: SVG where the page has it, and a plain element where it has not, as in the tests of the page. */
+    function svgElement(tag, attributes) {
+        var element = document.createElementNS ? document.createElementNS(SVG, tag) : document.createElement(tag);
+        Object.keys(attributes || {}).forEach(function (key) { element.setAttribute(key, String(attributes[key])); });
+        return element;
+    }
+
+    /** A share of the chart's width or height, in per cent: coordinates that follow the chart's size without its being drawn again. */
+    function percent(value) {
+        return (Math.round(value * 10000) / 100) + '%';
+    }
+
+    /** A label beside an axis, placed at its share of the axis. */
+    function axisLabel(text, side, at) {
+        var label = document.createElement('span');
+        label.className = 'burndown-label';
+        label.textContent = text;
+        label.style[side] = percent(at);
+        return label;
+    }
+
+    /**
+     * Draws the burndown: the x-axis the days left in the month, falling to 0 at the right, labelled every five days; the y-axis
+     * the credit left, from 0 to the limit; the ideal line from the limit at the start of the month to 0 at its end, the credit of
+     * each day joined by lines, and the forecast, dashed, to the end of the month. Every coordinate is a share of the chart, so
+     * that it follows the height the window is dragged to. With no limit the note says so in its place.
+     */
+    function showBurndown(shown) {
+        var key = JSON.stringify(shown);
+        if (key === burndownKey) {
+            return;
+        }
+        burndownKey = key;
+        var chart = $('burndown-chart');
+        chart.replaceChildren();
+        setNote('burndown-note', shown.note, 'panel-note');
+        if (shown.noLimit || !shown.limitValue || !shown.days) {
+            show('burndown-chart', false);
+            return;
+        }
+        show('burndown-chart', true);
+        var days = shown.days;
+        var limit = shown.limitValue;
+        var left = function (x) { return (days - x) / days; };
+        var top = function (credit) { return 1 - Math.max(0, Math.min(limit, credit)) / limit; };
+        var labels = shown.yLabels || [];
+
+        var yAxis = document.createElement('div');
+        yAxis.className = 'burndown-y';
+        labels.forEach(function (label) {
+            yAxis.append(axisLabel(label.text, 'top', top(label.value)));
+        });
+        // The labels are placed, and so take no room of their own: the column is as wide as the longest of them.
+        yAxis.style.minWidth = labels.reduce(function (most, label) { return Math.max(most, String(label.text).length); }, 0) + 'ch';
+        var plot = document.createElement('div');
+        plot.className = 'burndown-plot';
+        var svg = svgElement('svg', { width: '100%', height: '100%', 'aria-hidden': 'true' });
+        var line = function (kind, x1, y1, x2, y2) {
+            svg.append(svgElement('line', { 'class': kind, x1: percent(x1), y1: percent(y1), x2: percent(x2), y2: percent(y2) }));
+        };
+        labels.forEach(function (label) {
+            line('grid', 0, top(label.value), 1, top(label.value));
+        });
+        line('axis', 0, 0, 0, 1);
+        line('axis', 0, 1, 1, 1);
+        line('ideal', 0, 0, 1, 1);
+        var points = shown.points || [];
+        for (var i = 1; i < points.length; i++) {
+            line('actual', left(points[i - 1].x), top(points[i - 1].credit), left(points[i].x), top(points[i].credit));
+        }
+        var forecast = shown.forecast || [];
+        for (var j = 1; j < forecast.length; j++) {
+            line('forecast', left(forecast[j - 1].x), top(forecast[j - 1].credit), left(forecast[j].x), top(forecast[j].credit));
+        }
+        // A dot on each reading and on the end of the forecast, each with its tooltip, which SVG says in a title of its own.
+        points.concat(forecast).forEach(function (point, n) {
+            if (!point.tooltip) {
+                return;
+            }
+            var dot = svgElement('circle', { 'class': n < points.length ? 'point' : 'forecast-end', cx: percent(left(point.x)), cy: percent(top(point.credit)), r: 3 });
+            var title = svgElement('title');
+            title.textContent = point.tooltip;
+            dot.append(title);
+            svg.append(dot);
+        });
+        plot.append(svg);
+        var xAxis = document.createElement('div');
+        xAxis.className = 'burndown-x';
+        for (var d = days - days % 5; d >= 0; d -= 5) {
+            xAxis.append(axisLabel(String(d), 'left', left(d)));
+        }
+        chart.append(yAxis, plot, document.createElement('span'), xAxis);
+    }
+
+
     // What the cost control shows now, as JSON, so that it is drawn again only when it changed.
     var costKey = null;
 
@@ -1898,7 +2021,8 @@
     /** Reads the open panel again when there may be more to show: a new reading, or any time for the log. */
     function refreshPanel() {
         openViews.forEach(function (name) {
-            if (name !== 'history' || historyStamp() !== views.history.mark) {
+            // The history and the burndown are read again only when there is a new reading.
+            if ((name !== 'history' && name !== 'burndown') || historyStamp() !== views[name].mark) {
                 loadPanel(name);
             }
         });
@@ -1977,6 +2101,12 @@
         view.rows = [];
         view.hasHeader = false;
         setNote('panel-error-' + name, '');
+        if (name === 'burndown') {
+            burndownKey = null;
+            $('burndown-chart').replaceChildren();
+            setNote('burndown-note', '');
+            return;
+        }
         if (name === 'cost') {
             costKey = null;
             $('cost-rows').replaceChildren();
@@ -2130,10 +2260,10 @@
     function layoutViews() {
         var lowest = lowestList();
         var shared = sharedHeight();
-        LISTS.forEach(function (name) {
+        RESIZABLE.forEach(function (name) {
             var section = sectionOf(name);
             var fixed = isOpen(name) && name !== lowest;
-            section.className = 'view' + (fixed ? ' fixed' : '');
+            section.className = 'view' + (name === 'burndown' ? ' burndown' : '') + (fixed ? ' fixed' : '');
             section.style.height = fixed ? (shared !== null ? shared : sectionHeight(name)) + 'px' : '';
         });
     }
@@ -2338,6 +2468,10 @@
             return severalSize(width);
         }
         var only = openViews.length === 1 ? openViews[0] : null;
+        if (only === 'burndown') {
+            // As wide as the row, and never narrower than the chart needs; its height is the person's, as a list's is (since 0.97).
+            return Math.max(width, BURNDOWN_MIN_WIDTH + edge) + ',' + aloneHeight('burndown') + ',1,burndown';
+        }
         if (only === 'cost') {
             // As tall as the two bars and the note need, and as wide as the history's table, or as the bars need: not resizable.
             // Its own width and the row's, never the history's table, which the page knows only once the history was shown (since 0.84).
@@ -2388,6 +2522,8 @@
                 wide = Math.max(wide, 3 * width + scrollbarWidth);
             } else if (name === 'history') {
                 wide = Math.max(wide, Math.max(width, currentTableWidth() + 16) + scrollbarWidth + historyLack(width));
+            } else if (name === 'burndown') {
+                wide = Math.max(wide, BURNDOWN_MIN_WIDTH + (fakeInUse() ? 6 : bare() ? 2 : 0));
             } else {
                 wide = Math.max(wide, costWidth() + (fakeInUse() ? 6 : bare() ? 2 : 0));
             }
@@ -2554,6 +2690,7 @@
         $('settings-button').addEventListener('click', function () { togglePanel('settings'); });
         $('settings-save').addEventListener('click', applySettings);
         $('cost-button').addEventListener('click', function () { togglePanel('cost'); });
+        $('burndown-button').addEventListener('click', function () { togglePanel('burndown'); });
         // The cross ends the program (since 0.94): the window is the host's, which reads this on its next tick and closes it.
         $('exit-button').addEventListener('click', function () { exitAsked = true; });
         $('countdown').addEventListener('mouseenter', function () { hoveringCountdown = true; render(); });

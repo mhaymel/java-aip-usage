@@ -27,7 +27,8 @@ Protections. Errors are `{"error": "<message fit to show a user>"}`.
 | `POST` | `/api/history` | Save the one choice of the history panel, whether its zero usage lines are shown |
 | `GET` | `/api/errors` | The errors of this run (every failed refresh), newest first; in memory only |
 | `POST` | `/api/text-size` | Save the size of the text of the three lists |
-| `POST` | `/api/height` | Remember the height of the history or the log alone (since 0.87) |
+| `POST` | `/api/height` | Remember the height of the history, the log or the burndown alone (since 0.87; the burndown since 0.97) |
+| `GET` | `/api/burndown` | The burndown of the month's credit, finished (since 0.97) |
 | `GET` | `/api/cost` | The cost control panel: the two bars, finished |
 | `GET` | `/api/cost/daily` | The daily limit that follows from a monthly one, in the current month |
 | `GET` | `/api/about` | What the About view says: the version, where the files are, what the program runs on |
@@ -146,6 +147,9 @@ or false.`
 Since version 0.94 `showExitIcon` (`true` by default, optional in a `POST`), whether the row has the cross that ends the
 program, after the gear; the status has it as `show.exitIcon`. The grouping of the history, `historyGroup` in `settings.json`,
 is no setting of this endpoint: `POST /api/history` changes it, and a `POST` here leaves it as it is.
+
+Since version 0.97 `showBurndownIcon` (`true` by default, optional in a `POST`), whether the row has the icon of the burndown,
+the first of the icons; the status has it as `show.burndownIcon`.
 
 Since version 0.91 `tooltipMillis`, a whole number, 0 (the default: as long as the pointer is on it) or from 500 to 3,600,000,
 optional in a `POST`; `locateWindow` is `true` by default; `showErrorIcon` is no longer sent, and is ignored in a `POST`.
@@ -325,7 +329,7 @@ Read-only. It never causes a request to Anthropic, however often it is polled.
     }
   },
   "historyStamp": "48211-1791468293000",
-  "heights": { "history": 612, "log": 0 }
+  "heights": { "history": 612, "log": 0, "burndown": 0 }
 }
 ```
 
@@ -354,7 +358,7 @@ texts are in the requirements (How the figures are written).
   set: set them in the settings, under Cost control.`; and `day` and `month`, each with `state`, `used`, `limit` and `percent` as
   finished texts (`"4.37"`, `"6.81"`, `"64%"`), `limit` and `percent` `null` with no limit. `spending` is `null` when the history
   cannot be read.
-- `heights` (since version 0.80): the heights the window was last left at with the history and with the log shown, `history` and `log`, in pixels of its content with the row, `0` for none. The page gives a list that has another view below it the larger of this and its own ten rows; see the window host contract.
+- `heights` (since version 0.80): the heights the window was last left at with the history, with the log and, since 0.97, with the burndown shown, `history`, `log` and `burndown`, in pixels of its content with the row, `0` for none. The page gives a list that has another view below it the larger of this and its own ten rows; see the window host contract.
 - `historyStamp`: a text that changes whenever a row is added to the history file in use (invented readings have a file of their own, `java-aip-usage.fake.csv`), a row of a failed refresh as well as a reading: the file's size in bytes, a `-`, and its time of last change in milliseconds.
   It is empty when there is no file, when what is there is not an ordinary file, and when the size or the time cannot be read. A client that
   shows the history reads it again when the stamp is not the one it read, and should treat the text as opaque.
@@ -459,6 +463,41 @@ Both answer `200` with `{"oldLog": true}` or `{"oldLog": false}`: whether there 
   (`an old log of this second is there already`), the two cannot be joined, or the program does not write its log to the file (`the log is not written to a file`). Nothing is changed then.
 - Any other method is `405` with `Allow: POST`; the `Content-Type` must be `application/json`, as for every `POST`.
 
+## `GET /api/burndown`
+
+Since version 0.97. The burndown of the month's credit, finished: the page only draws it. Read when the panel opens and again
+whenever the history file has changed (`historyStamp`), as the history is.
+
+```json
+{
+  "days": 31, "noLimit": false, "limit": "1,000.00", "limitValue": 1000.0, "note": null,
+  "yLabels": [{ "value": 0.0, "text": "0.00" }, { "value": 500.0, "text": "500.00" }, { "value": 1000.0, "text": "1,000.00" }],
+  "points": [
+    { "x": 31.0, "credit": 1000.0, "tooltip": null },
+    { "x": 30.2917, "credit": 950.0, "tooltip": "Oct 1: 950.00 left" },
+    { "x": 17.5, "credit": 865.0, "tooltip": "Oct 14: 865.00 left" }
+  ],
+  "forecast": [
+    { "x": 17.5, "credit": 865.0, "tooltip": null },
+    { "x": 0.0, "credit": 690.0, "tooltip": "Forecast for Oct 31: 690.00 left" }
+  ]
+}
+```
+
+`days` is the number of days of the current month. `x` is the days left in the month at a point's time: `days` at the start of the
+1st, `0` at the end of the last day, a fraction between. `credit` is the limit counted (see Cost control in the settings; the
+server's limit is that of the newest reading of the file) less the amount used, never below 0. `points` begins with the limit at
+the start of the month, which has no tooltip, and then has one point for each day of the month that has a reading among the lines
+the history shows (its filters for the zero usage and the failed lines, and its grouping): the last of the day, the newest reading
+today. A day without one has no point. `forecast` goes from the last point to `x` = 0 at the month's average daily spend, the
+amount used of that point over the days since the start of the 1st; when that spends the credit before the end of the month it
+has a point where it meets 0, with no tooltip, and stays on 0. It is empty when the month has no reading. `yLabels` are 0, half
+the limit and the limit. The amounts are written as in the row, with the currency symbol when `costCurrency` is on.
+
+With no limit counted, `noLimit` is `true`, `limit` and `limitValue` are `null`, the lists are empty and `note` is `No limit is
+set: set it in the settings, under Cost control.`; with no reading at all the note is `No usage has been read yet.`. A history
+that cannot be read is `500` with `The usage history could not be read.`. Any method but `GET` is `405`.
+
 ## `GET /api/cost`
 
 The cost control panel, finished: the page only draws it. Read when the panel opens and on each poll while it is open.
@@ -492,9 +531,10 @@ Since version 0.87. Remembers the height of the usage history or the log alone, 
 lines` and `Shorter by five lines` of the list changed in 0.87 and 0.88. **Since version 0.89 the page sends it no more**: the
 bottom edge of the window takes the place of the buttons, and the host remembers the height it is dragged to as one dragged by
 the frame. It is kept for what else may send it: `{"panel": "history", "pixels": 480}`,
-a whole number of pixels from 50 to 1600. It is stored as a dragged height is, under `historyHeight` or `logHeight`, and the
-answer is what is stored, `{"panel": "history", "pixels": 480}`; `GET /api/status` says it under `heights` from then on. A
-`panel` that is not `history` or `log` is `400` with `The panel must be history or log.`, and `pixels` that are missing, not a
+a whole number of pixels from 50 to 1600. It is stored as a dragged height is, under `historyHeight`, `logHeight` or, since
+0.97, `burndownHeight`, and the answer is what is stored, `{"panel": "history", "pixels": 480}`; `GET /api/status` says it under
+`heights` from then on. A `panel` that is not `history`, `log` or `burndown` is `400` with `The panel must be history, log or
+burndown.`, and `pixels` that are missing, not a
 whole number, or out of the range are `400` with `The height must be a whole number of pixels from 50 to 1600.`; nothing is
 stored then. A file that cannot be written is logged and the height is not stored, as with a dragged one. Any other method is
 `405`. The page asks for it before it asks the host for the new height, so that the host, which opens a list at the larger of
@@ -681,19 +721,22 @@ panel's vertical scrollbar, which the page measures and always reserves (three r
 Those are the starting point, not the size the window was dragged to. While the settings are shown it
 reports flag `3`, the name `settings` (`520,658,3,settings`) and the height of the whole page, the row and its message lines and the settings, so the
 window is exactly as tall as they need, and follows them. While the tab `About` of the settings is shown the flag is `4` (`520,441,4,settings`): the window may be made wider, so that the paths can be read in a line each, and never narrower than the width reported, which is the same least width as on the other tabs whatever the window has; the height reported is that of the page at the width the window has, so it gets less as the window gets wider. That height is the one thing the page reports that follows from the window, and it is not the person's to drag. The last field names the panel that is open, and is left out when none is: `415,420,1,history`,
-`1215,420,2,log` or `615,420,2,errors` (the error log is half as wide as the log, rounded up). The cost control panel reports flag `3`, with the width of the history's table and the height its two bars need: `415,160,3,cost`. For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
+`1215,420,2,log` or `615,420,2,errors` (the error log is half as wide as the log, rounded up). The burndown (since 0.97) reports
+flag `1` like a list, as wide as the row and never less than 320 pixels, and the height of ten rows or the one remembered:
+`320,340,1,burndown`; its height is remembered as the lists' are. The cost control panel reports flag `3`, with the width of the history's table and the height its two bars need: `415,160,3,cost`. For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
 is whole. The host remembers the height of the history and of the log, in the settings
 file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. For as long as a panel is named that can be resized, which is every panel but `cost`, the host gives the window its title bar, whatever the setting `showTitleBar` says; with none named, and with `cost`, it follows the setting. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
 resize only what it is told may be: nothing for `0` and `3`, the height for `1`, the height and the width for `2`, the width for `4`, and never
 below the size last reported with `0`. A width the person has given the window with `2` or `4` is kept for as long as the same panel is named with the same flag: a new answer then changes the height only. The page measures its own content, never the window, so resizing the
 window to match does not change the answer. The host ignores anything that is not that
-shape (a width or a height of 0 or of more than five digits, a panel name other than `history`, `log`, `errors`, `cost`, `settings` and `debug`, the last of which the page no longer reports: the Debug tab is a tab of the settings), keeps the size it sets
+shape (a width or a height of 0 or of more than five digits, a panel name other than `burndown`, `history`, `log`, `errors`, `cost`, `settings` and `debug`, the last of which the page no longer reports: the Debug tab is a tab of the settings), keeps the size it sets
 between 160 x 32 and 2400 x 1600, and does not apply a size twice; a change of the flag or of the panel alone counts as a new size. A different host,
 in a version written in another language, needs only to call the function and resize.
 
 **Several views at once** (since version 0.80, with the setting `severalViews`). The views shown are named together, in
-the order of their icons (`cost`, `history`, `log`, `errors` since version 0.81; `log`, `history`, `errors`, `cost` before) and joined by `+`, and a fifth field follows when a list
-is among them: the height the lowest list has alone, the row included. `371,522,1,cost+history,490` is the cost control above
+the order of their icons (`burndown`, `cost`, `history`, `log`, `errors` since version 0.97; without `burndown` since 0.81;
+`log`, `history`, `errors`, `cost` before) and joined by `+`, and a fifth field follows when a list, or the burndown, which
+takes the height as a list does, is among them: the height the lowest list has alone, the row included. `371,522,1,cost+history,490` is the cost control above
 the history, the history at 490 with the row, and the two together 522. The width is that of the widest view by its
 own rule, the height the row and every view at the height it has alone; a list that has another view below it is given
 the larger of the height the status says under `heights` and its own ten rows, less what of the window is no view's (the row, its message lines, the borders and the room below the lowest view), so that it is as tall as when it is the lowest. The flag is `1` when a list is among them,
@@ -704,7 +747,7 @@ as above otherwise. With `severalViews` off they replace the views, as before, a
 lowest list's, the total less the fifth field, stays as the page asked; the lowest list takes what the person drags the
 window to, and when it is the history or the log that height, less the views above it, is what the host remembers for
 it, and gives it when the same list is next the lowest or alone. It never lets the window be dragged lower than the views
-above that list and a row of it. A report that names a view twice, more than four, a name that is no view, the views out
+above that list and a row of it. A report that names a view twice, more than five, a name that is no view, the views out
 of the order of their icons, or the settings anywhere but first is ignored like any other that is not this shape.
 
 `window.currentView()` says what is shown, for the host to store when the program stops: `cost+history,` for views, and

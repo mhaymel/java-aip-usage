@@ -186,6 +186,12 @@ final class ApiHandler implements HttpHandler {
                 send(exchange, 200, cost().toJson().put("show", Json.object()
                         .put("used", figures.showUsed()).put("limit", figures.showLimit()).put("percent", figures.showPercent())));
             }
+            case "/api/burndown" -> {
+                if (!method.equals("GET")) {
+                    throw new ApiException(405, "Use GET.", "GET");
+                }
+                send(exchange, 200, burndown().toJson());
+            }
             case "/api/about" -> {
                 if (!method.equals("GET")) {
                     throw new ApiException(405, "Use GET.", "GET");
@@ -503,7 +509,8 @@ final class ApiHandler implements HttpHandler {
                 s.historyTime(), s.historyUsed(), s.historyLimit(), s.historyCurrent(), s.restoreWindow(), s.showCostIcon(), s.severalViews(), s.logFolder(), s.historyFolder(),
                 s.showStatus(), s.showDayPercentage(), s.showDayUsed(), s.showDayLimit(),
                 s.historyMonthly(), s.historyDaily(), s.historyDailyBy(), s.statusBlink(),
-                s.cost().showUsed(), s.cost().showLimit(), s.cost().showPercent(), s.locateWindow(), s.tooltipMillis(), s.showExitIcon());
+                s.cost().showUsed(), s.cost().showLimit(), s.cost().showPercent(), s.locateWindow(), s.tooltipMillis(), s.showExitIcon(),
+                s.showBurndownIcon());
     }
 
     /** All the settings must be given, so that what is applied is exactly what the view showed. */
@@ -571,7 +578,8 @@ final class ApiHandler implements HttpHandler {
                     tooltipMillis(body, current.tooltipMillis()),
                     flag(body, "showExitIcon", current.showExitIcon()),
                     // The grouping of the history is its own choice, which POST /api/history changes: kept as it is.
-                    current.historyGroup());
+                    current.historyGroup(),
+                    flag(body, "showBurndownIcon", current.showBurndownIcon()));
             // A folder that is changed is used at once: its files are moved there before the settings are saved, and a folder
             // that cannot be written refuses the whole of it, with nothing changed.
             moveFolders(given);
@@ -828,8 +836,8 @@ final class ApiHandler implements HttpHandler {
         Json body = readJson(exchange);
         Json panel = body.get("panel");
         Json pixels = body.get("pixels");
-        if (panel == null || !panel.isText() || !(panel.text().equals("history") || panel.text().equals("log"))) {
-            throw new ApiException(400, "The panel must be history or log.", null);
+        if (panel == null || !panel.isText() || !WindowFit.Size.remembersHeight(panel.text())) {
+            throw new ApiException(400, "The panel must be history, log or burndown.", null);
         }
         if (pixels == null || !pixels.fitsInt() || pixels.intValue() < LEAST_HEIGHT || pixels.intValue() > MOST_HEIGHT) {
             throw new ApiException(400, "The height must be a whole number of pixels from " + LEAST_HEIGHT + " to " + MOST_HEIGHT + ".", null);
@@ -848,6 +856,28 @@ final class ApiHandler implements HttpHandler {
             java.time.LocalDateTime at = java.time.LocalDateTime.now();
             return CostPanel.build(table.rows(), now.cost(), now.cost().currency(), at.toLocalDate())
                     .with(Spending.compute(table.rows(), now.cost(), at));
+        } catch (IOException e) {
+            LOG.warning("Could not read the usage history", e);
+            throw new ApiException(500, "The usage history could not be read.", null);
+        }
+    }
+
+    /**
+     * The burndown of the month's credit (since 0.97), finished: worked out from the readings the history shows, with its
+     * filters and its grouping, and the limit counted.
+     */
+    private Burndown.View burndown() {
+        try {
+            Settings now = settings.current();
+            org.example.settings.HistoryGroup group = org.example.settings.HistoryGroup.of(now.historyGroup())
+                    .orElse(org.example.settings.HistoryGroup.NONE);
+            boolean zero = now.historyZeroLines();
+            HistoryReader.Table shown = group != org.example.settings.HistoryGroup.NONE
+                    ? HistoryReader.readGrouped(sources.history(), Integer.MAX_VALUE, zero, group)
+                    : HistoryReader.read(sources.history(), Integer.MAX_VALUE, new HistoryReader.Filter(zero, zero && now.historyFailedLines()));
+            // The limit counted takes the server's limit from the newest reading of all, whatever the history hides.
+            HistoryReader.Table all = HistoryReader.read(sources.history(), Integer.MAX_VALUE);
+            return Burndown.build(shown.rows(), all.rows(), now.cost(), now.cost().currency(), java.time.LocalDateTime.now());
         } catch (IOException e) {
             LOG.warning("Could not read the usage history", e);
             throw new ApiException(500, "The usage history could not be read.", null);
@@ -1282,7 +1312,7 @@ final class ApiHandler implements HttpHandler {
                 StatusDisplay.build(state, countdown, change, duration(), shown(), Instant.now(), ZoneId.systemDefault()),
                 historyStamp(),
                 sources.fake(),
-                new HeightsBody(settings.storedHeight("history"), settings.storedHeight("log")),
+                new HeightsBody(settings.storedHeight("history"), settings.storedHeight("log"), settings.storedHeight("burndown")),
                 spending());
     }
 
@@ -1579,7 +1609,8 @@ final class ApiHandler implements HttpHandler {
             boolean costShowPercent,
             boolean locateWindow,
             int tooltipMillis,
-            boolean showExitIcon) {
+            boolean showExitIcon,
+            boolean showBurndownIcon) {
 
         Json toJson() {
             return Json.object()
@@ -1637,7 +1668,8 @@ final class ApiHandler implements HttpHandler {
                     .put("costShowPercent", costShowPercent)
                     .put("locateWindow", locateWindow)
                     .put("tooltipMillis", tooltipMillis)
-                    .put("showExitIcon", showExitIcon);
+                    .put("showExitIcon", showExitIcon)
+                    .put("showBurndownIcon", showBurndownIcon);
         }
     }
 
@@ -1868,13 +1900,14 @@ final class ApiHandler implements HttpHandler {
     }
 
     /**
-     * The heights the window was last left at with the history and with the log open, row included, in pixels, 0 for none. The
-     * page gives a list that has another view below it the height it has alone, and that is this one where it is the larger.
+     * The heights the window was last left at with the history, with the log and with the burndown open, row included, in
+     * pixels, 0 for none. The page gives a list that has another view below it the height it has alone, and that is this one
+     * where it is the larger.
      */
-    record HeightsBody(int history, int log) {
+    record HeightsBody(int history, int log, int burndown) {
 
         Json toJson() {
-            return Json.object().put("history", history).put("log", log);
+            return Json.object().put("history", history).put("log", log).put("burndown", burndown);
         }
     }
 }

@@ -672,11 +672,11 @@ public class UsageApp extends Application {
         // With several views the height that is the person's is that of the lowest list: the views above it keep theirs.
         String list = size.lowestList();
         // With several views that share the screen the page says no height alone: nothing is remembered of a shared height.
-        boolean remembered = ("history".equals(list) || "log".equals(list)) && !(size.several() && size.alone() == 0);
+        boolean remembered = WindowFit.Size.remembersHeight(list) && !(size.several() && size.alone() == 0);
         // What of the height is not the list's own: nothing with a list alone, whose height is the window's, row included.
         int above = RememberedHeights.above(size.height(), size.several() ? size.alone() : size.height());
         if (remembered) {
-            // The history and the log open at the height they were last left at, never less than the page's own.
+            // The history, the log and the burndown open at the height they were last left at, never less than the page's own.
             RememberedHeights.Opening opening =
                     RememberedHeights.open(size.height() - above, runtime.settings().storedHeight(list));
             contentHeight = above + opening.height();

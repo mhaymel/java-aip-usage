@@ -182,6 +182,21 @@ class WindowFitTest {
     }
 
     @Test
+    void theBurndownIsAViewThatTakesTheHeightTheWindowIsDraggedToAndComesFirst() {
+        Size alone = WindowFit.parse("320,340,1,burndown").orElseThrow();
+        assertEquals("burndown", alone.lowestList(), "it takes the height, as a list does");
+        assertEquals(true, Size.remembersHeight("burndown"));
+        assertEquals(false, alone.keepsTitleBar(), "no title bar, as a list has none");
+
+        Size all = WindowFit.parse("1300,1500,2,burndown+cost+history+log,420").orElseThrow();
+        assertEquals(java.util.List.of("burndown", "cost", "history", "log"), all.panels());
+        assertEquals("log", all.lowestList());
+        assertEquals("burndown", WindowFit.parse("520,640,1,burndown+cost,420").orElseThrow().lowestList());
+        assertEquals(Optional.empty(), WindowFit.parse("520,640,1,cost+burndown,420"), "the burndown is the first icon");
+        assertEquals(false, Size.remembersHeight("cost"));
+    }
+
+    @Test
     void aReportThatNamesWhatIsNoViewIsNoSize() {
         assertEquals(Optional.empty(), WindowFit.parse("400,420,1,history+settings"), "the settings replace the views");
         assertEquals(Optional.empty(), WindowFit.parse("400,420,1,history+calendar"));

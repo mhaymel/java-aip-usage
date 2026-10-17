@@ -1039,6 +1039,7 @@ document uses for it. From left to right (in version 0.68, with every element of
 | 8 | `Change in the amount used` | the amount used less that of the reading before | `+1.37` | no | `showDeltaUsed` |
 | 9 | `Time since the previous reading` | the seconds between the two readings | `30s` | no | `showDeltaTime` |
 | 10 | `Request duration` | how long the latest usage request took | `87ms` | no | `showDuration` |
+| 10a | `Burndown icon` | shows and hides the burndown panel (since version 0.97, see Version 0.97) | the falling line | yes | `showBurndownIcon` |
 | 11 | `Cost icon` | shows and hides the cost control panel (since version 0.69) | the two bars | yes | `showCostIcon` |
 | 12 | `History icon` | shows and hides the usage history | the table | yes | `showHistoryIcon` |
 | 13 | `Log icon` | shows and hides the log | the sheet with lines | yes | `showLogIcon` |
@@ -1633,7 +1634,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   it); and in the right one, from the top, the name, the version and the table. So the view is lower than it was, and the table begins beside the logo, not under it.
 - **What it shows**:
   - the **logo**, the gauge of the program's icon, **96 pixels** wide and tall, drawn from the largest file of the icon;
-  - the **name**, `aip usage`, and under it the **version**, as the title bar has it: `v0.57` in the version that brought it;
+  - the **name**, `aip usage`, and under it the **version**, as the title bar has it: `v0.57` in the version that brought it
+    (since version 0.97 the version is the first row of the table, `Version`, see Version 0.97);
   - **where the files are**, each with its full path: `Settings`, `Log` and `Usage history`. The history is the file
     in use, so in debug mode with the fake backend it is the file of the invented readings;
   - **What it runs on**: the runtime the version of the program is built on and the toolkit of its window, each by its
@@ -2593,6 +2595,58 @@ document uses for it. From left to right (in version 0.68, with every element of
   unchanged. Where the system keeps a window with a title bar wider than that, the room is between the last figure and the
   gear, as before (see The icons and the gear stand at the right edge of the window).
 
+### Version 0.97: a burndown of the month's credit, and the version on a row of its own
+
+- **A panel, `Burndown`, draws the credit left in the month against the days left** (`new-requirements.md`). It is a
+  panel like the cost control: below the row, in the one panel area, with a button of its own in the row, the burndown
+  icon, before the cost icon: a line falling from the top left to the bottom right over a short baseline. Its checkbox is
+  `Burndown`, the first of the group `Icons` of the tab `Main`, and like the others it has no icon beside it (see The settings
+  rearranged), on by default, saved under `showBurndownIcon`; its tooltip in the settings is `The icon that shows the
+  burndown of the month's credit below the row, and hides it again.`, and in the row `Show the burndown` and `Hide the
+  burndown`. It is shown with the others when `Several views at once` is on (see Several
+  views at once), and it is one of the panels the window restores at the start (`burndown`, see The window is restored at
+  start).
+- **The x-axis is the days left in the month**, falling from left to right: at the left edge the number of days of the
+  month (31 in October), at the right edge 0, the end of the month. It is labelled every 5 days, `30`, `25`, `20`, `15`,
+  `10`, `5`, `0` (the left edge in a month of 31 days is not labelled).
+- **The y-axis is the credit left**: the limit counted (the server's or the typed monthly limit, by `Limit counted`, see
+  Limits, projections and the status of spending) less the amount used. It runs from 0 at the bottom to the limit at the
+  top, and **never below 0**: credit left below 0, a month over its limit, is drawn as 0. It is labelled at 0, at half the
+  limit and at the limit, the amounts written as the row writes them.
+- **Three lines**:
+  - **The ideal line**, in the muted gray `#8a8f98`: straight, from the limit at the start of the month (top left) to 0 at
+    its end (bottom right), over every calendar day, working day or not.
+  - **The actual line**, in the green of the figures, `#1a7f37` / `#3fb950`: **one point for each day** that has a reading,
+    the credit left at **the last reading of the day**; today's point is the newest reading. The points are joined by
+    straight lines, and **a day without a reading has no point**: the line goes straight from the day before it that has one
+    to the day after it that has one. The line **begins at the limit at the start of the 1st**, so that days at the start of
+    the month without readings are bridged like any other.
+  - **The forecast**, dashed, in the orange `#ff9900`: from the last point to the end of the month, at **the average daily
+    spend of the month so far** (the amount used ÷ the days since the start of the 1st, today counted to the time of the
+    newest reading). It stops at 0, like the actual line.
+- **The panel can be resized in height**, like the history: it takes the height of the window, which is dragged taller
+  and shorter as with a list (by its bottom edge when there is no title bar), and that height is remembered
+  (`burndownHeight`). Like a list it has no title bar of its own when the setting `Title bar` is off (see The title bar). It
+  opens as tall as the history, ten times the row, or at the height it was last left at, and the chart fills the height it
+  is given. Its width is the row's, and never less than 320 pixels.
+- **Only the current month is drawn**, from **the readings the history shows**: the lines its filters leave (the zero usage
+  lines, the failed lines) and, when it is grouped, its grouped lines; a line with no amount used gives no point. On the 1st
+  the chart begins afresh.
+- **The fake backend gives it a month** (in debug mode, see Debug mode): when the history of the invented readings has no
+  reading of this month before today, it is begun with invented readings of the working days from the 1st to yesterday,
+  at 8:00, 11:00, 14:00 and 17:00, every fifth working day without any, the amount rising to a little under the amount the
+  fake backend begins with, so that the panel can be judged at once and the backend's own readings go on from there. They
+  are put in the file in the order of time, with no status. On the 1st there is nothing to begin it with.
+- **A tooltip on each point**: `<Mon> <day>: <credit left> left`, `Oct 12: 642.18 left`; on the end of the forecast
+  `Forecast for <Mon> <day>: <credit left> left`, `Forecast for Oct 31: 120.40 left`.
+- **With no limit**, neither the server's nor a typed one, the panel draws nothing and says
+  `No limit is set: set it in the settings, under Cost control.`
+- **The backend works out the points and the forecast** and sends them to the page (`docs/api.md`), as it does the
+  projections (see Limits, projections and the status of spending); the page draws them.
+- **The version in the About view is a row of its own** (`new-requirements.md`, `img_81.png`; until 0.96 it stood under the
+  name, in muted gray, outside the table): the first row of the table, `Version` at the left and `v0.97` at the right, like
+  `Java`, `JavaFX` and `System`. The name stays above the table, alone.
+
 ## Debug mode
 
 What the program does when it is started with `--debug`, and only then: the tab `Debug` of the settings, the debug settings, the fake
@@ -3168,7 +3222,8 @@ What the first version deliberately is not, so that none of it is taken for an o
 - **The local server is for this machine's one user**, as The local server says.
 - **The endpoint is not a published one.** `/api/oauth/usage` is the one Claude Code itself asks, and the
   default interval and the automatic search rest on how it was seen to behave, not on a documented limit.
-- **No charts.** The history is kept, and shown as lines; drawing it is a future extension.
+- **No charts** but the burndown of the month (since version 0.97, see Version 0.97). The history is kept, and shown as
+  lines; drawing it otherwise is a future extension.
 
 ## Future extension
 

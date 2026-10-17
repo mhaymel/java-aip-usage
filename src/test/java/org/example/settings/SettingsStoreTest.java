@@ -213,7 +213,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "tooltipMillis", "showExitIcon", "historyGroup", "historyHeight", "logHeight", "logWidth"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "tooltipMillis", "showExitIcon", "historyGroup", "showBurndownIcon", "historyHeight", "logHeight", "logWidth", "burndownHeight"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -393,6 +393,28 @@ class SettingsStoreTest {
         assertEquals("none", new SettingsStore(file()).load().historyGroup(), "a grouping that is none of them is none");
         Files.writeString(file(), "{}");
         assertTrue(new SettingsStore(file()).load().showExitIcon(), "a file of 0.93 shows it");
+    }
+
+    @Test
+    void theBurndownIconAndItsHeightAreReadAndWritten() throws IOException {
+        SettingsStore store = new SettingsStore(file());
+        store.save(Settings.defaults().withShowBurndownIcon(false));
+        store.saveHeights(SettingsStore.Heights.NONE.withHeight("burndown", 380));
+
+        assertFalse(store.load().showBurndownIcon());
+        assertEquals(380, store.loadHeights().of("burndown"));
+        assertEquals(new SettingsStore.Heights(0, 0, 0, 380), store.loadHeights());
+        assertTrue(Settings.defaults().showBurndownIcon(), "shown by default (since 0.97)");
+        Files.writeString(file(), "{\"historyHeight\": 500}");
+        assertTrue(new SettingsStore(file()).load().showBurndownIcon(), "a file of 0.96 shows it");
+        assertEquals(new SettingsStore.Heights(500, 0, 0, 0), new SettingsStore(file()).loadHeights(), "and has no height for it");
+    }
+
+    @Test
+    void theBurndownIsAViewThatIsStoredAsOpenFirstOfAll() throws IOException {
+        Files.writeString(file(), "{\"lastPanel\": \"history,burndown\"}");
+
+        assertEquals("burndown,history", new SettingsStore(file()).loadLast().panel(), "in the order of the icons");
     }
 
     @Test

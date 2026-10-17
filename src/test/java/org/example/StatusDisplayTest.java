@@ -321,10 +321,10 @@ class StatusDisplayTest {
         Settings on = new Settings(60, false, true, false, true, true, true, true, true, false, TimeFormat.HOURS_MINUTES, false, false, false, true, true);
 
         assertEquals(
-                new StatusDisplay.Show(true, false, true, true, false, true, true, true, true, true, true, true, true, true, false, false, true, false, false, false, true, true),
+                new StatusDisplay.Show(true, false, true, true, false, true, true, true, true, true, true, true, true, true, false, false, true, false, false, false, true, true, true),
                 build(state(spend(SPEND), null, null), OptionalLong.empty(), null, on).show());
         assertEquals(
-                new StatusDisplay.Show(false, false, false, false, false, true, true, true, true, true, true, true, true, true, false, false, true, false, false, false, true, true),
+                new StatusDisplay.Show(false, false, false, false, false, true, true, true, true, true, true, true, true, true, false, false, true, false, false, false, true, true, true),
                 build(state(spend(SPEND), null, null)).show(), "the optional ones off by default, the five that were always there on");
     }
 

@@ -295,7 +295,8 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(54, body.get("settings").size(), "the debug settings are not among them; since 0.91 tooltipMillis in, showErrorIcon out; since 0.94 showExitIcon in");
+        assertEquals(55, body.get("settings").size(), "the debug settings are not among them; since 0.91 tooltipMillis in, showErrorIcon out; since 0.94 showExitIcon in; since 0.97 showBurndownIcon in");
+        assertTrue(body.at("/settings/showBurndownIcon").asBoolean(), "the burndown icon is shown by default (since 0.97)");
         assertTrue(body.at("/settings/showExitIcon").asBoolean(), "the cross is shown by default (since 0.94)");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
@@ -473,8 +474,11 @@ class ApiTest {
 
         post(app, "/api/debug", FAKE_ON);
 
-        assertTrue(json(get(app, "/api/status")).get("usage").isNull(), "the real reading is not shown as an invented one");
-        assertTrue(json(get(app, "/api/status")).at("/display/loading").asBoolean(), "the row begins again");
+        // Since 0.97 the history of the fake backend is begun with invented readings of the month, the newest of which is then
+        // shown; on the 1st there are none, and nothing is.
+        Json usage = json(get(app, "/api/status")).get("usage");
+        assertTrue(usage.isNull() || usage.at("/spend/used").doubleValue() != 186.02, "the real reading is not shown as an invented one");
+        assertTrue(!usage.isNull() || json(get(app, "/api/status")).at("/display/loading").asBoolean(), "the row begins again");
         fetch.hold.countDown();
     }
 
@@ -1167,6 +1171,63 @@ class ApiTest {
 
         assertEquals("No usage has been read yet.", cost.get("note").asText());
         assertTrue(cost.at("/rows/0/noLimit").asBoolean() && cost.at("/rows/1/noLimit").asBoolean());
+    }
+
+    @Test
+    void theBurndownIsWorkedOutFromTheReadingsOfTheMonthAndTheLimitCounted() throws Exception {
+        String today = java.time.LocalDate.now().toString();
+        writeHistory(CSV_HEADER,
+                today + " 00:00:00,100.00,1000.00,USD,start,60,400",
+                today + " 00:00:01,110.00,1000.00,USD,,60,400");
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"200.00\"}"));
+
+        Json burndown = json(get(app, "/api/burndown"));
+
+        assertEquals(java.time.YearMonth.now().lengthOfMonth(), burndown.get("days").intValue());
+        assertFalse(burndown.get("noLimit").asBoolean());
+        assertEquals("200.00", burndown.get("limit").asText(), "the limit counted: the one typed");
+        assertEquals(2, burndown.get("points").size(), "the start of the month, and today's last reading");
+        assertTrue(burndown.at("/points/1/tooltip").asText().endsWith(": 90.00 left"), burndown.toString());
+        // To the end of the month, meeting 0 on the way when the month's pace spends the credit sooner, as it may on any day.
+        Json forecast = burndown.get("forecast");
+        assertTrue(forecast.size() >= 2, burndown.toString());
+        assertEquals(0.0, forecast.get(forecast.size() - 1).get("x").doubleValue());
+        assertTrue(forecast.get(forecast.size() - 1).get("tooltip").asText().startsWith("Forecast for "));
+        assertEquals(405, post(app, "/api/burndown", "{}").statusCode());
+    }
+
+    @Test
+    void theBurndownSaysWhenThereIsNoLimitOrNoReading() throws Exception {
+        FakeFetch plan = new FakeFetch();
+        plan.answer = () -> NO_USAGE;
+        AppRuntime app = start(plan);
+        assertEquals("No usage has been read yet.", json(get(app, "/api/burndown")).get("note").asText());
+
+        String today = java.time.LocalDate.now().toString();
+        writeHistory(CSV_HEADER, today + " 00:00:00,100.00,,USD,start,60,400");
+        Json burndown = json(get(app, "/api/burndown"));
+        assertTrue(burndown.get("noLimit").asBoolean());
+        assertEquals("No limit is set: set it in the settings, under Cost control.", burndown.get("note").asText());
+    }
+
+    @Test
+    void theBurndownIconIsASettingOnByDefaultAndItsHeightIsRemembered() throws Exception {
+        AppRuntime app = start(new FakeFetch());
+        assertTrue(json(get(app, "/api/settings")).at("/settings/showBurndownIcon").asBoolean());
+        assertTrue(json(get(app, "/api/status")).at("/display/show/burndownIcon").asBoolean());
+
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"showBurndownIcon\": false}"));
+        assertFalse(json(get(app, "/api/settings")).at("/settings/showBurndownIcon").asBoolean());
+        assertFalse(json(get(app, "/api/status")).at("/display/show/burndownIcon").asBoolean());
+        post(app, "/api/settings", allSettings(60, false, "hh:mm"));
+        assertFalse(json(get(app, "/api/settings")).at("/settings/showBurndownIcon").asBoolean(), "left out: it stays as it is");
+
+        assertEquals(200, post(app, "/api/height", "{\"panel\": \"burndown\", \"pixels\": 420}").statusCode());
+        assertEquals(420, json(get(app, "/api/status")).at("/heights/burndown").asInt());
+        assertEquals(400, post(app, "/api/height", "{\"panel\": \"cost\", \"pixels\": 420}").statusCode());
     }
 
     @Test
@@ -3054,7 +3115,8 @@ class ApiTest {
         Json heights = json(get(app, "/api/status")).get("heights");
         assertEquals(610, heights.get("history").asInt());
         assertEquals(480, heights.get("log").asInt());
-        assertEquals(2, heights.size(), "the error log has no height that is kept");
+        assertEquals(0, heights.get("burndown").asInt(), "the burndown has its own (since 0.97), none yet");
+        assertEquals(3, heights.size(), "the error log has no height that is kept");
     }
 
     // ---- version 0.81: the folders of the log and of the history

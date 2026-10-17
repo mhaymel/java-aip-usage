@@ -34,6 +34,13 @@
         <span id="duration" class="delta delta-duration" hidden></span>
 
         <span class="tools">
+        <button id="burndown-button" class="icon tiny" type="button" aria-label="Show the burndown" title="Show the burndown"
+                aria-expanded="false">
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2.5 2.5l11 9M2 14.2h12"/>
+            </svg>
+        </button>
         <button id="cost-button" class="icon tiny" type="button" aria-label="Show the cost control" title="Show the cost control"
                 aria-expanded="false">
             <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -81,7 +88,12 @@
 </div>
 
     <div id="panel" class="panel" hidden>
-        <!-- A box for each view, in the order of the icons (cost control, history, log, error log): each list has its own controls, notes and lines. -->
+        <!-- A box for each view, in the order of the icons (burndown, cost control, history, log): each list has its own controls, notes and lines. -->
+        <section id="view-burndown" class="view burndown" aria-label="The burndown of the month's credit" hidden>
+            <div id="burndown-chart" class="burndown-chart"></div>
+            <p id="burndown-note" class="panel-note" hidden></p>
+            <p id="panel-error-burndown" class="panel-error" role="alert" hidden></p>
+        </section>
         <div id="cost-view" class="cost" hidden>
             <div id="cost-rows" class="cost-rows"></div>
             <p id="cost-note" class="panel-note" hidden></p>
@@ -270,6 +282,7 @@
                             <path d="M5 8.2l2.2 2.3L11 5.6"/>
                         </svg></button></legend>
                     <span class="line">
+                        <label title="The icon that shows the burndown of the month's credit below the row, and hides it again."><input id="set-showBurndownIcon" type="checkbox"> Burndown</label>
                         <label title="The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again."><input id="set-showCostIcon" type="checkbox"> Cost</label>
                         <label title="The icon that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History</label>
                         <label title="The icon that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log</label>
@@ -429,9 +442,9 @@
                 <img id="about-logo" class="about-logo" src="icon.png" width="96" height="96" alt="The logo of the program: a gauge">
                 <div id="about-text" class="about-text">
                 <p id="about-name" class="about-name">aip usage</p>
-                <p id="about-version" class="about-version"></p>
                 <p id="about-error" class="panel-error" role="alert" hidden></p>
                 <div id="about-details" class="about-details">
+                    <span class="about-label">Version</span><span id="about-version"></span>
                     <span id="about-runtime-label" class="about-label"></span><span id="about-runtime"></span>
                     <span id="about-toolkit-label" class="about-label"></span><span id="about-toolkit"></span>
                     <span class="about-label">System</span><span id="about-system"></span>

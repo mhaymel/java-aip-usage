@@ -123,6 +123,9 @@ public final class SettingsStore {
     /** The cross that ends the program (since 0.94). */
     static final String SHOW_EXIT_ICON_KEY = "showExitIcon";
 
+    /** The icon of the burndown of the month's credit (since 0.97). */
+    static final String SHOW_BURNDOWN_ICON_KEY = "showBurndownIcon";
+
     /** What the history is grouped by (since 0.94), a choice of the history itself. */
     static final String HISTORY_GROUP_KEY = "historyGroup";
 
@@ -189,6 +192,9 @@ public final class SettingsStore {
     static final String HISTORY_HEIGHT_KEY = "historyHeight";
 
     static final String LOG_HEIGHT_KEY = "logHeight";
+
+    /** The height of the burndown, remembered as the lists' are (since 0.97). */
+    static final String BURNDOWN_HEIGHT_KEY = "burndownHeight";
 
     /** The width of the log shown alone, remembered as its height is (since 0.93). */
     static final String LOG_WIDTH_KEY = "logWidth";
@@ -288,7 +294,8 @@ public final class SettingsStore {
                 flag(root, LOCATE_WINDOW_KEY, defaults.locateWindow()),
                 tooltipMillis(root, defaults.tooltipMillis()),
                 flag(root, SHOW_EXIT_ICON_KEY, defaults.showExitIcon()),
-                historyGroup(root, defaults.historyGroup()));
+                historyGroup(root, defaults.historyGroup()),
+                flag(root, SHOW_BURNDOWN_ICON_KEY, defaults.showBurndownIcon()));
     }
 
     /** The interval the history is grouped by, by its key; a key that is none of them is logged and passed over. */
@@ -305,36 +312,43 @@ public final class SettingsStore {
     }
 
     /**
-     * The heights the window had the last time the history and the log were open, in pixels of its content; {@code 0} for
-     * none. They are in the settings file but are not settings of the settings view.
+     * The heights the window had the last time the history, the log and the burndown were open, in pixels of its content;
+     * {@code 0} for none. They are in the settings file but are not settings of the settings view.
      *
      * @param logWidth the width the window had the last time the log was shown alone, in pixels of its content (since 0.93);
      *     {@code 0} for none
+     * @param burndown the height of the burndown (since 0.97)
      */
-    public record Heights(int history, int log, int logWidth) {
+    public record Heights(int history, int log, int logWidth, int burndown) {
 
-        public static final Heights NONE = new Heights(0, 0, 0);
+        public static final Heights NONE = new Heights(0, 0, 0, 0);
 
         public Heights(int history, int log) {
-            this(history, log, 0);
+            this(history, log, 0, 0);
+        }
+
+        public Heights(int history, int log, int logWidth) {
+            this(history, log, logWidth, 0);
         }
 
         public Heights withHeight(String panel, int pixels) {
             return switch (panel) {
-                case "history" -> new Heights(pixels, log, logWidth);
-                case "log" -> new Heights(history, pixels, logWidth);
+                case "history" -> new Heights(pixels, log, logWidth, burndown);
+                case "log" -> new Heights(history, pixels, logWidth, burndown);
+                case "burndown" -> new Heights(history, log, logWidth, pixels);
                 default -> throw new IllegalArgumentException("No remembered height for " + panel);
             };
         }
 
         public Heights withLogWidth(int pixels) {
-            return new Heights(history, log, pixels);
+            return new Heights(history, log, pixels, burndown);
         }
 
         public int of(String panel) {
             return switch (panel) {
                 case "history" -> history;
                 case "log" -> log;
+                case "burndown" -> burndown;
                 default -> 0;
             };
         }
@@ -347,7 +361,8 @@ public final class SettingsStore {
             if (root == null || !root.isObject()) {
                 return Heights.NONE;
             }
-            return new Heights(height(root, HISTORY_HEIGHT_KEY), height(root, LOG_HEIGHT_KEY), height(root, LOG_WIDTH_KEY));
+            return new Heights(height(root, HISTORY_HEIGHT_KEY), height(root, LOG_HEIGHT_KEY), height(root, LOG_WIDTH_KEY),
+                    height(root, BURNDOWN_HEIGHT_KEY));
         } catch (IOException e) {
             return Heights.NONE;
         }
@@ -653,7 +668,7 @@ public final class SettingsStore {
     }
 
     /** The views, in the order of their icons, which is the order they are stored in. */
-    private static final java.util.List<String> VIEWS = java.util.List.of("cost", "history", "log", "errors");
+    private static final java.util.List<String> VIEWS = java.util.List.of("burndown", "cost", "history", "log", "errors");
 
     /**
      * The panel that was open as the file names it: {@code settings}, or one view, or several with commas between them.
@@ -896,9 +911,11 @@ public final class SettingsStore {
         root.put(TOOLTIP_MILLIS_KEY, settings.tooltipMillis());
         root.put(SHOW_EXIT_ICON_KEY, settings.showExitIcon());
         root.put(HISTORY_GROUP_KEY, settings.historyGroup());
+        root.put(SHOW_BURNDOWN_ICON_KEY, settings.showBurndownIcon());
         root.put(HISTORY_HEIGHT_KEY, heights.history());
         root.put(LOG_HEIGHT_KEY, heights.log());
         root.put(LOG_WIDTH_KEY, heights.logWidth());
+        root.put(BURNDOWN_HEIGHT_KEY, heights.burndown());
         // What the window showed when the program last stopped; only what was stored is written.
         if (last.panel() != null) {
             root.put(LAST_PANEL_KEY, last.panel());

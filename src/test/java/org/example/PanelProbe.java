@@ -220,6 +220,8 @@ public final class PanelProbe {
         page.executeScript(
                 "fetch('/api/settings').then(function (r) { return r.json(); }).then(function (b) { var s = b.settings;"
                         + " s.historyDeltaUsed = true; s.historyDeltaTime = true; s.historyCurrent = false; s.showStatus = false;"
+                        // The row is to be narrower than the table, which decides the width: the burndown icon (since 0.97) goes too.
+                        + " s.showBurndownIcon = false;"
                         + " return fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) }); })");
         after(1.0, () -> {
             click(page, "history-button");

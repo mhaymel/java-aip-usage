@@ -213,6 +213,9 @@ final class AppRuntime implements AutoCloseable, UsageSources {
             LOG.info("Debug mode (--debug)");
         }
         runtime.logSource(saved);
+        if (options.debug()) {
+            runtime.seedFakeMonth(settings.fakeOptions());
+        }
 
         UsageService service = new UsageService(runtime::fetchAndRecord, settings.usageInterval());
         runtime.service = service;
@@ -273,6 +276,26 @@ final class AppRuntime implements AutoCloseable, UsageSources {
             LOG.info(
                     "No token is obtained: a placeholder is sent instead (debug settings, "
                             + (now.fake() ? "the fake backend" : "the placeholder token") + ")");
+        }
+    }
+
+    /**
+     * Begins the history of the fake backend with invented readings of the month so far, while it is in use and answers for an
+     * account billed by usage, when that history has no reading of this month before today (since 0.97): so that the burndown
+     * has a month to draw at once. A history that cannot be written is logged and nothing more.
+     */
+    private void seedFakeMonth(org.example.fake.FakeOptions fake) {
+        if (!source.fake() || fake.account() != org.example.fake.FakeOptions.Account.USAGE) {
+            return;
+        }
+        try {
+            java.util.List<org.example.fake.FakeMonth.Reading> readings =
+                    org.example.fake.FakeMonth.readings(fake.startCents(), java.time.LocalDate.now());
+            if (fakeHistory.seed(readings, org.example.money.Amount.ofCents(fake.budgetCents()), "USD")) {
+                LOG.info("The history of the fake backend is begun with " + readings.size() + " invented readings of this month");
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warning("Could not begin " + fakeHistory.file() + " with invented readings", e);
         }
     }
 
@@ -407,6 +430,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
         close(old);
         latestDuration.set(-1);
         logSource(wanted);
+        seedFakeMonth(fake);
         service.restart(historyInUse().latest().orElse(null));
     }
 

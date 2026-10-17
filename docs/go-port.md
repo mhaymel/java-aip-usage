@@ -19,6 +19,14 @@ That work ended with version 0.76. Version 0.77 changed the page alone: the plac
 is a green frame with square corners and no fill. It is one rule of `app.css` and comes to the Go version with the
 frontend, which is copied; it adds nothing to the port and nothing to the problems below.
 
+**Version 0.97** adds the burndown of the month's credit, and it too adds nothing to the problems below. `Burndown` (about 200
+lines) is pure arithmetic on the rows of the history, with `Amount`, `Formatting` and the limit counted of `CostControl`, and
+translates directly; so do `FakeMonth`, the invented readings the history of the fake backend is begun with, and
+`UsageHistory.seed`, which puts them in the file in the order of time. The API has one route more, `GET /api/burndown`;
+`POST /api/height` takes `burndown`; the settings file has two keys more, `showBurndownIcon` and `burndownHeight`. The window
+host names one view more, `burndown`, which takes the height of the window as a list does and whose height is remembered. The
+chart is SVG drawn by the page, which is copied.
+
 ## Summary
 
 - **About four fifths of the program ports without difficulty.** The backend (usage client, refresh service, history,

@@ -129,11 +129,11 @@ class TitleBarWindowTest {
         assertEquals("moved:0,0 grew:60 hasTitleBar:false", line(all, "drag-edge").substring("PROBE drag-edge=".length()), "the bottom edge makes the list taller:\n" + all);
 
         // The button of Main view: a small icon in the line of the heading, which switches every element on, and all off when all are on.
-        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/10 .*"), "some elements are on, the status circle among them since 0.82, and the button is in the middle of its heading:\n" + all);
-        // The error log's icon is gone since 0.91, and the cross that ends the program came in 0.94, on by default.
-        assertTrue(line(all, "settings-all").contains("/18 note:"), "one press: all eighteen on, the status circle and the figures of the day among them (since 0.82):\n" + all);
-        // Another: all off but the four icons, which are a group of their own with a button of its own since 0.90.
-        assertTrue(line(all, "settings-narrow").contains("/4 note:"), "another: all off, the icons left as they were:\n" + all);
+        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/11 .*"), "some elements are on, the status circle among them since 0.82 and the burndown icon since 0.97, and the button is in the middle of its heading:\n" + all);
+        // The error log's icon is gone since 0.91, the cross that ends the program came in 0.94 and the burndown in 0.97, on by default.
+        assertTrue(line(all, "settings-all").contains("/19 note:"), "one press: all nineteen on, the status circle and the figures of the day among them (since 0.82):\n" + all);
+        // Another: all off but the five icons, which are a group of their own with a button of its own since 0.90.
+        assertTrue(line(all, "settings-narrow").contains("/5 note:"), "another: all off, the icons left as they were:\n" + all);
 
         // The window has the program's icon in its four sizes, with the title bar and without, in each window that took the place of another.
         assertEquals(all.lines().filter(l -> l.contains("=titleBar:")).count(), all.lines().filter(l -> l.contains(" icons:16/32/48/256 ")).count(),

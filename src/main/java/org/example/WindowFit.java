@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * may not be resized (the window with nothing open), {@code ,3} when it may not be resized and is
  * not the window with nothing open either (the settings, which are as tall as their content),
  * {@code ,4} when it may be made wider and its height is the content's (the tab About of the settings), and
- * optionally {@code ,history}, {@code ,log}, {@code ,errors}, {@code ,cost}, {@code ,settings} or {@code ,debug} after that, naming the panel that is open, in CSS pixels, taken from its own
+ * optionally {@code ,history}, {@code ,log}, {@code ,errors}, {@code ,cost}, {@code ,burndown} (since 0.97), {@code ,settings} or {@code ,debug} after that, naming the panel that is open, in CSS pixels, taken from its own
  * content and not from the window, so resizing the window to match never changes
  * the answer. With several views shown at once they are named together, in the order of their icons and joined by
  * {@code +}, as in {@code ,cost+history}, and a number may follow: the height the lowest list of them has when it is
@@ -69,11 +69,21 @@ final class WindowFit {
         String lowestList() {
             String lowest = null;
             for (String name : panels()) {
-                if (name.equals("log") || name.equals("history") || name.equals("errors")) {
+                if (isResizable(name)) {
                     lowest = name;
                 }
             }
             return lowest;
+        }
+
+        /** Whether a view takes the height the person drags the window to: the lists, and the burndown (since 0.97). */
+        static boolean isResizable(String name) {
+            return name.equals("log") || name.equals("history") || name.equals("errors") || name.equals("burndown");
+        }
+
+        /** Whether the host remembers the height of this view. */
+        static boolean remembersHeight(String name) {
+            return "history".equals(name) || "log".equals(name) || "burndown".equals(name);
         }
 
         boolean resizable() {
@@ -115,10 +125,10 @@ final class WindowFit {
     // on is the largest it is made, which the host applies.
     static final Size MAX = new Size(10000, 10000);
 
-    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(debug|(?:settings\\+)?(?:log|history|errors|cost)(?:\\+(?:log|history|errors|cost)){0,3}|settings)(?:,(\\d{1,5}))?(?:,-(\\d{1,4}))?)?)?");
+    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(debug|(?:settings\\+)?(?:log|history|errors|cost|burndown)(?:\\+(?:log|history|errors|cost|burndown)){0,4}|settings)(?:,(\\d{1,5}))?(?:,-(\\d{1,4}))?)?)?");
 
     /** The views in the order of their icons, which is the order the page names them in. */
-    private static final List<String> VIEWS = List.of("cost", "history", "log", "errors");
+    private static final List<String> VIEWS = List.of("burndown", "cost", "history", "log", "errors");
 
     private WindowFit() {
     }

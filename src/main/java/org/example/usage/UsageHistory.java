@@ -174,6 +174,71 @@ public final class UsageHistory {
         written = true;
     }
 
+    /**
+     * Begins the month with invented readings (since 0.97, for the fake backend): when the file has no reading of their month
+     * before the first of them, they are put in it in the order of time, before the first row that is not earlier than them,
+     * with no status, so that they begin no run. Nothing is changed when the month has a reading already.
+     *
+     * @param readings the times and the amounts used, in the order of time
+     * @param limit the limit they were read against
+     * @param currency its code
+     * @return whether they were added
+     * @throws IOException if the file cannot be written; it is then as it was
+     */
+    public synchronized boolean seed(List<org.example.fake.FakeMonth.Reading> readings, Amount limit, String currency) throws IOException {
+        if (readings.isEmpty()) {
+            return false;
+        }
+        LocalDateTime first = readings.get(0).at();
+        LocalDateTime last = readings.get(readings.size() - 1).at();
+        LocalDateTime monthStart = first.toLocalDate().withDayOfMonth(1).atStartOfDay();
+        upgradeOldFile();
+        List<String> lines = Files.isRegularFile(file) ? Files.readAllLines(file, StandardCharsets.UTF_8) : new ArrayList<>();
+        int insertAt = -1;
+        for (int i = 0; i < lines.size(); i++) {
+            String[] fields = lines.get(i).split(",", -1);
+            LocalDateTime at;
+            try {
+                at = LocalDateTime.parse(fields[0], TIME);
+            } catch (java.time.format.DateTimeParseException e) {
+                continue;
+            }
+            boolean reading = fields.length > 1 && !fields[1].isBlank();
+            if (reading && !at.isBefore(monthStart) && !at.isAfter(last)) {
+                return false;
+            }
+            if (insertAt < 0 && !at.isBefore(first)) {
+                insertAt = i;
+            }
+        }
+        Long server;
+        try {
+            server = limit.cents();
+        } catch (ArithmeticException e) {
+            server = null;
+        }
+        String[] limitColumns = limits.apply(server);
+        List<String> rows = new ArrayList<>();
+        for (org.example.fake.FakeMonth.Reading reading : readings) {
+            rows.add(TIME.format(reading.at()) + "," + Amount.ofCents(reading.usedCents()).plain() + "," + limit.plain() + "," + currency
+                    + ",,,," + limitColumns[0] + "," + limitColumns[1] + "," + limitColumns[2]);
+        }
+        List<String> written = new ArrayList<>(lines);
+        if (written.isEmpty() || written.get(0).isBlank()) {
+            written.clear();
+            written.add(HEADER);
+        }
+        written.addAll(insertAt < 0 ? written.size() : insertAt, rows);
+        Path beside = file.resolveSibling(file.getFileName() + ".tmp");
+        Files.writeString(beside, String.join("\n", written) + "\n", StandardCharsets.UTF_8);
+        try {
+            Files.move(beside, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(beside, file, StandardCopyOption.REPLACE_EXISTING);
+        }
+        return true;
+    }
+
     /** Brings a file with an older header up to date. Written beside it first, so a failure loses nothing. */
     private void upgradeOldFile() throws IOException {
         if (!Files.isRegularFile(file)) {

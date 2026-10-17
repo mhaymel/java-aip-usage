@@ -3405,6 +3405,124 @@ coming in above pads the others anew and the scroll keeps the place, one line fu
 160 a size like any other, less raised). The whole suite, the page tests and the window tests pass. No step of the window probe
 shows the row of the circle and the gear alone (its narrow rows have a message line, which keeps 300 pixels): that is by eye.
 
+### 139. Version 0.97: a burndown of the month's credit, and the version on a row of its own
+
+**Status: built (version 0.97).** The notes of `new-requirements.md` (the eighteenth round: a burndown view with an icon in the row, and
+`img_81.png`, the version on a row of its own), decided in four rounds of questions: the x-axis the days left, falling to 0;
+the credit left against the limit counted, today's for every point, never below 0; the ideal line straight over the calendar
+days; the forecast at the month's average daily spend; the last reading of a day as its point; a panel like the others,
+resizable in height; a message with no limit; the readings the history shows; a month seeded by the fake backend; inline SVG;
+an endpoint of its own; Java now and the Go version's notes. `AppInfo.VERSION = "0.97"`. Requirements: Version 0.97. Five
+parts:
+
+1. **`Burndown`, the figures, in the backend.** A new `Burndown` in `org.example`, like `Spending`: no window, no clock of its
+   own; it is given the rows of the history as the history shows them, the settings of cost control, the server's limit of
+   the newest reading, and the time. The rows are those of `HistoryReader.readGrouped(file, limit, showZero, group)` with the
+   settings' `historyZeroLines`, `historyFailedLines` and `historyGroup`, as `ApiHandler.history(...)` reads them, with no
+   limit on their number but the month's. It works out:
+   - the limit counted, `CostControl.monthlyCounted(serverLimit)`; none → `noLimit`, nothing else;
+   - the days of the month (`YearMonth.lengthOfMonth()`), and today's days left, to the time of the newest reading, as a
+     fraction (`x` is days left: the length of the month less the days since the start of the 1st);
+   - **the points**: of the rows of the current month (local time) with an amount used, the last of each day, credit left
+     `max(0, limit − used)`; today's is the newest reading. Before them a point at `x` = days of the month, credit = limit
+     (the start of the 1st). Days without a row have none: the page joins the points it is given;
+   - **the forecast**: the average daily spend, `used ÷ days since the start of the 1st`, from the last point to `x` = 0,
+     `max(0, …)`; none when no reading of the month has been read;
+   - the labels of the y-axis (0, half, the limit) and the tooltips, `<Mon> <day>: <credit> left` and `Forecast for <Mon>
+     <day>: <credit> left`, the amounts by `Formatting` with the currency symbol when `costCurrency` is on.
+   Tests: `BurndownTest`, by the clock given: no limit; no reading of the month (only the start point); one point a day,
+   the last of the day; a day missing (no point for it); the newest reading as today's point; over the limit (0, and the
+   forecast 0); a fall in the month; the server's limit counted and the typed one; the history's filters and grouping
+   (a hidden zero usage line gives no point; grouped by the hour the last group of the day is the point); a month of 28 and
+   one of 31; the tooltips word for word.
+2. **`GET /api/burndown`.** `ApiHandler`: the route, read when the panel opens and on each poll while it is shown, as
+   `GET /api/cost` is; any other method `405`. The body:
+   `{ "days": 31, "limit": 1000.0, "noLimit": false, "note": null, "yLabels": [...], "points": [{ "x": 31, "credit": 1000.0,
+   "tooltip": null }, ...], "forecast": { "from": {...}, "to": { "x": 0, "credit": 120.4, "tooltip": "Forecast for Oct 31:
+   120.40 left" } } }`; with no limit `noLimit: true` and `note: "No limit is set: set it in the settings, under Cost
+   control."`; with no reading `note: "No usage has been read yet."`. `docs/api.md`: the section, and the endpoint in the
+   table. Tests: `ApiTest` (the body, the no-limit note, `405`).
+3. **The panel, in the page.** `index.html`: `<div id="burndown-view" class="burndown" hidden>`, the row's icon (an inline SVG,
+   a line falling from the top left to the bottom right over a short baseline, in the gray of the other icons), its checkbox
+   `Burndown` first in the group `Icons` of `Main` with the icon beside it and the tooltip of the requirements. `app.js`:
+   `burndown` in `ICON_SETTINGS`, `MAIN_FLAGS`, `ICON_FLAGS` and the icons' order (before `cost`); `showBurndownIcon` in the
+   settings sent and read; a `drawBurndown(body)` that builds the SVG with a `viewBox` scaled to the panel's width and
+   height: the axes, the x labels at 30, 25, …, 0 (`x` mapped right to left: `days` at the left edge, 0 at the right), the
+   y labels, the ideal line (`#8a8f98`), the actual line as one `polyline` of the points (`#1a7f37` / `#3fb950` by the
+   theme), the forecast as a dashed `line` (`#ff9900`, `stroke-dasharray`), and a small circle at each point with its
+   tooltip as the program's tooltips are shown (the same `title` handling as the row). The note in the place of the chart
+   when there is one. Redrawn on each poll and when the panel's height changes. `app.css`: `.burndown`, the font of the
+   labels 11 pixels like the cost control. Tests: `app.test.cjs` (the icon and its tooltips, the checkbox, the SVG: the
+   number of points, the x labels, the dashed forecast, the note with no limit, redrawn on a new body), `layout.test.cjs`
+   (the checkbox first in `Icons`, the icon in the row's order).
+4. **The settings and the window.** `Settings`/`SettingsStore`: `showBurndownIcon` (on), `burndownHeight` (the remembered
+   height, as `historyHeight`); `burndown` in `SettingsStore.VIEWS` and `WindowFit.VIEWS` (before `cost`), and among the
+   resizable panels of `UsageApp` / `RememberedHeights` and the title bar's rule (a resizable panel has it); `ApiHandler`:
+   the two keys in `GET`/`POST /api/settings`; `StatusDisplay`: the icon among the row's. Restored at the start as
+   `burndown`. Tests: `SettingsStoreTest` (the keys, the defaults, an old file without them), `IntervalSettingsTest`
+   (the height remembered), `WindowFitTest` (the panel's opening height, 320 the least width), `ApiTest` (the keys).
+5. **The fake backend seeds a month, and the version in About.** `FakeBackend` (or the start in debug mode, where the history
+   of invented readings is chosen): when `java-aip-usage.fake.csv` has no reading of this month before today, write invented
+   readings from the start of the 1st to now, every three hours from 8:00 to 17:00 on working days, the amount rising by
+   the fake options' increase with some noise, and every fifth working day left out; the lines in the history's own format
+   (`UsageHistory`). Tests: `FakeBackendTest` (seeded once, not again; no line after now; a day without lines).
+   **About**: `index.html`/`app.js`: the version leaves its line under the name and is the first row of the table,
+   `Version` / `v0.97`; `GET /api/about` is unchanged (the page has the version already). Tests: `app.test.cjs` (the row).
+
+- **Tests.** As above; the whole suite, the page tests, and the window tests (`-Daipusage.windows=true`): a step of
+  `PanelWindowTest` opening the burndown, resizing it, and finding its height remembered, and of `SeveralViewsWindowTest`
+  with the burndown beside the cost control.
+- **The Go version** (not yet built, see The Go implementation): `go-port.md` gets `Burndown` among the backend classes that
+  translate directly (no window, `Amount` and `Formatting` only), `GET /api/burndown` among the routes, and the two
+  settings keys; the frontend comes with the page as it is.
+
+**By eye**: in debug mode, the burndown icon opens the panel with the seeded month: the gray ideal line from top left to bottom
+right, the green line of the days with the missing days bridged, the dashed orange forecast to 0 on the right; the labels
+30 … 0; a tooltip on a point; the bottom edge dragged and the chart following; the monthly limit cleared (with `Limit
+counted` = `Monthly limit` and no server limit) and the note shown; the About tab with `Version` in the table.
+
+**As built**: as planned, with these differences.
+- **The panel is a resizable view like the lists, without a title bar.** In `app.js` it is in `RESIZABLE` (`burndown`,
+  `history`, `log`), which `isList` and `layoutViews` use, while `LISTS` stays the two lists of lines and their zoom.
+  - It opens ten rows tall, as the history does, not at 160 pixels. Its width is the row's, at least `BURNDOWN_MIN_WIDTH`
+    (320). It reports `…,1,burndown`.
+  - The host remembers its height through `WindowFit.Size.remembersHeight` and `isResizable`, and `SettingsStore.Heights`
+    gets `burndown`. Since 0.87 a list has no title bar of its own, and neither has the burndown.
+- **The chart is drawn in percentages.** Every coordinate of the SVG is a share of the plot, so it follows a dragged height
+  without being redrawn.
+  - The labels of the axes are placed elements beside the plot. The column of the credit labels is as wide as its longest
+    label.
+  - A dot carries its tooltip as an SVG `title`.
+  - The chart is drawn again only when the body changed (`burndownKey`).
+- **It is read only when the history file changed** (`historyStamp`), as the history is, not at every poll as the cost
+  control is.
+- **The body.** `Burndown.build(shown, all, cost, withSymbol, now)` takes the rows the history shows for the points, and all
+  rows for the server's limit of the newest reading.
+  - `ApiHandler.burndown()` reads them with the history's filters and grouping, and no cut in their number.
+  - The body has `limitValue` beside the written `limit`.
+  - `forecast` is a list of points, with a bend where it meets 0.
+- **The fake month.** `FakeMonth.readings(startCents, today)` invents readings of the working days up to yesterday, not up
+  to now, at 8, 11, 14 and 17 o'clock. Every fifth working day is left out. The amount rises in steps of a seeded random
+  size to 98 % of the start amount.
+  - `UsageHistory.seed` puts the readings before the first row that is not earlier than them, with no status, unless the
+    month has a reading up to the last of them.
+  - `AppRuntime.seedFakeMonth` runs at a start in debug mode and at a change of the debug settings, when the fake backend
+    answers for an account billed by usage.
+- **About.** `#about-version` is a cell of `.about-details` after the label `Version`, and the rule `.about-version` is
+  gone.
+- **Tests.**
+  - New: `BurndownTest` (7), `FakeMonthTest` (3), `UsageHistorySeedTest` (5). `ApiTest` has three more: the body, the
+    notes, and the icon and its height. `SettingsStoreTest` has two more, `WindowFitTest` one, and `app.test.cjs` nine.
+  - Changed: the counts of settings, heights and keys; the checkboxes of `Icons` and the About table in
+    `layout.test.cjs`; the checked boxes in `TitleBarWindowTest` (11, 19, 5).
+  - Two expectations in `ApiTest` hold on any day now: after a switch to the fake backend the seeded reading may be shown,
+    and the forecast may meet 0.
+  - `PanelProbe` switches the burndown icon off as well as the status circle, so that the history's table, and not the
+    row, decides the width it measures.
+  - The whole suite, the page tests (535) and the window tests (`PanelWindowTest`, `SeveralViewsWindowTest`,
+    `TitleBarWindowTest`) pass.
+- **Not done by eye.** The checks above were not done by eye in the running program.
+
 ## Implementation notes, as built
 
 How the requirements are met today (version 0.77; written at version 0.37, and the part about the backend brought up

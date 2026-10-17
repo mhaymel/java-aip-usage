@@ -61,7 +61,7 @@ final class StatusDisplay {
             boolean historyIcon, boolean logIcon, boolean errorIcon, boolean costIcon,
             boolean time, boolean used, boolean limit, boolean refresh, boolean countdown, boolean duration,
             boolean severalViews, boolean status, boolean dayPercentage, boolean dayUsed, boolean dayLimit, boolean statusBlink,
-            boolean exitIcon) {
+            boolean exitIcon, boolean burndownIcon) {
 
         Json toJson() {
             return Json.object()
@@ -87,7 +87,9 @@ final class StatusDisplay {
                     .put("dayLimit", dayLimit)
                     .put("statusBlink", statusBlink)
                     // The cross that ends the program, after the gear (since 0.94).
-                    .put("exitIcon", exitIcon);
+                    .put("exitIcon", exitIcon)
+                    // The icon of the burndown (since 0.97).
+                    .put("burndownIcon", burndownIcon);
         }
     }
 
@@ -225,7 +227,8 @@ final class StatusDisplay {
                         settings.showDeltaTime(), settings.showHistoryIcon(), settings.showLogIcon(), settings.showErrorIcon(), settings.showCostIcon(),
                         settings.showTime(), settings.showUsed(), settings.showLimit(), settings.showRefresh(), settings.showCountdown(),
                         settings.showDuration(), settings.severalViews(), settings.showStatus(), settings.showDayPercentage(),
-                        settings.showDayUsed(), settings.showDayLimit(), settings.statusBlink(), settings.showExitIcon()),
+                        settings.showDayUsed(), settings.showDayLimit(), settings.statusBlink(), settings.showExitIcon(),
+                        settings.showBurndownIcon()),
                 // Whether the setting gives the window its title bar. The page draws a border round a window that has none,
                 // which is one with this off and no panel open.
                 settings.showTitleBar(),

@@ -598,14 +598,10 @@ body {
     margin-top: 6px;
 }
 
+/* The name alone above the table; the version is a row of the table since 0.97. */
 .about-name {
-    margin: 0;
-    font-size: 15px;
-}
-
-.about-version {
     margin: 0 0 8px;
-    color: var(--muted);
+    font-size: 15px;
 }
 
 .about-details {
@@ -1343,4 +1339,102 @@ body {
     background: var(--muted);
     pointer-events: none;
     z-index: 21;
+}
+
+/*
+ * The burndown of the month's credit (since 0.97): a chart that fills the height of its view, as a list does, drawn in SVG by
+ * the page. The ideal line is muted, the credit green as the figures, the forecast dashed in the orange of a warning.
+ */
+.burndown {
+    font: 400 11px/1.2 var(--list-font);
+    letter-spacing: normal;
+    padding: 2px 8px 0;
+}
+
+/* The labels of the credit at the left, the plot, and under it the labels of the days. */
+.burndown-chart {
+    flex: 1 1 auto;
+    min-height: 60px;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    column-gap: 6px;
+    padding: 8px 12px 4px 0;
+}
+
+.burndown-chart[hidden] {
+    display: none;
+}
+
+.burndown-y,
+.burndown-plot,
+.burndown-x {
+    position: relative;
+}
+
+.burndown-y > .burndown-label {
+    position: absolute;
+    right: 0;
+    transform: translateY(-50%);
+}
+
+.burndown-x {
+    height: 1.4em;
+}
+
+.burndown-x > .burndown-label {
+    position: absolute;
+    top: 2px;
+    transform: translateX(-50%);
+}
+
+.burndown-label {
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.burndown-plot > svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.burndown-chart .axis {
+    stroke: var(--muted);
+    stroke-width: 1;
+}
+
+.burndown-chart .grid {
+    stroke: var(--grid);
+    stroke-width: 1;
+}
+
+.burndown-chart .ideal {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.5;
+}
+
+.burndown-chart .actual {
+    fill: none;
+    stroke: var(--ok);
+    stroke-width: 2;
+    stroke-linejoin: round;
+}
+
+.burndown-chart .point {
+    fill: var(--ok);
+}
+
+.burndown-chart .forecast {
+    fill: none;
+    stroke: var(--warn);
+    stroke-width: 2;
+    stroke-dasharray: 5 4;
+}
+
+.burndown-chart .forecast-end {
+    fill: var(--warn);
 }
