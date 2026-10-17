@@ -471,11 +471,11 @@ whenever the history file has changed (`historyStamp`), as the history is.
 ```json
 {
   "days": 31, "noLimit": false, "limit": "1,000.00", "limitValue": 1000.0, "note": null,
-  "yLabels": [{ "value": 0.0, "text": "0.00" }, { "value": 500.0, "text": "500.00" }, { "value": 1000.0, "text": "1,000.00" }],
+  "yLabels": [{ "value": 0.0, "text": "0" }, { "value": 500.0, "text": "500" }, { "value": 1000.0, "text": "1k" }],
   "points": [
-    { "x": 31.0, "credit": 1000.0, "tooltip": null },
-    { "x": 30.2917, "credit": 950.0, "tooltip": "Oct 1: 950.00 left" },
-    { "x": 17.5, "credit": 865.0, "tooltip": "Oct 14: 865.00 left" }
+    { "x": 31.0, "credit": 1000.0, "tooltip": null, "below": false },
+    { "x": 30.2917, "credit": 950.0, "tooltip": "Oct 1: 950.00 left", "below": false },
+    { "x": 17.5, "credit": 865.0, "tooltip": "Oct 14: 865.00 left", "below": false }
   ],
   "forecast": [
     { "x": 17.5, "credit": 865.0, "tooltip": null },
@@ -492,7 +492,15 @@ the history shows (its filters for the zero usage and the failed lines, and its 
 today. A day without one has no point. `forecast` goes from the last point to `x` = 0 at the month's average daily spend, the
 amount used of that point over the days since the start of the 1st; when that spends the credit before the end of the month it
 has a point where it meets 0, with no tooltip, and stays on 0. It is empty when the month has no reading. `yLabels` are 0, half
-the limit and the limit. The amounts are written as in the row, with the currency symbol when `costCurrency` is on.
+the limit and the limit. The amounts are written as in the row, with the currency symbol when `costCurrency` is on; since
+version 0.99 those of `yLabels` are written short, `0`, `617`, `1k`, `1.5k`, `12.3k`, `2M`, with the symbol before them the same
+way, and the tooltips keep them in full.
+
+`below` (since version 0.99) is true when a point's credit is below the ideal line at its `x`, less than `limitValue` × `x` ÷
+`days`; the page draws the piece of the actual line from a point to the next red when either of the two is `below`, and green
+otherwise, and a dot red when its point is. Where the line crosses the ideal line between two readings `points` has a point of
+its own at the crossing, on the ideal line, with no tooltip and `below` false, so that each piece is wholly on one side. The
+points of `forecast` have `below` false; the forecast is drawn in its own colour.
 
 With no limit counted, `noLimit` is `true`, `limit` and `limitValue` are `null`, the lists are empty and `note` is `No limit is
 set: set it in the settings, under Cost control.`; with no reading at all the note is `No usage has been read yet.`. A history
@@ -723,7 +731,10 @@ reports flag `3`, the name `settings` (`520,658,3,settings`) and the height of t
 window is exactly as tall as they need, and follows them. While the tab `About` of the settings is shown the flag is `4` (`520,441,4,settings`): the window may be made wider, so that the paths can be read in a line each, and never narrower than the width reported, which is the same least width as on the other tabs whatever the window has; the height reported is that of the page at the width the window has, so it gets less as the window gets wider. That height is the one thing the page reports that follows from the window, and it is not the person's to drag. The last field names the panel that is open, and is left out when none is: `415,420,1,history`,
 `1215,420,2,log` or `615,420,2,errors` (the error log is half as wide as the log, rounded up). The burndown (since 0.97) reports
 flag `1` like a list, as wide as the row and never less than 320 pixels, and the height of ten rows or the one remembered:
-`320,340,1,burndown`; its height is remembered as the lists' are. The cost control panel reports flag `3`, with the width of the history's table and the height its two bars need: `415,160,3,cost`. For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
+`320,340,1,burndown`; its height is remembered as the lists' are. Since version 0.99 it reports flag `2`, as the log does, as
+wide as the row and never less than 200 pixels, `200,340,2,burndown`: that width is the least the window may be dragged to, and
+the host opens it at the width it was last dragged to, `burndownWidth` in the settings file, never less than the width reported,
+as it opens the log at `logWidth`. The cost control panel reports flag `3`, with the width of the history's table and the height its two bars need: `415,160,3,cost`. For the history the width is the page's measure of its own table plus padding and the scrollbar (never less than the row's), so every column
 is whole. The host remembers the height of the history and of the log, in the settings
 file, and opens them at the larger of that and the page's own; the error log and the settings are not remembered. For as long as a panel is named that can be resized, which is every panel but `cost`, the host gives the window its title bar, whatever the setting `showTitleBar` says; with none named, and with `cost`, it follows the setting. The host asks about every 150 ms and resizes its window when the answer changes, and lets the person
 resize only what it is told may be: nothing for `0` and `3`, the height for `1`, the height and the width for `2`, the width for `4`, and never
@@ -740,7 +751,7 @@ takes the height as a list does, is among them: the height the lowest list has a
 the history, the history at 490 with the row, and the two together 522. The width is that of the widest view by its
 own rule, the height the row and every view at the height it has alone; a list that has another view below it is given
 the larger of the height the status says under `heights` and its own ten rows, less what of the window is no view's (the row, its message lines, the borders and the room below the lowest view), so that it is as tall as when it is the lowest. The flag is `1` when a list is among them,
-`2` when the log or the error log is, and `3` when none is. Since version 0.81 the settings may stand beside the views, when
+`2` when the log or the error log is (or, since version 0.99, the burndown), and `3` when none is. Since version 0.81 the settings may stand beside the views, when
 they were opened with `severalViews` on: they are then named first, `settings+cost+history`, count with their least width and
 the height of their tab, and the flag is `2` with a list on their tab `About`, `4` there with no list (the width free), and
 as above otherwise. With `severalViews` off they replace the views, as before, and are named alone. The host gives the window its title bar when any view named is one but `cost`. What of the height is not the

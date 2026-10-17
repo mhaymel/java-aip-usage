@@ -99,6 +99,18 @@ final class WindowFit {
         }
 
         /**
+         * The least width of the content the person may drag a window to whose height and width are theirs: the row's, the
+         * content as it is with nothing open; the width the page asks for with the burndown alone, which is never less than
+         * 200 pixels nor the row (since 0.99); and with the burndown among other views the row's or 200, whichever is more.
+         */
+        double leastWidth(double closedWidth) {
+            if ("burndown".equals(panel)) {
+                return width;
+            }
+            return panels().contains("burndown") ? Math.max(closedWidth, BURNDOWN_LEAST_WIDTH) : closedWidth;
+        }
+
+        /**
          * Whether the window has its title bar for this, whatever the setting says: while the settings are shown, alone or
          * beside views, and the debug settings (since 0.87). No other view has it with the setting off: the lists are made
          * taller and shorter by buttons of their own then, and the window is moved by dragging it. Until 0.86 every view
@@ -120,6 +132,9 @@ final class WindowFit {
     // 40 pixels wide at least since 0.96, where it was 160: a row of the status circle and the gear alone is narrower than that, and
     // the window is as wide as the row, with no empty room in it.
     static final Size MIN = new Size(40, 32);
+
+    /** The least width of the burndown's content, so that its chart has room beside its labels (since 0.99; 320 until then). */
+    static final int BURNDOWN_LEAST_WIDTH = 200;
 
     // No size of a window, only a bound on what the page may report (2,400 by 1,600 until 0.91): since 0.92 the screen the window is
     // on is the largest it is made, which the host applies.

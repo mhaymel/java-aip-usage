@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.98 is built (140 phases); phase 140, the window that keeps its top-left corner when the title bar comes and goes, is not looked at by a person yet; the fault of the cost control closed with the settings was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.99 is built (141 phases); phase 141 (the burndown wider and narrower, red below the ideal line, short amounts, a dimmed icon switched on) is not looked at by a person yet; phase 140, the window that keeps its top-left corner when the title bar comes and goes, is not looked at by a person yet; the fault of the cost control closed with the settings was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -3557,6 +3557,92 @@ window keeps its top-left corner).
   frame's height; nothing in the page changes, so no frontend test.
 
 **By eye**: on Windows and on macOS, the settings opened and closed with the title bar off, several times, the window not moving.
+
+### 141. Version 0.99: the burndown wider and narrower, red below the ideal line, short amounts, and a dimmed icon switched on
+
+**Status: built (version 0.99); `./gradlew test`, the page tests (541) and the three window tests (`PanelWindowTest`,
+`SeveralViewsWindowTest`, `TitleBarWindowTest`, `-Daipusage.windows=true`) pass.** The notes of `new-requirements.md` (the twentieth round: `img_1.png`, the burndown resizable
+in width; `img_2.png`, red over the credit; `img_4.png`, the amounts too wide; `img_5.png`, a dimmed icon that checks its
+checkbox), decided in one round of questions: the width remembered as the log's, at least 200 pixels; red where the line is
+below the ideal line, piece by piece; the y-axis labels short, the symbol following the cost control's `Currency symbol` as
+before. Chosen without asking: the red is `--bad`; a dot takes its point's colour; the forecast stays orange; among several
+views the burndown makes the width draggable (flag `2`) and nothing of it is remembered; the click on a dimmed icon checks the
+checkbox in both modes, saved with one view at a time and a preview beside the views. `AppInfo.VERSION = "0.99"`. Requirements:
+Version 0.99 (and the markers in Version 0.97 and The panel buttons while the settings are shown); `docs/api.md`:
+`GET /api/burndown`, the window host contract. Four parts:
+
+1. **The width of the burndown.**
+   - `app.js`, `contentSize`: the burndown alone reports `Math.max(width, BURNDOWN_MIN_WIDTH + edge) + ',' +
+     aloneHeight('burndown') + ',2,burndown'`, `BURNDOWN_MIN_WIDTH` 200 (was 320 and flag `1`); `severalSize`: flag `2` when
+     the burndown is among the views, its width at least 200. `hasRightEdge()`: the log or the burndown open, the title bar off,
+     the settings closed. The chart's percentages already follow a width; the x labels at 200 pixels to be looked at.
+   - `UsageApp.resize`: the stored width for `burndown` as for `log` (`storedWidth(panel)`); `rememberDraggedWidth`: the log
+     or the burndown alone (`logAlone` → `widthAlone(size)` naming the panel). `applySize`, case `BOTH`: for the burndown the
+     least width is the page's width (`size.width()`, the 200 or the row), not `closedWidth`, so that a narrow row cannot let it
+     go below 200.
+   - `SettingsStore`: `BURNDOWN_WIDTH_KEY = "burndownWidth"`, `Heights` gets `burndownWidth` (read, written, `0` by default,
+     an old file without it); `IntervalSettings`: `storedLogWidth`/`storeLogWidth` become `storedWidth(panel)` /
+     `storeWidth(panel, px)` for `log` and `burndown`; the Fine line `The burndown window width is now <N> px`.
+   - Tests: `SettingsStoreTest` (the key, the default, an old file), `IntervalSettingsTest` (the width stored per panel),
+     `WindowFitTest` (`200,340,2,burndown` parsed as both resizable), `app.test.cjs` (the reported size, flag `2`, 200; the
+     right edge with the burndown), `PanelWindowTest` (`-Daipusage.windows=true`: the burndown dragged wider, closed, opened at
+     that width; dragged narrower stops at 200).
+2. **Red below the ideal line.**
+   - `Burndown`: `Point` gets `below` (`credit < limit × x ÷ days`, in cents, strictly); `build` inserts, between two points on
+     either side of the ideal line, the crossing (the `x` where `credit(x)` of the segment meets `limit × x ÷ days`, `below`
+     false, no tooltip); forecast points `below` false. `toJson` has `below`.
+   - `app.js`, `showBurndown`: a piece `actual` gets the class `below` when either end is `below`, a dot `point below` when its
+     point is. `app.css`: `.burndown-chart .actual.below { stroke: var(--bad); }`, `.point.below { fill: var(--bad); }`.
+   - Tests: `BurndownTest` (a point above, on and below the line; a crossing inserted at the right `x` and none when both ends
+     are on one side; the start point not below; a month over its limit below), `ApiTest` (`below` in the body),
+     `app.test.cjs` (red pieces and dots from a body; a piece green between two points not below).
+3. **Short amounts on the y-axis.**
+   - `Formatting.shortAmount(Amount)`: below 1,000 the whole number rounded half up (`617`), from 1,000 thousands with one
+     decimal rounded half up and `.0` dropped (`1k`, `1.5k`, `1.2k`, `12.3k`; 999.6 is `1k`), from 1,000,000 the same with `M`.
+     `Burndown`: the labels by `shortAmount`, with the symbol as `money` puts it; `limit`, the tooltips by `money` as before.
+   - Tests: `FormattingTest` (the cases above, 0, 999.49, 999.5, 1,000, 1,049.99, 1,050, 999,950, 1,000,000), `BurndownTest`
+     (the labels word for word, with and without the symbol), `app.test.cjs` (the label column narrower).
+4. **A click on a dimmed icon switches it on.**
+   - `app.js`, `togglePanel(name)`: while `settingsOpen`, for a view's icon (`ICON_SETTINGS[name]`) that is not open and whose
+     `set-<key>` checkbox is unchecked: check it and run the preview a click on it runs (the same handler, so that `offButtons`
+     and the dimming follow), then go on as now: beside the views open it unsaved; else `form.changed()` is now true and the
+     save takes the checkbox with it.
+   - Tests: `app.test.cjs` (one view at a time: the click checks the box, the save sends `show<…>Icon: true`, the icon stays
+     after; beside the views: checked, unsaved, `Cancel` unchecks it; a click on an open view's icon changes no checkbox; an
+     icon already on: nothing checked).
+
+- **Tests.** As above; the whole suite, the page tests, and the window tests (`-Daipusage.windows=true`): `PanelWindowTest`
+  with the burndown's width, `SeveralViewsWindowTest` with the burndown among the views and the width draggable.
+- **The Go version**: `go-port.md` gets `burndownWidth` among the settings keys, `below` in the burndown, and
+  `Formatting.shortAmount`.
+
+**By eye**: in debug mode, the burndown dragged wider and narrower by the frame and, with the title bar off, by the right edge,
+stopping at 200; closed and opened at the width left; the labels `1k`, `500`, `0` (with `$` when the cost control's symbol is
+on), the tooltips in full; the seeded month with a stretch below the ideal line in red and the change of colour at the
+crossing; in the settings a dimmed icon clicked, its checkbox checked and the icon staying after the save, and the same with
+`Several views at once` and `Cancel`.
+
+**As built**: as planned, with these differences.
+- **The least width.** `WindowFit.BURNDOWN_LEAST_WIDTH` (200) and `Size.leastWidth(closedWidth)`: the page's width with the
+  burndown alone, the row's or 200 with it among other views, the row's otherwise; `UsageApp.applySize` uses it in case `BOTH`.
+  `UsageApp.widthAlone(size)` names the log or the burndown shown alone, where `logAlone` was.
+- **The settings.** `SettingsStore.Heights` has `burndownWidth`, with `withWidth(panel, px)` and `widthOf(panel)`;
+  `withLogWidth` stays as a shorthand. `IntervalSettings.storedWidth(panel)` / `storeWidth(panel, px)` replace the two log
+  methods.
+- **Red.** `Burndown.againstIdeal(points, limit, days)` marks the points and inserts the crossings, in currency units with a
+  tolerance of 1e-4, so that a point on the line, as the start of the month, is not below it. The page's classes are
+  `actual below` and `point below`.
+- **The dimmed icon.** `switchOnToOpen(name)` in `app.js`, called by `togglePanel` while the settings are shown, before
+  either of its branches.
+- **Tests.**
+  - New: `FormattingTest` (1), `BurndownTest` (2), `SettingsStoreTest` (1), `IntervalSettingsTest` (1), `WindowFitTest` (1), and
+    six in `app.test.cjs`.
+  - Changed: the labels in `BurndownTest` and the page's fixture, one more point (the crossing) in `BurndownTest`, the keys of
+    the settings file, the size `200,340,2,burndown`, flag `2` for the burndown among views, and the two tests of a dimmed
+    icon, which held the old rule.
+  - Not written: `ApiTest` for `below` (`BurndownTest` checks the JSON), and a window test that drags the burndown and finds its
+    width remembered: the window probe checks what the page asks for, not the host's stored sizes, as for the log's width.
+- **Not done by eye.** The checks above were not done by eye in the running program.
 
 ## Implementation notes, as built
 

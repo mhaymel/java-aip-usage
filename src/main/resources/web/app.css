@@ -1343,7 +1343,8 @@ body {
 
 /*
  * The burndown of the month's credit (since 0.97): a chart that fills the height of its view, as a list does, drawn in SVG by
- * the page. The ideal line is muted, the credit green as the figures, the forecast dashed in the orange of a warning.
+ * the page. The ideal line is muted, the credit green as the figures (red below the ideal line since 0.99), the forecast dashed
+ * in the orange of a warning.
  */
 .burndown {
     font: 400 11px/1.2 var(--list-font);
@@ -1426,6 +1427,15 @@ body {
 
 .burndown-chart .point {
     fill: var(--ok);
+}
+
+/* Below the ideal line the month spends faster than its even pace: red, as the status circle is (since 0.99). */
+.burndown-chart .actual.below {
+    stroke: var(--bad);
+}
+
+.burndown-chart .point.below {
+    fill: var(--bad);
 }
 
 .burndown-chart .forecast {

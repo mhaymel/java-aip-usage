@@ -199,6 +199,9 @@ public final class SettingsStore {
     /** The width of the log shown alone, remembered as its height is (since 0.93). */
     static final String LOG_WIDTH_KEY = "logWidth";
 
+    /** The width of the burndown shown alone, remembered as the log's is (since 0.99). */
+    static final String BURNDOWN_WIDTH_KEY = "burndownWidth";
+
     /** The tallest height that is believed, in pixels: more than any screen. */
     static final int MAX_HEIGHT = 10_000;
 
@@ -318,30 +321,53 @@ public final class SettingsStore {
      * @param logWidth the width the window had the last time the log was shown alone, in pixels of its content (since 0.93);
      *     {@code 0} for none
      * @param burndown the height of the burndown (since 0.97)
+     * @param burndownWidth the width the window had the last time the burndown was shown alone (since 0.99); {@code 0} for none
      */
-    public record Heights(int history, int log, int logWidth, int burndown) {
+    public record Heights(int history, int log, int logWidth, int burndown, int burndownWidth) {
 
-        public static final Heights NONE = new Heights(0, 0, 0, 0);
+        public static final Heights NONE = new Heights(0, 0, 0, 0, 0);
 
         public Heights(int history, int log) {
-            this(history, log, 0, 0);
+            this(history, log, 0, 0, 0);
         }
 
         public Heights(int history, int log, int logWidth) {
-            this(history, log, logWidth, 0);
+            this(history, log, logWidth, 0, 0);
+        }
+
+        public Heights(int history, int log, int logWidth, int burndown) {
+            this(history, log, logWidth, burndown, 0);
         }
 
         public Heights withHeight(String panel, int pixels) {
             return switch (panel) {
-                case "history" -> new Heights(pixels, log, logWidth, burndown);
-                case "log" -> new Heights(history, pixels, logWidth, burndown);
-                case "burndown" -> new Heights(history, log, logWidth, pixels);
+                case "history" -> new Heights(pixels, log, logWidth, burndown, burndownWidth);
+                case "log" -> new Heights(history, pixels, logWidth, burndown, burndownWidth);
+                case "burndown" -> new Heights(history, log, logWidth, pixels, burndownWidth);
                 default -> throw new IllegalArgumentException("No remembered height for " + panel);
             };
         }
 
         public Heights withLogWidth(int pixels) {
-            return new Heights(history, log, pixels, burndown);
+            return withWidth("log", pixels);
+        }
+
+        /** These heights with the width of the log or of the burndown, shown alone, as given (since 0.99 for the burndown). */
+        public Heights withWidth(String panel, int pixels) {
+            return switch (panel) {
+                case "log" -> new Heights(history, log, pixels, burndown, burndownWidth);
+                case "burndown" -> new Heights(history, log, logWidth, burndown, pixels);
+                default -> throw new IllegalArgumentException("No remembered width for " + panel);
+            };
+        }
+
+        /** The remembered width of the log or of the burndown, shown alone; 0 for none, and for any other panel. */
+        public int widthOf(String panel) {
+            return switch (panel) {
+                case "log" -> logWidth;
+                case "burndown" -> burndownWidth;
+                default -> 0;
+            };
         }
 
         public int of(String panel) {
@@ -362,7 +388,7 @@ public final class SettingsStore {
                 return Heights.NONE;
             }
             return new Heights(height(root, HISTORY_HEIGHT_KEY), height(root, LOG_HEIGHT_KEY), height(root, LOG_WIDTH_KEY),
-                    height(root, BURNDOWN_HEIGHT_KEY));
+                    height(root, BURNDOWN_HEIGHT_KEY), height(root, BURNDOWN_WIDTH_KEY));
         } catch (IOException e) {
             return Heights.NONE;
         }
@@ -916,6 +942,7 @@ public final class SettingsStore {
         root.put(LOG_HEIGHT_KEY, heights.log());
         root.put(LOG_WIDTH_KEY, heights.logWidth());
         root.put(BURNDOWN_HEIGHT_KEY, heights.burndown());
+        root.put(BURNDOWN_WIDTH_KEY, heights.burndownWidth());
         // What the window showed when the program last stopped; only what was stored is written.
         if (last.panel() != null) {
             root.put(LAST_PANEL_KEY, last.panel());

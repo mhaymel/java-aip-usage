@@ -294,14 +294,30 @@ class IntervalSettingsTest {
     @Test
     void theWidthOfTheLogIsRememberedAcrossARestartWithItsHeight() {
         IntervalSettings first = load();
-        assertEquals(0, first.storedLogWidth());
+        assertEquals(0, first.storedWidth("log"));
 
         first.storeHeight("log", 500);
-        first.storeLogWidth(1300);
+        first.storeWidth("log", 1300);
 
         IntervalSettings second = load();
-        assertEquals(1300, second.storedLogWidth());
+        assertEquals(1300, second.storedWidth("log"));
         assertEquals(500, second.storedHeight("log"), "the height is kept beside it");
+    }
+
+    @Test
+    void theWidthOfTheBurndownIsRememberedOfItsOwnBesideTheLogs() {
+        IntervalSettings first = load();
+        assertEquals(0, first.storedWidth("burndown"));
+
+        first.storeWidth("log", 1300);
+        first.storeWidth("burndown", 260);
+        first.storeHeight("burndown", 380);
+
+        IntervalSettings second = load();
+        assertEquals(260, second.storedWidth("burndown"));
+        assertEquals(1300, second.storedWidth("log"), "each has its own");
+        assertEquals(380, second.storedHeight("burndown"));
+        assertEquals(0, second.storedWidth("history"), "the history keeps no width");
     }
 
     @Test
@@ -309,8 +325,8 @@ class IntervalSettingsTest {
         SettingsStore unwritable = new SettingsStore(dir.resolve("no-such-dir").resolve("settings.json"));
         IntervalSettings settings = IntervalSettings.load(unwritable, OptionalInt.empty(), OptionalInt.empty());
 
-        settings.storeLogWidth(1300);
+        settings.storeWidth("log", 1300);
 
-        assertEquals(0, settings.storedLogWidth());
+        assertEquals(0, settings.storedWidth("log"));
     }
 }

@@ -69,15 +69,57 @@ class BurndownTest {
         assertEquals(31, view.days());
         assertEquals(1000.0, view.limitValue());
         List<Burndown.Point> points = view.points();
-        assertEquals(4, points.size(), "the start of the month, and Oct 1, 3 and 14; September is not this month and Oct 2 has no reading");
+        assertEquals(5, points.size(), "the start of the month, Oct 1, 3, the crossing of the ideal line, and Oct 14; "
+                + "September is not this month and Oct 2 has no reading");
         assertEquals(new Burndown.Point(31, 1000.0, null), points.get(0), "the limit at the start of the 1st, no dot");
         assertEquals(31 - 17 / 24.0, points.get(1).x(), 1e-9, "Oct 1 at 17:00, its last reading");
         assertEquals(950.0, points.get(1).credit());
         assertEquals("Oct 1: 950.00 left", points.get(1).tooltip());
         assertEquals("Oct 3: 860.00 left", points.get(2).tooltip());
-        assertEquals(17.5 + 0.5 / 24, points.get(3).x(), 1e-9, "today's point is the newest reading, at 11:30");
-        assertEquals("Oct 14: 679.50 left", points.get(3).tooltip());
-        assertEquals(List.of("0.00", "500.00", "1,000.00"), view.yLabels().stream().map(Burndown.Label::text).toList());
+        assertNull(points.get(3).tooltip(), "the crossing is no reading");
+        assertEquals(17.5 + 0.5 / 24, points.get(4).x(), 1e-9, "today's point is the newest reading, at 11:30");
+        assertEquals("Oct 14: 679.50 left", points.get(4).tooltip());
+        assertEquals(List.of("0", "500", "1k"), view.yLabels().stream().map(Burndown.Label::text).toList());
+    }
+
+    @Test
+    void aPointIsBelowWhereItsCreditIsLessThanTheIdealLineAndACrossingHasAPointOfItsOwn() {
+        // On Oct 3 at noon 28.5 days are left: the ideal line stands at 1,000.00 × 28.5 ÷ 31 = 919.35.
+        Burndown.View view = build(rows("2026-10-03 12:00:00", "140.00", "2026-10-14 12:00:00", "300.00"));
+
+        List<Burndown.Point> points = view.points();
+        assertFalse(points.get(0).below(), "the start of the month is on the line");
+        assertTrue(points.get(1).below(), "860.00 is below 919.35");
+        Burndown.Point crossing = points.get(2);
+        assertNull(crossing.tooltip());
+        assertFalse(crossing.below());
+        assertEquals(1000.0 * crossing.x() / 31, crossing.credit(), 1e-6, "the crossing lies on the ideal line");
+        assertTrue(crossing.x() < 28.5 && crossing.x() > 17.5);
+        assertFalse(points.get(3).below(), "700.00 is above 564.52");
+        assertEquals(4, points.size());
+        assertTrue(view.forecast().stream().noneMatch(Burndown.Point::below), "the forecast has its own colour");
+
+        // Below throughout: no crossing.
+        Burndown.View low = build(rows("2026-10-03 12:00:00", "140.00", "2026-10-14 12:00:00", "600.00"));
+        assertEquals(3, low.points().size());
+        assertTrue(low.points().get(2).below());
+
+        // A point exactly on the line is not below it, and a piece from it needs no crossing.
+        List<Burndown.Point> onTheLine = Burndown.againstIdeal(List.of(new Burndown.Point(31, 1000, null),
+                new Burndown.Point(15.5, 500, "on"), new Burndown.Point(10, 100, "under")), 1000, 31);
+        assertEquals(List.of(false, false, true), onTheLine.stream().map(Burndown.Point::below).toList());
+    }
+
+    @Test
+    void theLabelsAreShortWithTheSymbolBeforeThemAndTheTooltipsInFull() {
+        List<List<String>> history = rows("2026-10-14 12:00:00", "135.00");
+        CostControl odd = new CostControl(123_456L, null, true);
+
+        Burndown.View view = Burndown.build(history, history, odd, true, NOON);
+
+        assertEquals(List.of("$0", "$617", "$1.2k"), view.yLabels().stream().map(Burndown.Label::text).toList());
+        assertEquals("$1,234.56", view.limit());
+        assertEquals("Oct 14: $1,099.56 left", view.points().get(1).tooltip());
     }
 
     @Test
@@ -149,6 +191,8 @@ class BurndownTest {
         assertEquals(2, json.get("points").size());
         assertEquals(17.5, json.at("/points/1/x").doubleValue());
         assertEquals("Oct 14: 865.00 left", json.at("/points/1/tooltip").text());
+        assertFalse(json.at("/points/1/below").bool());
+        assertEquals("1k", json.at("/yLabels/2/text").text());
         assertEquals(2, json.get("forecast").size());
     }
 }

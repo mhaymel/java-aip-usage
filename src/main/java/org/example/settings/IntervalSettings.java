@@ -86,25 +86,25 @@ public final class IntervalSettings {
         LOG.fine("The " + panel + " window height is now " + pixels + " px");
     }
 
-    /** The width the window had the last time the log was shown alone (since 0.93), or 0. */
-    public synchronized int storedLogWidth() {
-        return heights.logWidth();
+    /** The width the window had the last time {@code panel}, the log (since 0.93) or the burndown (since 0.99), was shown alone, or 0. */
+    public synchronized int storedWidth(String panel) {
+        return heights.widthOf(panel);
     }
 
-    /** Remembers the width of the window with the log shown alone, as {@link #storeHeight} remembers a height. */
-    public synchronized void storeLogWidth(int pixels) {
-        SettingsStore.Heights updated = heights.withLogWidth(pixels);
+    /** Remembers the width of the window with the log or the burndown shown alone, as {@link #storeHeight} remembers a height. */
+    public synchronized void storeWidth(String panel, int pixels) {
+        SettingsStore.Heights updated = heights.withWidth(panel, pixels);
         if (updated.equals(heights)) {
             return;
         }
         try {
             store.saveHeights(updated);
         } catch (IOException e) {
-            LOG.warning("Could not save the width of the log to " + store.file(), e);
+            LOG.warning("Could not save the width of the " + panel + " to " + store.file(), e);
             return;
         }
         heights = updated;
-        LOG.fine("The log window width is now " + pixels + " px");
+        LOG.fine("The " + panel + " window width is now " + pixels + " px");
     }
 
     /** How the fake backend's ordinary answer is shaped, as saved; the defaults if it never was. */

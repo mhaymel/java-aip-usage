@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.WindowFit.Resize;
 import org.example.WindowFit.Size;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -194,6 +195,18 @@ class WindowFitTest {
         assertEquals("burndown", WindowFit.parse("520,640,1,burndown+cost,420").orElseThrow().lowestList());
         assertEquals(Optional.empty(), WindowFit.parse("520,640,1,cost+burndown,420"), "the burndown is the first icon");
         assertEquals(false, Size.remembersHeight("cost"));
+    }
+
+    @Test
+    void theBurndownMayBeDraggedInWidthDownToTheWidthItAsksForOr200AmongOtherViews() {
+        Size alone = WindowFit.parse("260,340,2,burndown").orElseThrow();
+        assertEquals(Resize.BOTH, alone.resize(), "since 0.99 its width is the person's too");
+        assertEquals(true, alone.widthIsThePersons());
+        assertEquals(260.0, alone.leastWidth(120), "alone, the width it asks for: the row's or 200");
+
+        assertEquals(200.0, WindowFit.parse("520,640,2,burndown+history,420").orElseThrow().leastWidth(120), "among others, 200 at least");
+        assertEquals(300.0, WindowFit.parse("520,640,2,burndown+history,420").orElseThrow().leastWidth(300), "or the row");
+        assertEquals(120.0, WindowFit.parse("1215,420,2,log").orElseThrow().leastWidth(120), "the log, the row's, as before");
     }
 
     @Test

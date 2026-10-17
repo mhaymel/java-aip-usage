@@ -34,6 +34,9 @@ final class Burndown {
 
     private static final double SECONDS_A_DAY = 24 * 60 * 60;
 
+    /** Less than a cent's hundredth: a point on the ideal line, as the start of the month is, is not below it. */
+    private static final double EPSILON = 1e-4;
+
     private Burndown() {
     }
 
@@ -42,12 +45,18 @@ final class Burndown {
      *
      * @param x the days left in the month at its time, 0 at the end of the month
      * @param credit the credit left, never below 0
-     * @param tooltip what hovering over it says, or null for a point that is no reading (the start of the month, a bend of the forecast)
+     * @param tooltip what hovering over it says, or null for a point that is no reading (the start of the month, a bend of the
+     *     forecast, a crossing of the ideal line)
+     * @param below whether the credit is below the ideal line at {@code x}, which the page draws red (since 0.99); never for the forecast
      */
-    record Point(double x, double credit, String tooltip) {
+    record Point(double x, double credit, String tooltip, boolean below) {
+
+        Point(double x, double credit, String tooltip) {
+            this(x, credit, tooltip, false);
+        }
 
         Json toJson() {
-            return Json.object().put("x", round(x)).put("credit", credit).put("tooltip", tooltip);
+            return Json.object().put("x", round(x)).put("credit", credit).put("tooltip", tooltip).put("below", below);
         }
 
         private static double round(double value) {
@@ -168,11 +177,42 @@ final class Burndown {
             }
         }
 
+        // The labels are written short, so that they leave the chart its room (since 0.99).
         List<Label> labels = List.of(
-                new Label(0, money(0, currency, withSymbol)),
-                new Label(cents(limitCents) / 2, money(limitCents / 2, currency, withSymbol)),
-                new Label(cents(limitCents), money(limitCents, currency, withSymbol)));
-        return new View(days, false, money(limitCents, currency, withSymbol), cents(limitCents), null, labels, points, forecast);
+                new Label(0, label(0, currency, withSymbol)),
+                new Label(cents(limitCents) / 2, label(limitCents / 2, currency, withSymbol)),
+                new Label(cents(limitCents), label(limitCents, currency, withSymbol)));
+        return new View(days, false, money(limitCents, currency, withSymbol), cents(limitCents), null, labels,
+                againstIdeal(points, cents(limitCents), days), forecast);
+    }
+
+    /**
+     * The points marked where they are below the ideal line, with a point of its own where the line crosses it between two of
+     * them, so that each piece between two points lies wholly on one side of it and the page can colour it by its ends (since 0.99).
+     */
+    static List<Point> againstIdeal(List<Point> points, double limit, int days) {
+        List<Point> marked = new ArrayList<>();
+        Point before = null;
+        for (Point point : points) {
+            double off = offIdeal(point, limit, days);
+            if (before != null) {
+                double was = offIdeal(before, limit, days);
+                if ((was > EPSILON && off < -EPSILON) || (was < -EPSILON && off > EPSILON)) {
+                    // Where the distance to the ideal line, which changes evenly along the piece, is 0.
+                    double share = was / (was - off);
+                    marked.add(new Point(before.x() + share * (point.x() - before.x()),
+                            before.credit() + share * (point.credit() - before.credit()), null, false));
+                }
+            }
+            marked.add(new Point(point.x(), point.credit(), point.tooltip(), off < -EPSILON));
+            before = point;
+        }
+        return marked;
+    }
+
+    /** How far the point's credit is above the ideal line at its day, negative below it. */
+    private static double offIdeal(Point point, double limit, int days) {
+        return point.credit() - limit * point.x() / days;
     }
 
     private static View empty(int days, String note) {
@@ -190,6 +230,12 @@ final class Burndown {
 
     private static String money(long cents, String currency, boolean withSymbol) {
         String text = Formatting.amount(Amount.ofCents(cents));
+        return withSymbol ? Formatting.currencySymbol(currency) + text : text;
+    }
+
+    /** An amount of the y-axis, short: {@code 1k}, {@code $500} (since 0.99). */
+    private static String label(long cents, String currency, boolean withSymbol) {
+        String text = Formatting.shortAmount(Amount.ofCents(cents));
         return withSymbol ? Formatting.currencySymbol(currency) + text : text;
     }
 }

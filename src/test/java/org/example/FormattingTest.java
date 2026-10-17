@@ -95,6 +95,25 @@ class FormattingTest {
     }
 
     @Test
+    void aShortAmountIsWholeBelowAThousandThenThousandsAndMillionsWithOneDecimalAtMost() {
+        assertEquals("0", Formatting.shortAmount(Amount.ZERO));
+        assertEquals("617", Formatting.shortAmount(Amount.parse("617.28")));
+        assertEquals("999", Formatting.shortAmount(Amount.parse("999.49")));
+        assertEquals("1k", Formatting.shortAmount(Amount.parse("999.5")), "rounded half up into the thousands");
+        assertEquals("1k", Formatting.shortAmount(Amount.parse("999.6")));
+        assertEquals("1k", Formatting.shortAmount(Amount.parse("1000")));
+        assertEquals("1k", Formatting.shortAmount(Amount.parse("1049.99")), "a decimal .0 is left out");
+        assertEquals("1.1k", Formatting.shortAmount(Amount.parse("1050")));
+        assertEquals("1.2k", Formatting.shortAmount(Amount.parse("1234.56")));
+        assertEquals("1.5k", Formatting.shortAmount(Amount.parse("1500")));
+        assertEquals("12.3k", Formatting.shortAmount(Amount.parse("12345")));
+        assertEquals("1M", Formatting.shortAmount(Amount.parse("999950")), "rounded half up into the millions");
+        assertEquals("1M", Formatting.shortAmount(Amount.parse("1000000")));
+        assertEquals("2.5M", Formatting.shortAmount(Amount.parse("2500000")));
+        assertEquals("-500", Formatting.shortAmount(Amount.parse("-500")));
+    }
+
+    @Test
     void aMissingAmountIsADashNotAZero() {
         assertEquals("—", Formatting.amount(null));
     }

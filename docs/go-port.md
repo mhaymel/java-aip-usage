@@ -27,6 +27,11 @@ translates directly; so do `FakeMonth`, the invented readings the history of the
 host names one view more, `burndown`, which takes the height of the window as a list does and whose height is remembered. The
 chart is SVG drawn by the page, which is copied.
 
+**Version 0.99** adds nothing to the problems below either. `Formatting.shortAmount` writes the burndown's labels short (`1k`),
+in whole cents; `Burndown.againstIdeal` marks a point `below` the ideal line and puts one where the line crosses it. The settings
+file has one key more, `burndownWidth`, which the host stores as it stores `logWidth`, and the burndown reports flag `2` with a
+least width of 200 (`WindowFit.Size.leastWidth`).
+
 ## Summary
 
 - **About four fifths of the program ports without difficulty.** The backend (usage client, refresh service, history,

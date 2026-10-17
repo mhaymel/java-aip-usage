@@ -1741,8 +1741,8 @@
 
     // What the burndown shows now, as JSON, so that it is drawn again only when it changed.
     var burndownKey = null;
-    // The least width of the window with the burndown, so that its labels have room.
-    var BURNDOWN_MIN_WIDTH = 320;
+    // The least width of the window with the burndown, so that its labels have room (320 until 0.98; `WindowFit.BURNDOWN_LEAST_WIDTH`).
+    var BURNDOWN_MIN_WIDTH = 200;
     var SVG = 'http://www.w3.org/2000/svg';
 
     /** An element of the chart: SVG where the page has it, and a plain element where it has not, as in the tests of the page. */
@@ -1812,8 +1812,10 @@
         line('axis', 0, 1, 1, 1);
         line('ideal', 0, 0, 1, 1);
         var points = shown.points || [];
+        // A piece is red when either of its ends is below the ideal line; the backend puts a point where the line crosses it (since 0.99).
         for (var i = 1; i < points.length; i++) {
-            line('actual', left(points[i - 1].x), top(points[i - 1].credit), left(points[i].x), top(points[i].credit));
+            var below = points[i - 1].below || points[i].below;
+            line(below ? 'actual below' : 'actual', left(points[i - 1].x), top(points[i - 1].credit), left(points[i].x), top(points[i].credit));
         }
         var forecast = shown.forecast || [];
         for (var j = 1; j < forecast.length; j++) {
@@ -1824,7 +1826,8 @@
             if (!point.tooltip) {
                 return;
             }
-            var dot = svgElement('circle', { 'class': n < points.length ? 'point' : 'forecast-end', cx: percent(left(point.x)), cy: percent(top(point.credit)), r: 3 });
+            var kind = n < points.length ? (point.below ? 'point below' : 'point') : 'forecast-end';
+            var dot = svgElement('circle', { 'class': kind, cx: percent(left(point.x)), cy: percent(top(point.credit)), r: 3 });
             var title = svgElement('title');
             title.textContent = point.tooltip;
             dot.append(title);
@@ -2055,6 +2058,9 @@
      * Save does, when anything in them was changed. If that fails they stay, with the reason, and the other panel is not shown.
      */
     async function togglePanel(name) {
+        if (settingsOpen && name !== 'settings') {
+            switchOnToOpen(name);
+        }
         if (settingsOpen && settingsBeside && name !== 'settings') {
             // Beside the views, an icon opens or closes its view, and the settings stay as they are, unsaved.
             showViews(isOpen(name) ? openViews.filter(function (open) { return open !== name; }) : openViews.concat([name]), true);
@@ -2088,6 +2094,20 @@
             // With several views at once the others stay; without, the view takes the place of the one that is shown.
             showViews(several() ? openViews.concat([name]) : [name], false);
         }
+    }
+
+    /**
+     * A click on the dimmed icon of a view that is not shown, while the settings are, checks the view's checkbox in the group
+     * Icons, as a click on it would, and previews it (since 0.99): the save that follows keeps the icon, and Cancel takes it back.
+     * Closing a view changes no checkbox.
+     */
+    function switchOnToOpen(name) {
+        var key = ICON_SETTINGS[name];
+        if (!key || isOpen(name) || settingsShown === null || $('set-' + key).checked) {
+            return;
+        }
+        $('set-' + key).checked = true;
+        previewNow();
     }
 
     /** Shows the named panel, or none for null, in the one panel area, loading what it shows afresh. */
@@ -2164,9 +2184,12 @@
     // How near the bottom of the window the pointer brings the grip of the edge, in CSS pixels: the edge and 10 above it.
     var GRIP_NEAR = 16;
 
-    /** Whether the window has the right edge that makes it wider and narrower: no title bar, and the log shown (since 0.91). */
+    /**
+     * Whether the window has the right edge that makes it wider and narrower: no title bar, and the log (since 0.91) or the
+     * burndown (since 0.99) shown.
+     */
     function hasRightEdge() {
-        return noTitleBar() && !settingsOpen && isOpen('log');
+        return noTitleBar() && !settingsOpen && (isOpen('log') || isOpen('burndown'));
     }
 
     /** Shows the grip of an edge while the pointer is near it, so that the edge can be found where the cursor does not change. */
@@ -2469,8 +2492,9 @@
         }
         var only = openViews.length === 1 ? openViews[0] : null;
         if (only === 'burndown') {
-            // As wide as the row, and never narrower than the chart needs; its height is the person's, as a list's is (since 0.97).
-            return Math.max(width, BURNDOWN_MIN_WIDTH + edge) + ',' + aloneHeight('burndown') + ',1,burndown';
+            // As wide as the row, and never narrower than the chart needs; its height is the person's, as a list's is (since 0.97),
+            // and since 0.99 its width too, from this width up: the host opens it at the width it was last left at.
+            return Math.max(width, BURNDOWN_MIN_WIDTH + edge) + ',' + aloneHeight('burndown') + ',2,burndown';
         }
         if (only === 'cost') {
             // As tall as the two bars and the note need, and as wide as the history's table, or as the bars need: not resizable.
@@ -2540,7 +2564,8 @@
         }
         // The tab About may be dragged wider: with a list among the views the width is free, and without one the width alone.
         var about = settingsOpen && currentTab === 'about';
-        var flag = lowest === null ? (about ? 4 : 3) : (isOpen('log') || about ? 2 : 1);
+        // The width is free with the log, and with the burndown since 0.99.
+        var flag = lowest === null ? (about ? 4 : 3) : (isOpen('log') || isOpen('burndown') || about ? 2 : 1);
         var named = (settingsOpen ? ['settings'] : []).concat(openViews);
         return wide + ',' + Math.ceil(total) + ',' + flag + ',' + named.join('+') + (lowest === null || shared !== null ? '' : ',' + aloneHeight(lowest));
     }

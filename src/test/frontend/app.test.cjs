@@ -215,7 +215,7 @@ const COST = {
 // The burndown of October as the backend sends it, finished (since 0.97): a day without a reading, and a forecast to the end.
 const BURNDOWN = {
     days: 31, noLimit: false, limit: '1,000.00', limitValue: 1000, note: null,
-    yLabels: [{ value: 0, text: '0.00' }, { value: 500, text: '500.00' }, { value: 1000, text: '1,000.00' }],
+    yLabels: [{ value: 0, text: '0' }, { value: 500, text: '500' }, { value: 1000, text: '1k' }],
     points: [
         { x: 31, credit: 1000, tooltip: null },
         { x: 30.2917, credit: 950, tooltip: 'Oct 1: 950.00 left' },
@@ -2043,7 +2043,7 @@ test('a click on the checkbox of a panel button dims the button, or brings it ba
     assert.equal(before.split(',')[2] + before.split(',')[3], '3settings');
 });
 
-test('a click on a dimmed button saves the settings and opens its panel, whose button then stays until the panel is closed', async () => {
+test('a click on a dimmed button switches it on, saves the settings with it and opens its panel, whose button then stays (since 0.99)', async () => {
     const state = { config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS) };
     const page = await load(backendOf(state));
     await page.click('settings-button');
@@ -2056,34 +2056,75 @@ test('a click on a dimmed button saves the settings and opens its panel, whose b
     await page.click('log-button');
 
     assert.equal(settingsPosts(page).length, 1, 'the settings are saved, as by any button of the row');
-    assert.equal(JSON.parse(settingsPosts(page)[0].body).showLogIcon, false, 'the button stays switched off');
+    const sent = JSON.parse(settingsPosts(page)[0].body);
+    assert.equal(sent.showLogIcon, true, 'the click switched the button on (until 0.98 it stayed off)');
+    assert.equal(sent.showHistoryIcon, false, 'the other stays off');
+    assert.equal(sent.showDeltaUsed, true, 'with what else was changed');
+    assert.equal(page.el('set-showLogIcon').checked, true);
     assert.equal(page.el('settings-view').hidden, true);
     assert.equal(page.el('log-button').title, 'Hide the log', 'the log is shown');
     assert.match(page.el('log-button').className, /\bactive\b/);
     assert.doesNotMatch(page.el('log-button').className, /\boff\b/, 'the button of the open panel is not dimmed');
     assert.deepEqual(visible(page), ['log-button', 'settings-button'], 'the other went with the settings');
 
+    state.status = withShow(WITH_CHANGE, { historyIcon: false, logIcon: true });
+    await page.firePoll();
     await page.click('log-button');
-    assert.deepEqual(visible(page), ['settings-button'], 'closed, its button goes');
+    assert.deepEqual(visible(page), ['log-button', 'settings-button'], 'closed, its button stays: it is switched on');
 });
 
-test('a view reached through a dimmed icon is not given back when the settings are left again, since its icon is still switched off; Cancel gives it back', async () => {
+test('a view reached through a dimmed icon is switched on, so it is given back when the settings are left again (since 0.99)', async () => {
     const off = { ...SETTINGS, settings: { ...SETTINGS.settings, showLogIcon: false, showHistoryIcon: false } };
-    for (const [leave, back] of [['settings-save', false], ['settings-button', false], ['settings-cancel', true]]) {
-        const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS), settings: () => ({ status: 200, body: off }) }));
+    const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, NO_ICONS), settings: () => ({ status: 200, body: off }) }));
+    await page.click('settings-button');
+    await page.click('log-button');
+
+    assert.equal(page.el('log-button').title, 'Hide the log', 'the dimmed icon opens its view');
+    assert.equal(JSON.parse(settingsPosts(page)[0].body).showLogIcon, true);
+});
+
+test('beside the views a click on a dimmed icon checks its checkbox, unsaved: Save keeps it, Cancel takes it back, and closing changes nothing (since 0.99)', async () => {
+    const off = { ...SETTINGS, settings: { ...SETTINGS.settings, severalViews: true, showLogIcon: false } };
+    for (const leave of ['settings-save', 'settings-cancel']) {
+        const page = await load(backendOf({ config: CONFIG, status: withShow(WITH_CHANGE, { historyIcon: true, logIcon: false, costIcon: true, severalViews: true }),
+            settings: () => ({ status: 200, body: off }) }));
         await page.click('settings-button');
+        assert.equal(page.el('set-showLogIcon').checked, false);
+        assert.match(page.el('log-button').className, /\boff\b/);
+
         await page.click('log-button');
-        assert.equal(page.el('log-button').title, 'Hide the log', 'the dimmed icon opens its view');
-        assert.equal(page.el('log-button').hidden, false, 'whose icon stays while it is open');
+        assert.equal(page.el('settings-view').hidden, false, 'the settings stay');
+        assert.deepEqual(shownViews(page), ['log']);
+        assert.equal(page.el('set-showLogIcon').checked, true, 'its checkbox is checked');
+        assert.equal(settingsPosts(page).length, 0, 'nothing is saved');
 
-        await page.click('settings-button');
-        assert.match(page.el('log-button').className, /\boff\b/, 'in the settings it is one of the dimmed icons again');
+        await page.click('log-button');
+        assert.deepEqual(shownViews(page), [], 'closed');
+        assert.equal(page.el('set-showLogIcon').checked, true, 'closing a view changes no checkbox');
+        assert.doesNotMatch(page.el('log-button').className, /\boff\b/, 'the icon is previewed as switched on');
+
         await page.click(leave);
-
-        assert.equal(page.el('settings-view').hidden, true, leave);
-        assert.equal(page.el('log-button').title === 'Hide the log', back, leave + (back ? ': the log is back' : ': the log is not shown again'));
-        assert.equal(page.el('log-button').hidden, !back);
+        const posts = settingsPosts(page);
+        if (leave === 'settings-save') {
+            assert.equal(JSON.parse(posts[0].body).showLogIcon, true, 'Save keeps it');
+        } else {
+            assert.equal(posts.length, 0, 'Cancel saves nothing');
+            await page.click('settings-button');
+            assert.equal(page.el('set-showLogIcon').checked, false, 'and the checkbox is as it was');
+        }
     }
+});
+
+test('a click on the icon of a view that is switched on, in the settings, checks nothing', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SEVERAL, settings: () => ({ status: 200, body: { ...SETTINGS, settings: { ...SETTINGS.settings, severalViews: true } } }) }));
+    await page.click('settings-button');
+    page.el('set-showDeltaUsed').checked = !page.el('set-showDeltaUsed').checked;
+
+    await page.click('history-button');
+    await page.click('history-button');
+
+    assert.equal(page.el('set-showHistoryIcon').checked, true);
+    assert.equal(settingsPosts(page).length, 0);
 });
 
 test('a view whose icon is on is given back as ever, however the settings are left', async () => {
@@ -5930,7 +5971,7 @@ test('the burndown icon opens the chart: the ideal line, the credit of each day 
     assert.deepEqual(chart.xLabels, ['30', '25', '20', '15', '10', '5', '0'], 'falling to 0 at the right; 31 is not labelled');
     assert.equal(chart.xLefts[0], '3.23%', '30 days left is a day in');
     assert.equal(chart.xLefts[6], '100%', 'the end of the month at the right edge');
-    assert.deepEqual(chart.yLabels, ['0.00', '500.00', '1,000.00']);
+    assert.deepEqual(chart.yLabels, ['0', '500', '1k']);
     assert.deepEqual(chart.yTops, ['100%', '50%', '0%'], 'the limit at the top, 0 at the bottom');
     const ideal = chart.lines('ideal');
     assert.equal(ideal.length, 1);
@@ -5989,16 +6030,55 @@ test('the burndown is read again only when there is a new reading, and drawn aga
     assert.equal(dots[dots.length - 1].children[0].textContent, 'Forecast for Oct 31: 120.40 left');
 });
 
-test('the burndown takes the height of the window, as a list does, and is at least 320 pixels wide', async () => {
+test('the burndown takes the height and the width of the window, as the log does, and is at least 200 pixels wide (since 0.99)', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    page.el('top').rect = { width: 200, height: 34 };
-    page.el('app').rect = { width: 200, height: 34 };
+    page.el('top').rect = { width: 150, height: 34 };
+    page.el('app').rect = { width: 150, height: 34 };
 
     await page.click('burndown-button');
 
-    assert.equal(page.window.contentSize(), '320,340,1,burndown', 'ten rows tall, resizable in height, named for the host to remember its height');
+    assert.equal(page.window.contentSize(), '200,340,2,burndown', 'ten rows tall, resizable in both, named for the host to remember its size (320 and 1 until 0.98)');
     assert.match(page.el('app').className, /\bopen\b/, 'it fills the window');
     assert.equal(page.window.currentView(), 'burndown,');
+
+    page.el('top').rect = { width: 400, height: 34 };
+    page.el('app').rect = { width: 400, height: 34 };
+    assert.equal(page.window.contentSize().split(',')[0], '400', 'as wide as a row that is wider');
+});
+
+test('the burndown has the right edge without the title bar, as the log has (since 0.99)', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: { ...SPEND_STATUS, display: { ...SPEND_STATUS.display, titleBar: false } } }));
+    assert.equal(page.el('edge-right').hidden, true);
+
+    await page.click('burndown-button');
+
+    assert.equal(page.el('edge-right').hidden, false);
+});
+
+test('a piece of the actual line is red where either of its ends is below the ideal line, and so is the dot of a point below it (since 0.99)', async () => {
+    const below = {
+        ...BURNDOWN,
+        points: [
+            { x: 31, credit: 1000, tooltip: null, below: false },
+            { x: 30.2917, credit: 950, tooltip: 'Oct 1: 950.00 left', below: true },
+            { x: 29, credit: 935.48, tooltip: null, below: false },
+            { x: 27.4, credit: 900, tooltip: 'Oct 4: 900.00 left', below: false },
+        ],
+    };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, burndown: () => ({ status: 200, body: below }) }));
+
+    await page.click('burndown-button');
+
+    const chart = burndownOf(page);
+    assert.equal(chart.lines('actual below').length, 2, 'the start to Oct 1, and Oct 1 to the crossing');
+    assert.equal(chart.lines('actual').length, 1, 'the crossing to Oct 4 is green');
+    assert.deepEqual(chart.dots.map(dot => dot.attrs.class), ['point below', 'point'], 'the dot below is red; the crossing has none');
+});
+
+test('the labels of the credit are the short ones the backend writes (since 0.99)', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
+    await page.click('burndown-button');
+    assert.deepEqual(burndownOf(page).yLabels, ['0', '500', '1k']);
 });
 
 test('a burndown that cannot be read keeps what was shown and says so in red', async () => {
@@ -6044,7 +6124,7 @@ test('with several views the burndown above a list keeps the height it has alone
     assert.equal(page.el('view-burndown').className, 'view burndown fixed', 'its own class kept');
     assert.equal(page.el('view-burndown').style.height, '378px', 'the height it was last given, 400, less what is no view\'s, as for a list');
     assert.equal(page.el('view-history').className, 'view', 'the lowest takes what the window has');
-    assert.equal(page.window.contentSize().split(',').slice(2).join(','), '1,burndown+history,640', 'named first, the history the one dragged');
+    assert.equal(page.window.contentSize().split(',').slice(2).join(','), '2,burndown+history,640', 'named first, the history the one dragged, the width free with the burndown (since 0.99)');
 
     await page.click('history-button');
     assert.equal(page.el('view-burndown').className, 'view burndown', 'alone again it takes the window');

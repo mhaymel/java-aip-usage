@@ -1947,7 +1947,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   the button of another panel saves them, and a view whose button the saved settings switch off is then closed: the row alone is
   shown, or, with `Several views at once`, the other views that were open. So unchecking the icon of the view that is open
   closes that view. `Cancel` saves nothing, so it brings back what was shown, as it was. A panel that was reached through a dimmed
-  button, and from which the gear was pressed, is therefore not shown again unless its switch was switched on meanwhile.
+  button, and from which the gear was pressed, is therefore not shown again unless its switch was switched on meanwhile (until
+  version 0.98; since 0.99 the click on a dimmed button switches it on, see Version 0.99).
 - **Only the four panel buttons.** The refresh button and the figures of the row follow their checkboxes while the settings
   are shown, as before: one that is switched off is not there. The gear is always there.
 
@@ -2620,11 +2621,13 @@ document uses for it. From left to right (in version 0.68, with every element of
 - **The y-axis is the credit left**: the limit counted (the server's or the typed monthly limit, by `Limit counted`, see
   Limits, projections and the status of spending) less the amount used. It runs from 0 at the bottom to the limit at the
   top, and **never below 0**: credit left below 0, a month over its limit, is drawn as 0. It is labelled at 0, at half the
-  limit and at the limit, the amounts written as the row writes them.
+  limit and at the limit, the amounts written as the row writes them (until version 0.98; since 0.99 written short, `1k`, see
+  Version 0.99).
 - **Three lines**:
   - **The ideal line**, in the muted gray `#8a8f98`: straight, from the limit at the start of the month (top left) to 0 at
     its end (bottom right), over every calendar day, working day or not.
-  - **The actual line**, in the green of the figures, `#1a7f37` / `#3fb950`: **one point for each day** that has a reading,
+  - **The actual line**, in the green of the figures, `#1a7f37` / `#3fb950` (until version 0.98; since 0.99 red where it is
+    below the ideal line, see Version 0.99): **one point for each day** that has a reading,
     the credit left at **the last reading of the day**; today's point is the newest reading. The points are joined by
     straight lines, and **a day without a reading has no point**: the line goes straight from the day before it that has one
     to the day after it that has one. The line **begins at the limit at the start of the 1st**, so that days at the start of
@@ -2636,7 +2639,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   and shorter as with a list (by its bottom edge when there is no title bar), and that height is remembered
   (`burndownHeight`). Like a list it has no title bar of its own when the setting `Title bar` is off (see The title bar). It
   opens as tall as the history, ten times the row, or at the height it was last left at, and the chart fills the height it
-  is given. Its width is the row's, and never less than 320 pixels.
+  is given. Its width is the row's, and never less than 320 pixels (until version 0.98; since 0.99 it can be dragged wider and
+  narrower, down to 200 pixels, and its width is remembered, see Version 0.99).
 - **Only the current month is drawn**, from **the readings the history shows**: the lines its filters leave (the zero usage
   lines, the failed lines) and, when it is grouped, its grouped lines; a line with no amount used gives no point. On the 1st
   the chart begins afresh.
@@ -2654,6 +2658,41 @@ document uses for it. From left to right (in version 0.68, with every element of
 - **The version in the About view is a row of its own** (`new-requirements.md`, `img_81.png`; until 0.96 it stood under the
   name, in muted gray, outside the table): the first row of the table, `Version` at the left and `v0.97` at the right, like
   `Java`, `JavaFX` and `System`. The name stays above the table, alone.
+
+### Version 0.99: the burndown wider and narrower, red below the ideal line, short amounts, and a dimmed icon switched on
+
+- **The burndown can be dragged wider and narrower** (`new-requirements.md`, `img_1.png`; until 0.98 its width was the row's,
+  at least 320 pixels, and only its height could be dragged), as the log can: by the frame with the title bar, by the right
+  edge without it (see Version 0.91, A right edge), the bottom edge as before.
+  - **Never narrower than 200 pixels** of its content, nor than the row; never wider than the screen.
+  - **Its width is remembered**, as the log's is (see Version 0.93): `burndownWidth` in the settings file, in pixels of the
+    window's content, stored once a change by the person has settled, `0` for none. It opens at the stored width, never less
+    than the 200 pixels or the row, within the screen; at first, with none stored, as wide as the row, at least 200 pixels.
+  - **Only while it is shown alone.** Among several views the window's width may still be dragged when the burndown is among
+    them, as with the log, and is not remembered.
+  - The chart fills the width it is given, as it fills the height.
+- **The actual line is red where the month spends faster than the ideal line** (`new-requirements.md`, `img_2.png`; until 0.98
+  it was green throughout): a piece of the line is **red**, `#cf222e` / `#f85149` (the red of the status circle), where its
+  credit left is below the ideal line at that day, that is, less than the limit × the days left ÷ the days of the month; **green**,
+  as before, where it is on the line or above it. Where the line crosses the ideal line it changes colour at the crossing. A
+  dot has the colour of its point: red below the ideal line. The ideal line and the forecast keep their colours, gray and
+  dashed orange.
+- **The amounts of the y-axis are written short** (`new-requirements.md`, `img_4.png`; until 0.98 as the row writes them,
+  `1,000.00`), so that the chart has the room: without decimals below a thousand, `0`, `500`, `617`; in thousands from a
+  thousand, `k` with one decimal at most and a decimal `.0` left out, `1k`, `1.5k`, `1.2k` (for 1,234.56), `12.3k`; in millions
+  from a million, `M`, the same way. The currency symbol stands before them, as before, when the cost control's
+  `Currency symbol` is on, which it is not by default: `$1k`. **The tooltips keep the amounts in full**, `Oct 12: 642.18 left`.
+  The column of the labels is as wide as its longest label, as before.
+- **A click on a dimmed icon switches it on** (`new-requirements.md`, `img_5.png`; until 0.98 it opened its view and left its
+  checkbox as it was, so that the icon went, and the view closed, when the settings were saved): while the settings are shown, a
+  click on the icon of a view whose checkbox in the group `Icons` is unchecked checks that checkbox, as a click on it would, and
+  then does what it did: the icon is no longer dimmed, and
+  - **with one view at a time** the settings are left and saved, as by any button of the row, the checkbox with them, and the
+    view is shown and its icon stays in the row after;
+  - **with `Several views at once`** the view opens beside the settings, which stay open and unsaved: `Save` keeps the checkbox
+    checked, `Cancel` takes it back, as it takes back every change of the form.
+  A click that closes a view still changes no checkbox (see The settings rearranged). The cross that ends the program is no
+  view's icon, and is not concerned.
 
 ## Debug mode
 

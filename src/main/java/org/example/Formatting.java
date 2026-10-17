@@ -65,6 +65,32 @@ final class Formatting {
     }
 
     /**
+     * An amount written short, as the burndown's y-axis writes it (since 0.99): the whole number below a thousand, {@code 617};
+     * from a thousand in thousands with one decimal at most, {@code 1k}, {@code 1.5k}, {@code 12.3k}; from a million in millions,
+     * {@code 2M}. Each rounded half up, so that 999.60 is {@code 1k}.
+     */
+    static String shortAmount(Amount amount) {
+        long cents = amount.cents();
+        if (cents < 0) {
+            return "-" + shortAmount(Amount.ofCents(-cents));
+        }
+        long units = (cents + 50) / 100;
+        if (units < 1_000) {
+            return Long.toString(units);
+        }
+        long thousandths = (cents + 5_000) / 10_000;
+        if (thousandths < 10_000) {
+            return tenths(thousandths, "k");
+        }
+        return tenths((cents + 5_000_000) / 10_000_000, "M");
+    }
+
+    /** A number of tenths with the unit after it, a decimal {@code .0} left out: {@code 15} and {@code k} is {@code 1.5k}. */
+    private static String tenths(long tenths, String unit) {
+        return tenths / 10 + (tenths % 10 == 0 ? "" : "." + tenths % 10) + unit;
+    }
+
+    /**
      * The symbol that goes before an amount of this currency in the row: {@code $} for US dollars, and for any other currency its code
      * and a space ({@code EUR }); nothing when the response named no currency.
      */

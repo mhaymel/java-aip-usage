@@ -271,7 +271,8 @@ public class UsageApp extends Application {
                 // height the person settles on is remembered as one dragged by the frame is.
                 edgeDrag = new double[] {event.getScreenY(), stage.getHeight(), 0};
             } else if ("e".equals(edge)) {
-                // The right edge makes the window wider and narrower while the log is shown (since 0.91); the width is kept as one
+                // The right edge makes the window wider and narrower while the log (since 0.91) or the burndown (since 0.99) is
+                // shown; the width is kept as one
                 // dragged by the frame is.
                 edgeDrag = new double[] {event.getScreenX(), stage.getWidth(), 1};
             } else if (beginsADrag(webView, event.getX(), event.getY())) {
@@ -419,7 +420,7 @@ public class UsageApp extends Application {
 
     /**
      * Notices when the person drags the height of an open history or log, so that it can be remembered, and the width of the
-     * log shown alone (since 0.93).
+     * log (since 0.93) or the burndown (since 0.99) shown alone.
      */
     private void watchHeight(Stage window) {
         window.heightProperty().addListener((observable, before, after) -> {
@@ -428,14 +429,19 @@ public class UsageApp extends Application {
             }
         });
         window.widthProperty().addListener((observable, before, after) -> {
-            if (!applying && window == stage && logAlone(appliedSize)) {
+            if (!applying && window == stage && widthAlone(appliedSize) != null) {
                 widthSettled.playFromStart();
             }
         });
     }
 
-    private static boolean logAlone(Optional<WindowFit.Size> size) {
-        return size.isPresent() && "log".equals(size.get().panel());
+    /** The panel shown alone whose width is remembered, the log or the burndown, or null for any other. */
+    private static String widthAlone(Optional<WindowFit.Size> size) {
+        if (size.isEmpty()) {
+            return null;
+        }
+        String panel = size.get().panel();
+        return "log".equals(panel) || "burndown".equals(panel) ? panel : null;
     }
 
     /**
@@ -701,9 +707,11 @@ public class UsageApp extends Application {
         // Rounded up: a frame is not always a whole number of pixels wide, and a window a fraction too narrow shows a pixel
         // less of the page than it asked for, which is a pixel of the red border when there is one.
         double width = keepWidth ? stage.getWidth() : Math.ceil(size.width() + decorationWidth);
-        // The log alone opens at the width it was last left at, never narrower than the page asks for (since 0.93).
-        int storedWidth = runtime.settings().storedLogWidth();
-        if (!keepWidth && "log".equals(size.panel()) && storedWidth > 0) {
+        // The log (since 0.93) or the burndown (since 0.99) alone opens at the width it was last left at, never narrower than the
+        // page asks for.
+        String widthPanel = widthAlone(Optional.of(size));
+        int storedWidth = widthPanel == null ? 0 : runtime.settings().storedWidth(widthPanel);
+        if (!keepWidth && storedWidth > 0) {
             width = Math.max(width, Math.ceil(storedWidth + decorationWidth));
         }
         // Never wider than the screen the window is on either (since 0.92; the program held it to 2,400 pixels until then).
@@ -737,14 +745,15 @@ public class UsageApp extends Application {
         }
     }
 
-    /** The person has settled on a width for the log shown alone: remember it (since 0.93). */
+    /** The person has settled on a width for the log (since 0.93) or the burndown (since 0.99) shown alone: remember it. */
     private void rememberDraggedWidth(Stage stage) {
-        if (!logAlone(appliedSize) || Double.isNaN(decorationWidth)) {
+        String panel = widthAlone(appliedSize);
+        if (panel == null || Double.isNaN(decorationWidth)) {
             return;
         }
         int pixels = (int) Math.round(stage.getWidth() - decorationWidth);
         if (pixels > 0) {
-            runtime.settings().storeLogWidth(pixels);
+            runtime.settings().storeWidth(panel, pixels);
         }
     }
 
@@ -822,7 +831,8 @@ public class UsageApp extends Application {
                 stage.setMinHeight(Math.min(leastHeight + decorationHeight, height));
             }
             case BOTH -> {
-                stage.setMinWidth(Math.min(closedWidth + decorationWidth, width));
+                // The row's width, or for the burndown the 200 pixels its chart needs (since 0.99).
+                stage.setMinWidth(Math.min(Math.ceil(size.leastWidth(closedWidth) + decorationWidth), width));
                 stage.setMinHeight(Math.min(leastHeight + decorationHeight, height));
             }
             case WIDTH -> {
