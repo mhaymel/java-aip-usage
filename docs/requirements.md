@@ -1047,7 +1047,7 @@ document uses for it. From left to right (in version 0.68, with every element of
 | 8 | `Change in the amount used` | the amount used less that of the reading before | `+1.37` | no | `showDeltaUsed` |
 | 9 | `Time since the previous reading` | the seconds between the two readings | `30s` | no | `showDeltaTime` |
 | 10 | `Request duration` | how long the latest usage request took | `87ms` | no | `showDuration` |
-| 10a | `Burndown icon` | shows and hides the burndown panel (since version 0.97, see Version 0.97) | the falling line | yes | `showBurndownIcon` |
+| 10a | `Burnup icon` | shows and hides the burnup panel (since version 0.97, see Version 0.97; until version 0.99 the burndown, `Burndown icon`, the falling line, `showBurndownIcon`; see Version 0.100) | the rising line | yes | `showBurnupIcon` |
 | 11 | `Cost icon` | shows and hides the cost control panel (since version 0.69) | the two bars | yes | `showCostIcon` |
 | 12 | `History icon` | shows and hides the usage history | the table | yes | `showHistoryIcon` |
 | 13 | `Log icon` | shows and hides the log | the sheet with lines | yes | `showLogIcon` |
@@ -2494,7 +2494,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   and grows to the left; one in the upper left keeps its top left corner, as before. Which half the window is in is decided by
   the middle of the window as it is before it grows, on the screen it is on. **The same corner stays where it is whenever the
   program changes the size while a view stays shown**: one of several views closed, another added, a list made taller or
-  shorter by its own buttons, so that a window at the bottom of the screen keeps its bottom edge there. A new line in a view that stays open, a drag by
+  shorter by its own buttons, so that a window at the bottom of the screen keeps its bottom edge there (until version 0.99; since
+  0.100 a window that gets smaller keeps its top-left corner, see Version 0.100). A new line in a view that stays open, a drag by
   the frame or by an edge, and a row going away while the pointer is outside the window move nothing.
 - **What does not fit is moved onto the screen**: when the window, grown so, would still lie partly off the visible area of the
   screen, it is moved the least that puts it wholly on it, in width and in height. It is never larger than that area (see
@@ -2502,7 +2503,8 @@ document uses for it. From left to right (in version 0.68, with every element of
 - **Closing the view puts the window back where it was**: the place the window had before the view was opened is kept, and when
   the window goes back to the row alone it goes back to that place, so that the row is where the person left it. Not when the
   person has moved the window while the view was open: then the row keeps the place it has, its corner nearest the corner of the
-  screen staying where it is, as it does when the window grows. (**Since version 0.94 always**, moved or not; see Version 0.94.)
+  screen staying where it is, as it does when the window grows. (**Since version 0.94 always**, moved or not; see Version 0.94;
+  until version 0.99: since 0.100 the window closing its views keeps its top-left corner, see Version 0.100.)
   Replacing one view with another keeps the place of the row alone, so that closing the second goes back to it too.
 - **The width of the log is remembered**, as its height is (see Remembered heights): `logWidth` in the settings file, in pixels
   of the window's content, stored once a change by the person has settled, as the height is. The log opens at the stored width,
@@ -2555,7 +2557,9 @@ document uses for it. From left to right (in version 0.68, with every element of
   - With `Several views at once` the history keeps its dropdown in its own line.
 - **Closing the views puts the row back where it was, always**: where version 0.93 left the row where the person had moved it
   while a view was open, it now goes back to the place it had before the first view was opened, moved or not, onto the screen if
-  that place is no longer on one. Every view keeps that place, the cost control and the settings too.
+  that place is no longer on one. Every view keeps that place, the cost control and the settings too. (Until version 0.99; since
+  0.100 the window keeps its top-left corner as it gets smaller, and the place before the first view is no longer kept, see
+  Version 0.100.)
 
 ### Version 0.95: a level Fine, and a shorter line for a change of the settings
 
@@ -2606,7 +2610,9 @@ document uses for it. From left to right (in version 0.68, with every element of
 
 ### Version 0.97: a burndown of the month's credit, and the version on a row of its own
 
-- **A panel, `Burndown`, draws the credit left in the month against the days left** (`new-requirements.md`). It is a
+- **A panel, `Burndown`, draws the credit left in the month against the days left** (`new-requirements.md`; until version 0.99:
+  since 0.100 it is the burnup, the amount used against the day of the month, see Version 0.100, which replaces the axes, the
+  lines, the name, the icon and the keys below). It is a
   panel like the cost control: below the row, in the one panel area, with a button of its own in the row, the burndown
   icon, before the cost icon: a line falling from the top left to the bottom right over a short baseline. Its checkbox is
   `Burndown`, the first of the group `Icons` of the tab `Main`, and like the others it has no icon beside it (see The settings
@@ -2671,7 +2677,8 @@ document uses for it. From left to right (in version 0.68, with every element of
   - **Only while it is shown alone.** Among several views the window's width may still be dragged when the burndown is among
     them, as with the log, and is not remembered.
   - The chart fills the width it is given, as it fills the height.
-- **The actual line is red where the month spends faster than the ideal line** (`new-requirements.md`, `img_2.png`; until 0.98
+- **The actual line is red where the month spends faster than the ideal line** (`new-requirements.md`, `img_2.png`; until version
+  0.99 red below the burndown's ideal line, as follows; since 0.100 red above the burnup's, see Version 0.100; until 0.98
   it was green throughout): a piece of the line is **red**, `#cf222e` / `#f85149` (the red of the status circle), where its
   credit left is below the ideal line at that day, that is, less than the limit × the days left ÷ the days of the month; **green**,
   as before, where it is on the line or above it. Where the line crosses the ideal line it changes colour at the crossing. A
@@ -2693,6 +2700,48 @@ document uses for it. From left to right (in version 0.68, with every element of
     checked, `Cancel` takes it back, as it takes back every change of the form.
   A click that closes a view still changes no checkbox (see The settings rearranged). The cross that ends the program is no
   view's icon, and is not concerned.
+
+### Version 0.100: the window keeps its top-left corner as it gets smaller, and the burndown becomes a burnup
+
+- **A window that gets smaller keeps its top-left corner** (`new-requirements.md`; until version 0.99 the corner nearest the
+  screen's corner stayed while a view stayed shown, see Version 0.93, and closing the last view put the row back where it was
+  before the first view opened, see Version 0.94): whenever the program makes the window smaller, one of several views closed,
+  the last view closed, the settings left, a view replaced by a smaller one, **the outer top-left corner of the window stays
+  where it is**, the corner seen, as in The window keeps its top-left corner. Width and height are taken each on its own: a
+  side that gets smaller keeps the window's left edge, or its top edge; a side that gets larger grows towards the room there is,
+  as Version 0.93 says. The place of the row before the first view opened is no longer kept: the row stays where the shrinking
+  leaves it, so that a window low on the screen that grew upwards has its row where the top of the view was. What would lie off
+  the screen is still moved onto it. A drag by the frame or by an edge moves nothing, as before.
+- **The burndown becomes a burnup** (`new-requirements.md`): the panel draws **the amount used in the month against the day of
+  the month**, rising, where it drew the credit left against the days left, falling.
+  - **Its name is `Burnup`**: the checkbox `Burnup` of the group `Icons`, its tooltip `The icon that shows the burnup of the
+    month's spending below the row, and hides it again.`, in the row `Show the burnup` and `Hide the burnup`, the error `The
+    burnup could not be read: `. **Its icon** is a line rising from the bottom left to the top right over a short baseline, the
+    burndown's mirrored.
+  - **The x-axis is the day of the month**, rising from left to right: at the left edge the start of the 1st, at the right edge
+    the end of the last day, labelled `1`, `5`, `10`, `15`, `20`, `25`, `30` at the start of those days (`30` not in February).
+  - **The y-axis is the amount used**, from 0 at the bottom. Its top is the limit counted, or, when the actual line or the end of
+    the projection is higher, that value. It is labelled at 0, at half the limit and at the limit, written short as in Version
+    0.99; **the limit is drawn as a thin line across** in the muted gray `#8a8f98`, so that what is above it is seen as above.
+  - **The ideal line**, in the muted gray, straight from 0 at the start of the month (bottom left) to the limit at its end (top
+    right).
+  - **The actual line**: one point for each day that has a reading, the amount used at its last reading, beginning at 0 at the
+    start of the 1st, as before. It is **green**, as the figures, where it is on the ideal line or below it, and **red**, as in
+    Version 0.99, where it is above it, that is, more than the limit × the days gone ÷ the days of the month; it changes colour
+    where it crosses the ideal line, and a dot has the colour of its point. A month over its limit is drawn over it, no longer
+    held at the edge.
+  - **The projection**, dashed, from the last point to the end of the month at the month's average daily spend, as the forecast
+    was: **orange**, `#ff9900`, when it ends above the limit, and **green** when it ends at the limit or below it. It does not
+    stop at the limit.
+  - **The tooltips** say what is used: `Oct 12: 357.82 used`, and on the end of the projection `Forecast for Oct 31: 879.60
+    used`.
+  - **Everything else stays as the burndown had it**: the panel below the row, its height and width dragged and remembered, the
+    readings the history shows, the current month only, the fake backend's month, the note with no limit.
+- **The keys are renamed**: `showBurnupIcon`, `burnupHeight`, `burnupWidth` in the settings file, `burnup` as the name of the
+  view among the panels the window restores (`lastPanel`) and in what the page reports to the host, and `GET /api/burnup` (see
+  `docs/api.md`). **A settings file of an earlier version** is read with its `showBurndownIcon`, `burndownHeight`,
+  `burndownWidth` and `burndown` in `lastPanel` taken as the new ones, when the new ones are not there; the file is written with
+  the new keys only from then on.
 
 ## Debug mode
 
@@ -3269,7 +3318,7 @@ What the first version deliberately is not, so that none of it is taken for an o
 - **The local server is for this machine's one user**, as The local server says.
 - **The endpoint is not a published one.** `/api/oauth/usage` is the one Claude Code itself asks, and the
   default interval and the automatic search rest on how it was seen to behave, not on a documented limit.
-- **No charts** but the burndown of the month (since version 0.97, see Version 0.97). The history is kept, and shown as
+- **No charts** but the burnup of the month (since version 0.97, see Version 0.97; the burndown until version 0.99, see Version 0.100). The history is kept, and shown as
   lines; drawing it otherwise is a future extension.
 
 ## Future extension

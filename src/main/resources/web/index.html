@@ -34,11 +34,11 @@
         <span id="duration" class="delta delta-duration" hidden></span>
 
         <span class="tools">
-        <button id="burndown-button" class="icon tiny" type="button" aria-label="Show the burndown" title="Show the burndown"
+        <button id="burnup-button" class="icon tiny" type="button" aria-label="Show the burnup" title="Show the burnup"
                 aria-expanded="false">
             <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M2.5 2.5l11 9M2 14.2h12"/>
+                <path d="M2.5 11.5l11-9M2 14.2h12"/>
             </svg>
         </button>
         <button id="cost-button" class="icon tiny" type="button" aria-label="Show the cost control" title="Show the cost control"
@@ -88,11 +88,11 @@
 </div>
 
     <div id="panel" class="panel" hidden>
-        <!-- A box for each view, in the order of the icons (burndown, cost control, history, log): each list has its own controls, notes and lines. -->
-        <section id="view-burndown" class="view burndown" aria-label="The burndown of the month's credit" hidden>
-            <div id="burndown-chart" class="burndown-chart"></div>
-            <p id="burndown-note" class="panel-note" hidden></p>
-            <p id="panel-error-burndown" class="panel-error" role="alert" hidden></p>
+        <!-- A box for each view, in the order of the icons (burnup, cost control, history, log): each list has its own controls, notes and lines. -->
+        <section id="view-burnup" class="view burnup" aria-label="The burnup of the month's spending" hidden>
+            <div id="burnup-chart" class="burnup-chart"></div>
+            <p id="burnup-note" class="panel-note" hidden></p>
+            <p id="panel-error-burnup" class="panel-error" role="alert" hidden></p>
         </section>
         <div id="cost-view" class="cost" hidden>
             <div id="cost-rows" class="cost-rows"></div>
@@ -282,7 +282,7 @@
                             <path d="M5 8.2l2.2 2.3L11 5.6"/>
                         </svg></button></legend>
                     <span class="line">
-                        <label title="The icon that shows the burndown of the month's credit below the row, and hides it again."><input id="set-showBurndownIcon" type="checkbox"> Burndown</label>
+                        <label title="The icon that shows the burnup of the month's spending below the row, and hides it again."><input id="set-showBurnupIcon" type="checkbox"> Burnup</label>
                         <label title="The icon that shows the cost control, a bar for the day and one for the month, below the row, and hides it again."><input id="set-showCostIcon" type="checkbox"> Cost</label>
                         <label title="The icon that shows the usage history, one line for each reading, below the row, and hides it again."><input id="set-showHistoryIcon" type="checkbox"> History</label>
                         <label title="The icon that shows the log of the program below the row, and hides it again."><input id="set-showLogIcon" type="checkbox"> Log</label>

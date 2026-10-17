@@ -63,7 +63,17 @@ public final class SeveralViewsProbe {
             step("log-history-cost", "log-button");
             step("settings", "settings-button");
             step("settings-left", "settings-cancel");
+            // The three views in the lower right of the screen, and one of them closed: the window keeps its top-left corner
+            // (since 0.100).
+            onFx(() -> {
+                javafx.geometry.Rectangle2D area = screen();
+                window().setX(area.getMaxX() - window().getWidth());
+                window().setY(area.getMaxY() - window().getHeight());
+            });
+            Thread.sleep(500);
+            place("three-low");
             step("history-cost", "log-button");
+            place("history-cost");
             step("cost-alone", "history-button");
             step("history-again", "history-button");
             // All three (four until 0.90, with the error log), and then a screen of 600 pixels, as the host would say for a small
@@ -151,6 +161,21 @@ public final class SeveralViewsProbe {
     private static String field(String json, String key) {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*(\"[^\"]*\"|\\d+)").matcher(json);
         return m.find() ? m.group(1).replace("\"", "") : "";
+    }
+
+    /** The visible area of the screen the window is on. */
+    private static javafx.geometry.Rectangle2D screen() {
+        return javafx.stage.Screen.getScreensForRectangle(window().getX(), window().getY(), 1, 1).stream().findFirst()
+                .orElse(javafx.stage.Screen.getPrimary()).getVisualBounds();
+    }
+
+    /** Says where the window is: its left, top, right and bottom edges (since 0.100). */
+    private static void place(String name) throws InterruptedException {
+        onFx(() -> {
+            System.out.println("PROBE " + name + "-place=" + Math.round(window().getX()) + "," + Math.round(window().getY()) + ","
+                    + Math.round(window().getX() + window().getWidth()) + "," + Math.round(window().getY() + window().getHeight()));
+            System.out.flush();
+        });
     }
 
     private static Stage window() {

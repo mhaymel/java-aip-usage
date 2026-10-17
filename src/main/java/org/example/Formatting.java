@@ -65,7 +65,7 @@ final class Formatting {
     }
 
     /**
-     * An amount written short, as the burndown's y-axis writes it (since 0.99): the whole number below a thousand, {@code 617};
+     * An amount written short, as the burnup's y-axis writes it (since 0.99): the whole number below a thousand, {@code 617};
      * from a thousand in thousands with one decimal at most, {@code 1k}, {@code 1.5k}, {@code 12.3k}; from a million in millions,
      * {@code 2M}. Each rounded half up, so that 999.60 is {@code 1k}.
      */

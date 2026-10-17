@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Invented readings of the month so far, which the history of the fake backend is begun with (since 0.97), so that the burndown
+ * Invented readings of the month so far, which the history of the fake backend is begun with (since 0.97), so that the burnup
  * has a month to draw at once: every three hours from 8:00 to 17:00 on the working days from the 1st to yesterday, every fifth
  * working day left out, the amount used rising from nothing to a little under the amount the fake backend begins with, so that
  * its own readings go on from there.
@@ -19,7 +19,7 @@ public final class FakeMonth {
     /** The times of a working day that have a reading. */
     static final List<LocalTime> TIMES = List.of(LocalTime.of(8, 0), LocalTime.of(11, 0), LocalTime.of(14, 0), LocalTime.of(17, 0));
 
-    /** Every this many working days one has no reading, so that the burndown shows a gap bridged. */
+    /** Every this many working days one has no reading, so that the burnup shows a gap bridged. */
     static final int LEFT_OUT_EVERY = 5;
 
     /**

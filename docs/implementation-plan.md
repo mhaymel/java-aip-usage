@@ -7,7 +7,7 @@ What the program must do is in [requirements.md](requirements.md), and only ther
 This document does not restate it: where a phase changed what the person sees, it
 names the section of the requirements instead. The local API is in [api.md](api.md).
 
-**Where it stands: version 0.99 is built (141 phases); phase 141 (the burndown wider and narrower, red below the ideal line, short amounts, a dimmed icon switched on) is not looked at by a person yet; phase 140, the window that keeps its top-left corner when the title bar comes and goes, is not looked at by a person yet; the fault of the cost control closed with the settings was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
+**Where it stands: version 0.100 is built (142 phases); phase 142 (the window keeps its top-left corner as it gets smaller, the burndown becomes a burnup) is not looked at by a person yet; phase 141 (the burndown wider and narrower, red below the ideal line, short amounts, a dimmed icon switched on) is not looked at by a person yet; phase 140, the window that keeps its top-left corner when the title bar comes and goes, is not looked at by a person yet; the fault of the cost control closed with the settings was not found.** What phases 100 to 113 list "by eye" is still to be looked at, on Windows and on macOS; the folder picker has not been seen in a window at all. Of phases 91 to 99, the notes of `new-requirements.md`, phase 99 is not checked on macOS and leaves one open point, the name macOS shows in bold; the history of phase 94 and what each phase lists "by eye" are still to be looked at. One check is outstanding: the tests of phase 87 on a Mac.
 Phases 83 to 88 are the six phases of [java-to-go.md](java-to-go.md), which changed the program so that it leans only
 on what Go also has, for the port that [go-port.md](go-port.md) analyses; they changed how the program is built much
 more than what it does. The architecture below and the notes at the end describe the program as it is after them.
@@ -3642,6 +3642,107 @@ crossing; in the settings a dimmed icon clicked, its checkbox checked and the ic
     icon, which held the old rule.
   - Not written: `ApiTest` for `below` (`BurndownTest` checks the JSON), and a window test that drags the burndown and finds its
     width remembered: the window probe checks what the page asks for, not the host's stored sizes, as for the log's width.
+- **Not done by eye.** The checks above were not done by eye in the running program.
+
+### 142. Version 0.100: the window keeps its top-left corner as it gets smaller, and the burndown becomes a burnup
+
+**Status: built (version 0.100); `./gradlew test` (1,119 tests, the 8 window tests skipped), the page tests (543) and the three
+window tests (`PanelWindowTest`, `SeveralViewsWindowTest`, `TitleBarWindowTest`, `-Daipusage.windows=true`) pass.** The notes of `new-requirements.md` (the twenty-first round: the window closing a view, the
+burndown as a burnup, green below the ideal line and an orange projection over the credit), decided in two rounds of
+questions: every shrink keeps the top-left corner and the row no longer goes back to its place before the first view; the name
+`Burnup`; the x-axis the day of the month; the projection dashed green when it ends at the limit or below; the y-axis grows over
+the limit with a gray line at the limit; the keys renamed, with an old file read. Chosen without asking: width and height each
+on its own (a side that shrinks keeps its left or top edge, one that grows grows towards the room); red above the ideal line,
+mirroring 0.99; the tooltips `… used`; the icon the falling line mirrored; the labels 0, half and the limit; the version
+0.100 after 0.99 (asked for, not 1.00). `AppInfo.VERSION = "0.100"`. Requirements: Version 0.100 (and the markers in Version 0.93, 0.94, 0.97, 0.99, the
+table of the row's elements, row 10a, and Future direction); `docs/api.md`: `GET /api/burnup`, `showBurnupIcon`, `heights`,
+`POST /api/height`, the window host contract. Three parts:
+
+1. **The top-left corner as the window gets smaller.**
+   - `WindowPlace`: a new `shrunk(Rect before, double width, double height, Rect screen)`, or `anchored` taught it: per axis,
+     when the new size is less than `before`'s, the left (`x`) or the top (`y`) of `before`; else as `anchored` does by the
+     half of the screen; then `onScreen`.
+   - `UsageApp.place`: drop `rowPlace` and the branch that puts the row back (`!viewNow && rowPlace != null`); every change with
+     a view before or after goes through the new rule. The seen corner's left (`sceneX`) as in 0.98, so that the title bar
+     going as the settings are left keeps the corner, as `StageSwap` does.
+   - Tests: `WindowPlaceTest` (shrinking in the lower right keeps the top-left; growing there still grows up and left; one side
+     shrinking and the other growing; off the screen moved on), the window tests (`-Daipusage.windows=true`): a window low on
+     the screen opening and closing the history keeps its top-left corner on closing; one of several views closed, the corner
+     kept. The tests that held 0.94's way back change.
+2. **The burnup.**
+   - `Burndown` becomes `Burnup` (`Burnup.java`, `BurnupTest`): `Point(x, used, tooltip, above)` with `x` the days gone
+     (`daysGone(start, days, at)`, 0 to `days`), `used` not held at the limit; `againstIdeal` with `offIdeal = used − limit × x ÷
+     days`, `above` when more than `EPSILON`; the forecast from the last point to `days` at `used ÷ elapsed`, no stop at the
+     limit, its bend at 0 gone; `View` gets `top` (the largest of the limit, the points and the forecast's end) and
+     `forecastOver` (the end above the limit, strictly, in cents); tooltips `… used`. `toJson` as in `docs/api.md`.
+   - `ApiHandler`/`AppRuntime`: `/api/burnup` in the place of `/api/burndown`; `/api/height` takes `burnup`.
+   - `app.js`: `VIEWS`, `RESIZABLE`, `ICON_SETTINGS`, `MAIN_FLAGS`, `ICON_FLAGS`, the flags of `show` (`burnupIcon`), the panel
+     entry (`burnup-button`, `/api/burnup`, `Show the burnup`, `Hide the burnup`, `The burnup could not be read: `), the size
+     reported (`…,2,burnup`), `hasRightEdge`; `showBurndown` becomes `showBurnup`: x labels 1, 5, …, 30 at `x` = day − 1, y from 0
+     to `top`, the ideal line from (0, 0) to (`days`, `limitValue`), a gray line across at `limitValue`, a piece `actual above`
+     red, a dot `point above`, the forecast `forecast over` orange, else green. `BURNDOWN_MIN_WIDTH` → `BURNUP_MIN_WIDTH`.
+   - `index.html`: `burnup-button` with the rising icon (the burndown's path mirrored), `view-burnup`, `burnup-chart`,
+     `burnup-note`, `panel-error-burnup`, the checkbox `set-showBurnupIcon` `Burnup` with its tooltip. `app.css`: the
+     `.burndown*` classes as `.burnup*`, `.actual.above` and `.point.above` in `--bad`, `.forecast` green, `.forecast.over`
+     orange, `.limit-line` in the muted gray.
+   - Tests: `BurnupTest` (the points rising, `x` from 0; above and on the line, the crossings; a month over its limit not held;
+     the forecast past the limit, `forecastOver` true and false, at the limit false; `top`; the tooltips word for word),
+     `ApiTest` (`/api/burnup` and its body; `/api/burndown` 404), `app.test.cjs` and `layout.test.cjs` (the names, the x labels,
+     the red pieces and dots, the forecast's class, the limit line, the size `200,340,2,burnup`).
+3. **The keys renamed, an old file read.**
+   - `SettingsStore`: `SHOW_BURNUP_ICON_KEY = "showBurnupIcon"`, `BURNUP_HEIGHT_KEY`, `BURNUP_WIDTH_KEY`; reading falls back to
+     `showBurndownIcon`, `burndownHeight`, `burndownWidth` when the new key is missing; `VIEWS` has `burnup`, and `panels`
+     takes `burndown` in `lastPanel` as `burnup`; writing writes the new keys only. `Settings.showBurnupIcon`, `Heights.burnup`,
+     `burnupWidth`, the panel names in `withHeight`/`withWidth`/`widthOf`; `IntervalSettings`, `WindowFit` (the panel name, the
+     least width), `UsageApp`, `StatusDisplay` (`show.burnupIcon`), `FakeMonth` (the comment), `Formatting` (the comment).
+   - Tests: `SettingsStoreTest` (the new keys written; an old file with the three burndown keys and `lastPanel` `burndown,cost`
+     read as the burnup; both there, the new ones win), `IntervalSettingsTest`, `WindowFitTest`, `PanelProbe`,
+     `TitleBarWindowTest` with the new name.
+
+- **Tests.** As above; the whole suite, the page tests, and the window tests (`-Daipusage.windows=true`).
+- **The Go version**: `go-port.md` gets the burnup's names and keys, the old keys read, and the shrinking rule of `WindowPlace`.
+
+**By eye**: on Windows and on macOS, a window in the lower right opening the history and closing it, the top-left corner kept
+and the row where the top of the view was; several views, one closed, the corner kept; the settings opened and left with the
+title bar off. In debug mode, the burnup: rising from the bottom left, the x labels 1 to 30, the seeded month green below the
+ideal line and red above it, the gray line at the limit, the dashed projection green or, with a small typed limit, orange and
+over the line, the axis grown to it; the icon rising; a settings file of 0.99 carrying the burndown's height, width and open
+view over.
+
+**As built**: as planned, with these differences.
+- **The shrinking rule.** `WindowPlace.shrunk(before, width, height, screen)` takes `anchored`'s place for each side that grows
+  and keeps the left or top edge of `before` for a side that gets smaller, then `onScreen`; a window that grows on both sides is
+  placed as `anchored` places it. `UsageApp.place` calls it for every change with a view before or after; `rowPlace` and its
+  branch are gone. The seen corner needs no conversion there: `was` and the stage are the same stage, so the invisible borders
+  (`sceneX`) are the same before and after, and the stage's left edge kept is the seen corner kept; a title bar that comes or
+  goes is a new stage, which `StageSwap` already puts at the old one's seen corner (the comment in `place` says so).
+- **The burnup.** `Burnup.java` replaces `Burndown.java`; `View` gets `top` (null with no limit) and `forecastOver`. The forecast
+  is two points, the last reading and `x` = `days` at `used ÷ elapsed × days` rounded to the cent (the amount as it is with
+  nothing spent or no time gone); `forecastOver` compares that end in cents with the limit, strictly. `daysGone` is held between
+  0 and `days`. The forecast's points carry `above: false` in the JSON, as the burndown's carried `below`. The page draws the
+  y-axis to the larger of `top` and the limit, and the dot at the end of the forecast is `forecast-end over` when the forecast is
+  `forecast over`; `app.css` has `.forecast`/`.forecast-end` in `--ok` and `.over` in `--warn`, `.limit-line` in `--muted`.
+  The icon's path is `M2.5 11.5l11-9M2 14.2h12`.
+- **The old keys.** `SettingsStore.renamed(root, key, old)` picks the key to read; the old names are `OLD_SHOW_BURNDOWN_ICON_KEY`,
+  `OLD_BURNDOWN_HEIGHT_KEY`, `OLD_BURNDOWN_WIDTH_KEY` and `OLD_BURNDOWN_VIEW`. Every write builds the file anew, so the old keys
+  go at the first write.
+- **The rename** was done through every file of `src` (Java, page, tests); what is left of `burndown` there is the old keys and
+  their tests, the checks that `/api/burndown` and the panel name `burndown` are no longer taken, and comments of the history.
+- **Tests.**
+  - New: `BurnupTest` (10, from `BurndownTest`'s 9: the forecast past the limit and on it, a month over its limit and `top` added),
+    `WindowPlaceTest` (4: shrinking in the lower right, growing there, one side each way, off the screen), `SettingsStoreTest` (2:
+    a file of 0.99 read and written with the new keys only; both there, the new ones win), and in the page tests two in
+    `app.test.cjs` (a forecast over the limit, orange, the axis grown and the limit line below the top; February without `30`)
+    and one in `layout.test.cjs` (the names, the tooltip, the rising icon, no `burndown` in the page).
+  - Changed: `ApiTest` (`/api/burnup`'s body, `/api/burndown` 404, `burndown` refused by `/api/height` with the new text),
+    `WindowFitTest` (`burndown` no longer parsed), the page's fixture and the chart's tests (the x labels 1 to 30, the ideal line
+    rising, the limit line, `actual above` and `point above`, the tooltips `… used`), `TitleBarWindowTest` with `UsageAppProbe`:
+    the log closed in the lower right keeps the top-left corner, and the log moved while open (now right and down by 100 and 50,
+    as moving it up and left put it off a screen it fills) keeps the corner it was moved to, moved onto the screen;
+    `SeveralViewsWindowTest` with `SeveralViewsProbe`: the three views in the lower right, the log closed, the top edge kept and
+    the left edge kept or, wider, the right.
+  - Not written: a window test of the history (the probe's log does the same), and a window test of a settings file of 0.99
+    (`SettingsStoreTest` reads one).
 - **Not done by eye.** The checks above were not done by eye in the running program.
 
 ## Implementation notes, as built

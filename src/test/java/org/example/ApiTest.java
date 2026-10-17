@@ -295,8 +295,8 @@ class ApiTest {
         assertEquals(60, body.at("/settings/usageIntervalSeconds").asInt());
         assertFalse(body.at("/settings/logResponse").asBoolean());
         assertEquals("hh:mm", body.at("/settings/timeFormat").asText());
-        assertEquals(55, body.get("settings").size(), "the debug settings are not among them; since 0.91 tooltipMillis in, showErrorIcon out; since 0.94 showExitIcon in; since 0.97 showBurndownIcon in");
-        assertTrue(body.at("/settings/showBurndownIcon").asBoolean(), "the burndown icon is shown by default (since 0.97)");
+        assertEquals(55, body.get("settings").size(), "the debug settings are not among them; since 0.91 tooltipMillis in, showErrorIcon out; since 0.94 showExitIcon in; since 0.97 showBurnupIcon in");
+        assertTrue(body.at("/settings/showBurnupIcon").asBoolean(), "the burnup icon is shown by default (since 0.97)");
         assertTrue(body.at("/settings/showExitIcon").asBoolean(), "the cross is shown by default (since 0.94)");
         assertEquals(body.get("settings"), body.get("defaults"), "nothing has been changed yet");
         assertFalse(body.has("intervalChoices"), "no list of values: the interval is one field");
@@ -1174,7 +1174,7 @@ class ApiTest {
     }
 
     @Test
-    void theBurndownIsWorkedOutFromTheReadingsOfTheMonthAndTheLimitCounted() throws Exception {
+    void theBurnupIsWorkedOutFromTheReadingsOfTheMonthAndTheLimitCounted() throws Exception {
         String today = java.time.LocalDate.now().toString();
         writeHistory(CSV_HEADER,
                 today + " 00:00:00,100.00,1000.00,USD,start,60,400",
@@ -1184,50 +1184,61 @@ class ApiTest {
         AppRuntime app = start(plan);
         post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"costMonthlyLimit\": \"200.00\"}"));
 
-        Json burndown = json(get(app, "/api/burndown"));
+        Json burnup = json(get(app, "/api/burnup"));
 
-        assertEquals(java.time.YearMonth.now().lengthOfMonth(), burndown.get("days").intValue());
-        assertFalse(burndown.get("noLimit").asBoolean());
-        assertEquals("200.00", burndown.get("limit").asText(), "the limit counted: the one typed");
-        assertEquals(2, burndown.get("points").size(), "the start of the month, and today's last reading");
-        assertTrue(burndown.at("/points/1/tooltip").asText().endsWith(": 90.00 left"), burndown.toString());
-        // To the end of the month, meeting 0 on the way when the month's pace spends the credit sooner, as it may on any day.
-        Json forecast = burndown.get("forecast");
-        assertTrue(forecast.size() >= 2, burndown.toString());
-        assertEquals(0.0, forecast.get(forecast.size() - 1).get("x").doubleValue());
-        assertTrue(forecast.get(forecast.size() - 1).get("tooltip").asText().startsWith("Forecast for "));
-        assertEquals(405, post(app, "/api/burndown", "{}").statusCode());
+        assertEquals(java.time.YearMonth.now().lengthOfMonth(), burnup.get("days").intValue());
+        assertFalse(burnup.get("noLimit").asBoolean());
+        assertEquals("200.00", burnup.get("limit").asText(), "the limit counted: the one typed");
+        assertEquals(2, burnup.get("points").size(), "the start of the month, and today's last reading");
+        assertTrue(burnup.at("/points/1/tooltip").asText().endsWith(": 110.00 used"), burnup.toString());
+        assertEquals(110.0, burnup.at("/points/1/used").doubleValue(), "the amount used, rising (since 0.100)");
+        assertTrue(burnup.at("/points/1/above").isBool(), burnup.toString());
+        // To the end of the month, past the limit when the month's pace takes it there, as it may on any day: no stop at the limit.
+        Json forecast = burnup.get("forecast");
+        assertEquals(2, forecast.size(), burnup.toString());
+        assertEquals(burnup.get("days").doubleValue(), forecast.get(1).get("x").doubleValue());
+        assertTrue(forecast.get(1).get("tooltip").asText().startsWith("Forecast for "));
+        assertTrue(forecast.get(1).get("tooltip").asText().endsWith(" used"));
+        assertEquals(forecast.get(1).get("used").doubleValue() > 200.0, burnup.get("forecastOver").asBoolean(), burnup.toString());
+        assertEquals(Math.max(200.0, forecast.get(1).get("used").doubleValue()), burnup.get("top").doubleValue(), burnup.toString());
+        assertEquals(405, post(app, "/api/burnup", "{}").statusCode());
+        // The burndown of 0.97 to 0.99 is gone (since 0.100).
+        assertEquals(404, get(app, "/api/burndown").statusCode());
     }
 
     @Test
-    void theBurndownSaysWhenThereIsNoLimitOrNoReading() throws Exception {
+    void theBurnupSaysWhenThereIsNoLimitOrNoReading() throws Exception {
         FakeFetch plan = new FakeFetch();
         plan.answer = () -> NO_USAGE;
         AppRuntime app = start(plan);
-        assertEquals("No usage has been read yet.", json(get(app, "/api/burndown")).get("note").asText());
+        assertEquals("No usage has been read yet.", json(get(app, "/api/burnup")).get("note").asText());
 
         String today = java.time.LocalDate.now().toString();
         writeHistory(CSV_HEADER, today + " 00:00:00,100.00,,USD,start,60,400");
-        Json burndown = json(get(app, "/api/burndown"));
-        assertTrue(burndown.get("noLimit").asBoolean());
-        assertEquals("No limit is set: set it in the settings, under Cost control.", burndown.get("note").asText());
+        Json burnup = json(get(app, "/api/burnup"));
+        assertTrue(burnup.get("noLimit").asBoolean());
+        assertEquals("No limit is set: set it in the settings, under Cost control.", burnup.get("note").asText());
     }
 
     @Test
-    void theBurndownIconIsASettingOnByDefaultAndItsHeightIsRemembered() throws Exception {
+    void theBurnupIconIsASettingOnByDefaultAndItsHeightIsRemembered() throws Exception {
         AppRuntime app = start(new FakeFetch());
-        assertTrue(json(get(app, "/api/settings")).at("/settings/showBurndownIcon").asBoolean());
-        assertTrue(json(get(app, "/api/status")).at("/display/show/burndownIcon").asBoolean());
+        assertTrue(json(get(app, "/api/settings")).at("/settings/showBurnupIcon").asBoolean());
+        assertTrue(json(get(app, "/api/status")).at("/display/show/burnupIcon").asBoolean());
 
-        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"showBurndownIcon\": false}"));
-        assertFalse(json(get(app, "/api/settings")).at("/settings/showBurndownIcon").asBoolean());
-        assertFalse(json(get(app, "/api/status")).at("/display/show/burndownIcon").asBoolean());
+        post(app, "/api/settings", allSettings(60, false, "hh:mm").replace("}", ", \"showBurnupIcon\": false}"));
+        assertFalse(json(get(app, "/api/settings")).at("/settings/showBurnupIcon").asBoolean());
+        assertFalse(json(get(app, "/api/status")).at("/display/show/burnupIcon").asBoolean());
         post(app, "/api/settings", allSettings(60, false, "hh:mm"));
-        assertFalse(json(get(app, "/api/settings")).at("/settings/showBurndownIcon").asBoolean(), "left out: it stays as it is");
+        assertFalse(json(get(app, "/api/settings")).at("/settings/showBurnupIcon").asBoolean(), "left out: it stays as it is");
 
-        assertEquals(200, post(app, "/api/height", "{\"panel\": \"burndown\", \"pixels\": 420}").statusCode());
-        assertEquals(420, json(get(app, "/api/status")).at("/heights/burndown").asInt());
+        assertEquals(200, post(app, "/api/height", "{\"panel\": \"burnup\", \"pixels\": 420}").statusCode());
+        assertEquals(420, json(get(app, "/api/status")).at("/heights/burnup").asInt());
         assertEquals(400, post(app, "/api/height", "{\"panel\": \"cost\", \"pixels\": 420}").statusCode());
+        // The burndown's name is no longer taken (since 0.100).
+        var old = post(app, "/api/height", "{\"panel\": \"burndown\", \"pixels\": 420}");
+        assertEquals(400, old.statusCode());
+        assertTrue(old.body().contains("The panel must be history, log or burnup."), old.body());
     }
 
     @Test
@@ -3115,7 +3126,7 @@ class ApiTest {
         Json heights = json(get(app, "/api/status")).get("heights");
         assertEquals(610, heights.get("history").asInt());
         assertEquals(480, heights.get("log").asInt());
-        assertEquals(0, heights.get("burndown").asInt(), "the burndown has its own (since 0.97), none yet");
+        assertEquals(0, heights.get("burnup").asInt(), "the burnup has its own (since 0.97), none yet");
         assertEquals(3, heights.size(), "the error log has no height that is kept");
     }
 

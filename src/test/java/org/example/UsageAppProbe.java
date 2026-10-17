@@ -121,7 +121,8 @@ public final class UsageAppProbe {
             step("log-back", null);
             // The error log is gone since 0.91: the log is closed, and the row is alone again.
             step("log-closed", "log-button");
-            // The row at the bottom right of its screen: the log grows upwards and to the left, and closing it puts the row back (since 0.93).
+            // The row at the bottom right of its screen: the log grows upwards and to the left (since 0.93), and closing it keeps its
+            // top-left corner, the row where the top of the log was (since 0.100; until 0.99 the row went back).
             onFx(() -> {
                 javafx.geometry.Rectangle2D area = screen();
                 window().setX(area.getMaxX() - window().getWidth());
@@ -133,13 +134,15 @@ public final class UsageAppProbe {
             place("log-low");
             step("log-low-closed", "log-button");
             place("log-low-closed");
-            // Moved while the log is open: closing it still puts the row back where it was (since 0.94).
+            // Moved while the log is open: closing it keeps the corner it was moved to (since 0.100; until 0.99 the row went back
+            // where it was before the log opened, since 0.94).
             step("log-low-moved", "log-button");
             onFx(() -> {
-                window().setX(window().getX() - 100);
+                window().setX(window().getX() + 100);
                 window().setY(window().getY() + 50);
             });
             Thread.sleep(500);
+            place("log-low-moved");
             step("log-low-moved-closed", "log-button");
             place("log-low-moved-closed");
             // The cost control cannot be resized, so it has no title bar: the window has its border, and is moved by dragging it.

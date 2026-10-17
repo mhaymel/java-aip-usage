@@ -183,29 +183,35 @@ class WindowFitTest {
     }
 
     @Test
-    void theBurndownIsAViewThatTakesTheHeightTheWindowIsDraggedToAndComesFirst() {
-        Size alone = WindowFit.parse("320,340,1,burndown").orElseThrow();
-        assertEquals("burndown", alone.lowestList(), "it takes the height, as a list does");
-        assertEquals(true, Size.remembersHeight("burndown"));
+    void theBurnupIsAViewThatTakesTheHeightTheWindowIsDraggedToAndComesFirst() {
+        Size alone = WindowFit.parse("320,340,1,burnup").orElseThrow();
+        assertEquals("burnup", alone.lowestList(), "it takes the height, as a list does");
+        assertEquals(true, Size.remembersHeight("burnup"));
         assertEquals(false, alone.keepsTitleBar(), "no title bar, as a list has none");
 
-        Size all = WindowFit.parse("1300,1500,2,burndown+cost+history+log,420").orElseThrow();
-        assertEquals(java.util.List.of("burndown", "cost", "history", "log"), all.panels());
+        Size all = WindowFit.parse("1300,1500,2,burnup+cost+history+log,420").orElseThrow();
+        assertEquals(java.util.List.of("burnup", "cost", "history", "log"), all.panels());
         assertEquals("log", all.lowestList());
-        assertEquals("burndown", WindowFit.parse("520,640,1,burndown+cost,420").orElseThrow().lowestList());
-        assertEquals(Optional.empty(), WindowFit.parse("520,640,1,cost+burndown,420"), "the burndown is the first icon");
+        assertEquals("burnup", WindowFit.parse("520,640,1,burnup+cost,420").orElseThrow().lowestList());
+        assertEquals(Optional.empty(), WindowFit.parse("520,640,1,cost+burnup,420"), "the burnup is the first icon");
         assertEquals(false, Size.remembersHeight("cost"));
+
+        // The burndown's name of 0.97 to 0.99 is no longer taken (since 0.100).
+        assertEquals(Optional.empty(), WindowFit.parse("200,340,2,burndown"));
+        assertEquals(Optional.empty(), WindowFit.parse("520,640,1,burndown+cost,420"));
+        assertEquals(false, Size.remembersHeight("burndown"));
+        assertEquals(200.0, WindowFit.parse("200,340,2,burnup").orElseThrow().leastWidth(120), "the size the page reports, 200 at least");
     }
 
     @Test
-    void theBurndownMayBeDraggedInWidthDownToTheWidthItAsksForOr200AmongOtherViews() {
-        Size alone = WindowFit.parse("260,340,2,burndown").orElseThrow();
+    void theBurnupMayBeDraggedInWidthDownToTheWidthItAsksForOr200AmongOtherViews() {
+        Size alone = WindowFit.parse("260,340,2,burnup").orElseThrow();
         assertEquals(Resize.BOTH, alone.resize(), "since 0.99 its width is the person's too");
         assertEquals(true, alone.widthIsThePersons());
         assertEquals(260.0, alone.leastWidth(120), "alone, the width it asks for: the row's or 200");
 
-        assertEquals(200.0, WindowFit.parse("520,640,2,burndown+history,420").orElseThrow().leastWidth(120), "among others, 200 at least");
-        assertEquals(300.0, WindowFit.parse("520,640,2,burndown+history,420").orElseThrow().leastWidth(300), "or the row");
+        assertEquals(200.0, WindowFit.parse("520,640,2,burnup+history,420").orElseThrow().leastWidth(120), "among others, 200 at least");
+        assertEquals(300.0, WindowFit.parse("520,640,2,burnup+history,420").orElseThrow().leastWidth(300), "or the row");
         assertEquals(120.0, WindowFit.parse("1215,420,2,log").orElseThrow().leastWidth(120), "the log, the row's, as before");
     }
 

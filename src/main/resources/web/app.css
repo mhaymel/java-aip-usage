@@ -1342,18 +1342,19 @@ body {
 }
 
 /*
- * The burndown of the month's credit (since 0.97): a chart that fills the height of its view, as a list does, drawn in SVG by
- * the page. The ideal line is muted, the credit green as the figures (red below the ideal line since 0.99), the forecast dashed
- * in the orange of a warning.
+ * The burnup of the month's spending (since 0.100; the burndown of the credit since 0.97): a chart that fills the height of its
+ * view, as a list does, drawn in SVG by the page. The ideal line and the limit are muted, the amount used green as the figures
+ * (red above the ideal line since 0.100, below the burndown's since 0.99), the forecast dashed, green, or in the orange of a
+ * warning when it ends over the limit (since 0.100; orange always until 0.99).
  */
-.burndown {
+.burnup {
     font: 400 11px/1.2 var(--list-font);
     letter-spacing: normal;
     padding: 2px 8px 0;
 }
 
-/* The labels of the credit at the left, the plot, and under it the labels of the days. */
-.burndown-chart {
+/* The labels of the amount used at the left, the plot, and under it the labels of the days. */
+.burnup-chart {
     flex: 1 1 auto;
     min-height: 60px;
     display: grid;
@@ -1363,38 +1364,38 @@ body {
     padding: 8px 12px 4px 0;
 }
 
-.burndown-chart[hidden] {
+.burnup-chart[hidden] {
     display: none;
 }
 
-.burndown-y,
-.burndown-plot,
-.burndown-x {
+.burnup-y,
+.burnup-plot,
+.burnup-x {
     position: relative;
 }
 
-.burndown-y > .burndown-label {
+.burnup-y > .burnup-label {
     position: absolute;
     right: 0;
     transform: translateY(-50%);
 }
 
-.burndown-x {
+.burnup-x {
     height: 1.4em;
 }
 
-.burndown-x > .burndown-label {
+.burnup-x > .burnup-label {
     position: absolute;
     top: 2px;
     transform: translateX(-50%);
 }
 
-.burndown-label {
+.burnup-label {
     color: var(--muted);
     white-space: nowrap;
 }
 
-.burndown-plot > svg {
+.burnup-plot > svg {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -1402,49 +1403,66 @@ body {
     overflow: visible;
 }
 
-.burndown-chart .axis {
+.burnup-chart .axis {
     stroke: var(--muted);
     stroke-width: 1;
 }
 
-.burndown-chart .grid {
+.burnup-chart .grid {
     stroke: var(--grid);
     stroke-width: 1;
 }
 
-.burndown-chart .ideal {
+.burnup-chart .ideal {
     fill: none;
     stroke: var(--muted);
     stroke-width: 1.5;
 }
 
-.burndown-chart .actual {
+/* The limit, a thin line across, so that what is above it is seen as above (since 0.100). */
+.burnup-chart .limit-line {
+    stroke: var(--muted);
+    stroke-width: 1;
+}
+
+.burnup-chart .actual {
     fill: none;
     stroke: var(--ok);
     stroke-width: 2;
     stroke-linejoin: round;
 }
 
-.burndown-chart .point {
+.burnup-chart .point {
     fill: var(--ok);
 }
 
-/* Below the ideal line the month spends faster than its even pace: red, as the status circle is (since 0.99). */
-.burndown-chart .actual.below {
+/* Above the ideal line the month spends faster than its even pace: red, as the status circle is (since 0.100; below the
+   burndown's since 0.99). */
+.burnup-chart .actual.above {
     stroke: var(--bad);
 }
 
-.burndown-chart .point.below {
+.burnup-chart .point.above {
     fill: var(--bad);
 }
 
-.burndown-chart .forecast {
+/* The forecast green, as the actual line, when it ends at the limit or below it (since 0.100). */
+.burnup-chart .forecast {
     fill: none;
-    stroke: var(--warn);
+    stroke: var(--ok);
     stroke-width: 2;
     stroke-dasharray: 5 4;
 }
 
-.burndown-chart .forecast-end {
+.burnup-chart .forecast-end {
+    fill: var(--ok);
+}
+
+/* And orange when it ends over the limit. */
+.burnup-chart .forecast.over {
+    stroke: var(--warn);
+}
+
+.burnup-chart .forecast-end.over {
     fill: var(--warn);
 }

@@ -2,7 +2,8 @@ package org.example;
 
 /**
  * Where the window goes when the program changes its size (since 0.93): towards the room there is on the screen, so that a
- * window low on the screen grows upwards and one on the right grows to the left, and never partly off the screen.
+ * window low on the screen grows upwards and one on the right grows to the left, and never partly off the screen. A window
+ * that gets smaller keeps its top-left corner (since 0.100).
  */
 final class WindowPlace {
 
@@ -37,6 +38,19 @@ final class WindowPlace {
     static Rect anchored(Rect before, double width, double height, Rect screen) {
         double x = before.middleX() > screen.middleX() ? before.maxX() - width : before.x();
         double y = before.middleY() > screen.middleY() ? before.maxY() - height : before.y();
+        return onScreen(new Rect(x, y, width, height), screen);
+    }
+
+    /**
+     * The window of the new size where the program has made it smaller (since 0.100): width and height each on its own, a side
+     * that gets smaller keeps the window's left edge, or its top edge, so that its top-left corner stays; a side that gets larger
+     * grows towards the room there is, as {@link #anchored} has it. Then moved onto the screen, see {@link #onScreen}. A window
+     * that grows on both sides is placed as {@link #anchored} places it.
+     */
+    static Rect shrunk(Rect before, double width, double height, Rect screen) {
+        Rect grown = anchored(before, width, height, screen);
+        double x = width < before.width() ? before.x() : grown.x();
+        double y = height < before.height() ? before.y() : grown.y();
         return onScreen(new Rect(x, y, width, height), screen);
     }
 

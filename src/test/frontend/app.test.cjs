@@ -75,7 +75,7 @@ async function load(backend, options = {}) {
             return elements.get(id);
         },
         createElement: tag => element('<' + tag + '>'),
-        // The burndown is drawn in SVG (since 0.97); its elements are plain ones here, named by their tag.
+        // The burnup is drawn in SVG (since 0.97); its elements are plain ones here, named by their tag.
         createElementNS: (ns, tag) => element('<' + tag + '>'),
         // Only the scrollbar probe reads these: a box that always has a scrollbar of the width the test gives it.
         body: { append() {}, removeChild() {} },
@@ -194,7 +194,7 @@ function backendOf(state) {
         }
         if (call.url.split('?')[0] === '/api/cost/daily') return state.costDaily ? state.costDaily(call) : { status: 200, body: { daily: null, weekdays: 22 } };
         if (call.url === '/api/cost') return state.cost ? state.cost() : { status: 200, body: COST };
-        if (call.url === '/api/burndown') return state.burndown ? state.burndown() : { status: 200, body: BURNDOWN };
+        if (call.url === '/api/burnup') return state.burnup ? state.burnup() : { status: 200, body: BURNUP };
         if (call.url === '/api/errors') return state.errors ? state.errors() : { status: 200, body: ERRORS };
         if (call.url.split('?')[0] === '/api/history' && call.method === 'POST') {
             return state.postHistory ? state.postHistory(JSON.parse(call.body)) : { status: 200, body: JSON.parse(call.body) };
@@ -212,24 +212,26 @@ const COST = {
     note: null,
 };
 
-// The burndown of October as the backend sends it, finished (since 0.97): a day without a reading, and a forecast to the end.
-const BURNDOWN = {
-    days: 31, noLimit: false, limit: '1,000.00', limitValue: 1000, note: null,
+// The burnup of October as the backend sends it, finished (since 0.100; the burndown since 0.97): a day without a reading, below
+// the ideal line throughout, and a forecast to the end that stays below the limit.
+const BURNUP = {
+    days: 31, noLimit: false, limit: '1,000.00', limitValue: 1000, top: 1000, note: null,
     yLabels: [{ value: 0, text: '0' }, { value: 500, text: '500' }, { value: 1000, text: '1k' }],
     points: [
-        { x: 31, credit: 1000, tooltip: null },
-        { x: 30.2917, credit: 950, tooltip: 'Oct 1: 950.00 left' },
-        { x: 28.2917, credit: 860, tooltip: 'Oct 3: 860.00 left' },
-        { x: 27.4, credit: 830.5, tooltip: 'Oct 4: 830.50 left' },
+        { x: 0, used: 0, tooltip: null, above: false },
+        { x: 0.7083, used: 10, tooltip: 'Oct 1: 10.00 used', above: false },
+        { x: 2.7083, used: 60, tooltip: 'Oct 3: 60.00 used', above: false },
+        { x: 3.6, used: 100, tooltip: 'Oct 4: 100.00 used', above: false },
     ],
     forecast: [
-        { x: 27.4, credit: 830.5, tooltip: null },
-        { x: 0, credit: 0, tooltip: null },
+        { x: 3.6, used: 100, tooltip: null, above: false },
+        { x: 31, used: 861.11, tooltip: 'Forecast for Oct 31: 861.11 used', above: false },
     ],
+    forecastOver: false,
 };
 
 const DEFAULT_SETTINGS = {
-    usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showExitIcon: true, showBurndownIcon: true,
+    usageIntervalSeconds: 60, logResponse: false, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showErrorIcon: true, showCostIcon: true, showExitIcon: true, showBurnupIcon: true,
     showInterval: false, showDeltaUsed: false, showDeltaTime: false,
     timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
     showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, costShowUsed: true, costShowLimit: true, costShowPercent: true, showStatus: true, statusBlink: true, locateWindow: true, tooltipMillis: 0, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
@@ -1004,7 +1006,7 @@ test('Apply sends every setting together, closes the view, and the row follows a
 
     assert.equal(settingsPosts(page).length, 1);
     assert.deepEqual(JSON.parse(settingsPosts(page)[0].body), {
-        usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showBurndownIcon: true, showCostIcon: true, showExitIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
+        usageIntervalSeconds: 180, logResponse: true, showPercentage: false, showCurrency: false, showHistoryIcon: true, showLogIcon: true, showBurnupIcon: true, showCostIcon: true, showExitIcon: true, showInterval: true, showDeltaUsed: false, showDeltaTime: false,
         timeFormat: 'hh:mm', historyDeltaUsed: false, historyDeltaTime: false, historyDate: false, historyZeroLines: true, historyFailedLines: true,
         showTime: true, showUsed: true, showLimit: true, showRefresh: true, showCountdown: true, showDuration: false, stayOnTop: false, restoreWindow: false, severalViews: false, logFolder: '', historyFolder: '', costCurrency: false, costLimitSource: 'monthly', costWorkdayHours: 8, costWorkdays: null, costShowUsed: true, costShowLimit: true, costShowPercent: true, showStatus: true, statusBlink: true, locateWindow: true, tooltipMillis: 0, showDayPercentage: false, showDayUsed: false, showDayLimit: false, historyMonthly: false, historyDaily: false, historyDailyBy: false, showTitleBar: true, autoInterval: false,
         costMonthlyLimit: null, costDailyLimit: null, costDailyAutomatic: true,
@@ -5944,11 +5946,11 @@ test('a wider figure that comes in pads the others anew, and the place the perso
     assert.equal(box.scrollTop, 15 + 15, 'one line came in above what was being read: the rows are known by what the backend sent, not by their padding');
 });
 
-// ---- version 0.97: the burndown of the month's credit
+// ---- version 0.97: the burndown of the month's credit; since 0.100 the burnup of its spending
 
-/** The parts of the drawn burndown: the labels of the two axes, and the lines and dots of the chart by their class. */
-function burndownOf(page) {
-    const [yAxis, plot, , xAxis] = page.el('burndown-chart').children;
+/** The parts of the drawn burnup: the labels of the two axes, and the lines and dots of the chart by their class. */
+function burnupOf(page) {
+    const [yAxis, plot, , xAxis] = page.el('burnup-chart').children;
     const svg = plot.children[0];
     const of = kind => svg.children.filter(child => child.attrs.class === kind);
     return {
@@ -5958,60 +5960,99 @@ function burndownOf(page) {
     };
 }
 
-test('the burndown icon opens the chart: the ideal line, the credit of each day joined, the dashed forecast, and the days left labelled every five', async () => {
+test('the burnup icon opens the chart: the ideal line rising, the amount used of each day joined, the dashed forecast, and the days of the month labelled', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    assert.equal(page.el('burndown-button').title, 'Show the burndown');
+    assert.equal(page.el('burnup-button').title, 'Show the burnup');
 
-    await page.click('burndown-button');
+    await page.click('burnup-button');
 
-    assert.equal(page.calls.filter(c => c.url === '/api/burndown').length, 1);
-    assert.equal(page.el('view-burndown').hidden, false);
-    assert.equal(page.el('burndown-button').title, 'Hide the burndown');
-    const chart = burndownOf(page);
-    assert.deepEqual(chart.xLabels, ['30', '25', '20', '15', '10', '5', '0'], 'falling to 0 at the right; 31 is not labelled');
-    assert.equal(chart.xLefts[0], '3.23%', '30 days left is a day in');
-    assert.equal(chart.xLefts[6], '100%', 'the end of the month at the right edge');
+    assert.equal(page.calls.filter(c => c.url === '/api/burnup').length, 1);
+    assert.equal(page.calls.filter(c => c.url === '/api/burndown').length, 0, 'the burndown is no longer read (since 0.100)');
+    assert.equal(page.el('view-burnup').hidden, false);
+    assert.equal(page.el('burnup-button').title, 'Hide the burnup');
+    const chart = burnupOf(page);
+    assert.deepEqual(chart.xLabels, ['1', '5', '10', '15', '20', '25', '30'], 'the days of the month, rising to the right (since 0.100)');
+    assert.equal(chart.xLefts[0], '0%', 'the 1st at the start of the month, the left edge');
+    assert.equal(chart.xLefts[1], '12.9%', 'the 5th four days in');
+    assert.equal(chart.xLefts[6], '93.55%', 'the 30th at its start, a day before the end of October');
     assert.deepEqual(chart.yLabels, ['0', '500', '1k']);
-    assert.deepEqual(chart.yTops, ['100%', '50%', '0%'], 'the limit at the top, 0 at the bottom');
+    assert.deepEqual(chart.yTops, ['100%', '50%', '0%'], 'the limit at the top, which is the top of the axis here, 0 at the bottom');
     const ideal = chart.lines('ideal');
     assert.equal(ideal.length, 1);
-    assert.deepEqual([ideal[0].attrs.x1, ideal[0].attrs.y1, ideal[0].attrs.x2, ideal[0].attrs.y2], ['0%', '0%', '100%', '100%'], 'from the top left to the bottom right');
+    assert.deepEqual([ideal[0].attrs.x1, ideal[0].attrs.y1, ideal[0].attrs.x2, ideal[0].attrs.y2], ['0%', '100%', '100%', '0%'], 'from the bottom left to the top right');
+    const limit = chart.lines('limit-line');
+    assert.equal(limit.length, 1, 'a thin line across at the limit');
+    assert.deepEqual([limit[0].attrs.x1, limit[0].attrs.y1, limit[0].attrs.x2, limit[0].attrs.y2], ['0%', '0%', '100%', '0%']);
     const actual = chart.lines('actual');
     assert.equal(actual.length, 3, 'the start of the month and three days, joined; the day without a reading has no point');
     assert.deepEqual([actual[1].attrs.x1, actual[1].attrs.x2], ['2.28%', '8.74%'], 'Oct 1 straight to Oct 3');
+    assert.deepEqual([actual[0].attrs.y1, actual[0].attrs.y2], ['100%', '99%'], 'rising from 0 at the bottom');
     const forecast = chart.lines('forecast');
-    assert.equal(forecast.length, 1);
-    assert.deepEqual([forecast[0].attrs.x2, forecast[0].attrs.y2], ['100%', '100%'], 'to 0 at the end of the month');
-    assert.deepEqual(chart.dots.map(dot => dot.children[0].textContent), ['Oct 1: 950.00 left', 'Oct 3: 860.00 left', 'Oct 4: 830.50 left'],
-        'a dot with its tooltip on each reading; none on the start of the month');
-    assert.equal(page.el('burndown-note').hidden, true);
+    assert.equal(forecast.length, 1, 'green: it ends below the limit');
+    assert.equal(chart.lines('forecast over').length, 0);
+    assert.deepEqual([forecast[0].attrs.x2, forecast[0].attrs.y2], ['100%', '13.89%'], 'to the end of the month');
+    assert.deepEqual(chart.dots.map(dot => dot.children[0].textContent),
+        ['Oct 1: 10.00 used', 'Oct 3: 60.00 used', 'Oct 4: 100.00 used', 'Forecast for Oct 31: 861.11 used'],
+        'a dot with its tooltip on each reading and the end of the forecast; none on the start of the month');
+    assert.equal(chart.dots[3].attrs.class, 'forecast-end');
+    assert.equal(page.el('burnup-note').hidden, true);
 });
 
-test('with no limit the burndown draws nothing and says how to set one', async () => {
+test('a forecast over the limit is orange and the axis grows to it, the limit a line below the top (since 0.100)', async () => {
+    const over = {
+        ...BURNUP, top: 2000, forecastOver: true,
+        forecast: [BURNUP.forecast[0], { x: 31, used: 2000, tooltip: 'Forecast for Oct 31: 2,000.00 used', above: false }],
+    };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, burnup: () => ({ status: 200, body: over }) }));
+
+    await page.click('burnup-button');
+
+    const chart = burnupOf(page);
+    assert.deepEqual(chart.yTops, ['100%', '75%', '50%'], 'the labels 0, half the limit and the limit, on an axis up to 2,000');
+    assert.equal(chart.lines('limit-line')[0].attrs.y1, '50%', 'the limit halfway up');
+    assert.equal(chart.lines('ideal')[0].attrs.y2, '50%', 'the ideal line ends at the limit');
+    assert.equal(chart.lines('forecast').length, 0);
+    const forecast = chart.lines('forecast over');
+    assert.equal(forecast.length, 1, 'orange');
+    assert.equal(forecast[0].attrs.y2, '0%', 'its end at the top of the axis');
+    assert.equal(chart.dots[chart.dots.length - 1].attrs.class, 'forecast-end over');
+});
+
+test('a month without a 30th has no label 30 (since 0.100)', async () => {
+    const february = { ...BURNUP, days: 28 };
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, burnup: () => ({ status: 200, body: february }) }));
+
+    await page.click('burnup-button');
+
+    assert.deepEqual(burnupOf(page).xLabels, ['1', '5', '10', '15', '20', '25']);
+    assert.equal(burnupOf(page).xLefts[5], '85.71%', 'the 25th, 24 days of 28 in');
+});
+
+test('with no limit the burnup draws nothing and says how to set one', async () => {
     const state = { config: CONFIG, status: SPEND_STATUS,
-        burndown: () => ({ status: 200, body: { days: 31, noLimit: true, limit: null, limitValue: null, note: 'No limit is set: set it in the settings, under Cost control.', yLabels: [], points: [], forecast: [] } }) };
+        burnup: () => ({ status: 200, body: { days: 31, noLimit: true, limit: null, limitValue: null, note: 'No limit is set: set it in the settings, under Cost control.', yLabels: [], points: [], forecast: [] } }) };
     const page = await load(backendOf(state));
 
-    await page.click('burndown-button');
+    await page.click('burnup-button');
 
-    assert.equal(page.el('burndown-chart').hidden, true);
-    assert.equal(page.el('burndown-chart').children.length, 0);
-    assert.equal(page.el('burndown-note').hidden, false);
-    assert.equal(page.el('burndown-note').textContent, 'No limit is set: set it in the settings, under Cost control.');
+    assert.equal(page.el('burnup-chart').hidden, true);
+    assert.equal(page.el('burnup-chart').children.length, 0);
+    assert.equal(page.el('burnup-note').hidden, false);
+    assert.equal(page.el('burnup-note').textContent, 'No limit is set: set it in the settings, under Cost control.');
 
-    state.burndown = () => ({ status: 200, body: BURNDOWN });
+    state.burnup = () => ({ status: 200, body: BURNUP });
     state.status = { ...SPEND_STATUS, historyStamp: 'b' };
     await page.firePoll();
-    assert.equal(page.el('burndown-chart').hidden, false, 'a limit set, the chart is drawn at the next reading');
-    assert.equal(page.el('burndown-note').hidden, true);
+    assert.equal(page.el('burnup-chart').hidden, false, 'a limit set, the chart is drawn at the next reading');
+    assert.equal(page.el('burnup-note').hidden, true);
 });
 
-test('the burndown is read again only when there is a new reading, and drawn again only when it changed', async () => {
+test('the burnup is read again only when there is a new reading, and drawn again only when it changed', async () => {
     const state = { config: CONFIG, status: { ...SPEND_STATUS, historyStamp: 'a' } };
     const page = await load(backendOf(state));
-    await page.click('burndown-button');
-    const reads = () => page.calls.filter(c => c.url === '/api/burndown').length;
-    const drawn = page.el('burndown-chart').children[1];
+    await page.click('burnup-button');
+    const reads = () => page.calls.filter(c => c.url === '/api/burnup').length;
+    const drawn = page.el('burnup-chart').children[1];
 
     await page.firePoll();
     assert.equal(reads(), 1, 'the same file: not read again');
@@ -6019,94 +6060,95 @@ test('the burndown is read again only when there is a new reading, and drawn aga
     state.status = { ...SPEND_STATUS, historyStamp: 'b' };
     await page.firePoll();
     assert.equal(reads(), 2);
-    assert.equal(page.el('burndown-chart').children[1], drawn, 'the same chart: nothing drawn again');
+    assert.equal(page.el('burnup-chart').children[1], drawn, 'the same chart: nothing drawn again');
 
-    state.burndown = () => ({ status: 200, body: { ...BURNDOWN, forecast: [BURNDOWN.forecast[0], { x: 0, credit: 120.4, tooltip: 'Forecast for Oct 31: 120.40 left' }] } });
+    state.burnup = () => ({ status: 200, body: { ...BURNUP, forecast: [BURNUP.forecast[0], { x: 31, used: 120.4, tooltip: 'Forecast for Oct 31: 120.40 used' }] } });
     state.status = { ...SPEND_STATUS, historyStamp: 'c' };
     await page.firePoll();
-    assert.notEqual(page.el('burndown-chart').children[1], drawn);
-    const dots = burndownOf(page).dots;
+    assert.notEqual(page.el('burnup-chart').children[1], drawn);
+    const dots = burnupOf(page).dots;
     assert.equal(dots[dots.length - 1].attrs.class, 'forecast-end');
-    assert.equal(dots[dots.length - 1].children[0].textContent, 'Forecast for Oct 31: 120.40 left');
+    assert.equal(dots[dots.length - 1].children[0].textContent, 'Forecast for Oct 31: 120.40 used');
 });
 
-test('the burndown takes the height and the width of the window, as the log does, and is at least 200 pixels wide (since 0.99)', async () => {
+test('the burnup takes the height and the width of the window, as the log does, and is at least 200 pixels wide (since 0.99)', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
     page.el('top').rect = { width: 150, height: 34 };
     page.el('app').rect = { width: 150, height: 34 };
 
-    await page.click('burndown-button');
+    await page.click('burnup-button');
 
-    assert.equal(page.window.contentSize(), '200,340,2,burndown', 'ten rows tall, resizable in both, named for the host to remember its size (320 and 1 until 0.98)');
+    assert.equal(page.window.contentSize(), '200,340,2,burnup', 'ten rows tall, resizable in both, named for the host to remember its size (320 and 1 until 0.98)');
     assert.match(page.el('app').className, /\bopen\b/, 'it fills the window');
-    assert.equal(page.window.currentView(), 'burndown,');
+    assert.equal(page.window.currentView(), 'burnup,');
 
     page.el('top').rect = { width: 400, height: 34 };
     page.el('app').rect = { width: 400, height: 34 };
     assert.equal(page.window.contentSize().split(',')[0], '400', 'as wide as a row that is wider');
 });
 
-test('the burndown has the right edge without the title bar, as the log has (since 0.99)', async () => {
+test('the burnup has the right edge without the title bar, as the log has (since 0.99)', async () => {
     const page = await load(backendOf({ config: CONFIG, status: { ...SPEND_STATUS, display: { ...SPEND_STATUS.display, titleBar: false } } }));
     assert.equal(page.el('edge-right').hidden, true);
 
-    await page.click('burndown-button');
+    await page.click('burnup-button');
 
     assert.equal(page.el('edge-right').hidden, false);
 });
 
-test('a piece of the actual line is red where either of its ends is below the ideal line, and so is the dot of a point below it (since 0.99)', async () => {
-    const below = {
-        ...BURNDOWN,
+test('a piece of the actual line is red where either of its ends is above the ideal line, and so is the dot of a point above it (since 0.100; below until 0.99)', async () => {
+    const above = {
+        ...BURNUP,
         points: [
-            { x: 31, credit: 1000, tooltip: null, below: false },
-            { x: 30.2917, credit: 950, tooltip: 'Oct 1: 950.00 left', below: true },
-            { x: 29, credit: 935.48, tooltip: null, below: false },
-            { x: 27.4, credit: 900, tooltip: 'Oct 4: 900.00 left', below: false },
+            { x: 0, used: 0, tooltip: null, above: false },
+            { x: 0.7083, used: 50, tooltip: 'Oct 1: 50.00 used', above: true },
+            { x: 2, used: 64.52, tooltip: null, above: false },
+            { x: 3.6, used: 100, tooltip: 'Oct 4: 100.00 used', above: false },
         ],
+        forecast: [],
     };
-    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, burndown: () => ({ status: 200, body: below }) }));
+    const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS, burnup: () => ({ status: 200, body: above }) }));
 
-    await page.click('burndown-button');
+    await page.click('burnup-button');
 
-    const chart = burndownOf(page);
-    assert.equal(chart.lines('actual below').length, 2, 'the start to Oct 1, and Oct 1 to the crossing');
+    const chart = burnupOf(page);
+    assert.equal(chart.lines('actual above').length, 2, 'the start to Oct 1, and Oct 1 to the crossing');
     assert.equal(chart.lines('actual').length, 1, 'the crossing to Oct 4 is green');
-    assert.deepEqual(chart.dots.map(dot => dot.attrs.class), ['point below', 'point'], 'the dot below is red; the crossing has none');
+    assert.deepEqual(chart.dots.map(dot => dot.attrs.class), ['point above', 'point'], 'the dot above is red; the crossing has none');
 });
 
-test('the labels of the credit are the short ones the backend writes (since 0.99)', async () => {
+test('the labels of the amount used are the short ones the backend writes (since 0.99)', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    await page.click('burndown-button');
-    assert.deepEqual(burndownOf(page).yLabels, ['0', '500', '1k']);
+    await page.click('burnup-button');
+    assert.deepEqual(burnupOf(page).yLabels, ['0', '500', '1k']);
 });
 
-test('a burndown that cannot be read keeps what was shown and says so in red', async () => {
+test('a burnup that cannot be read keeps what was shown and says so in red', async () => {
     const state = { config: CONFIG, status: { ...SPEND_STATUS, historyStamp: 'a' } };
     const page = await load(backendOf(state));
-    await page.click('burndown-button');
-    state.burndown = () => ({ status: 500, body: { error: 'The usage history could not be read.' } });
+    await page.click('burnup-button');
+    state.burnup = () => ({ status: 500, body: { error: 'The usage history could not be read.' } });
     state.status = { ...SPEND_STATUS, historyStamp: 'b' };
 
     await page.firePoll();
 
-    assert.equal(burndownOf(page).lines('actual').length, 3, 'what was shown stays');
-    assert.equal(page.el('panel-error-burndown').hidden, false);
-    assert.equal(page.el('panel-error-burndown').textContent, 'The burndown could not be read: The usage history could not be read.');
+    assert.equal(burnupOf(page).lines('actual').length, 3, 'what was shown stays');
+    assert.equal(page.el('panel-error-burnup').hidden, false);
+    assert.equal(page.el('panel-error-burnup').textContent, 'The burnup could not be read: The usage history could not be read.');
 });
 
-test('the icon of the burndown follows its checkbox, which is previewed in the row and saved', async () => {
+test('the icon of the burnup follows its checkbox, which is previewed in the row and saved', async () => {
     const page = await load(backendOf({ config: CONFIG, status: SPEND_STATUS }));
-    assert.equal(page.el('burndown-button').hidden, false, 'on by default');
+    assert.equal(page.el('burnup-button').hidden, false, 'on by default');
     await page.click('settings-button');
-    assert.equal(page.el('set-showBurndownIcon').checked, true);
+    assert.equal(page.el('set-showBurnupIcon').checked, true);
 
-    page.el('set-showBurndownIcon').checked = false;
-    page.el('set-showBurndownIcon').listeners.change();
-    assert.match(page.el('burndown-button').className, /\boff\b/, 'dimmed while the settings are open');
+    page.el('set-showBurnupIcon').checked = false;
+    page.el('set-showBurnupIcon').listeners.change();
+    assert.match(page.el('burnup-button').className, /\boff\b/, 'dimmed while the settings are open');
     await page.click('settings-save');
     const sent = JSON.parse(page.calls.filter(c => c.url === '/api/settings' && c.method === 'POST')[0].body);
-    assert.equal(sent.showBurndownIcon, false);
+    assert.equal(sent.showBurnupIcon, false);
 });
 
 test('the About view has the version as the first row of its table', async () => {
@@ -6116,17 +6158,17 @@ test('the About view has the version as the first row of its table', async () =>
     assert.equal(page.el('about-version').textContent, 'v0.57');
 });
 
-test('with several views the burndown above a list keeps the height it has alone, and the list below takes the rest', async () => {
-    const page = await load(backendOf({ config: CONFIG, status: withHeights(SEVERAL, { history: 640, log: 500, burndown: 400 }) }));
+test('with several views the burnup above a list keeps the height it has alone, and the list below takes the rest', async () => {
+    const page = await load(backendOf({ config: CONFIG, status: withHeights(SEVERAL, { history: 640, log: 500, burnup: 400 }) }));
     await page.click('history-button');
-    await page.click('burndown-button');
+    await page.click('burnup-button');
 
-    assert.equal(page.el('view-burndown').className, 'view burndown fixed', 'its own class kept');
-    assert.equal(page.el('view-burndown').style.height, '378px', 'the height it was last given, 400, less what is no view\'s, as for a list');
+    assert.equal(page.el('view-burnup').className, 'view burnup fixed', 'its own class kept');
+    assert.equal(page.el('view-burnup').style.height, '378px', 'the height it was last given, 400, less what is no view\'s, as for a list');
     assert.equal(page.el('view-history').className, 'view', 'the lowest takes what the window has');
-    assert.equal(page.window.contentSize().split(',').slice(2).join(','), '2,burndown+history,640', 'named first, the history the one dragged, the width free with the burndown (since 0.99)');
+    assert.equal(page.window.contentSize().split(',').slice(2).join(','), '2,burnup+history,640', 'named first, the history the one dragged, the width free with the burnup (since 0.99)');
 
     await page.click('history-button');
-    assert.equal(page.el('view-burndown').className, 'view burndown', 'alone again it takes the window');
-    assert.equal(page.el('view-burndown').style.height, '');
+    assert.equal(page.el('view-burnup').className, 'view burnup', 'alone again it takes the window');
+    assert.equal(page.el('view-burnup').style.height, '');
 });

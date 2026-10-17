@@ -11,9 +11,15 @@ create token.
 send a prompt
 
 
-![img_6.png](img_6.png) when clicking the icon to hide cost control, 
-the window jumps  down but the top left corner should not change.
+ ![img_9.png](img_9.png)when opening settings ![img_10.png](img_10.png)
 
-![img_7.png](img_7.png) when starting with small size, the location indicator
-is way bigger then the window, especially when the performance indicator height
-is close to the height of the window.
+
+![img_11.png](img_11.png) when in settings, the main row must not hide when mouse left the window ![img_12.png](img_12.png)
+
+![img_13.png](img_13.png) here should be a handle to resize width and heigt together, this should be for 
+all resizeable views
+
+
+
+![img_15.png](img_15.png) here should be a line write the used value of the green line a the end of the mounth,
+do the same thing in red, if overusage.

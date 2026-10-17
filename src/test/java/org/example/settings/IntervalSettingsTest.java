@@ -305,18 +305,18 @@ class IntervalSettingsTest {
     }
 
     @Test
-    void theWidthOfTheBurndownIsRememberedOfItsOwnBesideTheLogs() {
+    void theWidthOfTheBurnupIsRememberedOfItsOwnBesideTheLogs() {
         IntervalSettings first = load();
-        assertEquals(0, first.storedWidth("burndown"));
+        assertEquals(0, first.storedWidth("burnup"));
 
         first.storeWidth("log", 1300);
-        first.storeWidth("burndown", 260);
-        first.storeHeight("burndown", 380);
+        first.storeWidth("burnup", 260);
+        first.storeHeight("burnup", 380);
 
         IntervalSettings second = load();
-        assertEquals(260, second.storedWidth("burndown"));
+        assertEquals(260, second.storedWidth("burnup"));
         assertEquals(1300, second.storedWidth("log"), "each has its own");
-        assertEquals(380, second.storedHeight("burndown"));
+        assertEquals(380, second.storedHeight("burnup"));
         assertEquals(0, second.storedWidth("history"), "the history keeps no width");
     }
 

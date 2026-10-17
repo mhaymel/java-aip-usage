@@ -32,6 +32,18 @@ in whole cents; `Burndown.againstIdeal` marks a point `below` the ideal line and
 file has one key more, `burndownWidth`, which the host stores as it stores `logWidth`, and the burndown reports flag `2` with a
 least width of 200 (`WindowFit.Size.leastWidth`).
 
+**Version 0.100** adds nothing to the problems below either. The burndown is the burnup: `Burnup` in the place of `Burndown`,
+the same arithmetic turned over (`x` the days gone, `used` not held at the limit, `above` the ideal line, a forecast that does not
+stop at the limit, and `top` and `forecastOver` in the view), `GET /api/burnup` in the place of `GET /api/burndown`, which is gone,
+`POST /api/height` and the window host take `burnup` and no longer `burndown`, and the settings file has the keys
+`showBurnupIcon`, `burnupHeight` and `burnupWidth`, and `burnup` among the views of `lastPanel`. **The old keys are read**: a file
+of 0.99 or before has `showBurndownIcon`, `burndownHeight`, `burndownWidth` and `burndown` in `lastPanel`, which
+`SettingsStore` takes as the new ones when those are not there (`SettingsStore.renamed`; the new key wins when both are), and
+the file is written with the new keys only. **`WindowPlace.shrunk`** is the place the window takes when the program changes its
+size: per side, a side that gets smaller keeps the window's left or top edge, so that a window made smaller keeps its top-left
+corner, and a side that gets larger grows towards the room as `WindowPlace.anchored` has it; then `onScreen`. The row's place
+before the first view (`rowPlace`, since 0.94) is no longer kept. It is arithmetic on rectangles, and translates directly.
+
 ## Summary
 
 - **About four fifths of the program ports without difficulty.** The backend (usage client, refresh service, history,

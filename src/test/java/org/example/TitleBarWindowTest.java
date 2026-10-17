@@ -109,8 +109,9 @@ class TitleBarWindowTest {
         }
         assertEquals("moved:40,25 hasTitleBar:false panel:true", line(all, "drag-cost").substring("PROBE drag-cost=".length()), all);
         assertTrue(line(all, "cost-to-log").contains("titleBar:false"), "nor has the log, opened from the cost control:\n" + all);
-        // The log opened at the bottom right of the screen grows upwards and to the left, and lies on the screen; closed, the row
-        // is back where it was (since 0.93). Its bottom edge may stand higher by the row, which goes while the pointer is away.
+        // The log opened at the bottom right of the screen grows upwards and to the left, and lies on the screen (since 0.93); closed,
+        // the window keeps its top-left corner, the row where the top of the log was (since 0.100; until 0.99 the row went back where
+        // it was). Its bottom edge may stand higher by the row, which goes while the pointer is away.
         int[] low = place(all, "log-low-before-place");
         int[] open = place(all, "log-low-place");
         int[] closed = place(all, "log-low-closed-place");
@@ -118,9 +119,14 @@ class TitleBarWindowTest {
         assertTrue(open[1] < low[1] && open[0] < low[0], "the log grew upwards and to the left:\n" + all);
         assertTrue(open[0] >= open[4] && open[1] >= open[5] && open[2] <= open[6] && open[3] <= open[7], "and lies on the screen:\n" + all);
         assertTrue(low[3] - open[3] < 60, "its bottom edge where the row's was, but for the row:\n" + all);
-        assertEquals(low[0] + "," + low[1], closed[0] + "," + closed[1], "closed, the row is back:\n" + all);
+        assertEquals(open[0] + "," + open[1], closed[0] + "," + closed[1], "closed, the top-left corner stays (since 0.100):\n" + all);
+        int[] moved = place(all, "log-low-moved-place");
         int[] movedClosed = place(all, "log-low-moved-closed-place");
-        assertEquals(low[0] + "," + low[1], movedClosed[0] + "," + movedClosed[1], "and also when it was moved while the log was open (since 0.94):\n" + all);
+        // On a screen the log fills, the move puts it partly off the screen: the row is then moved the least onto it.
+        int onX = Math.max(moved[4], Math.min(moved[0], moved[6] - (movedClosed[2] - movedClosed[0])));
+        int onY = Math.max(moved[5], Math.min(moved[1], moved[7] - (movedClosed[3] - movedClosed[1])));
+        assertEquals(onX + "," + onY, movedClosed[0] + "," + movedClosed[1],
+                "and the corner it was moved to while the log was open, not the row's earlier place (since 0.100):\n" + all);
         // The settings opened and closed with the window in the upper left: the title bar comes and goes, and the window's top-left
         // corner stays where it was, each of three times (since 0.98, docs/img.png: it landed far below).
         int[] corner = place(all, "corner-before-corner");
@@ -143,8 +149,8 @@ class TitleBarWindowTest {
         assertEquals("moved:0,0 grew:60 hasTitleBar:false", line(all, "drag-edge").substring("PROBE drag-edge=".length()), "the bottom edge makes the list taller:\n" + all);
 
         // The button of Main view: a small icon in the line of the heading, which switches every element on, and all off when all are on.
-        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/11 .*"), "some elements are on, the status circle among them since 0.82 and the burndown icon since 0.97, and the button is in the middle of its heading:\n" + all);
-        // The error log's icon is gone since 0.91, the cross that ends the program came in 0.94 and the burndown in 0.97, on by default.
+        assertTrue(line(all, "settings-again").matches(".* allButton:1[2-8]x1[2-8]/[01]/\\d+/11 .*"), "some elements are on, the status circle among them since 0.82 and the burnup icon since 0.97, and the button is in the middle of its heading:\n" + all);
+        // The error log's icon is gone since 0.91, the cross that ends the program came in 0.94 and the burnup in 0.97, on by default.
         assertTrue(line(all, "settings-all").contains("/19 note:"), "one press: all nineteen on, the status circle and the figures of the day among them (since 0.82):\n" + all);
         // Another: all off but the five icons, which are a group of their own with a button of its own since 0.90.
         assertTrue(line(all, "settings-narrow").contains("/5 note:"), "another: all off, the icons left as they were:\n" + all);

@@ -102,6 +102,16 @@ class SeveralViewsWindowTest {
 
         // Closed one by one: each icon closes its own view.
         assertEquals("cost+history,", step(all, "history-cost").group(1), all);
+        // The log closed in the lower right of the screen: the window gets smaller and keeps its top-left corner (since 0.100).
+        int[] low = place(all, "three-low");
+        int[] fewer = place(all, "history-cost");
+        assertTrue(fewer[3] - fewer[1] < low[3] - low[1], "lower without the log:\n" + all);
+        assertEquals(low[1], fewer[1], "the top edge stays:\n" + all);
+        if (fewer[2] - fewer[0] <= low[2] - low[0]) {
+            assertEquals(low[0], fewer[0], "and the left edge, as it is no wider:\n" + all);
+        } else {
+            assertEquals(low[2], fewer[2], "and, wider, it grows to the left:\n" + all);
+        }
         Matcher alone = step(all, "cost-alone");
         assertEquals("cost,", alone.group(1), all);
         assertEquals("false", alone.group(7), "nothing to drag: no title bar again");
@@ -159,6 +169,13 @@ class SeveralViewsWindowTest {
     /** Equal but for the pixels a frame of a fractional width rounds up to whole ones. */
     private static void near(int expected, int actual, String message) {
         assertTrue(Math.abs(expected - actual) <= 2, "expected about " + expected + " but was " + actual + ": " + message);
+    }
+
+    /** The window's left, top, right and bottom edges, as the probe said them after the step. */
+    private static int[] place(String all, String name) {
+        String prefix = "PROBE " + name + "-place=";
+        String line = all.lines().filter(l -> l.startsWith(prefix)).findFirst().orElseThrow(() -> new AssertionError("no " + prefix + " in:\n" + all));
+        return java.util.Arrays.stream(line.substring(prefix.length()).split(",")).mapToInt(Integer::parseInt).toArray();
     }
 
     private static Matcher step(String all, String name) {

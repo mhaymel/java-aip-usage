@@ -140,13 +140,6 @@ public class UsageApp extends Application {
      */
     private Optional<WindowFit.Size> placedSize = Optional.empty();
 
-    /**
-     * Where the window of the row alone was on the screen when a view was opened, its seen top-left corner (see {@link
-     * StageSwap#corner}), so that closing the views puts it back there (since 0.93); null with no view open. The corner and not
-     * the content's place since 0.98, as the title bar coming or going keeps the corner and moves the content.
-     */
-    private double[] rowPlace;
-
     /** How much bigger the stage is than its scene: the title bar and borders. NaN until measured. */
     private double decorationWidth = Double.NaN;
 
@@ -271,7 +264,7 @@ public class UsageApp extends Application {
                 // height the person settles on is remembered as one dragged by the frame is.
                 edgeDrag = new double[] {event.getScreenY(), stage.getHeight(), 0};
             } else if ("e".equals(edge)) {
-                // The right edge makes the window wider and narrower while the log (since 0.91) or the burndown (since 0.99) is
+                // The right edge makes the window wider and narrower while the log (since 0.91) or the burnup (since 0.99) is
                 // shown; the width is kept as one
                 // dragged by the frame is.
                 edgeDrag = new double[] {event.getScreenX(), stage.getWidth(), 1};
@@ -420,7 +413,7 @@ public class UsageApp extends Application {
 
     /**
      * Notices when the person drags the height of an open history or log, so that it can be remembered, and the width of the
-     * log (since 0.93) or the burndown (since 0.99) shown alone.
+     * log (since 0.93) or the burnup (since 0.99) shown alone.
      */
     private void watchHeight(Stage window) {
         window.heightProperty().addListener((observable, before, after) -> {
@@ -435,13 +428,13 @@ public class UsageApp extends Application {
         });
     }
 
-    /** The panel shown alone whose width is remembered, the log or the burndown, or null for any other. */
+    /** The panel shown alone whose width is remembered, the log or the burnup, or null for any other. */
     private static String widthAlone(Optional<WindowFit.Size> size) {
         if (size.isEmpty()) {
             return null;
         }
         String panel = size.get().panel();
-        return "log".equals(panel) || "burndown".equals(panel) ? panel : null;
+        return "log".equals(panel) || "burnup".equals(panel) ? panel : null;
     }
 
     /**
@@ -682,7 +675,7 @@ public class UsageApp extends Application {
         // What of the height is not the list's own: nothing with a list alone, whose height is the window's, row included.
         int above = RememberedHeights.above(size.height(), size.several() ? size.alone() : size.height());
         if (remembered) {
-            // The history, the log and the burndown open at the height they were last left at, never less than the page's own.
+            // The history, the log and the burnup open at the height they were last left at, never less than the page's own.
             RememberedHeights.Opening opening =
                     RememberedHeights.open(size.height() - above, runtime.settings().storedHeight(list));
             contentHeight = above + opening.height();
@@ -707,7 +700,7 @@ public class UsageApp extends Application {
         // Rounded up: a frame is not always a whole number of pixels wide, and a window a fraction too narrow shows a pixel
         // less of the page than it asked for, which is a pixel of the red border when there is one.
         double width = keepWidth ? stage.getWidth() : Math.ceil(size.width() + decorationWidth);
-        // The log (since 0.93) or the burndown (since 0.99) alone opens at the width it was last left at, never narrower than the
+        // The log (since 0.93) or the burnup (since 0.99) alone opens at the width it was last left at, never narrower than the
         // page asks for.
         String widthPanel = widthAlone(Optional.of(size));
         int storedWidth = widthPanel == null ? 0 : runtime.settings().storedWidth(widthPanel);
@@ -745,7 +738,7 @@ public class UsageApp extends Application {
         }
     }
 
-    /** The person has settled on a width for the log (since 0.93) or the burndown (since 0.99) shown alone: remember it. */
+    /** The person has settled on a width for the log (since 0.93) or the burnup (since 0.99) shown alone: remember it. */
     private void rememberDraggedWidth(Stage stage) {
         String panel = widthAlone(appliedSize);
         if (panel == null || Double.isNaN(decorationWidth)) {
@@ -758,11 +751,11 @@ public class UsageApp extends Application {
     }
 
     /**
-     * Puts the window where the room is after the program has changed its size (since 0.93): opening a view keeps the corner of
-     * the window nearest the screen's corner where it was, and remembers where the row was; closing the views puts the row back
-     * there, also when the person has moved the window meanwhile (since 0.94); a change while a view stays shown keeps the corner as opening
-     * does. What would still lie off the screen is moved onto it. The row alone, the row away and back, and the place the start
-     * restores are left where they are.
+     * Puts the window where the room is after the program has changed its size (since 0.93): a side that gets larger grows
+     * towards the room there is, keeping the corner of the window nearest the screen's corner; a side that gets smaller keeps
+     * the window's left or top edge, so that a window made smaller keeps its top-left corner (since 0.100; until 0.99 closing the
+     * views put the row back where it was before the first view opened, since 0.94). What would still lie off the screen is moved
+     * onto it. The row alone, the row away and back, and the place the start restores are left where they are.
      */
     private void place(Stage stage, WindowFit.Size size, WindowPlace.Rect was, WindowPlace.Rect screen) {
         Optional<WindowFit.Size> previous = placedSize;
@@ -775,21 +768,10 @@ public class UsageApp extends Application {
         if (!viewBefore && !viewNow) {
             return;
         }
-        // The seen corner's left is the content's: on Windows a stage with a title bar is wider by borders that cannot be seen.
-        double sceneX = stage.getScene().getX();
-        WindowPlace.Rect to;
-        if (!viewBefore) {
-            rowPlace = new double[] {was.x() + sceneX, was.y()};
-            to = WindowPlace.anchored(was, stage.getWidth(), stage.getHeight(), screen);
-        } else if (!viewNow && rowPlace != null) {
-            to = WindowPlace.onScreen(
-                    new WindowPlace.Rect(rowPlace[0] - sceneX, rowPlace[1], stage.getWidth(), stage.getHeight()), screen);
-        } else {
-            to = WindowPlace.anchored(was, stage.getWidth(), stage.getHeight(), screen);
-        }
-        if (!viewNow) {
-            rowPlace = null;
-        }
+        // The seen corner's left is the content's (since 0.98): on Windows a stage with a title bar is wider by borders that
+        // cannot be seen. They are the same before and after on the one stage, so the stage's left edge kept keeps the seen
+        // corner; a title bar that comes or goes is a new stage, which StageSwap puts at the seen corner of the old one.
+        WindowPlace.Rect to = WindowPlace.shrunk(was, stage.getWidth(), stage.getHeight(), screen);
         if (to.x() != stage.getX()) {
             stage.setX(to.x());
         }
@@ -831,7 +813,7 @@ public class UsageApp extends Application {
                 stage.setMinHeight(Math.min(leastHeight + decorationHeight, height));
             }
             case BOTH -> {
-                // The row's width, or for the burndown the 200 pixels its chart needs (since 0.99).
+                // The row's width, or for the burnup the 200 pixels its chart needs (since 0.99).
                 stage.setMinWidth(Math.min(Math.ceil(size.leastWidth(closedWidth) + decorationWidth), width));
                 stage.setMinHeight(Math.min(leastHeight + decorationHeight, height));
             }

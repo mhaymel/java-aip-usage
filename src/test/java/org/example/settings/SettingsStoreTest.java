@@ -213,7 +213,7 @@ class SettingsStoreTest {
                 List.of("usageIntervalSeconds", "logResponse", "showPercentage", "showCurrency", "showHistoryIcon", "showLogIcon", "showInterval", "showDeltaUsed", "showDeltaTime",
                         "timeFormat", "historyDeltaUsed", "historyDeltaTime", "historyDate", "historyZeroLines", "historyFailedLines", "showTime", "showUsed", "showLimit", "showRefresh", "showCountdown", "showDuration", "stayOnTop", "showTitleBar", "fakeBackend", "fakeScenario", "fakeToken", "fakeAccount", "fakeIncreaseCents", "fakeBudget", "fakeStartAmount",
                         "fakeRefuseSeconds", "fakeDelayMillis", "logLevel", "logDate", "listFontSize", "autoInterval",
-                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "tooltipMillis", "showExitIcon", "historyGroup", "showBurndownIcon", "historyHeight", "logHeight", "logWidth", "burndownHeight", "burndownWidth"),
+                        "costMonthlyLimit", "costDailyLimit", "costDailyAutomatic", "costCurrency", "costLimitSource", "costWorkdayHours", "costWorkdays", "costWorkdaysMonth", "costShowUsed", "costShowLimit", "costShowPercent", "autoIntervalSeconds", "historyTime", "historyUsed", "historyLimit", "historyCurrent", "showCostIcon", "restoreWindow", "severalViews", "logFolder", "historyFolder", "showStatus", "showDayPercentage", "showDayUsed", "showDayLimit", "historyMonthly", "historyDaily", "historyDailyBy", "statusBlink", "locateWindow", "tooltipMillis", "showExitIcon", "historyGroup", "showBurnupIcon", "historyHeight", "logHeight", "logWidth", "burnupHeight", "burnupWidth"),
                 List.copyOf(content.keys()));
         assertEquals("hh:mm", content.get("timeFormat").asText());
     }
@@ -396,40 +396,70 @@ class SettingsStoreTest {
     }
 
     @Test
-    void theBurndownIconAndItsHeightAreReadAndWritten() throws IOException {
+    void theBurnupIconAndItsHeightAreReadAndWritten() throws IOException {
         SettingsStore store = new SettingsStore(file());
-        store.save(Settings.defaults().withShowBurndownIcon(false));
-        store.saveHeights(SettingsStore.Heights.NONE.withHeight("burndown", 380));
+        store.save(Settings.defaults().withShowBurnupIcon(false));
+        store.saveHeights(SettingsStore.Heights.NONE.withHeight("burnup", 380));
 
-        assertFalse(store.load().showBurndownIcon());
-        assertEquals(380, store.loadHeights().of("burndown"));
+        assertFalse(store.load().showBurnupIcon());
+        assertEquals(380, store.loadHeights().of("burnup"));
         assertEquals(new SettingsStore.Heights(0, 0, 0, 380), store.loadHeights());
-        assertTrue(Settings.defaults().showBurndownIcon(), "shown by default (since 0.97)");
+        assertTrue(Settings.defaults().showBurnupIcon(), "shown by default (since 0.97)");
         Files.writeString(file(), "{\"historyHeight\": 500}");
-        assertTrue(new SettingsStore(file()).load().showBurndownIcon(), "a file of 0.96 shows it");
+        assertTrue(new SettingsStore(file()).load().showBurnupIcon(), "a file of 0.96 shows it");
         assertEquals(new SettingsStore.Heights(500, 0, 0, 0), new SettingsStore(file()).loadHeights(), "and has no height for it");
     }
 
     @Test
-    void theWidthOfTheBurndownIsStoredUnderItsOwnKeyBesideTheLogs() throws IOException {
+    void theWidthOfTheBurnupIsStoredUnderItsOwnKeyBesideTheLogs() throws IOException {
         SettingsStore store = new SettingsStore(file());
         store.save(Settings.defaults());
-        store.saveHeights(SettingsStore.Heights.NONE.withWidth("log", 1300).withWidth("burndown", 260).withHeight("burndown", 380));
+        store.saveHeights(SettingsStore.Heights.NONE.withWidth("log", 1300).withWidth("burnup", 260).withHeight("burnup", 380));
 
         assertEquals(new SettingsStore.Heights(0, 0, 1300, 380, 260), store.loadHeights());
-        assertEquals(260, store.loadHeights().widthOf("burndown"));
-        assertTrue(Files.readString(file()).contains("\"burndownWidth\""), "under its own key (since 0.99)");
+        assertEquals(260, store.loadHeights().widthOf("burnup"));
+        assertTrue(Files.readString(file()).contains("\"burnupWidth\""), "under its own key (since 0.99)");
         Files.writeString(file(), "{\"burndownHeight\": 380}");
-        assertEquals(0, new SettingsStore(file()).loadHeights().widthOf("burndown"), "a file of 0.98 has none");
+        assertEquals(0, new SettingsStore(file()).loadHeights().widthOf("burnup"), "a file of 0.98 has none");
         assertEquals(0, SettingsStore.Heights.NONE.widthOf("history"), "the history keeps no width");
         assertThrows(IllegalArgumentException.class, () -> SettingsStore.Heights.NONE.withWidth("history", 300));
     }
 
     @Test
-    void theBurndownIsAViewThatIsStoredAsOpenFirstOfAll() throws IOException {
-        Files.writeString(file(), "{\"lastPanel\": \"history,burndown\"}");
+    void theBurnupIsAViewThatIsStoredAsOpenFirstOfAll() throws IOException {
+        Files.writeString(file(), "{\"lastPanel\": \"history,burnup\"}");
 
-        assertEquals("burndown,history", new SettingsStore(file()).loadLast().panel(), "in the order of the icons");
+        assertEquals("burnup,history", new SettingsStore(file()).loadLast().panel(), "in the order of the icons");
+    }
+
+    @Test
+    void aFileOfTheBurndownIsReadAsTheBurnupAndWrittenWithTheNewKeysOnly() throws IOException {
+        // A settings file of 0.99, before the burndown became the burnup (since 0.100).
+        Files.writeString(file(), "{\"showBurndownIcon\": false, \"burndownHeight\": 420, \"burndownWidth\": 260, \"lastPanel\": \"burndown,cost\"}");
+        SettingsStore store = new SettingsStore(file());
+
+        assertFalse(store.load().showBurnupIcon());
+        assertEquals(new SettingsStore.Heights(0, 0, 0, 420, 260), store.loadHeights());
+        assertEquals("burnup,cost", store.loadLast().panel());
+
+        store.save(store.load());
+        String written = Files.readString(file());
+        assertFalse(written.contains("burndown"), "the old keys are not written:\n" + written);
+        assertTrue(written.contains("\"showBurnupIcon\"") && written.contains("\"burnupHeight\"") && written.contains("\"burnupWidth\""), written);
+        assertFalse(store.load().showBurnupIcon());
+        assertEquals(new SettingsStore.Heights(0, 0, 0, 420, 260), store.loadHeights());
+        assertEquals("burnup,cost", store.loadLast().panel());
+    }
+
+    @Test
+    void theNewKeysWinOverTheBurndownsWhenBothAreThere() throws IOException {
+        Files.writeString(file(), "{\"showBurndownIcon\": false, \"showBurnupIcon\": true, \"burndownHeight\": 420, \"burnupHeight\": 380,"
+                + " \"burndownWidth\": 260, \"burnupWidth\": 300, \"lastPanel\": \"burnup,burndown,history\"}");
+        SettingsStore store = new SettingsStore(file());
+
+        assertTrue(store.load().showBurnupIcon());
+        assertEquals(new SettingsStore.Heights(0, 0, 0, 380, 300), store.loadHeights());
+        assertEquals("burnup,history", store.loadLast().panel(), "the burnup once");
     }
 
     @Test

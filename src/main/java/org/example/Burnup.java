@@ -18,13 +18,14 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The burndown of the month's credit (since 0.97), finished: the page only draws it. The x-axis is the days left in the month,
- * from the month's length at its start to 0 at its end; the y-axis is the credit left, the limit counted less the amount used,
- * never below 0. One point a day, the last reading of the day, with the limit at the start of the 1st before them; and a
- * forecast from the last point to the end of the month at the month's average daily spend. Pure arithmetic on the rows of the
- * history, with no clock of its own, so that it can be tested for any day. See {@code docs/api.md}, under {@code GET /api/burndown}.
+ * The burnup of the month's spending (since 0.100; from 0.97 to 0.99 the burndown of the month's credit), finished: the page
+ * only draws it. The x-axis is the days gone in the month, from 0 at its start to the month's length at its end; the y-axis is
+ * the amount used, not held at the limit. One point a day, the last reading of the day, with 0 at the start of the 1st before
+ * them; and a forecast from the last point to the end of the month at the month's average daily spend. Pure arithmetic on the
+ * rows of the history, with no clock of its own, so that it can be tested for any day. See {@code docs/api.md}, under
+ * {@code GET /api/burnup}.
  */
-final class Burndown {
+final class Burnup {
 
     static final String NO_LIMIT = "No limit is set: set it in the settings, under Cost control.";
 
@@ -34,29 +35,30 @@ final class Burndown {
 
     private static final double SECONDS_A_DAY = 24 * 60 * 60;
 
-    /** Less than a cent's hundredth: a point on the ideal line, as the start of the month is, is not below it. */
+    /** Less than a cent's hundredth: a point on the ideal line, as the start of the month is, is not above it. */
     private static final double EPSILON = 1e-4;
 
-    private Burndown() {
+    private Burnup() {
     }
 
     /**
      * A point of the chart.
      *
-     * @param x the days left in the month at its time, 0 at the end of the month
-     * @param credit the credit left, never below 0
-     * @param tooltip what hovering over it says, or null for a point that is no reading (the start of the month, a bend of the
-     *     forecast, a crossing of the ideal line)
-     * @param below whether the credit is below the ideal line at {@code x}, which the page draws red (since 0.99); never for the forecast
+     * @param x the days gone in the month at its time, 0 at the start of the month
+     * @param used the amount used, never below 0 and not held at the limit
+     * @param tooltip what hovering over it says, or null for a point that is no reading (the start of the month, the start of
+     *     the forecast, a crossing of the ideal line)
+     * @param above whether the amount used is above the ideal line at {@code x}, which the page draws red (since 0.100; from
+     *     0.99 the burndown's {@code below}); never for the forecast
      */
-    record Point(double x, double credit, String tooltip, boolean below) {
+    record Point(double x, double used, String tooltip, boolean above) {
 
-        Point(double x, double credit, String tooltip) {
-            this(x, credit, tooltip, false);
+        Point(double x, double used, String tooltip) {
+            this(x, used, tooltip, false);
         }
 
         Json toJson() {
-            return Json.object().put("x", round(x)).put("credit", credit).put("tooltip", tooltip).put("below", below);
+            return Json.object().put("x", round(x)).put("used", used).put("tooltip", tooltip).put("above", above);
         }
 
         private static double round(double value) {
@@ -76,12 +78,14 @@ final class Burndown {
      * @param days the days of the month
      * @param noLimit whether there is no limit, and so nothing to draw
      * @param limit the limit counted, as written, or null with none
+     * @param top the top of the y-axis: the largest of the limit, the points and the forecast's end, or null with no limit
      * @param note what the panel says in the place of the chart, or null
      * @param points the actual line, the start of the month first
      * @param forecast the forecast, from the last point to the end of the month; empty with no reading of the month
+     * @param forecastOver whether the forecast ends above the limit, which the page draws orange, else green
      */
-    record View(int days, boolean noLimit, String limit, Double limitValue, String note, List<Label> yLabels, List<Point> points,
-            List<Point> forecast) {
+    record View(int days, boolean noLimit, String limit, Double limitValue, Double top, String note, List<Label> yLabels,
+            List<Point> points, List<Point> forecast, boolean forecastOver) {
 
         Json toJson() {
             Json labels = Json.array();
@@ -95,10 +99,12 @@ final class Burndown {
                     .put("noLimit", noLimit)
                     .put("limit", limit)
                     .put("limitValue", limitValue)
+                    .put("top", top)
                     .put("note", note)
                     .put("yLabels", labels)
                     .put("points", line)
-                    .put("forecast", ahead);
+                    .put("forecast", ahead)
+                    .put("forecastOver", forecastOver);
         }
     }
 
@@ -139,42 +145,27 @@ final class Burndown {
         daily.sort(Comparator.comparing(CostPanel::time));
 
         List<Point> points = new ArrayList<>();
-        points.add(new Point(days, cents(limitCents), null));
+        points.add(new Point(0, 0, null));
         for (List<String> row : daily) {
             LocalDateTime at = CostPanel.time(row);
-            long credit = Math.max(0, limitCents - CostPanel.amount(row).cents());
-            points.add(new Point(daysLeft(start, days, at), cents(credit),
-                    DAY.format(at) + ": " + money(credit, currency, withSymbol) + " left"));
+            long used = Math.max(0, CostPanel.amount(row).cents());
+            points.add(new Point(daysGone(start, days, at), cents(used),
+                    DAY.format(at) + ": " + money(used, currency, withSymbol) + " used"));
         }
 
         List<Point> forecast = new ArrayList<>();
+        long endCents = 0;
         if (!daily.isEmpty()) {
             List<String> last = daily.get(daily.size() - 1);
             LocalDateTime at = CostPanel.time(last);
             long used = Math.max(0, CostPanel.amount(last).cents());
             double elapsed = Duration.between(start, at).toSeconds() / SECONDS_A_DAY;
-            double left = daysLeft(start, days, at);
-            long credit = Math.max(0, limitCents - used);
-            String end = "Forecast for " + DAY.format(month.atEndOfMonth()) + ": ";
             Point from = points.get(points.size() - 1);
-            forecast.add(new Point(from.x(), from.credit(), null));
-            if (elapsed <= 0 || used == 0) {
-                // Nothing spent yet, or no time gone: at no spend the credit stays as it is.
-                forecast.add(new Point(0, cents(credit), end + money(credit, currency, withSymbol) + " left"));
-            } else {
-                double perDay = used / elapsed;
-                double atEnd = credit - perDay * left;
-                if (atEnd >= 0) {
-                    long endCents = Math.round(atEnd);
-                    forecast.add(new Point(0, cents(endCents), end + money(endCents, currency, withSymbol) + " left"));
-                } else {
-                    // The credit runs out before the end of the month: the line meets 0 there and stays on it.
-                    if (credit > 0) {
-                        forecast.add(new Point(left - credit / perDay, 0, null));
-                    }
-                    forecast.add(new Point(0, 0, end + money(0, currency, withSymbol) + " left"));
-                }
-            }
+            // Nothing spent yet, or no time gone: at no spend the amount stays as it is. It does not stop at the limit.
+            endCents = elapsed <= 0 || used == 0 ? used : Math.round(used / elapsed * days);
+            forecast.add(new Point(from.x(), from.used(), null));
+            forecast.add(new Point(days, cents(endCents),
+                    "Forecast for " + DAY.format(month.atEndOfMonth()) + ": " + money(endCents, currency, withSymbol) + " used"));
         }
 
         // The labels are written short, so that they leave the chart its room (since 0.99).
@@ -182,13 +173,21 @@ final class Burndown {
                 new Label(0, label(0, currency, withSymbol)),
                 new Label(cents(limitCents) / 2, label(limitCents / 2, currency, withSymbol)),
                 new Label(cents(limitCents), label(limitCents, currency, withSymbol)));
-        return new View(days, false, money(limitCents, currency, withSymbol), cents(limitCents), null, labels,
-                againstIdeal(points, cents(limitCents), days), forecast);
+        double top = cents(limitCents);
+        for (Point point : points) {
+            top = Math.max(top, point.used());
+        }
+        if (!forecast.isEmpty()) {
+            top = Math.max(top, cents(endCents));
+        }
+        return new View(days, false, money(limitCents, currency, withSymbol), cents(limitCents), top, null, labels,
+                againstIdeal(points, cents(limitCents), days), forecast, !forecast.isEmpty() && endCents > limitCents);
     }
 
     /**
-     * The points marked where they are below the ideal line, with a point of its own where the line crosses it between two of
-     * them, so that each piece between two points lies wholly on one side of it and the page can colour it by its ends (since 0.99).
+     * The points marked where they are above the ideal line, with a point of its own where the line crosses it between two of
+     * them, so that each piece between two points lies wholly on one side of it and the page can colour it by its ends (since
+     * 0.99; above, not below, since 0.100).
      */
     static List<Point> againstIdeal(List<Point> points, double limit, int days) {
         List<Point> marked = new ArrayList<>();
@@ -201,27 +200,27 @@ final class Burndown {
                     // Where the distance to the ideal line, which changes evenly along the piece, is 0.
                     double share = was / (was - off);
                     marked.add(new Point(before.x() + share * (point.x() - before.x()),
-                            before.credit() + share * (point.credit() - before.credit()), null, false));
+                            before.used() + share * (point.used() - before.used()), null, false));
                 }
             }
-            marked.add(new Point(point.x(), point.credit(), point.tooltip(), off < -EPSILON));
+            marked.add(new Point(point.x(), point.used(), point.tooltip(), off > EPSILON));
             before = point;
         }
         return marked;
     }
 
-    /** How far the point's credit is above the ideal line at its day, negative below it. */
+    /** How far the point's amount used is above the ideal line at its day, negative below it. */
     private static double offIdeal(Point point, double limit, int days) {
-        return point.credit() - limit * point.x() / days;
+        return point.used() - limit * point.x() / days;
     }
 
     private static View empty(int days, String note) {
-        return new View(days, true, null, null, note, List.of(), List.of(), List.of());
+        return new View(days, true, null, null, null, note, List.of(), List.of(), List.of(), false);
     }
 
-    /** The days left in the month at this time: the month's length at the start of the 1st, 0 at the end of its last day. */
-    static double daysLeft(LocalDateTime start, int days, LocalDateTime at) {
-        return Math.max(0, days - Duration.between(start, at).toSeconds() / SECONDS_A_DAY);
+    /** The days gone in the month at this time: 0 at the start of the 1st, the month's length at the end of its last day. */
+    static double daysGone(LocalDateTime start, int days, LocalDateTime at) {
+        return Math.min(days, Math.max(0, Duration.between(start, at).toSeconds() / SECONDS_A_DAY));
     }
 
     private static double cents(long cents) {

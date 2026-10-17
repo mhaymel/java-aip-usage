@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * may not be resized (the window with nothing open), {@code ,3} when it may not be resized and is
  * not the window with nothing open either (the settings, which are as tall as their content),
  * {@code ,4} when it may be made wider and its height is the content's (the tab About of the settings), and
- * optionally {@code ,history}, {@code ,log}, {@code ,errors}, {@code ,cost}, {@code ,burndown} (since 0.97), {@code ,settings} or {@code ,debug} after that, naming the panel that is open, in CSS pixels, taken from its own
+ * optionally {@code ,history}, {@code ,log}, {@code ,errors}, {@code ,cost}, {@code ,burnup} (since 0.100; {@code ,burndown} from 0.97 to 0.99), {@code ,settings} or {@code ,debug} after that, naming the panel that is open, in CSS pixels, taken from its own
  * content and not from the window, so resizing the window to match never changes
  * the answer. With several views shown at once they are named together, in the order of their icons and joined by
  * {@code +}, as in {@code ,cost+history}, and a number may follow: the height the lowest list of them has when it is
@@ -76,14 +76,14 @@ final class WindowFit {
             return lowest;
         }
 
-        /** Whether a view takes the height the person drags the window to: the lists, and the burndown (since 0.97). */
+        /** Whether a view takes the height the person drags the window to: the lists, and the burnup (since 0.97). */
         static boolean isResizable(String name) {
-            return name.equals("log") || name.equals("history") || name.equals("errors") || name.equals("burndown");
+            return name.equals("log") || name.equals("history") || name.equals("errors") || name.equals("burnup");
         }
 
         /** Whether the host remembers the height of this view. */
         static boolean remembersHeight(String name) {
-            return "history".equals(name) || "log".equals(name) || "burndown".equals(name);
+            return "history".equals(name) || "log".equals(name) || "burnup".equals(name);
         }
 
         boolean resizable() {
@@ -100,14 +100,14 @@ final class WindowFit {
 
         /**
          * The least width of the content the person may drag a window to whose height and width are theirs: the row's, the
-         * content as it is with nothing open; the width the page asks for with the burndown alone, which is never less than
-         * 200 pixels nor the row (since 0.99); and with the burndown among other views the row's or 200, whichever is more.
+         * content as it is with nothing open; the width the page asks for with the burnup alone, which is never less than
+         * 200 pixels nor the row (since 0.99); and with the burnup among other views the row's or 200, whichever is more.
          */
         double leastWidth(double closedWidth) {
-            if ("burndown".equals(panel)) {
+            if ("burnup".equals(panel)) {
                 return width;
             }
-            return panels().contains("burndown") ? Math.max(closedWidth, BURNDOWN_LEAST_WIDTH) : closedWidth;
+            return panels().contains("burnup") ? Math.max(closedWidth, BURNUP_LEAST_WIDTH) : closedWidth;
         }
 
         /**
@@ -133,17 +133,17 @@ final class WindowFit {
     // the window is as wide as the row, with no empty room in it.
     static final Size MIN = new Size(40, 32);
 
-    /** The least width of the burndown's content, so that its chart has room beside its labels (since 0.99; 320 until then). */
-    static final int BURNDOWN_LEAST_WIDTH = 200;
+    /** The least width of the burnup's content, so that its chart has room beside its labels (since 0.99; 320 until then). */
+    static final int BURNUP_LEAST_WIDTH = 200;
 
     // No size of a window, only a bound on what the page may report (2,400 by 1,600 until 0.91): since 0.92 the screen the window is
     // on is the largest it is made, which the host applies.
     static final Size MAX = new Size(10000, 10000);
 
-    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(debug|(?:settings\\+)?(?:log|history|errors|cost|burndown)(?:\\+(?:log|history|errors|cost|burndown)){0,4}|settings)(?:,(\\d{1,5}))?(?:,-(\\d{1,4}))?)?)?");
+    private static final Pattern REPORT = Pattern.compile("(\\d{1,5}),(\\d{1,5})(?:,([01234])(?:,(debug|(?:settings\\+)?(?:log|history|errors|cost|burnup)(?:\\+(?:log|history|errors|cost|burnup)){0,4}|settings)(?:,(\\d{1,5}))?(?:,-(\\d{1,4}))?)?)?");
 
     /** The views in the order of their icons, which is the order the page names them in. */
-    private static final List<String> VIEWS = List.of("burndown", "cost", "history", "log", "errors");
+    private static final List<String> VIEWS = List.of("burnup", "cost", "history", "log", "errors");
 
     private WindowFit() {
     }

@@ -281,7 +281,7 @@ final class AppRuntime implements AutoCloseable, UsageSources {
 
     /**
      * Begins the history of the fake backend with invented readings of the month so far, while it is in use and answers for an
-     * account billed by usage, when that history has no reading of this month before today (since 0.97): so that the burndown
+     * account billed by usage, when that history has no reading of this month before today (since 0.97): so that the burnup
      * has a month to draw at once. A history that cannot be written is logged and nothing more.
      */
     private void seedFakeMonth(org.example.fake.FakeOptions fake) {

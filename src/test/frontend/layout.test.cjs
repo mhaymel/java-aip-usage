@@ -262,7 +262,7 @@ test('the panels, the line of the log\'s two choices and the settings view are t
     const small = [...css.matchAll(/([^{}]+){([^}]*)}/g)]
         .filter(rule => [...rule[2].matchAll(/font(?:-size)?:\s*(?:[a-z0-9 ]*\s)?([0-9.]+)px/g)].some(m => Number(m[1]) < 14))
         .map(rule => rule[1].trim().split('\n').pop().trim());
-    assert.deepEqual([...small].sort(), ['.burndown', '.cost', '.log-controls', '.panel', '.settings', '.table-probe']); // the probe is the panel's text, never seen
+    assert.deepEqual([...small].sort(), ['.burnup', '.cost', '.log-controls', '.panel', '.settings', '.table-probe']); // the probe is the panel's text, never seen
 });
 
 test('the log panel has a line at its top with the level and the date, at the left, in that order', () => {
@@ -1076,13 +1076,24 @@ test('the three checkboxes of the icons are the group Icons, without the word ic
     assert.deepEqual(texts.filter(text => /icon$/i.test(text)), [], 'the word icon is gone since 0.90');
     const icons = html.slice(html.indexOf('<legend>Icons'), html.indexOf('</fieldset>', html.indexOf('<legend>Icons')));
     assert.deepEqual([...icons.matchAll(/<input id="set-(show[A-Za-z]+)" type="checkbox"> ([^<]+)<\/label>/g)].map(m => m[2]),
-        ['Burndown', 'Cost', 'History', 'Log', 'Exit'], 'three since 0.91: the error log is gone; the cross that ends the program since 0.94; the burndown first since 0.97');
+        ['Burnup', 'Cost', 'History', 'Log', 'Exit'], 'three since 0.91: the error log is gone; the cross that ends the program since 0.94; the burnup first since 0.97');
     assert.ok(!html.includes('id="glyph-'), 'and the icons that stood beside them are gone (since 0.91)');
     assert.match(icons, /<button id="set-all-icons" class="select-all"[^>]*title="Checks every icon, or none when every one is checked\."/);
     assert.deepEqual(texts.filter(text => /button/i.test(text)), ['Refresh button'], 'which does something, and shows no view');
-    for (const id of ['set-showLogIcon', 'set-showHistoryIcon', 'set-showCostIcon', 'set-showBurndownIcon']) {
+    for (const id of ['set-showLogIcon', 'set-showHistoryIcon', 'set-showCostIcon', 'set-showBurnupIcon']) {
         const label = html.lastIndexOf('<label', html.indexOf('id="' + id + '"'));
         assert.match(html.slice(label, html.indexOf('>', label)), /title="The icon that shows /, id);
+    }
+});
+
+test('the burnup is named so everywhere, its tooltip says the spending, and its icon rises (since 0.100)', () => {
+    assert.ok(html.includes('<label title="The icon that shows the burnup of the month\'s spending below the row, and hides it again."><input id="set-showBurnupIcon" type="checkbox"> Burnup</label>'));
+    assert.ok(!/burndown/i.test(html), 'no burndown left in the page');
+    const button = html.slice(html.indexOf('<button id="burnup-button"'), html.indexOf('</button>', html.indexOf('<button id="burnup-button"')));
+    assert.match(button, /title="Show the burnup"/);
+    assert.match(button, /<path d="M2\.5 11\.5l11-9M2 14\.2h12"\/>/, 'from the bottom left to the top right, the burndown\'s line mirrored');
+    for (const id of ['view-burnup', 'burnup-chart', 'burnup-note', 'panel-error-burnup']) {
+        assert.ok(html.includes('id="' + id + '"'), id);
     }
 });
 

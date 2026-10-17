@@ -86,12 +86,12 @@ public final class IntervalSettings {
         LOG.fine("The " + panel + " window height is now " + pixels + " px");
     }
 
-    /** The width the window had the last time {@code panel}, the log (since 0.93) or the burndown (since 0.99), was shown alone, or 0. */
+    /** The width the window had the last time {@code panel}, the log (since 0.93) or the burnup (since 0.99), was shown alone, or 0. */
     public synchronized int storedWidth(String panel) {
         return heights.widthOf(panel);
     }
 
-    /** Remembers the width of the window with the log or the burndown shown alone, as {@link #storeHeight} remembers a height. */
+    /** Remembers the width of the window with the log or the burnup shown alone, as {@link #storeHeight} remembers a height. */
     public synchronized void storeWidth(String panel, int pixels) {
         SettingsStore.Heights updated = heights.withWidth(panel, pixels);
         if (updated.equals(heights)) {
